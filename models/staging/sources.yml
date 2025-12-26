@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: staging
+    description: "External Tables über PolyBase (Parquet aus ADLS)"
+    database: DataVault
+    schema: stg
+    tables:
+      - name: ext_company_client
+        description: "Werkportal Company Client - External Table"
+        columns:
+          - name: object_id
+            description: "Business Key - Primärschlüssel aus Quellsystem"
+            tests:
+              - not_null
+          - name: dss_record_source
+            description: "Datenquelle"
+          - name: dss_load_date
+            description: "Ladedatum"
+          - name: dss_run_id
+            description: "Pipeline Run ID"
+          
+      - name: ext_countries
+        description: "Werkportal Countries - External Table (TODO: erstellen)"
+        
+      - name: ext_company_contractor
+        description: "Werkportal Company Contractor - External Table (TODO: erstellen)"
+        
+      - name: ext_company_supplier
+        description: "Werkportal Company Supplier - External Table (TODO: erstellen)"

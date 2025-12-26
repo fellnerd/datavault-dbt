@@ -1,0 +1,56 @@
+name: 'datavault_werkportal'
+version: '1.0.0'
+config-version: 2
+
+profile: 'datavault'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  # Hash-Algorithmus: MD5 (16 Byte) oder SHA (32 Byte)
+  hash: 'SHA'
+  
+  # Datumsspalte für Load Date
+  load_date: 'dss_load_date'
+  
+  # Record Source Spalte
+  record_source: 'dss_record_source'
+
+# ===========================================
+# SCHEMA NAMING CONVENTION
+# ===========================================
+# [vault].[hub_<entity>]    - Hubs
+# [vault].[sat_<entity>]    - Satellites
+# [vault].[link_<entity>]   - Links
+# [stg].[stg_<entity>]      - Staging Views
+
+models:
+  datavault_werkportal:
+    staging:
+      +schema: stg
+      +materialized: view
+    raw_vault:
+      hubs:
+        +schema: vault
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false
+      satellites:
+        +schema: vault
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false
+      links:
+        +schema: vault
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false

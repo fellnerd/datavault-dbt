@@ -1,0 +1,68 @@
+version: 2
+
+models:
+  # ===========================================
+  # STAGING MODELS
+  # ===========================================
+  - name: stg_company_client
+    description: "Staging Model für Company Client - bereitet Daten für Data Vault vor"
+    columns:
+      - name: hk_company_client
+        description: "Hash Key (SHA256 von object_id)"
+        tests:
+          - not_null
+      - name: hd_company_client
+        description: "Hash Diff für Change Detection"
+        tests:
+          - not_null
+      - name: object_id
+        description: "Business Key aus Quellsystem"
+        tests:
+          - not_null
+          - unique
+
+  # ===========================================
+  # HUBS
+  # ===========================================
+  - name: hub_company_client
+    description: "Hub für Company Client - enthält eindeutige Business Keys"
+    columns:
+      - name: hk_company_client
+        description: "Hash Key (Primary Key)"
+        tests:
+          - not_null
+          - unique
+      - name: object_id
+        description: "Business Key"
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Erstes Ladedatum"
+        tests:
+          - not_null
+      - name: dss_record_source
+        description: "Datenquelle"
+        tests:
+          - not_null
+
+  # ===========================================
+  # SATELLITES
+  # ===========================================
+  - name: sat_company_client
+    description: "Satellite für Company Client - historisierte Attribute"
+    columns:
+      - name: hk_company_client
+        description: "Hash Key (FK zu Hub)"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_company_client')
+              field: hk_company_client
+      - name: hd_company_client
+        description: "Hash Diff für Change Detection"
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Ladedatum dieser Version"
+        tests:
+          - not_null
