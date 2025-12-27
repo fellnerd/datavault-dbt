@@ -1,0 +1,4 @@
+role_code,role_name,role_description
+CLIENT,Client,Kunde/Auftraggeber
+CONTRACTOR,Contractor,Auftragnehmer/Dienstleister
+SUPPLIER,Supplier,Lieferant

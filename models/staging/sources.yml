@@ -107,8 +107,6 @@ sources:
             description: "Business Key"
           - name: name
             data_type: NVARCHAR(4000)
-          - name: iso_code
-            data_type: NVARCHAR(10)
           - name: dss_record_source
             data_type: NVARCHAR(4000)
           - name: dss_load_date

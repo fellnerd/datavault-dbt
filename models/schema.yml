@@ -4,14 +4,14 @@ models:
   # ===========================================
   # STAGING MODELS
   # ===========================================
-  - name: stg_company_client
-    description: "Staging Model für Company Client - bereitet Daten für Data Vault vor"
+  - name: stg_company
+    description: "Unified Staging Model für alle Companies (Client, Contractor, Supplier)"
     columns:
-      - name: hk_company_client
-        description: "Hash Key (SHA256 von object_id)"
+      - name: hk_company
+        description: "Hash Key (SHA256 von object_id + source_table)"
         tests:
           - not_null
-      - name: hd_company_client
+      - name: hd_company
         description: "Hash Diff für Change Detection"
         tests:
           - not_null
@@ -19,21 +19,46 @@ models:
         description: "Business Key aus Quellsystem"
         tests:
           - not_null
-          - unique
+      - name: source_table
+        description: "Quelltabelle (wp_company_client/contractor/supplier)"
+        tests:
+          - not_null
+      - name: role_code
+        description: "Rolle (CLIENT, CONTRACTOR, SUPPLIER)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['CLIENT', 'CONTRACTOR', 'SUPPLIER']
+
+  - name: stg_country
+    description: "Staging Model für Länder"
+    columns:
+      - name: hk_country
+        description: "Hash Key (SHA256 von object_id)"
+        tests:
+          - not_null
+      - name: object_id
+        description: "Business Key"
+        tests:
+          - not_null
 
   # ===========================================
   # HUBS
   # ===========================================
-  - name: hub_company_client
-    description: "Hub für Company Client - enthält eindeutige Business Keys"
+  - name: hub_company
+    description: "Unified Hub für alle Unternehmen aus allen 3 Quellen"
     columns:
-      - name: hk_company_client
+      - name: hk_company
         description: "Hash Key (Primary Key)"
         tests:
           - not_null
           - unique
       - name: object_id
-        description: "Business Key"
+        description: "Business Key aus Quellsystem"
+        tests:
+          - not_null
+      - name: source_table
+        description: "Quelltabelle"
         tests:
           - not_null
       - name: dss_load_date
@@ -45,24 +70,105 @@ models:
         tests:
           - not_null
 
+  - name: hub_country
+    description: "Hub für Länder"
+    columns:
+      - name: hk_country
+        description: "Hash Key (Primary Key)"
+        tests:
+          - not_null
+          - unique
+      - name: object_id
+        description: "Business Key"
+        tests:
+          - not_null
+
   # ===========================================
   # SATELLITES
   # ===========================================
-  - name: sat_company_client
-    description: "Satellite für Company Client - historisierte Attribute"
+  - name: sat_company
+    description: "Satellite mit gemeinsamen Attributen aller Unternehmen"
     columns:
-      - name: hk_company_client
-        description: "Hash Key (FK zu Hub)"
+      - name: hk_company
+        description: "Hash Key (FK zu hub_company)"
         tests:
           - not_null
           - relationships:
-              to: ref('hub_company_client')
-              field: hk_company_client
-      - name: hd_company_client
+              to: ref('hub_company')
+              field: hk_company
+      - name: hd_company
         description: "Hash Diff für Change Detection"
         tests:
           - not_null
-      - name: dss_load_date
-        description: "Ladedatum dieser Version"
+
+  - name: sat_country
+    description: "Satellite mit Länder-Attributen"
+    columns:
+      - name: hk_country
+        description: "Hash Key (FK zu hub_country)"
         tests:
           - not_null
+          - relationships:
+              to: ref('hub_country')
+              field: hk_country
+
+  - name: sat_company_client_ext
+    description: "Erweiterter Satellite nur für Clients (freistellungsbescheinigung)"
+    columns:
+      - name: hk_company
+        description: "Hash Key (FK zu hub_company)"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_company')
+              field: hk_company
+
+  # ===========================================
+  # LINKS
+  # ===========================================
+  - name: link_company_role
+    description: "Link zwischen Company und Rolle"
+    columns:
+      - name: hk_link_company_role
+        description: "Hash Key (Primary Key)"
+        tests:
+          - not_null
+          - unique
+      - name: hk_company
+        description: "FK zu hub_company"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_company')
+              field: hk_company
+      - name: hk_role
+        description: "FK zu ref_role (via role_code Hash)"
+        tests:
+          - not_null
+      - name: role_code
+        description: "Rolle (CLIENT, CONTRACTOR, SUPPLIER)"
+        tests:
+          - not_null
+
+  - name: link_company_country
+    description: "Link zwischen Company und Land"
+    columns:
+      - name: hk_link_company_country
+        description: "Hash Key (Primary Key)"
+        tests:
+          - not_null
+          - unique
+      - name: hk_company
+        description: "FK zu hub_company"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_company')
+              field: hk_company
+      - name: hk_country
+        description: "FK zu hub_country"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('hub_country')
+              field: hk_country

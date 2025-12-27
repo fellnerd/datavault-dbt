@@ -15,6 +15,10 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
+seeds:
+  datavault:
+    +schema: vault
+
 vars:
   # Hash-Algorithmus: MD5 (16 Byte) oder SHA (32 Byte)
   hash: 'SHA'
@@ -54,3 +58,6 @@ models:
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
+    mart:
+      +schema: mart
+      +materialized: view

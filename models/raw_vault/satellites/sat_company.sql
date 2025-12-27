@@ -1,24 +1,28 @@
 /*
- * Satellite: sat_company_client
+ * Satellite: sat_company
  * Schema: vault
  * 
- * Enthält alle beschreibenden Attribute für Company Clients.
+ * Gemeinsame Attribute aller Unternehmen.
  * Historisiert: Neue Version bei jeder Änderung (basierend auf Hash Diff).
+ * is_current: 'Y' für aktuellen Eintrag, 'N' für historische
  */
 
 {{ config(
     materialized='incremental',
-    unique_key='hk_company_client || dss_load_date',
-    as_columnstore=false
+    unique_key='hk_company',
+    as_columnstore=false,
+    post_hook=[
+        "UPDATE {{ this }} SET dss_is_current = 'N' WHERE dss_is_current = 'Y' AND hk_company IN (SELECT hk_company FROM {{ this }} GROUP BY hk_company HAVING COUNT(*) > 1) AND dss_load_date < (SELECT MAX(dss_load_date) FROM {{ this }} t2 WHERE t2.hk_company = {{ this }}.hk_company)"
+    ]
 ) }}
 
 WITH source_data AS (
     SELECT 
-        hk_company_client,
-        hd_company_client,
+        hk_company,
+        hd_company,
         dss_load_date,
         dss_record_source,
-        -- Payload
+        -- Payload (gemeinsame Attribute)
         name,
         subscription,
         org_type,
@@ -41,33 +45,25 @@ WITH source_data AS (
         credit_rating,
         commission_fee,
         employeecount,
-        freistellungsbescheinigung,
         date_created,
         date_updated
-    FROM {{ ref('stg_company_client') }}
-    WHERE hk_company_client IS NOT NULL
+    FROM {{ ref('stg_company') }}
+    WHERE hk_company IS NOT NULL
 ),
 
-{%- if is_incremental() %}
-latest_satellites AS (
+{% if is_incremental() %}
+existing_sats AS (
     SELECT 
-        hk_company_client,
-        hd_company_client
-    FROM (
-        SELECT 
-            hk_company_client,
-            hd_company_client,
-            ROW_NUMBER() OVER (PARTITION BY hk_company_client ORDER BY dss_load_date DESC) AS rn
-        FROM {{ this }}
-    ) ranked
-    WHERE rn = 1
+        hk_company,
+        hd_company
+    FROM {{ this }}
 ),
 {% endif %}
 
 new_records AS (
-    SELECT 
-        src.hk_company_client,
-        src.hd_company_client,
+    SELECT
+        src.hk_company,
+        src.hd_company,
         src.dss_load_date,
         src.dss_record_source,
         src.name,
@@ -92,16 +88,19 @@ new_records AS (
         src.credit_rating,
         src.commission_fee,
         src.employeecount,
-        src.freistellungsbescheinigung,
         src.date_created,
         src.date_updated
     FROM source_data src
-    {%- if is_incremental() %}
-    LEFT JOIN latest_satellites ls
-        ON src.hk_company_client = ls.hk_company_client
-    WHERE ls.hk_company_client IS NULL  -- Neuer Hub-Eintrag
-       OR src.hd_company_client != ls.hd_company_client  -- Änderung erkannt
-    {%- endif %}
+    {% if is_incremental() %}
+    WHERE NOT EXISTS (
+        SELECT 1 FROM existing_sats es
+        WHERE es.hk_company = src.hk_company
+          AND es.hd_company = src.hd_company
+    )
+    {% endif %}
 )
 
-SELECT * FROM new_records
+SELECT 
+    *,
+    'Y' AS dss_is_current
+FROM new_records

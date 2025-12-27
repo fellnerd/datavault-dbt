@@ -1,0 +1,17 @@
+version: 2
+
+seeds:
+  - name: ref_role
+    description: "Referenzdaten für Unternehmens-Rollen (Client, Contractor, Supplier)"
+    config:
+      schema: vault
+    columns:
+      - name: role_code
+        description: "Business Key - Eindeutiger Rollen-Code"
+        tests:
+          - unique
+          - not_null
+      - name: role_name
+        description: "Anzeigename der Rolle"
+      - name: role_description
+        description: "Beschreibung der Rolle"
