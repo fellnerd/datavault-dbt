@@ -3,12 +3,17 @@
  * Schema: vault
  * 
  * Attribute für Länder.
+ * dss_is_current: 'Y' für aktuellen Eintrag, 'N' für historische
+ * dss_end_date: Enddatum der Gültigkeit (NULL = aktuell)
  */
 
 {{ config(
     materialized='incremental',
     unique_key='hk_country',
-    as_columnstore=false
+    as_columnstore=false,
+    post_hook=[
+        "{{ update_satellite_current_flag(this, 'hk_country') }}"
+    ]
 ) }}
 
 WITH source_data AS (
@@ -49,4 +54,8 @@ new_records AS (
     {% endif %}
 )
 
-SELECT * FROM new_records
+SELECT 
+    *,
+    'Y' AS dss_is_current,
+    CAST(NULL AS DATETIME2) AS dss_end_date
+FROM new_records

@@ -1,8 +1,9 @@
 # Data Vault 2.1 - Systemdokumentation
 
 > **Projekt:** Virtual Data Vault 2.1 auf Azure  
-> **Version:** 1.0.0  
+> **Version:** 2.0.0  
 > **Stand:** 2025-12-27  
+> **DV 2.1 Compliance:** ~85%  
 > **Maintainer:** Dimetrics Team
 
 ---
@@ -104,22 +105,34 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 ### 3.1 Data Vault Objekte
 
 #### Hubs (Business Keys)
-| Hub | Business Key | Beschreibung |
-|-----|--------------|--------------|
-| `hub_company_client` | `object_id` | Kunden-Unternehmen |
-| `hub_company_contractor` | `object_id` | Auftragnehmer (TODO) |
-| `hub_company_supplier` | `object_id` | Lieferanten (TODO) |
-| `hub_countries` | `object_id` | Länder (TODO) |
+| Hub | Business Key | Records | Beschreibung |
+|-----|--------------|---------|---------------|
+| `hub_company` | `object_id + source_table` | 22.457 | Alle Unternehmen (Client/Contractor/Supplier) |
+| `hub_country` | `object_id` | 242 | Länder |
 
 #### Satellites (Attribute)
-| Satellite | Parent Hub | Beschreibung |
-|-----------|------------|--------------|
-| `sat_company_client` | `hub_company_client` | Attribute der Kunden |
+| Satellite | Parent Hub | Records | Beschreibung |
+|-----------|------------|---------|---------------|
+| `sat_company` | `hub_company` | 22.457 | Gemeinsame Attribute aller Unternehmen |
+| `sat_company_client_ext` | `hub_company` | ~7.500 | Client-spezifische Attribute (Freistellungsbescheinigung) |
+| `sat_country` | `hub_country` | 242 | Länder-Attribute |
 
 #### Links (Beziehungen)
-| Link | Verbindet | Beschreibung |
-|------|-----------|--------------|
-| `link_company_country` | `hub_company_client` ↔ `hub_countries` | (TODO) |
+| Link | Verbindet | Records | Beschreibung |
+|------|-----------|---------|---------------|
+| `link_company_role` | `hub_company` ↔ `ref_role` | 22.457 | Rolle eines Unternehmens |
+| `link_company_country` | `hub_company` ↔ `hub_country` | 22.457 | Unternehmensstandort |
+
+#### Business Vault Objekte
+| Objekt | Typ | Beschreibung |
+|--------|-----|---------------|
+| `pit_company` | Table | Point-in-Time für sat_company |
+| `eff_sat_company_country` | Incremental | Effectivity Satellite für link_company_country |
+
+#### Reference Data
+| Tabelle | Records | Beschreibung |
+|---------|---------|---------------|
+| `ref_role` | 3 | CLIENT, CONTRACTOR, SUPPLIER |
 
 ### 3.2 Hash-Berechnung
 
@@ -334,6 +347,69 @@ models:
 
 | Datum | Version | Änderung |
 |-------|---------|----------|
+| 2025-12-27 | 2.0.0 | **DV 2.1 Optimierung:** Ghost Records, PIT-Tabellen, Effectivity Satellites |
+| 2025-12-27 | 2.0.0 | Unified Hub Pattern (hub_company statt 3 separate Hubs) |
+| 2025-12-27 | 2.0.0 | dss_is_current + dss_end_date in allen Satellites |
+| 2025-12-27 | 2.0.0 | Hash-Separator von '||' auf '^^' geändert |
 | 2025-12-27 | 1.0.0 | Initial Release |
 | 2025-12-27 | 1.0.0 | Multi-Mandanten-Architektur implementiert |
 | 2025-12-27 | 1.0.0 | dbt-external-tables Package integriert |
+
+---
+
+## 11. Wiederverwendbare Macros
+
+| Macro | Datei | Beschreibung |
+|-------|-------|---------------|
+| `generate_schema_name` | `macros/generate_schema_name.sql` | Schema ohne dbt-Prefix |
+| `update_satellite_current_flag` | `macros/satellite_current_flag.sql` | Post-Hook für dss_is_current |
+| `update_effectivity_end_dates` | `macros/satellite_current_flag.sql` | End-Dating für Effectivity Sats |
+| `zero_key` | `macros/ghost_records.sql` | 64x '0' (NULL Business Keys) |
+| `error_key` | `macros/ghost_records.sql` | 64x 'F' (Fehlerhafte Daten) |
+| `insert_ghost_records` | `macros/ghost_records.sql` | Ghost Records in Hubs einfügen |
+
+## 12. Reproduzierbarkeit
+
+### Komplettes Deployment von Null
+
+```bash
+# 1. VM Setup
+ssh user@10.0.0.25
+cd ~/projects/datavault-dbt
+source .venv/bin/activate
+
+# 2. Azure Login
+az login
+az account set --subscription "<subscription-id>"
+
+# 3. dbt Packages installieren
+dbt deps
+
+# 4. Verbindung testen
+dbt debug
+
+# 5. External Tables erstellen
+dbt run-operation stage_external_sources
+
+# 6. Reference Data laden
+dbt seed
+
+# 7. Alle Models bauen
+dbt run --full-refresh
+
+# 8. Ghost Records einfügen (optional)
+dbt run-operation insert_ghost_records
+
+# 9. Tests ausführen
+dbt test
+```
+
+### Produktions-Deployment
+
+```bash
+# Mandant: Werkportal
+dbt run-operation stage_external_sources --target werkportal
+dbt seed --target werkportal
+dbt run --target werkportal
+dbt test --target werkportal
+```

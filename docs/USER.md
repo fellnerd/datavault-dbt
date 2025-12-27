@@ -1,8 +1,145 @@
 # Data Vault 2.1 - Benutzer-Dokumentation
 
 > **Projekt:** Virtual Data Vault 2.1 auf Azure  
-> **Version:** 1.0.0  
+> **Version:** 2.0.0  
 > **Stand:** 2025-12-27
+
+---
+
+## Einführung: Was ist Data Vault?
+
+### Für wen ist diese Dokumentation?
+
+Diese Dokumentation richtet sich an **alle Benutzer** des Data Vault Systems - von Analysten, die Daten abfragen möchten, bis zu Entwicklern, die neue Datenquellen einbinden.
+
+### Was macht unser Data Warehouse?
+
+Stellen Sie sich das Data Vault wie ein **intelligentes Archiv** vor:
+
+```
+🏢 Ihre Quellsysteme        →    📊 Data Vault         →    📈 Ihre Berichte
+(PostgreSQL, SAP, etc.)          (Azure SQL)               (Power BI, Excel)
+```
+
+**Das Data Vault sammelt Daten aus verschiedenen Systemen und:**
+- ✅ Speichert **alles** - nichts geht verloren
+- ✅ Merkt sich **wann** sich etwas geändert hat
+- ✅ Weiß **woher** jede Information stammt
+- ✅ Kann **rückwirkend** zeigen, wie Daten aussahen
+
+### Warum Data Vault 2.1?
+
+| Traditionell | Data Vault 2.1 |
+|--------------|----------------|
+| Daten werden überschrieben | Alle Änderungen werden aufbewahrt |
+| "Wie war der Stand vor 3 Monaten?" - Keine Antwort | Vollständige Zeitreise möglich |
+| Änderungen am Schema = Datenverlust | Schema-Änderungen jederzeit möglich |
+| Eine Quelle = Ein System | Beliebig viele Quellen kombinierbar |
+
+---
+
+## Grundkonzepte (einfach erklärt)
+
+### Die Bausteine des Data Vault
+
+Unser Data Warehouse besteht aus verschiedenen Bausteinen. Hier eine einfache Erklärung:
+
+#### 🔑 **Hubs** - "Die Visitenkarten"
+
+Ein Hub ist wie eine **Visitenkarte** für jedes wichtige Geschäftsobjekt.
+
+```
+┌─────────────────────────────────────┐
+│           hub_company               │
+├─────────────────────────────────────┤
+│  ID: ABC123                         │  ← Eindeutige Kennung
+│  Erfasst am: 15.03.2024            │  ← Wann zum ersten Mal gesehen
+│  Quelle: Werkportal                │  ← Woher die Info stammt
+└─────────────────────────────────────┘
+```
+
+**Beispiele in unserem System:**
+- `hub_company` - Alle Unternehmen (Kunden, Lieferanten, Auftragnehmer)
+- `hub_country` - Alle Länder
+
+#### 📊 **Satellites** - "Die Aktenordner"
+
+Ein Satellite ist wie ein **Aktenordner**, der alle Details und deren Änderungshistorie enthält.
+
+```
+┌─────────────────────────────────────┐
+│         sat_company                 │
+├─────────────────────────────────────┤
+│  Firma ABC:                         │
+│  ├── Version 1 (01.01.2024)        │
+│  │   Name: "ABC GmbH"              │
+│  │   Adresse: "Musterstr. 1"       │
+│  │   Status: Aktuell ✓             │
+│  ├── Version 2 (15.06.2024)        │
+│  │   Name: "ABC AG"        ← Umfirmierung!
+│  │   Adresse: "Musterstr. 1"       │
+│  │   Status: Aktuell ✓             │
+└─────────────────────────────────────┘
+```
+
+**Wichtige Satellites:**
+- `sat_company` - Alle Firmendetails (Name, Adresse, Kontakt, ...)
+- `sat_country` - Länderdetails (Name)
+- `sat_company_client_ext` - Spezielle Kundendaten (Freistellungsbescheinigung)
+
+#### 🔗 **Links** - "Die Verbindungen"
+
+Ein Link verbindet Hubs miteinander - wie ein **Organisationsdiagramm**.
+
+```
+        hub_company                    hub_country
+             │                              │
+             └──────── link_company_country ┘
+                  "ABC GmbH sitzt in Deutschland"
+```
+
+**Wichtige Links:**
+- `link_company_role` - Welche Rolle hat ein Unternehmen? (Kunde/Lieferant/Auftragnehmer)
+- `link_company_country` - In welchem Land sitzt das Unternehmen?
+
+#### ⏱️ **PIT-Tabellen** - "Der Zeitnavigator"
+
+PIT (Point-in-Time) Tabellen sind wie ein **Kalender mit Lesezeichen** - sie helfen, schnell den Stand zu einem beliebigen Datum zu finden.
+
+```
+"Zeige mir alle Firmendaten, wie sie am 01.06.2024 waren"
+     ↓
+PIT-Tabelle findet sofort die richtigen Versionen
+```
+
+#### 👻 **Ghost Records** - "Die Platzhalter"
+
+Manchmal fehlen Daten (z.B. ein Unternehmen ohne bekanntes Land). Ghost Records sind **Platzhalter** dafür:
+
+- **Zero-Key** (000...000): "Diese Information ist unbekannt"
+- **Error-Key** (FFF...FFF): "Hier ist ein Fehler aufgetreten"
+
+---
+
+## Wichtige Spalten verstehen
+
+### Metadata-Spalten (dss_...)
+
+Jede Tabelle hat spezielle Spalten, die mit `dss_` beginnen:
+
+| Spalte | Bedeutung | Beispiel |
+|--------|-----------|----------|
+| `dss_load_date` | Wann wurde dieser Eintrag geladen? | `2024-12-27 14:30:00` |
+| `dss_record_source` | Woher stammt die Information? | `werkportal.wp_company_client` |
+| `dss_is_current` | Ist das der aktuelle Stand? | `Y` = Ja, `N` = Historisch |
+| `dss_end_date` | Bis wann war dieser Stand gültig? | `2024-06-15` oder `NULL` (=noch gültig) |
+
+### Hash-Spalten (hk_..., hd_...)
+
+| Spalte | Bedeutung | Wozu? |
+|--------|-----------|-------|
+| `hk_company` | Eindeutige ID für Firma | Verknüpfung zwischen Tabellen |
+| `hd_company` | "Fingerabdruck" aller Attribute | Erkennt Änderungen automatisch |
 
 ---
 
@@ -404,6 +541,93 @@ ORDER BY dss_load_date DESC;
 
 ## 10. Changelog
 
-| Datum | Änderung |
-|-------|----------|
-| 2025-12-27 | Initial Release |
+| Datum | Version | Änderung |
+|-------|---------|----------|
+| 2025-12-27 | 2.0.0 | DV 2.1 Optimierung: Ghost Records, PIT-Tabellen, Effectivity Satellites |
+| 2025-12-27 | 2.0.0 | Kundenfreundliche Dokumentation mit Erklärungen für Endanwender |
+| 2025-12-27 | 1.0.0 | Initial Release |
+
+---
+
+## 11. Häufige Fragen (FAQ)
+
+### Für Analysten & Endanwender
+
+**F: Wie finde ich den aktuellen Stand eines Unternehmens?**
+```sql
+SELECT * FROM vault.sat_company 
+WHERE dss_is_current = 'Y'
+  AND hk_company = '<hash>';
+```
+
+**F: Wie sehe ich alle historischen Änderungen?**
+```sql
+SELECT * FROM vault.sat_company 
+WHERE hk_company = '<hash>'
+ORDER BY dss_load_date DESC;
+```
+
+**F: Wie war der Stand am 01.06.2024?**
+```sql
+-- Option 1: Mit PIT-Tabelle (schnell)
+SELECT * FROM vault.pit_company p
+JOIN vault.sat_company s ON p.hk_company = s.hk_company 
+WHERE p.snapshot_date = '2024-06-01';
+
+-- Option 2: Direkt (für einzelne Abfragen)
+SELECT * FROM vault.sat_company 
+WHERE dss_load_date <= '2024-06-01'
+  AND (dss_end_date > '2024-06-01' OR dss_end_date IS NULL);
+```
+
+**F: Wie viele Kunden haben wir?**
+```sql
+SELECT COUNT(*) 
+FROM vault.link_company_role 
+WHERE role_code = 'CLIENT';
+```
+
+**F: Welche Unternehmen sind in Deutschland?**
+```sql
+SELECT c.name, co.name AS country
+FROM vault.sat_company c
+JOIN vault.link_company_country lcc ON c.hk_company = lcc.hk_company
+JOIN vault.sat_country co ON lcc.hk_country = co.hk_country
+WHERE c.dss_is_current = 'Y' 
+  AND co.name = 'Deutschland';
+```
+
+### Für Entwickler
+
+**F: Warum werden meine Änderungen nicht übernommen?**
+- Prüfen Sie mit `dbt run --select <model>` ob das Model läuft
+- Bei inkrementellen Models: `dbt run --full-refresh --select <model>`
+- Logfiles prüfen: `logs/dbt.log`
+
+**F: Wie füge ich ein neues Feld hinzu?**
+1. In `sources.yml` die Spalte zur External Table hinzufügen
+2. In `stg_*.sql` die Spalte übernehmen
+3. In `sat_*.sql` die Spalte zum Payload hinzufügen
+4. `dbt run --full-refresh --select sat_*`
+
+**F: Was bedeutet "Hash Diff has changed"?**
+Das bedeutet, dass sich mindestens ein Attribut geändert hat. Der Hash Diff ist ein "Fingerabdruck" aller Attribute - ändert sich einer, ändert sich der Fingerabdruck.
+
+---
+
+## 12. Glossar
+
+| Begriff | Erklärung |
+|---------|-----------|
+| **Business Key** | Die natürliche, fachliche ID eines Objekts (z.B. Kundennummer) |
+| **Hash Key** | Technische ID, berechnet aus dem Business Key (64 Zeichen) |
+| **Hash Diff** | "Fingerabdruck" aller Attribute zur Änderungserkennung |
+| **Hub** | Speichert Business Keys (wer/was existiert) |
+| **Satellite** | Speichert Attribute und deren Historie |
+| **Link** | Speichert Beziehungen zwischen Hubs |
+| **PIT** | Point-in-Time - Zeigt Datenstände zu bestimmten Zeitpunkten |
+| **Effectivity Satellite** | Speichert Gültigkeitszeiträume von Beziehungen |
+| **Ghost Record** | Platzhalter für fehlende/fehlerhafte Daten |
+| **dbt** | Data Build Tool - Unser Transformations-Werkzeug |
+| **Incremental** | Nur neue/geänderte Daten werden geladen |
+| **Full Refresh** | Alles wird komplett neu geladen |

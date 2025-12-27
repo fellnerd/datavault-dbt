@@ -4,7 +4,8 @@
  * 
  * Gemeinsame Attribute aller Unternehmen.
  * Historisiert: Neue Version bei jeder Änderung (basierend auf Hash Diff).
- * is_current: 'Y' für aktuellen Eintrag, 'N' für historische
+ * dss_is_current: 'Y' für aktuellen Eintrag, 'N' für historische
+ * dss_end_date: Enddatum der Gültigkeit (NULL = aktuell)
  */
 
 {{ config(
@@ -12,7 +13,7 @@
     unique_key='hk_company',
     as_columnstore=false,
     post_hook=[
-        "UPDATE {{ this }} SET dss_is_current = 'N' WHERE dss_is_current = 'Y' AND hk_company IN (SELECT hk_company FROM {{ this }} GROUP BY hk_company HAVING COUNT(*) > 1) AND dss_load_date < (SELECT MAX(dss_load_date) FROM {{ this }} t2 WHERE t2.hk_company = {{ this }}.hk_company)"
+        "{{ update_satellite_current_flag(this, 'hk_company') }}"
     ]
 ) }}
 
@@ -102,5 +103,6 @@ new_records AS (
 
 SELECT 
     *,
-    'Y' AS dss_is_current
+    'Y' AS dss_is_current,
+    CAST(NULL AS DATETIME2) AS dss_end_date
 FROM new_records

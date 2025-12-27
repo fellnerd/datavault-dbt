@@ -1,7 +1,10 @@
 # Lessons Learned - Data Vault 2.1 mit dbt auf Azure
 
+> **Letzte Aktualisierung:** 2025-12-27  
+> **DV 2.1 Compliance:** ~85% (nach Optimierung)
+
 ## Projektkontext
-PoC für eine virtualisierte Data Vault 2.1 Architektur als wiederverwendbares SaaS-Template.
+PoC für eine virtualisierte Data Vault 2.1 Architektur als wiederverwendbares SaaS-Template. Das Projekt wurde durch eine umfassende DV 2.1 Analyse optimiert.
 
 ---
 
@@ -40,6 +43,31 @@ PoC für eine virtualisierte Data Vault 2.1 Architektur als wiederverwendbares S
 - ODBC-Treiber stabiler unter Linux
 - Einfachere Deployment-Vorbereitung für Container
 - VS Code Remote SSH ermöglicht komfortable Entwicklung
+
+### 5. Unified Hub Pattern statt 3 separate Hubs
+**Entscheidung:** Ein `hub_company` mit `link_company_role` statt `hub_company_client`, `hub_company_contractor`, `hub_company_supplier`
+
+**Begründung:**
+- Identische Attribute in allen 3 Quellen (>90% Überlappung)
+- Weniger Redundanz, einfachere Wartung
+- Role als Link ermöglicht zukünftige Multi-Role-Unternehmen
+- `object_id` ist NICHT global unique → Composite Key `object_id + source_table`
+
+### 6. Hash-Separator '^^' statt '||'
+**Entscheidung:** `'^^'` als Trennzeichen für Composite Hash Keys
+
+**Begründung:**
+- DV 2.1 Best Practice (selten in natürlichen Daten)
+- `'||'` kann in SQL-Strings vorkommen (Oracle Concat-Operator)
+- Konsistenz mit Scalefree Standards
+
+### 7. dss_is_current + dss_end_date in Satellites
+**Entscheidung:** Current-Flag und End-Dating in allen Satellites
+
+**Begründung:**
+- Effiziente Abfrage des aktuellen Stands ohne ROW_NUMBER()
+- dss_end_date ermöglicht historische Point-in-Time Abfragen
+- Post-Hook Macro hält Flag automatisch aktuell
 
 ---
 
@@ -87,6 +115,24 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 - .gitignore mit `profiles.yml`
 - Azure CLI Authentication (keine Passwörter)
 
+### Problem 5: ROW_NUMBER() Performance bei is_current
+**Symptom:** Langsame Abfragen bei großen Satellites mit ROW_NUMBER() für Current-Ermittlung
+
+**Lösung:** 
+- Physisches `dss_is_current` Flag (CHAR(1): 'Y'/'N')
+- Post-Hook Macro `update_satellite_current_flag()` setzt alte Records auf 'N'
+- `dss_end_date` für historische Abfragen ohne Window Functions
+
+### Problem 6: object_id nicht global unique
+**Symptom:** Duplikate in `hub_company` wenn nur `object_id` als Business Key
+
+**Ursache:** `object_id` ist nur innerhalb einer Quelltabelle unique, nicht systemübergreifend
+
+**Lösung:** Composite Key aus `object_id + source_table`:
+```sql
+HASHBYTES('SHA2_256', CONCAT(object_id, '^^', source_table))
+```
+
 ---
 
 ## Best Practices (gelernt)
@@ -114,15 +160,46 @@ LEFT JOIN ON hk AND NOT EXISTS (sat mit gleichem hd)
 ```
 Statt: Timestamp-basierter Vergleich
 
+### Data Vault 2.1 Compliance Checkliste
+
+| Feature | Status | Implementierung |
+|---------|--------|----------------|
+| Hash Keys (SHA2_256) | ✅ | `HASHBYTES()` mit CHAR(64) |
+| Hash Diff für Change Detection | ✅ | `hd_*` Spalten in Satellites |
+| Hash Separator '^^' | ✅ | Composite Keys in stg_company |
+| dss_load_date Metadata | ✅ | Alle Vault-Objekte |
+| dss_record_source | ✅ | Quellsystem-Tracking |
+| dss_is_current Flag | ✅ | Satellites mit Post-Hook |
+| dss_end_date | ✅ | Validity Periods |
+| Ghost Records | ✅ | Macro erstellt (manuell ausführen) |
+| PIT Tables | ✅ | pit_company für History |
+| Effectivity Satellites | ✅ | eff_sat_company_country |
+| Zero Key (0x00...) | ✅ | Macro vorhanden |
+| Error Key (0xFF...) | ✅ | Macro vorhanden |
+
+### Wiederverwendbare Macros
+
+| Macro | Datei | Zweck |
+|-------|-------|-------|
+| `generate_schema_name` | macros/generate_schema_name.sql | Schema ohne Prefix |
+| `update_satellite_current_flag` | macros/satellite_current_flag.sql | dss_is_current Post-Hook |
+| `update_effectivity_end_dates` | macros/satellite_current_flag.sql | Effectivity Sat End-Dating |
+| `zero_key` | macros/ghost_records.sql | 64x '0' für NULL BKs |
+| `error_key` | macros/ghost_records.sql | 64x 'F' für Fehler |
+| `insert_ghost_records` | macros/ghost_records.sql | Ghost Records in Hubs |
+
 ---
 
 ## Nächste Schritte
 
-1. **Link-Tables** - Verbindung company_client zu countries
-2. **Incremental Test** - Delta-Load validieren
-3. **CI/CD** - Azure DevOps Pipeline für dbt run
-4. **Weitere Entities** - contractor, supplier
-5. **Business Vault** - PIT und Bridge Views
+1. ✅ ~~**Link-Tables** - Verbindung company zu countries~~ → `link_company_country`, `link_company_role`
+2. ⏳ **Incremental Test** - Delta-Load mit Synapse Pipeline validieren
+3. ⏳ **CI/CD** - Azure DevOps Pipeline für dbt run
+4. ✅ ~~**Weitere Entities** - contractor, supplier~~ → Unified in `hub_company`
+5. ✅ ~~**Business Vault** - PIT Views~~ → `pit_company` erstellt
+6. ⏳ **Bridge Tables** - Für komplexe Mart-Queries (wenn Performance-Bedarf)
+7. ⏳ **Package Migration** - automate_dv → datavault4dbt evaluieren
+8. ⏳ **Ghost Records einfügen** - `dbt run-operation insert_ghost_records`
 
 ---
 
@@ -140,7 +217,27 @@ cd ~/projects/datavault-dbt
 source .venv/bin/activate
 ```
 
-### Aktueller Stand ($(date +%Y-%m-%d))
-- ✅ Hub: vault.hub_company_client (7.501 Records)
-- ✅ Satellite: vault.sat_company_client (7.501 Records)
-- 🔄 Link: Noch zu erstellen
+### Aktueller Stand (2025-12-27)
+
+**Data Vault Objekte:**
+| Objekt | Records | Status |
+|--------|---------|--------|
+| `hub_company` | 22.457 | ✅ |
+| `hub_country` | 242 | ✅ |
+| `sat_company` | 22.457 | ✅ |
+| `sat_country` | 242 | ✅ |
+| `sat_company_client_ext` | ~7.500 | ✅ |
+| `link_company_role` | 22.457 | ✅ |
+| `link_company_country` | 22.457 | ✅ |
+| `eff_sat_company_country` | 22.457 | ✅ |
+| `pit_company` | ~900k | ✅ |
+| `ref_role` | 3 | ✅ |
+
+**Tests:** 39/39 bestanden
+
+**DV 2.1 Optimierungen (2025-12-27):**
+- ✅ Ghost Records Macro erstellt
+- ✅ dss_is_current + dss_end_date in allen Satellites
+- ✅ PIT-Tabelle für sat_company
+- ✅ Effectivity Satellite für link_company_country
+- ✅ Hash-Separator auf '^^' standardisiert

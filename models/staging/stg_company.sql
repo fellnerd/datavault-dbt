@@ -176,10 +176,11 @@ staged AS (
         -- ===========================================
         -- hk_company: Composite Key aus object_id + source_table
         -- (da object_id nicht global eindeutig ist)
+        -- Separator '^^' gemäß DV 2.1 Best Practice (selten in natürlichen Daten)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 ISNULL(CAST(object_id AS NVARCHAR(MAX)), ''),
-                '||',
+                '^^',
                 ISNULL(source_table, '')
             )
         ), 2) AS hk_company,
@@ -198,9 +199,9 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 ISNULL(CAST(object_id AS NVARCHAR(MAX)), ''),
-                '||',
+                '^^',
                 ISNULL(source_table, ''),
-                '||',
+                '^^',
                 ISNULL(role_code, '')
             )
         ), 2) AS hk_link_company_role,
@@ -209,9 +210,9 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 ISNULL(CAST(object_id AS NVARCHAR(MAX)), ''),
-                '||',
+                '^^',
                 ISNULL(source_table, ''),
-                '||',
+                '^^',
                 ISNULL(CAST(country AS NVARCHAR(MAX)), '')
             )
         ), 2) AS hk_link_company_country,

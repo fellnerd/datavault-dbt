@@ -59,6 +59,10 @@ models:
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
+    business_vault:
+      +schema: vault
+      +materialized: table
+      +as_columnstore: false
     mart:
       project:
         +schema: mart_project
