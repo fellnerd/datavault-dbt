@@ -55,7 +55,7 @@ jobs:
         run: |
           mkdir -p $DBT_PROFILES_DIR
           cat > $DBT_PROFILES_DIR/profiles.yml << 'EOF'
-          datavault_werkportal:
+          datavault:
             target: dev
             outputs:
               dev:
