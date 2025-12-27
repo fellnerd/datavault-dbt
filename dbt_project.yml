@@ -1,4 +1,4 @@
-name: 'datavault_werkportal'
+name: 'datavault'
 version: '1.0.0'
 config-version: 2
 
@@ -34,7 +34,7 @@ vars:
 # [stg].[stg_<entity>]      - Staging Views
 
 models:
-  datavault_werkportal:
+  datavault:
     staging:
       +schema: stg
       +materialized: view

@@ -1,0 +1,339 @@
+# Data Vault 2.1 - Systemdokumentation
+
+> **Projekt:** Virtual Data Vault 2.1 auf Azure  
+> **Version:** 1.0.0  
+> **Stand:** 2025-12-27  
+> **Maintainer:** Dimetrics Team
+
+---
+
+## 1. Übersicht
+
+Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur als wiederverwendbares SaaS-Template. Jeder Mandant erhält eine isolierte Produktionsdatenbank, während die Entwicklung zentral in einer Shared Dev-Datenbank erfolgt.
+
+### 1.1 Architektur-Diagramm
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              QUELLSYSTEME                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  PostgreSQL (werkportal)                                                    │
+│  └── public.wp_company_client                                               │
+│  └── public.wp_company_contractor                                           │
+│  └── public.wp_company_supplier                                             │
+│  └── public.wp_countries                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼ Synapse Pipeline (Full/Delta Load)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AZURE DATA LAKE STORAGE GEN2                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Storage Account: synplaygrounddatalake                                     │
+│  Container: stage-fs                                                        │
+│  └── werkportal/postgres/public.wp_company_client.parquet                   │
+│  └── werkportal/postgres/public.wp_company_contractor.parquet               │
+│  └── werkportal/postgres/public.wp_company_supplier.parquet                 │
+│  └── werkportal/postgres/public.wp_countries.parquet                        │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼ PolyBase External Tables
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            AZURE SQL DATABASE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Server: sql-datavault-weu-001.database.windows.net                         │
+│                                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
+│  │ Vault (Dev)     │  │ Vault_Werkportal│  │ Vault_EWB       │             │
+│  │ Shared Dev DB   │  │ Produktion      │  │ Produktion      │             │
+│  ├─────────────────┤  ├─────────────────┤  ├─────────────────┤             │
+│  │ [stg] Schema    │  │ [stg] Schema    │  │ [stg] Schema    │             │
+│  │  └ ext_*        │  │  └ ext_*        │  │  └ ext_*        │             │
+│  │  └ stg_*        │  │  └ stg_*        │  │  └ stg_*        │             │
+│  │ [vault] Schema  │  │ [vault] Schema  │  │ [vault] Schema  │             │
+│  │  └ hub_*        │  │  └ hub_*        │  │  └ hub_*        │             │
+│  │  └ sat_*        │  │  └ sat_*        │  │  └ sat_*        │             │
+│  │  └ link_*       │  │  └ link_*       │  │  └ link_*       │             │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼ dbt Core (Transformation)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              DBT PROJEKT                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  VM: 10.0.0.25 (Linux)                                                      │
+│  Projekt: datavault-dbt                                                     │
+│  Packages: automate_dv, dbt_external_tables, dbt_utils                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Komponenten
+
+### 2.1 Azure Ressourcen
+
+| Ressource | Name | Zweck |
+|-----------|------|-------|
+| SQL Server | `sql-datavault-weu-001` | Hosting aller Vault-Datenbanken |
+| SQL Database | `Vault` | Shared Development |
+| SQL Database | `Vault_Werkportal` | Produktion Mandant Werkportal |
+| SQL Database | `Vault_EWB` | Produktion Mandant EWB (Template) |
+| Storage Account | `synplaygrounddatalake` | ADLS Gen2 für Parquet-Dateien |
+| Container | `stage-fs` | Staging-Bereich für Quelldaten |
+
+### 2.2 Datenbank-Schemas
+
+| Schema | Inhalt | Beschreibung |
+|--------|--------|--------------|
+| `stg` | External Tables, Staging Views | Rohdaten aus ADLS + Hash-Berechnung |
+| `vault` | Hubs, Satellites, Links | Data Vault 2.1 Objekte |
+| `dv` | (Default) | Nicht verwendet |
+
+### 2.3 dbt Packages
+
+| Package | Version | Zweck |
+|---------|---------|-------|
+| `automate_dv` | 0.10.2 | Data Vault Macros (Hubs, Sats, Links) |
+| `dbt_external_tables` | 0.11.0 | Deklarative External Table Verwaltung |
+| `dbt_utils` | 1.3.3 | Allgemeine Utility Macros |
+
+---
+
+## 3. Datenmodell
+
+### 3.1 Data Vault Objekte
+
+#### Hubs (Business Keys)
+| Hub | Business Key | Beschreibung |
+|-----|--------------|--------------|
+| `hub_company_client` | `object_id` | Kunden-Unternehmen |
+| `hub_company_contractor` | `object_id` | Auftragnehmer (TODO) |
+| `hub_company_supplier` | `object_id` | Lieferanten (TODO) |
+| `hub_countries` | `object_id` | Länder (TODO) |
+
+#### Satellites (Attribute)
+| Satellite | Parent Hub | Beschreibung |
+|-----------|------------|--------------|
+| `sat_company_client` | `hub_company_client` | Attribute der Kunden |
+
+#### Links (Beziehungen)
+| Link | Verbindet | Beschreibung |
+|------|-----------|--------------|
+| `link_company_country` | `hub_company_client` ↔ `hub_countries` | (TODO) |
+
+### 3.2 Hash-Berechnung
+
+- **Algorithmus:** SHA2_256
+- **Format:** CHAR(64), Hex-String (uppercase)
+- **Hash Key:** `hk_<entity>` - Business Key Hash
+- **Hash Diff:** `hd_<entity>` - Attribut-Hash für Change Detection
+
+```sql
+-- Hash-Berechnung (SQL Server)
+CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+    ISNULL(CAST(column AS NVARCHAR(MAX)), '')
+), 2)
+```
+
+### 3.3 Metadata-Spalten
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `dss_load_date` | DATETIME2 | Zeitpunkt des Ladens in Vault |
+| `dss_record_source` | NVARCHAR | Quellsystem-Identifikation |
+| `dss_run_id` | NVARCHAR | Pipeline Run ID |
+
+---
+
+## 4. Umgebungen & Targets
+
+### 4.1 Multi-Mandanten-Architektur
+
+```
+┌─────────────────────────────────────────────────────┐
+│              Git Repo: datavault-dbt                │
+│              (Ein Projekt für alle Mandanten)       │
+├─────────────────────────────────────────────────────┤
+│  Target: dev      │  Target: werkportal  │  Target: ewb  │
+└────────┬──────────┴──────────┬───────────┴──────┬───┘
+         ▼                     ▼                  ▼
+   ┌──────────┐         ┌───────────────┐   ┌─────────┐
+   │  Vault   │         │Vault_Werkportal│  │Vault_EWB│
+   │  (Dev)   │         │   (Prod)       │  │ (Prod)  │
+   └──────────┘         └───────────────┘   └─────────┘
+```
+
+### 4.2 Target-Konfiguration
+
+| Target | Datenbank | Verwendung |
+|--------|-----------|------------|
+| `dev` | Vault | Shared Development (Default) |
+| `werkportal` | Vault_Werkportal | Produktion Werkportal |
+| `ewb` | Vault_EWB | Produktion EWB |
+
+---
+
+## 5. Dateistruktur
+
+```
+datavault-dbt/
+├── dbt_project.yml          # Projektkonfiguration
+├── packages.yml             # Package-Abhängigkeiten
+├── package-lock.yml         # Lock-File
+├── macros/
+│   ├── generate_schema_name.sql  # Custom Schema Naming
+│   └── hash_override.sql         # Hash-Macro Override
+├── models/
+│   ├── schema.yml           # Tests & Dokumentation
+│   ├── staging/
+│   │   ├── sources.yml      # External Tables Definition
+│   │   └── stg_company_client.sql
+│   └── raw_vault/
+│       ├── hubs/
+│       │   └── hub_company_client.sql
+│       ├── satellites/
+│       │   └── sat_company_client.sql
+│       └── links/           # (TODO)
+├── scripts/
+│   └── setup_werkportal_prod.sql  # Setup-Script (veraltet)
+├── docs/
+│   ├── SYSTEM.md            # Diese Datei
+│   └── USER.md              # Benutzer-Dokumentation
+└── LESSONS_LEARNED.md       # Erfahrungen & Troubleshooting
+```
+
+---
+
+## 6. Konfiguration
+
+### 6.1 dbt_project.yml
+
+```yaml
+name: 'datavault'
+profile: 'datavault'
+
+vars:
+  hash: 'SHA'
+  load_date: 'dss_load_date'
+  record_source: 'dss_record_source'
+
+models:
+  datavault:
+    staging:
+      +schema: stg
+      +materialized: view
+    raw_vault:
+      hubs:
+        +schema: vault
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false
+      satellites:
+        +schema: vault
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false
+      links:
+        +schema: vault
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false
+```
+
+### 6.2 Azure SQL Limitationen (Basic Tier)
+
+- ❌ Columnstore Index nicht verfügbar → `+as_columnstore: false`
+- ❌ Cross-Database Queries nicht möglich → Dynamische `{{ target.database }}`
+- ✅ PolyBase External Tables unterstützt
+- ✅ Managed Identity Authentication
+
+---
+
+## 7. Sicherheit
+
+### 7.1 Authentifizierung
+
+- **dbt → Azure SQL:** Azure CLI Authentication (`authentication: cli`)
+- **External Tables → ADLS:** Managed Identity (`SynapseManagedIdentity`)
+
+### 7.2 Netzwerk
+
+- SQL Server Firewall: Azure Services + spezifische IPs
+- ADLS: Private Endpoint (optional)
+
+### 7.3 Secrets
+
+- Keine Passwörter in profiles.yml
+- profiles.yml liegt in `~/.dbt/` (außerhalb Git)
+- Azure CLI Token wird bei Bedarf geholt
+
+---
+
+## 8. Erweiterung
+
+### 8.1 Neuen Mandanten hinzufügen
+
+1. **Azure SQL Database erstellen:**
+   ```bash
+   az sql db create \
+     --resource-group synapse-playground \
+     --server sql-datavault-weu-001 \
+     --name Vault_<Mandant> \
+     --edition Basic
+   ```
+
+2. **Target in profiles.yml hinzufügen:**
+   ```yaml
+   <mandant>:
+     type: sqlserver
+     server: sql-datavault-weu-001.database.windows.net
+     database: Vault_<Mandant>
+     # ... (wie andere Targets)
+   ```
+
+3. **Infrastruktur erstellen:**
+   ```bash
+   # Schemas, Credentials, Data Source, File Format
+   dbt run-operation stage_external_sources --target <mandant>
+   ```
+
+4. **Data Vault deployen:**
+   ```bash
+   dbt run --target <mandant>
+   ```
+
+### 8.2 Neue Entity hinzufügen
+
+1. **External Table in `sources.yml` definieren**
+2. **Staging View erstellen:** `models/staging/stg_<entity>.sql`
+3. **Hub erstellen:** `models/raw_vault/hubs/hub_<entity>.sql`
+4. **Satellite erstellen:** `models/raw_vault/satellites/sat_<entity>.sql`
+5. **Link erstellen (falls nötig):** `models/raw_vault/links/link_<entity>_<entity2>.sql`
+
+---
+
+## 9. Monitoring & Troubleshooting
+
+### 9.1 Logs
+
+- dbt Logs: `logs/dbt.log`
+- Query Log: `logs/query_log.sql`
+- Target Artefakte: `target/`
+
+### 9.2 Häufige Fehler
+
+| Fehler | Ursache | Lösung |
+|--------|---------|--------|
+| `Cross-database reference not supported` | Hardcoded Database | `{{ target.database }}` verwenden |
+| `Columnstore not supported` | Basic Tier | `+as_columnstore: false` |
+| `External table error` | Falscher Data Source Type | Ohne `TYPE` erstellen |
+
+---
+
+## 10. Changelog
+
+| Datum | Version | Änderung |
+|-------|---------|----------|
+| 2025-12-27 | 1.0.0 | Initial Release |
+| 2025-12-27 | 1.0.0 | Multi-Mandanten-Architektur implementiert |
+| 2025-12-27 | 1.0.0 | dbt-external-tables Package integriert |

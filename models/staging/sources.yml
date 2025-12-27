@@ -3,28 +3,253 @@ version: 2
 sources:
   - name: staging
     description: "External Tables über PolyBase (Parquet aus ADLS)"
-    database: DataVault
+    database: "{{ target.database }}"
     schema: stg
+    
+    # ===========================================
+    # dbt-external-tables Konfiguration
+    # ===========================================
+    # Docs: https://github.com/dbt-labs/dbt-external-tables
+    # Ausführen: dbt run-operation stage_external_sources
+    # ===========================================
+    
     tables:
       - name: ext_company_client
         description: "Werkportal Company Client - External Table"
+        external:
+          location: "werkportal/postgres/public.wp_company_client.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
         columns:
           - name: object_id
+            data_type: BIGINT
             description: "Business Key - Primärschlüssel aus Quellsystem"
             tests:
               - not_null
+          - name: date_created
+            data_type: DATETIME2
+          - name: date_updated
+            data_type: DATETIME2
+          - name: subscription
+            data_type: NVARCHAR(4000)
+          - name: name
+            data_type: NVARCHAR(4000)
+          - name: state
+            data_type: NVARCHAR(4000)
+          - name: citycode
+            data_type: NVARCHAR(4000)
+          - name: city
+            data_type: NVARCHAR(4000)
+          - name: website
+            data_type: NVARCHAR(4000)
+          - name: street
+            data_type: NVARCHAR(4000)
+          - name: province
+            data_type: NVARCHAR(4000)
+          - name: credit_rating
+            data_type: NVARCHAR(4000)
+          - name: country
+            data_type: BIGINT
+            description: "FK zu countries"
+          - name: employeecount
+            data_type: "NUMERIC(38,0)"
+          - name: email
+            data_type: NVARCHAR(4000)
+          - name: commission_fee
+            data_type: NVARCHAR(4000)
+          - name: phone
+            data_type: NVARCHAR(4000)
+          - name: mobile
+            data_type: NVARCHAR(4000)
+          - name: mobile2
+            data_type: NVARCHAR(4000)
+          - name: bic
+            data_type: NVARCHAR(4000)
+          - name: fax
+            data_type: NVARCHAR(4000)
+          - name: iban
+            data_type: NVARCHAR(4000)
+          - name: description
+            data_type: NVARCHAR(4000)
+          - name: org_type
+            data_type: BIGINT
+          - name: uid
+            data_type: NVARCHAR(4000)
+          - name: freistellungsbescheinigung
+            data_type: DATETIME2
           - name: dss_record_source
+            data_type: NVARCHAR(4000)
             description: "Datenquelle"
           - name: dss_load_date
+            data_type: NVARCHAR(4000)
             description: "Ladedatum"
           - name: dss_run_id
+            data_type: NVARCHAR(4000)
             description: "Pipeline Run ID"
-          
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # TODO: Weitere External Tables
+      # ===========================================
+      
       - name: ext_countries
-        description: "Werkportal Countries - External Table (TODO: erstellen)"
-        
+        description: "Werkportal Countries - External Table"
+        external:
+          location: "werkportal/postgres/public.wp_countries.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: object_id
+            data_type: BIGINT
+            description: "Business Key"
+          - name: name
+            data_type: NVARCHAR(4000)
+          - name: iso_code
+            data_type: NVARCHAR(10)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+
       - name: ext_company_contractor
-        description: "Werkportal Company Contractor - External Table (TODO: erstellen)"
-        
+        description: "Werkportal Company Contractor - External Table"
+        external:
+          location: "werkportal/postgres/public.wp_company_contractor.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: object_id
+            data_type: BIGINT
+            description: "Business Key"
+          - name: date_created
+            data_type: DATETIME2
+          - name: date_updated
+            data_type: DATETIME2
+          - name: subscription
+            data_type: NVARCHAR(4000)
+          - name: name
+            data_type: NVARCHAR(4000)
+          - name: state
+            data_type: NVARCHAR(4000)
+          - name: citycode
+            data_type: NVARCHAR(4000)
+          - name: city
+            data_type: NVARCHAR(4000)
+          - name: website
+            data_type: NVARCHAR(4000)
+          - name: street
+            data_type: NVARCHAR(4000)
+          - name: province
+            data_type: NVARCHAR(4000)
+          - name: credit_rating
+            data_type: NVARCHAR(4000)
+          - name: country
+            data_type: BIGINT
+          - name: employeecount
+            data_type: "NUMERIC(38,18)"
+          - name: email
+            data_type: NVARCHAR(4000)
+          - name: commission_fee
+            data_type: NVARCHAR(4000)
+          - name: phone
+            data_type: NVARCHAR(4000)
+          - name: mobile
+            data_type: NVARCHAR(4000)
+          - name: mobile2
+            data_type: NVARCHAR(4000)
+          - name: bic
+            data_type: NVARCHAR(4000)
+          - name: fax
+            data_type: NVARCHAR(4000)
+          - name: iban
+            data_type: NVARCHAR(4000)
+          - name: description
+            data_type: NVARCHAR(4000)
+          - name: org_type
+            data_type: BIGINT
+          - name: uid
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
       - name: ext_company_supplier
-        description: "Werkportal Company Supplier - External Table (TODO: erstellen)"
+        description: "Werkportal Company Supplier - External Table"
+        external:
+          location: "werkportal/postgres/public.wp_company_supplier.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: object_id
+            data_type: BIGINT
+            description: "Business Key"
+          - name: date_created
+            data_type: DATETIME2
+          - name: date_updated
+            data_type: DATETIME2
+          - name: subscription
+            data_type: NVARCHAR(4000)
+          - name: name
+            data_type: NVARCHAR(4000)
+          - name: state
+            data_type: NVARCHAR(4000)
+          - name: citycode
+            data_type: NVARCHAR(4000)
+          - name: city
+            data_type: NVARCHAR(4000)
+          - name: website
+            data_type: NVARCHAR(4000)
+          - name: street
+            data_type: NVARCHAR(4000)
+          - name: province
+            data_type: NVARCHAR(4000)
+          - name: credit_rating
+            data_type: NVARCHAR(4000)
+          - name: country
+            data_type: BIGINT
+          - name: employeecount
+            data_type: "NUMERIC(38,18)"
+          - name: email
+            data_type: NVARCHAR(4000)
+          - name: commission_fee
+            data_type: NVARCHAR(4000)
+          - name: phone
+            data_type: NVARCHAR(4000)
+          - name: mobile
+            data_type: NVARCHAR(4000)
+          - name: mobile2
+            data_type: NVARCHAR(4000)
+          - name: bic
+            data_type: NVARCHAR(4000)
+          - name: fax
+            data_type: NVARCHAR(4000)
+          - name: iban
+            data_type: NVARCHAR(4000)
+          - name: description
+            data_type: NVARCHAR(4000)
+          - name: org_type
+            data_type: BIGINT
+          - name: uid
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
