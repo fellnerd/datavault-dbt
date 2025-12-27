@@ -1,0 +1,107 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Production target to deploy'
+        required: true
+        default: 'werkportal'
+        type: choice
+        options:
+          - werkportal
+          - ewb
+
+env:
+  DBT_PROFILES_DIR: ${{ github.workspace }}
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: [self-hosted, linux, dbt]
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install dbt-sqlserver
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}",
+              "subscriptionId": "518a5277-e3f1-408f-aefc-e11931898d67"
+            }
+
+      - name: Determine target
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "target=${{ inputs.target }}" >> $GITHUB_OUTPUT
+          else
+            echo "target=werkportal" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create profiles.yml
+        run: |
+          mkdir -p $DBT_PROFILES_DIR
+          cat > $DBT_PROFILES_DIR/profiles.yml << 'EOF'
+          datavault:
+            target: werkportal
+            outputs:
+              werkportal:
+                type: sqlserver
+                driver: 'ODBC Driver 18 for SQL Server'
+                server: sql-datavault-weu-001.database.windows.net
+                port: 1433
+                database: Vault_Werkportal
+                schema: dv
+                authentication: cli
+                encrypt: true
+                trust_cert: false
+              ewb:
+                type: sqlserver
+                driver: 'ODBC Driver 18 for SQL Server'
+                server: sql-datavault-weu-001.database.windows.net
+                port: 1433
+                database: Vault_EWB
+                schema: dv
+                authentication: cli
+                encrypt: true
+                trust_cert: false
+          EOF
+
+      - name: Install dbt packages
+        run: dbt deps
+
+      - name: Run dbt models
+        run: dbt run --target ${{ steps.target.outputs.target }}
+
+      - name: Run dbt tests
+        run: dbt test --target ${{ steps.target.outputs.target }}
+
+      - name: Generate deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target:** ${{ steps.target.outputs.target }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag/Ref:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
