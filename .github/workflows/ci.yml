@@ -47,8 +47,8 @@ jobs:
 
       - name: Create profiles.yml
         run: |
-          mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << 'EOF'
+          mkdir -p $DBT_PROFILES_DIR
+          cat > $DBT_PROFILES_DIR/profiles.yml << 'EOF'
           datavault_werkportal:
             target: dev
             outputs:
