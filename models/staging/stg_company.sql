@@ -275,3 +275,4 @@ staged AS (
 )
 
 SELECT * FROM staged
+-- Pipeline test 2025-12-27-231110
