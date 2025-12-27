@@ -275,4 +275,3 @@ staged AS (
 )
 
 SELECT * FROM staged
--- CI test comment 2025-12-27
