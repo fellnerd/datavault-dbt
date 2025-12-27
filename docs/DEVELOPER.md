@@ -1008,7 +1008,48 @@ dbt test --select tag:hub
 
 ## 🚢 Deployment Workflow
 
-### Development → Production
+### GitHub Actions CI/CD Pipeline
+
+Das Projekt verwendet **GitHub Actions** für automatisiertes Deployment. Der Self-hosted Runner läuft auf der gleichen VM wie die Entwicklungsumgebung.
+
+#### Verfügbare Workflows
+
+| Workflow | Trigger | Zweck |
+|----------|---------|-------|
+| **CI** | PR nach main/dev | Validierung (compile + test) |
+| **Deploy Dev** | Push auf main / manual | Deployment nach Vault (Dev) |
+| **Deploy Prod** | Tag v* / manual + Approval | Deployment nach Vault_Werkportal |
+| **Docs** | Push auf main / manual | dbt docs → GitHub Pages |
+
+#### Workflow manuell ausführen
+
+```bash
+# Deploy Dev manuell triggern
+gh workflow run deploy-dev.yml --ref main
+
+# Deploy Prod manuell triggern (erfordert Approval!)
+gh workflow run deploy-prod.yml --ref main -f target=werkportal
+
+# Docs generieren
+gh workflow run docs.yml --ref main
+```
+
+#### Workflow-Status prüfen
+
+```bash
+# Letzte Runs anzeigen
+gh run list --limit 5
+
+# Bestimmten Run beobachten
+gh run watch <run-id>
+
+# Logs eines fehlgeschlagenen Runs
+gh run view <run-id> --log-failed
+```
+
+### Manuelles Deployment (Lokal)
+
+Falls die Pipeline nicht verwendet werden soll:
 
 ```bash
 # ╔═══════════════════════════════════════════════════════╗
@@ -1025,25 +1066,45 @@ dbt test --select <changed_models>
 dbt compile --select <model>
 cat target/compiled/datavault/models/path/to/model.sql
 
-# 4. Git Commit
+# 4. Git Commit & Push
 git add .
 git commit -m "feat: Add <feature>"
-git push
+git push origin dev
+
+# 5. Pull Request erstellen → CI läuft automatisch
+gh pr create --base main --head dev --title "feat: <feature>"
 
 # ╔═══════════════════════════════════════════════════════╗
-# ║                    PRODUCTION                         ║
+# ║              PRODUCTION (via CI/CD)                   ║
 # ╚═══════════════════════════════════════════════════════╝
 
-# 5. External Tables in Prod erstellen/aktualisieren
+# 6. PR mergen → Deploy Dev läuft automatisch
+gh pr merge <pr-number> --squash
+
+# 7. Für Prod: Tag erstellen oder manuell triggern
+git tag v1.0.0 && git push origin v1.0.0
+# ODER
+gh workflow run deploy-prod.yml --ref main -f target=werkportal
+# → Approval in GitHub erforderlich!
+```
+
+### Manuelles Prod-Deployment (ohne CI/CD)
+
+```bash
+# ╔═══════════════════════════════════════════════════════╗
+# ║              PRODUCTION (manuell)                     ║
+# ╚═══════════════════════════════════════════════════════╝
+
+# 1. External Tables in Prod erstellen/aktualisieren
 dbt run-operation stage_external_sources --target werkportal
 
-# 6. Seeds laden (falls geändert)
+# 2. Seeds laden (falls geändert)
 dbt seed --target werkportal
 
-# 7. Models deployen
+# 3. Models deployen
 dbt run --target werkportal
 
-# 8. Tests in Prod
+# 4. Tests in Prod
 dbt test --target werkportal
 ```
 
@@ -1131,7 +1192,18 @@ dbt debug
 □ +as_columnstore: false gesetzt
 □ Hash-Separator ist '^^'
 □ Git committed und gepusht
+□ PR erstellt und CI erfolgreich ✓
 ```
+
+### CI/CD Troubleshooting
+
+| Problem | Lösung |
+|---------|--------|
+| CI läuft nicht | Prüfen ob Änderungen in `models/`, `macros/`, etc. (Path Filter!) |
+| Profile not found | `profile:` in dbt_project.yml muss mit profiles.yml übereinstimmen |
+| Runner offline | `sudo systemctl restart actions.runner.fellnerd-datavault-dbt.dbt-runner-vm` |
+| Prod-Tests fehlen | `dbt seed --target werkportal` ausführen |
+| Azure Login failed | Service Principal Secret ggf. abgelaufen, neu generieren |
 
 ---
 
@@ -1144,6 +1216,9 @@ dbt debug
 | Model Architecture | Datenmodell, ERD | [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) |
 | Lessons Learned | Entscheidungen, Troubleshooting | [LESSONS_LEARNED.md](../LESSONS_LEARNED.md) |
 | Copilot Instructions | KI-Assistenz Regeln | [copilot-instructions.md](../.github/copilot-instructions.md) |
+| **CI/CD Plan** | Pipeline-Implementierung | [plan-githubActionsCiCd.prompt.prompt.md](../.github/prompts/plan-githubActionsCiCd.prompt.prompt.md) |
+| **dbt Docs** | Generierte Dokumentation | [fellnerd.github.io/datavault-dbt](https://fellnerd.github.io/datavault-dbt/) |
+| **GitHub Actions** | Pipeline-Runs | [Actions](https://github.com/fellnerd/datavault-dbt/actions) |
 
 ---
 

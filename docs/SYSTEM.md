@@ -343,10 +343,80 @@ models:
 
 ---
 
-## 10. Changelog
+## 10. CI/CD Pipeline (GitHub Actions)
+
+### 10.1 Architektur
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                          GITHUB ACTIONS CI/CD                              │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐ │
+│  │   CI.yml    │    │deploy-dev.yml│   │deploy-prod.yml│  │  docs.yml   │ │
+│  │  (PR Check) │    │ (Auto Dev)  │    │(Manual Prod)│    │(GitHub Pages)│ │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘ │
+│         │                  │                  │                  │        │
+│         ▼                  ▼                  ▼                  ▼        │
+│  ┌──────────────────────────────────────────────────────────────────────┐ │
+│  │                    Self-hosted Runner: dbt-runner-vm                 │ │
+│  │                    VM: 10.0.0.25 (Linux)                             │ │
+│  └──────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                      │
+│                                    ▼                                      │
+│         ┌──────────────────────────────────────────────────┐             │
+│         │  Azure SQL: sql-datavault-weu-001               │             │
+│         │  Dev:  Vault  │  Prod: Vault_Werkportal         │             │
+│         └──────────────────────────────────────────────────┘             │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 10.2 Workflows
+
+| Workflow | Trigger | Ziel-DB | Approval |
+|----------|---------|---------|----------|
+| `ci.yml` | PR → main/dev | Vault (test-only) | Nein |
+| `deploy-dev.yml` | Push main / Manual | Vault | Nein |
+| `deploy-prod.yml` | Tag v* / Manual | Vault_Werkportal | Ja |
+| `docs.yml` | Push main / Manual | GitHub Pages | Nein |
+
+### 10.3 Authentifizierung
+
+| Komponente | Methode | Details |
+|------------|---------|---------|
+| Azure CLI | Service Principal | `sp-github-datavault-dbt` |
+| Azure SQL | Azure AD (CLI) | SQL Server AD Admin: dbadmin |
+| GitHub | Secrets | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` |
+
+### 10.4 GitHub Environments
+
+| Environment | Schutz | Verwendung |
+|-------------|--------|------------|
+| `development` | Keine | Automatische Dev-Deployments |
+| `production` | Required Reviewer | Manuelle Prod-Freigabe |
+
+### 10.5 Runner-Service
+
+```bash
+# Status prüfen
+sudo systemctl status actions.runner.fellnerd-datavault-dbt.dbt-runner-vm
+
+# Neustart
+sudo systemctl restart actions.runner.fellnerd-datavault-dbt.dbt-runner-vm
+
+# Logs
+journalctl -u actions.runner.fellnerd-datavault-dbt.dbt-runner-vm -f
+```
+
+---
+
+## 11. Changelog
 
 | Datum | Version | Änderung |
 |-------|---------|----------|
+| 2025-12-28 | 2.1.0 | **CI/CD Pipeline:** GitHub Actions mit Self-hosted Runner |
+| 2025-12-28 | 2.1.0 | 4 Workflows (CI, Deploy-Dev, Deploy-Prod, Docs) |
+| 2025-12-28 | 2.1.0 | GitHub Pages für dbt Docs |
 | 2025-12-27 | 2.0.0 | **DV 2.1 Optimierung:** Ghost Records, PIT-Tabellen, Effectivity Satellites |
 | 2025-12-27 | 2.0.0 | Unified Hub Pattern (hub_company statt 3 separate Hubs) |
 | 2025-12-27 | 2.0.0 | dss_is_current + dss_end_date in allen Satellites |
@@ -357,7 +427,7 @@ models:
 
 ---
 
-## 11. Wiederverwendbare Macros
+## 12. Wiederverwendbare Macros
 
 | Macro | Datei | Beschreibung |
 |-------|-------|---------------|
@@ -368,7 +438,7 @@ models:
 | `error_key` | `macros/ghost_records.sql` | 64x 'F' (Fehlerhafte Daten) |
 | `insert_ghost_records` | `macros/ghost_records.sql` | Ghost Records in Hubs einfügen |
 
-## 12. Reproduzierbarkeit
+## 13. Reproduzierbarkeit
 
 ### Komplettes Deployment von Null
 
@@ -416,7 +486,7 @@ dbt test --target werkportal
 
 ---
 
-## 13. Weiterführende Dokumentation
+## 14. Weiterführende Dokumentation
 
 | Dokument | Inhalt | Link |
 |----------|--------|------|
@@ -424,3 +494,5 @@ dbt test --target werkportal
 | **Developer Guide** | **Anleitungen für Entwickler** | [DEVELOPER.md](DEVELOPER.md) |
 | Model Architecture | Datenmodell, ERD | [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) |
 | Lessons Learned | Entscheidungen, Troubleshooting | [LESSONS_LEARNED.md](../LESSONS_LEARNED.md) |
+| **CI/CD Plan** | **Pipeline Implementation Plan** | [plan-githubActionsCiCd.prompt.md](../.github/prompts/plan-githubActionsCiCd.prompt.md) |
+| **dbt Docs** | **Generierte Dokumentation** | [GitHub Pages](https://fellnerd.github.io/datavault-dbt/) |

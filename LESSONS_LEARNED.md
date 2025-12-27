@@ -194,12 +194,54 @@ Statt: Timestamp-basierter Vergleich
 
 1. ✅ ~~**Link-Tables** - Verbindung company zu countries~~ → `link_company_country`, `link_company_role`
 2. ⏳ **Incremental Test** - Delta-Load mit Synapse Pipeline validieren
-3. ⏳ **CI/CD** - Azure DevOps Pipeline für dbt run
+3. ✅ ~~**CI/CD** - Azure DevOps Pipeline für dbt run~~ → GitHub Actions implementiert
 4. ✅ ~~**Weitere Entities** - contractor, supplier~~ → Unified in `hub_company`
 5. ✅ ~~**Business Vault** - PIT Views~~ → `pit_company` erstellt
 6. ⏳ **Bridge Tables** - Für komplexe Mart-Queries (wenn Performance-Bedarf)
 7. ⏳ **Package Migration** - automate_dv → datavault4dbt evaluieren
-8. ⏳ **Ghost Records einfügen** - `dbt run-operation insert_ghost_records`
+8. ✅ ~~**Ghost Records einfügen**~~ - `dbt run-operation insert_ghost_records` ✓
+
+---
+
+## CI/CD Pipeline (GitHub Actions)
+
+### Implementierte Workflows (2025-12-27)
+
+| Workflow | Datei | Trigger | Funktion |
+|----------|-------|---------|----------|
+| **CI** | `.github/workflows/ci.yml` | PR nach main/dev + Path Filter | dbt compile + dbt test |
+| **Deploy Dev** | `.github/workflows/deploy-dev.yml` | Push auf main + manual | dbt run → Vault DB |
+| **Deploy Prod** | `.github/workflows/deploy-prod.yml` | Tag v* + manual + Approval | dbt run → Vault_Werkportal |
+| **Docs** | `.github/workflows/docs.yml` | Push auf main + manual | dbt docs → GitHub Pages |
+
+### Path Filter Konfiguration
+Workflows werden **nur** bei Änderungen an folgenden Pfaden getriggert:
+- `models/**`, `macros/**`, `seeds/**`, `snapshots/**`, `tests/**`
+- `dbt_project.yml`, `packages.yml`
+
+**Kein Trigger bei:** `docs/**`, `*.md`, `.github/instructions/**`, `.github/prompts/**`
+
+### Wichtige Ressourcen
+
+| Ressource | Wert |
+|-----------|------|
+| **Service Principal** | `sp-github-datavault-dbt` |
+| **Self-hosted Runner** | `dbt-runner-vm` auf VM 10.0.0.25 |
+| **GitHub Secrets** | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` |
+| **GitHub Pages** | https://fellnerd.github.io/datavault-dbt/ |
+| **Environments** | `development`, `production` (mit Approval) |
+
+### CI/CD Lessons Learned
+
+1. **Profile-Name muss übereinstimmen:** `profiles.yml` Profile-Name muss mit `dbt_project.yml` → `profile:` übereinstimmen (`datavault`, nicht `datavault_werkportal`)
+
+2. **DBT_PROFILES_DIR beachten:** Wenn `DBT_PROFILES_DIR` gesetzt ist, muss `profiles.yml` dort erstellt werden, nicht in `~/.dbt/`
+
+3. **GitHub Pages vorher aktivieren:** Docs-Workflow schlägt fehl, wenn GitHub Pages nicht aktiviert ist
+
+4. **Seeds in Prod:** `ref_role` Seed existiert nur in Dev - bei Prod-Deployment müssen Seeds mit `dbt seed --target werkportal` geladen werden
+
+5. **Runner Version:** Aktuelle Runner-Version dynamisch ermitteln statt hardcoden
 
 ---
 
@@ -215,6 +257,18 @@ Statt: Timestamp-basierter Vergleich
 ssh dimetrics-local-dev  # Alias in ~/.ssh/config
 cd ~/projects/datavault-dbt
 source .venv/bin/activate
+```
+
+### GitHub Actions Runner
+```bash
+# Runner Service Status prüfen
+sudo systemctl status actions.runner.fellnerd-datavault-dbt.dbt-runner-vm
+
+# Runner neu starten
+sudo systemctl restart actions.runner.fellnerd-datavault-dbt.dbt-runner-vm
+
+# Runner Logs
+journalctl -u actions.runner.fellnerd-datavault-dbt.dbt-runner-vm -f
 ```
 
 ### Aktueller Stand (2025-12-27)
