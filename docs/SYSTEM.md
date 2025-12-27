@@ -413,3 +413,14 @@ dbt seed --target werkportal
 dbt run --target werkportal
 dbt test --target werkportal
 ```
+
+---
+
+## 13. Weiterführende Dokumentation
+
+| Dokument | Inhalt | Link |
+|----------|--------|------|
+| User-Dokumentation | Endanwender-Guide, FAQ | [USER.md](USER.md) |
+| **Developer Guide** | **Anleitungen für Entwickler** | [DEVELOPER.md](DEVELOPER.md) |
+| Model Architecture | Datenmodell, ERD | [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) |
+| Lessons Learned | Entscheidungen, Troubleshooting | [LESSONS_LEARNED.md](../LESSONS_LEARNED.md) |

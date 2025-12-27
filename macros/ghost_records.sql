@@ -65,14 +65,14 @@
     {% set sat_country_sql %}
         IF NOT EXISTS (SELECT 1 FROM {{ target.database }}.vault.sat_country WHERE hk_country = '{{ zero_key }}')
         BEGIN
-            INSERT INTO {{ target.database }}.vault.sat_country (hk_country, hd_country, dss_load_date, dss_record_source, name)
-            VALUES ('{{ zero_key }}', '{{ zero_key }}', '{{ ghost_date }}', '{{ record_source }}', 'Unknown');
+            INSERT INTO {{ target.database }}.vault.sat_country (hk_country, hd_country, dss_load_date, dss_record_source, dss_is_current, name)
+            VALUES ('{{ zero_key }}', '{{ zero_key }}', '{{ ghost_date }}', '{{ record_source }}', 'Y', 'Unknown');
         END
         
         IF NOT EXISTS (SELECT 1 FROM {{ target.database }}.vault.sat_country WHERE hk_country = '{{ error_key }}')
         BEGIN
-            INSERT INTO {{ target.database }}.vault.sat_country (hk_country, hd_country, dss_load_date, dss_record_source, name)
-            VALUES ('{{ error_key }}', '{{ error_key }}', '{{ ghost_date }}', '{{ record_source }}', 'Error');
+            INSERT INTO {{ target.database }}.vault.sat_country (hk_country, hd_country, dss_load_date, dss_record_source, dss_is_current, name)
+            VALUES ('{{ error_key }}', '{{ error_key }}', '{{ ghost_date }}', '{{ record_source }}', 'Y', 'Error');
         END
     {% endset %}
     
