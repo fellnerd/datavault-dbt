@@ -1,6 +1,7 @@
 /*
  * Information Mart View: company_current_v
- * Schema: mart
+ * Schema: mart_project
+ * Business Context: Project
  * 
  * Aktuelle Company-Daten (nur dss_is_current = 'Y').
  * Performant: Kein ROW_NUMBER(), nutzt physisches Flag aus sat_company.

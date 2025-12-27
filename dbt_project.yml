@@ -32,10 +32,11 @@ vars:
 # ===========================================
 # SCHEMA NAMING CONVENTION
 # ===========================================
-# [vault].[hub_<entity>]    - Hubs
-# [vault].[sat_<entity>]    - Satellites
-# [vault].[link_<entity>]   - Links
-# [stg].[stg_<entity>]      - Staging Views
+# [vault].[hub_<entity>]         - Hubs
+# [vault].[sat_<entity>]         - Satellites
+# [vault].[link_<entity>]        - Links
+# [stg].[stg_<entity>]           - Staging Views
+# [mart_<context>].[<object>_v]  - Information Mart Views
 
 models:
   datavault:
@@ -59,5 +60,13 @@ models:
         +incremental_strategy: append
         +as_columnstore: false
     mart:
-      +schema: mart
-      +materialized: view
+      project:
+        +schema: mart_project
+        +materialized: view
+      # Weitere Business Contexts hier hinzufügen:
+      # finance:
+      #   +schema: mart_finance
+      #   +materialized: view
+      # hr:
+      #   +schema: mart_hr
+      #   +materialized: view
