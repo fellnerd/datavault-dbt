@@ -1,0 +1,28 @@
+{
+  "name": "datavault-agent",
+  "version": "1.0.0",
+  "description": "Claude-powered development assistant for Data Vault 2.1 dbt project",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@inquirer/prompts": "^7.2.1",
+    "chalk": "^5.4.1",
+    "dotenv": "^16.4.7",
+    "handlebars": "^4.7.8",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
