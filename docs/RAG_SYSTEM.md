@@ -4,6 +4,8 @@
 
 Das RAG (Retrieval-Augmented Generation) System indiziert Projektdokumentation und stellt relevanten Kontext für AI-gestützte Data Vault Operationen bereit.
 
+TEST
+
 ## Architektur
 
 ```
