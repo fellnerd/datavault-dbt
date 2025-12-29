@@ -2,11 +2,18 @@
  * Tool: Create Mart View
  * 
  * Creates a denormalized view for BI/Reporting.
+ * IMPORTANT: Generates unique column aliases to avoid SQL Server duplicate column errors.
  */
 
 import { z } from 'zod';
 import * as path from 'path';
+import * as fs from 'fs/promises';
 import { writeFile, PATHS, getRelativePath, fileExists, ensureDir } from '../utils/fileOperations.js';
+
+// Metadata columns that should not be included in mart views
+const EXCLUDED_COLUMNS = [
+  'hk_', 'hd_', 'dss_load_date', 'dss_record_source', 'dss_is_current', 'dss_end_date', 'dss_run_id'
+];
 
 export const createMartSchema = z.object({
   viewName: z.string().describe('Name der View (z.B. "company_current")'),
@@ -28,6 +35,82 @@ export const createMartSchema = z.object({
 
 export type CreateMartInput = z.infer<typeof createMartSchema>;
 
+/**
+ * Generate a unique column alias by prefixing with entity name
+ * e.g., "name" from "sat_company" becomes "company_name"
+ */
+function getUniqueColumnAlias(satName: string, colName: string, usedAliases: Set<string>): string {
+  // First try: just the column name (if unique)
+  if (!usedAliases.has(colName)) {
+    usedAliases.add(colName);
+    return colName;
+  }
+  
+  // Second try: prefix with entity name (sat_company -> company_name)
+  const entityPrefix = satName.replace('sat_', '').replace('eff_sat_', '');
+  const prefixedAlias = `${entityPrefix}_${colName}`;
+  
+  if (!usedAliases.has(prefixedAlias)) {
+    usedAliases.add(prefixedAlias);
+    return prefixedAlias;
+  }
+  
+  // Third try: add numeric suffix
+  let counter = 2;
+  while (usedAliases.has(`${prefixedAlias}${counter}`)) {
+    counter++;
+  }
+  const finalAlias = `${prefixedAlias}${counter}`;
+  usedAliases.add(finalAlias);
+  return finalAlias;
+}
+
+/**
+ * Extract payload columns from a satellite SQL file
+ * Reads the file and extracts column names from the -- Payload section
+ */
+async function extractSatelliteColumns(satName: string): Promise<string[]> {
+  try {
+    const satPath = path.join(PATHS.satellites, `${satName}.sql`);
+    const content = await fs.readFile(satPath, 'utf-8');
+    
+    // Look for columns after "-- Payload" comment
+    const payloadMatch = content.match(/--\s*Payload[\s\S]*?FROM/i);
+    if (payloadMatch) {
+      const payloadSection = payloadMatch[0];
+      // Extract column names (simple identifiers before FROM)
+      const columnMatches = payloadSection.matchAll(/^\s*([a-z_][a-z0-9_]*)\s*[,\n]/gim);
+      const columns: string[] = [];
+      for (const match of columnMatches) {
+        const col = match[1].toLowerCase();
+        // Skip metadata columns
+        if (!EXCLUDED_COLUMNS.some(excl => col.startsWith(excl) || col === excl)) {
+          columns.push(col);
+        }
+      }
+      if (columns.length > 0) {
+        return columns;
+      }
+    }
+    
+    // Fallback: Look for src.column patterns in new_records
+    const srcMatches = content.matchAll(/src\.([a-z_][a-z0-9_]*)/gi);
+    const columns: string[] = [];
+    for (const match of srcMatches) {
+      const col = match[1].toLowerCase();
+      if (!EXCLUDED_COLUMNS.some(excl => col.startsWith(excl) || col === excl)) {
+        if (!columns.includes(col)) {
+          columns.push(col);
+        }
+      }
+    }
+    
+    return columns.length > 0 ? columns : ['*'];
+  } catch (error) {
+    return ['*']; // Fallback if file cannot be read
+  }
+}
+
 export async function createMart(input: CreateMartInput): Promise<string> {
   const { viewName, description, baseHub, satellites, links = [], subfolder } = input;
   
@@ -47,18 +130,49 @@ export async function createMart(input: CreateMartInput): Promise<string> {
   const entity = baseHub.replace('hub_', '');
   const hashKey = `hk_${entity}`;
   
-  // Build satellite columns
-  const satColumns = satellites.flatMap(sat => 
-    sat.columns.map(col => `    ${sat.name.replace('sat_', 's_')}.${col}`)
-  ).join(',\n');
+  // Track used column aliases to ensure uniqueness
+  const usedAliases = new Set<string>(['object_id', hashKey, 'hub_load_date']);
+  
+  // Build satellite columns with unique aliases
+  // If columns contains '*', expand to actual columns from satellite file
+  const satColumnsList: string[] = [];
+  for (const sat of satellites) {
+    const alias = sat.name.replace('sat_', 's_').replace('eff_sat_', 'es_');
+    
+    // Expand '*' to actual columns
+    let columns = sat.columns;
+    if (columns.includes('*') || columns.length === 0) {
+      columns = await extractSatelliteColumns(sat.name);
+    }
+    
+    // Skip if still '*' (could not extract)
+    if (columns.includes('*')) {
+      satColumnsList.push(`    -- TODO: Spalten für ${sat.name} manuell hinzufügen`);
+      continue;
+    }
+    
+    for (const col of columns) {
+      const uniqueAlias = getUniqueColumnAlias(sat.name, col, usedAliases);
+      if (uniqueAlias === col) {
+        satColumnsList.push(`    ${alias}.${col}`);
+      } else {
+        satColumnsList.push(`    ${alias}.${col} AS ${uniqueAlias}`);
+      }
+    }
+  }
+  const satColumns = satColumnsList.join(',\n');
   
   // Build satellite joins
-  const satJoins = satellites.map((sat, idx) => {
-    const alias = sat.name.replace('sat_', 's_');
+  const satJoins = satellites.map(sat => {
+    const alias = sat.name.replace('sat_', 's_').replace('eff_sat_', 'es_');
+    const satEntity = sat.name.replace('sat_', '').replace('eff_sat_', '');
+    const satHk = `hk_${satEntity}`;
+    // Use the hub's hash key if satellite is for the base entity
+    const joinKey = satEntity === entity ? hashKey : satHk;
     const currentFilter = sat.currentOnly !== false ? `\n    AND ${alias}.dss_is_current = 'Y'` : '';
     return `-- ${sat.name}
 LEFT JOIN {{ ref('${sat.name}') }} ${alias}
-    ON h.${hashKey} = ${alias}.${hashKey}${currentFilter}`;
+    ON h.${hashKey} = ${alias}.${joinKey}${currentFilter}`;
   }).join('\n\n');
   
   // Build link joins (if any)
@@ -72,7 +186,7 @@ LEFT JOIN {{ ref('${link.name}') }} ${linkAlias}
     ON h.${hashKey} = ${linkAlias}.${hashKey}`;
     
     if (link.targetSatellite) {
-      const targetSatAlias = link.targetSatellite.replace('sat_', 's_');
+      const targetSatAlias = link.targetSatellite.replace('sat_', 's_').replace('eff_sat_', 'es_');
       joinSql += `
 LEFT JOIN {{ ref('${link.targetSatellite}') }} ${targetSatAlias}
     ON ${linkAlias}.${targetHk} = ${targetSatAlias}.${targetHk}
@@ -82,21 +196,31 @@ LEFT JOIN {{ ref('${link.targetSatellite}') }} ${targetSatAlias}
     return joinSql;
   }).join('\n\n');
   
-  // Build link columns (if any)
-  const linkColumns = links.flatMap(link => {
+  // Build link columns with unique aliases
+  const linkColumnsList: string[] = [];
+  for (const link of links) {
     if (link.columns && link.targetSatellite) {
-      const targetSatAlias = link.targetSatellite.replace('sat_', 's_');
-      return link.columns.map(col => `    ${targetSatAlias}.${col}`);
+      const targetSatAlias = link.targetSatellite.replace('sat_', 's_').replace('eff_sat_', 'es_');
+      for (const col of link.columns) {
+        const uniqueAlias = getUniqueColumnAlias(link.targetSatellite, col, usedAliases);
+        if (uniqueAlias === col) {
+          linkColumnsList.push(`    ${targetSatAlias}.${col}`);
+        } else {
+          linkColumnsList.push(`    ${targetSatAlias}.${col} AS ${uniqueAlias}`);
+        }
+      }
     }
-    return [];
-  }).join(',\n');
+  }
+  const linkColumns = linkColumnsList.join(',\n');
   
   const allColumns = [satColumns, linkColumns].filter(Boolean).join(',\n\n');
   const allJoins = [satJoins, linkJoins].filter(Boolean).join('\n\n');
   
+  const schemaName = subfolder ? `mart_${subfolder}` : 'mart_project';
+  
   const content = `/*
  * Mart View: ${martName}
- * Schema: mart_project
+ * Schema: ${schemaName}
  * 
  * ${description}
  * Flache, denormalisierte View für BI/Reporting.
@@ -136,7 +260,7 @@ Links: ${links.length > 0 ? links.map(l => l.name).join(', ') : 'keine'}
 
 Nächste Schritte:
 1. View bauen: dbt run --select ${martName}
-2. Im BI-Tool verbinden: mart_project.${martName}`;
+2. Im BI-Tool verbinden: ${schemaName}.${martName}`;
 }
 
 export const createMartTool = {

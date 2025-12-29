@@ -2,16 +2,19 @@
  * Tool: Create Staging View
  * 
  * Creates a dbt staging model with hash calculations.
+ * Includes DV 2.1 validation.
  */
 
 import { z } from 'zod';
 import * as path from 'path';
 import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { validateStaging, formatValidationResult } from '../validators/dataVaultRules.js';
+import { resultBox, formatError } from '../ui.js';
 
 export const createStagingSchema = z.object({
   entityName: z.string().describe('Name der Entity (z.B. "product")'),
   externalTable: z.string().describe('External Table Name (z.B. "ext_product")'),
-  businessKeyColumn: z.string().describe('Business Key Spalte (z.B. "object_id")'),
+  businessKeyColumns: z.array(z.string()).describe('Business Key Spalten (z.B. ["object_id"] oder ["tenant_id", "object_id"])'),
   payloadColumns: z.array(z.string()).describe('Payload-Spalten für Hash Diff'),
   foreignKeys: z.array(z.object({
     column: z.string(),
@@ -22,16 +25,45 @@ export const createStagingSchema = z.object({
 export type CreateStagingInput = z.infer<typeof createStagingSchema>;
 
 export async function createStaging(input: CreateStagingInput): Promise<string> {
-  const { entityName, externalTable, businessKeyColumn, payloadColumns, foreignKeys = [] } = input;
+  const { entityName, externalTable, businessKeyColumns, payloadColumns, foreignKeys = [] } = input;
   
   const stagingName = `stg_${entityName}`;
   const hashKey = `hk_${entityName}`;
   const hashDiff = `hd_${entityName}`;
   const filePath = path.join(PATHS.staging, `${stagingName}.sql`);
   
-  // Check if file already exists
+  const output: string[] = [];
+  
+  // === VALIDATION ===
+  const validation = validateStaging({
+    name: stagingName,
+    source: externalTable,
+    columns: [...businessKeyColumns, ...payloadColumns],
+    hashKey,
+    hashDiff,
+  });
+  
+  if (!validation.valid) {
+    output.push(resultBox({
+      status: 'ERROR',
+      title: 'Validation Failed',
+      message: formatValidationResult(validation),
+    }));
+    return output.join('\n');
+  }
+  
+  if (validation.warnings.length > 0) {
+    output.push(resultBox({
+      status: 'WARN',
+      title: 'Validation Warnings',
+      message: formatValidationResult(validation),
+    }));
+  }
+  
+  // === FILE EXISTS CHECK ===
   if (await fileExists(filePath)) {
-    return `❌ Fehler: ${stagingName}.sql existiert bereits unter ${getRelativePath(filePath)}`;
+    output.push(formatError('FILE_EXISTS', getRelativePath(filePath), 'Use different entity name or delete existing file'));
+    return output.join('\n');
   }
   
   // Build hashdiff columns list
@@ -52,11 +84,27 @@ export async function createStaging(input: CreateStagingInput): Promise<string> 
     `                ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
   ).join(',\n');
   
+  // Build Business Key hash - supports composite keys with ^^ separator (DV 2.1)
+  const isCompositeKey = businessKeyColumns.length > 1;
+  const bkHashCalc = isCompositeKey
+    ? `CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT_WS('^^',
+                ${businessKeyColumns.map(col => `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`).join(',\n                ')}
+            )
+        ), 2)`
+    : `CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(${businessKeyColumns[0]} AS NVARCHAR(MAX)), '')
+        ), 2)`;
+  
+  // Build Business Key columns list
+  const bkColumnsList = businessKeyColumns.map(col => `        ${col}`).join(',\n');
+
   const content = `/*
  * Staging Model: ${stagingName}
  * 
  * Bereitet ${entityName}-Daten für das Data Vault vor.
  * Hash Key Separator: '^^' (DV 2.1 Standard)
+ * Business Key${isCompositeKey ? 's (Composite)' : ''}: ${businessKeyColumns.join(', ')}
  */
 
 {%- set hashdiff_columns = [
@@ -72,9 +120,7 @@ staged AS (
         -- ===========================================
         -- HASH KEYS
         -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(${businessKeyColumn} AS NVARCHAR(MAX)), '')
-        ), 2) AS ${hashKey},
+        ${bkHashCalc} AS ${hashKey},
 ${fkHashKeys}
         -- ===========================================
         -- HASH DIFF (Change Detection)
@@ -86,9 +132,9 @@ ${hashdiffConcat}
         ), 2) AS ${hashDiff},
         
         -- ===========================================
-        -- BUSINESS KEY
+        -- BUSINESS KEY${isCompositeKey ? 'S' : ''}
         -- ===========================================
-        ${businessKeyColumn},
+${bkColumnsList},
         
         -- ===========================================
         -- PAYLOAD
@@ -110,49 +156,59 @@ SELECT * FROM staged
 
   await writeFile(filePath, content);
   
+  // === SUCCESS OUTPUT ===
   const fkInfo = foreignKeys.length > 0 
-    ? `\nFK Hash Keys: ${foreignKeys.map(fk => `hk_${fk.targetEntity}`).join(', ')}`
-    : '';
+    ? foreignKeys.map(fk => `hk_${fk.targetEntity}`).join(', ')
+    : 'none';
   
-  return `✅ Staging View erstellt: ${getRelativePath(filePath)}
+  output.push(resultBox({
+    status: 'OK',
+    title: `Created: ${stagingName}`,
+    details: {
+      'Path': getRelativePath(filePath),
+      'Source': externalTable,
+      'Hash Key': hashKey,
+      'Hash Diff': hashDiff,
+      'Business Key(s)': businessKeyColumns.join(', '),
+      'Composite Key': isCompositeKey ? 'Yes (^^-separated)' : 'No',
+      'FK Hash Keys': fkInfo,
+    },
+  }));
+  
+  output.push(`
+[WARN] External table must exist in sources.yml
 
-Hash Key: ${hashKey}
-Hash Diff: ${hashDiff}${fkInfo}
+[NEXT]
+  dbt run-operation stage_external_sources
+  dbt run --select ${stagingName}`);
 
-⚠️ WICHTIG: External Table muss existieren!
-Falls nicht vorhanden, füge sie zu models/staging/sources.yml hinzu.
-
-Nächste Schritte:
-1. External Table prüfen/erstellen in sources.yml
-2. dbt run-operation stage_external_sources
-3. Staging testen: dbt run --select ${stagingName}`;
+  return output.join('\n');
 }
 
 export const createStagingTool = {
   name: 'create_staging',
-  description: `Erstellt ein Staging View Model mit Hash-Berechnungen.
-Berechnet hk_<entity> (Hash Key) und hd_<entity> (Hash Diff).
-Verwendet SQL Server HASHBYTES für Hash-Berechnung.
-Namenskonvention: stg_<entity>`,
+  description: `Creates a staging view with hash calculations.
+Calculates hk_<entity> (hash key) and hd_<entity> (hash diff).
+Uses SQL Server HASHBYTES for SHA2_256 hashing.`,
   input_schema: {
     type: 'object' as const,
     properties: {
       entityName: {
         type: 'string',
-        description: 'Name der Entity (z.B. "product")',
+        description: 'Entity name without prefix (e.g., "product")',
       },
       externalTable: {
         type: 'string',
-        description: 'External Table Name (z.B. "ext_product")',
+        description: 'External table name (e.g., "ext_product")',
       },
       businessKeyColumn: {
         type: 'string',
-        description: 'Business Key Spalte (z.B. "object_id")',
+        description: 'Business key column (e.g., "object_id")',
       },
       payloadColumns: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Payload-Spalten für Hash Diff',
+        description: 'Attribute columns for hash diff',
       },
       foreignKeys: {
         type: 'array',
@@ -164,7 +220,7 @@ Namenskonvention: stg_<entity>`,
           },
           required: ['column', 'targetEntity'],
         },
-        description: 'Foreign Keys zu anderen Entities',
+        description: 'Foreign keys to other entities',
       },
     },
     required: ['entityName', 'externalTable', 'businessKeyColumn', 'payloadColumns'],

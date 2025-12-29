@@ -3,6 +3,10 @@
  */
 
 export type MenuAction =
+  | 'browse_objects'
+  | 'deploy_models'
+  | 'edit_object'
+  | 'delete_object'
   | 'add_attribute'
   | 'create_entity'
   | 'create_hub'
@@ -23,65 +27,112 @@ export interface MenuChoice {
 
 export const MENU_CHOICES: MenuChoice[] = [
   {
-    name: '📦 Neues Attribut hinzufügen',
-    value: 'add_attribute',
-    description: 'Attribut zu bestehendem Satellite hinzufügen',
+    name: '[B] Bestehende Objekte anzeigen',
+    value: 'browse_objects',
+    description: 'Models, Hubs, Satellites, Views erkunden',
   },
   {
-    name: '🆕 Neue Entity erstellen (komplett)',
+    name: '[D] Models deployen',
+    value: 'deploy_models',
+    description: 'Einzelne oder alle Models ausfuehren',
+  },
+  {
+    name: '[~] Objekt bearbeiten',
+    value: 'edit_object',
+    description: 'Staging, Hub, Satellite, Link bearbeiten',
+  },
+  {
+    name: '[-] Objekt loeschen',
+    value: 'delete_object',
+    description: 'Model-Datei loeschen (mit Bestaetigung)',
+  },
+  {
+    name: '[+] Neues Attribut hinzufuegen',
+    value: 'add_attribute',
+    description: 'Attribut zu bestehendem Satellite hinzufuegen',
+  },
+  {
+    name: '[E] Neue Entity erstellen (komplett)',
     value: 'create_entity',
     description: 'External Table + Staging + Hub + Satellite',
   },
   {
-    name: '🏠 Hub erstellen',
+    name: '[H] Hub erstellen',
     value: 'create_hub',
-    description: 'Einzelnen Hub für Business Keys',
+    description: 'Wizard: Business Keys definieren',
   },
   {
-    name: '🛰️  Satellite erstellen',
+    name: '[S] Satellite erstellen',
     value: 'create_satellite',
-    description: 'Satellite für Attribut-Historie',
+    description: 'Wizard: Attribute zu Hub hinzufuegen',
   },
   {
-    name: '🔗 Link erstellen',
+    name: '[L] Link erstellen',
     value: 'create_link',
-    description: 'Link zwischen zwei Hubs',
+    description: 'Wizard: Hubs verbinden',
   },
   {
-    name: '📚 Reference Table erstellen',
+    name: '[R] Reference Table erstellen',
     value: 'create_ref_table',
-    description: 'Seed CSV für Lookup-Daten',
+    description: 'Seed CSV fuer Lookup-Daten',
   },
   {
-    name: '⏱️  Effectivity Satellite erstellen',
+    name: '[F] Effectivity Satellite erstellen',
     value: 'create_eff_sat',
-    description: 'Zeitliche Gültigkeit für Links',
+    description: 'Zeitliche Gueltigkeit fuer Links',
   },
   {
-    name: '📊 PIT Table erstellen',
+    name: '[P] PIT Table erstellen',
     value: 'create_pit',
     description: 'Point-in-Time Lookup Table',
   },
   {
-    name: '👁️  Mart View erstellen',
+    name: '[M] Mart View erstellen',
     value: 'create_mart',
-    description: 'Flache View für BI/Reporting',
+    description: 'Wizard: BI/Reporting View',
   },
   {
-    name: '🧪 Tests hinzufügen',
+    name: '[T] Tests hinzufuegen',
     value: 'add_tests',
-    description: 'Tests zu schema.yml hinzufügen',
+    description: 'Tests zu schema.yml hinzufuegen',
   },
   {
-    name: '❌ Beenden',
+    name: '[X] Beenden',
     value: 'exit',
     description: 'Agent beenden',
   },
 ];
 
 export const ACTION_DESCRIPTIONS: Record<MenuAction, string> = {
+  browse_objects: `
+Zeigt alle bestehenden Objekte im Projekt an:
+• Staging Views (stg_*)
+• Raw Vault: Hubs, Satellites, Links
+• Business Vault: PITs, Bridges
+• Mart Views fuer Reporting
+`,
+  deploy_models: `
+Fuehrt dbt run fuer ausgewaehlte Models aus.
+Optionen:
+• Einzelnes Model auswaehlen
+• Mehrere Models auswaehlen
+• Alle nicht-deployed Models
+• Nach Layer (staging, raw_vault, mart)
+`,
+  edit_object: `
+Bearbeitet ein bestehendes dbt Model.
+Die AI liest das aktuelle Model und hilft bei Aenderungen:
+• Spalten hinzufuegen/entfernen
+• SQL-Logik anpassen
+• Hash-Berechnungen korrigieren
+`,
+  delete_object: `
+Loescht ein dbt Model.
+ACHTUNG: Diese Aktion kann nicht rueckgaengig gemacht werden!
+Nach dem Loeschen werden Referenzen geprueft.
+`,
   add_attribute: `
-Fügt ein neues Attribut zu einem bestehenden Satellite hinzu.
+Fuegt ein neues Attribut zu einem bestehenden Satellite hinzu.
 Schritte:
 1. External Table (sources.yml) erweitern
 2. Staging View erweitern
@@ -95,39 +146,28 @@ Schritte:
 2. Staging View erstellen (stg_<entity>.sql)
 3. Hub erstellen (hub_<entity>.sql)
 4. Satellite erstellen (sat_<entity>.sql)
-5. Tests in schema.yml hinzufügen
+5. Tests in schema.yml hinzufuegen
 `,
-  create_hub: `
-Erstellt einen einzelnen Hub für Business Keys.
-Ein Hub speichert eindeutige Business Keys und ist insert-only.
-`,
-  create_satellite: `
-Erstellt einen Satellite für Attribut-Historie.
-Satellites speichern Änderungen an Attributen mit vollständiger Historie.
-`,
-  create_link: `
-Erstellt einen Link zwischen zwei Hubs.
-Links modellieren Beziehungen zwischen Business Entities.
-`,
+  // Wizard-based actions - no description needed, wizard provides guidance
+  create_hub: '',
+  create_satellite: '',
+  create_link: '',
+  create_mart: '',
+  
   create_ref_table: `
 Erstellt eine Reference Table als dbt Seed (CSV).
-Ideal für Lookup-Daten wie Status-Codes, Rollen, etc.
+Ideal fuer Lookup-Daten wie Status-Codes, Rollen, etc.
 `,
   create_eff_sat: `
-Erstellt einen Effectivity Satellite für zeitliche Link-Gültigkeit.
+Erstellt einen Effectivity Satellite fuer zeitliche Link-Gueltigkeit.
 Trackt wann eine Beziehung aktiv/inaktiv war.
 `,
   create_pit: `
 Erstellt eine Point-in-Time (PIT) Table.
-Optimiert historische Abfragen über mehrere Satellites.
-`,
-  create_mart: `
-Erstellt eine Mart View für BI/Reporting.
-Flache, denormalisierte View für einfachen Zugriff.
+Optimiert historische Abfragen ueber mehrere Satellites.
 `,
   add_tests: `
-Fügt dbt Tests zu schema.yml hinzu.
-Unterstützt: not_null, unique, relationships, accepted_values.
+Fuegt dbt Tests zu schema.yml hinzu.
+Unterstuetzt: not_null, unique, relationships, accepted_values.
 `,
-  exit: '',
-};
+  exit: '',};

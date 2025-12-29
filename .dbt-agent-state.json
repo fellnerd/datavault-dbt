@@ -1,0 +1,27 @@
+{
+  "deployedModels": [
+    "stg_company",
+    "stg_country",
+    "eff_sat_company_country",
+    "hub_company",
+    "link_company_country",
+    "link_company_role",
+    "sat_company",
+    "sat_company_client_ext",
+    "hub_country",
+    "sat_country",
+    "company_current_v",
+    "pit_company",
+    "v_company_current",
+    "v_company_top3",
+    "v_company_top5",
+    "v_top10_customers",
+    "v_countries",
+    "v_country_names",
+    "stage_external_sources",
+    "stg_project",
+    "hub_project",
+    "sat_project"
+  ],
+  "lastUpdated": "2025-12-29T01:09:11.321Z"
+}

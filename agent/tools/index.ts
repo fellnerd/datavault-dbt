@@ -18,6 +18,9 @@ import { addTests, addTestsTool } from './addTests.js';
 import { addAttribute, addAttributeTool } from './addAttribute.js';
 import { readProjectFile, readFileTool } from './readFile.js';
 import { listProjectFiles, listFilesTool } from './listFiles.js';
+import { handleRunCommand, runCommandTool } from './runCommand.js';
+import { editModel, editModelTool } from './editModel.js';
+import { deleteModel, deleteModelTool } from './deleteModel.js';
 
 // Tool definitions for Claude API
 export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
@@ -31,14 +34,17 @@ export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
   createMartTool,
   addTestsTool,
   addAttributeTool,
+  editModelTool,
+  deleteModelTool,
   readFileTool,
   listFilesTool,
+  runCommandTool,
 ];
 
 // Tool execution handlers
 type ToolHandler = (input: unknown) => Promise<string>;
 
-const TOOL_HANDLERS: Record<string, ToolHandler> = {
+export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   create_hub: (input) => createHub(input as Parameters<typeof createHub>[0]),
   create_satellite: (input) => createSatellite(input as Parameters<typeof createSatellite>[0]),
   create_link: (input) => createLink(input as Parameters<typeof createLink>[0]),
@@ -49,8 +55,11 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   create_mart: (input) => createMart(input as Parameters<typeof createMart>[0]),
   add_tests: (input) => addTests(input as Parameters<typeof addTests>[0]),
   add_attribute: (input) => addAttribute(input as Parameters<typeof addAttribute>[0]),
+  edit_model: (input) => editModel(input as Parameters<typeof editModel>[0]),
+  delete_model: (input) => deleteModel(input as Parameters<typeof deleteModel>[0]),
   read_file: (input) => readProjectFile(input as Parameters<typeof readProjectFile>[0]),
   list_files: (input) => listProjectFiles(input as Parameters<typeof listProjectFiles>[0]),
+  run_command: (input) => handleRunCommand(input as Parameters<typeof handleRunCommand>[0]),
 };
 
 /**
@@ -74,5 +83,13 @@ export async function executeTool(name: string, input: unknown): Promise<string>
  * Get all tools for the Claude API
  */
 export function getAllTools(): Anthropic.Messages.Tool[] {
+  return TOOL_DEFINITIONS;
+}
+
+/**
+ * Get all tools for follow-up interactions
+ * Returns the same tools as getAllTools() - all tools available in follow-up
+ */
+export function getFollowUpTools(): Anthropic.Messages.Tool[] {
   return TOOL_DEFINITIONS;
 }

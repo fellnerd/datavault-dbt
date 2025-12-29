@@ -2,11 +2,21 @@
  * Tool: Create Satellite
  * 
  * Creates a Data Vault Satellite model file.
+ * Includes DV 2.1 validation and dependency checking.
  */
 
 import { z } from 'zod';
 import * as path from 'path';
 import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { 
+  validateSatellite, 
+  formatValidationResult 
+} from '../validators/dataVaultRules.js';
+import { 
+  checkSatelliteDependencies, 
+  formatDependencyResult 
+} from '../validators/dependencies.js';
+import { resultBox, formatError } from '../ui.js';
 
 export const createSatelliteSchema = z.object({
   entityName: z.string().describe('Name der Entity (z.B. "product", "customer")'),
@@ -23,27 +33,68 @@ export async function createSatellite(input: CreateSatelliteInput): Promise<stri
   const satName = `sat_${entityName}`;
   const hashKey = `hk_${entityName}`;
   const hashDiff = `hd_${entityName}`;
+  const hubRef = parentHub || `hub_${entityName}`;
   const filePath = path.join(PATHS.satellites, `${satName}.sql`);
   
-  // Check if file already exists
-  if (await fileExists(filePath)) {
-    return `❌ Fehler: ${satName}.sql existiert bereits unter ${getRelativePath(filePath)}`;
+  const output: string[] = [];
+  
+  // === VALIDATION ===
+  const validation = validateSatellite({
+    name: satName,
+    hashKey,
+    hashDiff,
+    parentHub: hubRef,
+    attributes: payloadColumns,
+  });
+  
+  if (!validation.valid) {
+    output.push(resultBox({
+      status: 'ERROR',
+      title: 'Validation Failed',
+      message: formatValidationResult(validation),
+    }));
+    return output.join('\n');
   }
   
+  if (validation.warnings.length > 0) {
+    output.push(resultBox({
+      status: 'WARN',
+      title: 'Validation Warnings',
+      message: formatValidationResult(validation),
+    }));
+  }
+  
+  // === DEPENDENCY CHECK ===
+  const deps = checkSatelliteDependencies({
+    name: satName,
+    parentHub: hubRef,
+    staging: sourceModel,
+  });
+  
+  if (!deps.valid) {
+    output.push(resultBox({
+      status: 'ERROR',
+      title: 'Missing Dependencies',
+      message: formatDependencyResult(deps),
+    }));
+    output.push('\n[SUGGESTION] Create missing objects first, or use --force to skip check');
+    return output.join('\n');
+  }
+  
+  // === FILE EXISTS CHECK ===
+  if (await fileExists(filePath)) {
+    output.push(formatError('FILE_EXISTS', getRelativePath(filePath), 'Use different entity name or delete existing file'));
+    return output.join('\n');
+  }
+  
+  // === GENERATE MODEL ===
   const payloadCols = payloadColumns.map(col => `        ${col}`).join(',\n');
   const srcPayloadCols = payloadColumns.map(col => `        src.${col}`).join(',\n');
   
-  const hubRef = parentHub || `hub_${entityName}`;
-  
   const content = `/*
  * Satellite: ${satName}
- * Schema: vault
- * 
- * Speichert ${entityName}-Attribute mit vollständiger Historie.
- * Änderungen werden durch Hash Diff erkannt.
- * 
- * dss_is_current: 'Y' für aktuellen Eintrag, 'N' für historische
- * dss_end_date: Ende der Gültigkeit (NULL = aktuell)
+ * Parent Hub: ${hubRef}
+ * Source: ${sourceModel}
  */
 
 {{ config(
@@ -61,7 +112,6 @@ WITH source_data AS (
         ${hashDiff},
         dss_load_date,
         dss_record_source,
-        -- Payload
 ${payloadCols}
     FROM {{ ref('${sourceModel}') }}
     WHERE ${hashKey} IS NOT NULL
@@ -102,42 +152,51 @@ FROM new_records
 
   await writeFile(filePath, content);
   
-  return `✅ Satellite erstellt: ${getRelativePath(filePath)}
+  // === SUCCESS OUTPUT ===
+  output.push(resultBox({
+    status: 'OK',
+    title: `Created: ${satName}`,
+    details: {
+      'Path': getRelativePath(filePath),
+      'Parent Hub': hubRef,
+      'Hash Key': hashKey,
+      'Hash Diff': hashDiff,
+      'Attributes': payloadColumns.length.toString(),
+    },
+  }));
+  
+  output.push(`
+[NEXT]
+  dbt run --select ${satName}
+  dbt test --select ${satName}`);
 
-Zugehöriger Hub: ${hubRef}
-
-Nächste Schritte:
-1. Prüfen ob Hash Diff (${hashDiff}) im Staging berechnet wird
-2. Tests zu models/schema.yml hinzufügen (relationships zu ${hubRef})
-3. Satellite bauen: dbt run --select ${satName}
-4. Tests ausführen: dbt test --select ${satName}`;
+  return output.join('\n');
 }
 
 export const createSatelliteTool = {
   name: 'create_satellite',
-  description: `Erstellt ein Data Vault Satellite Model.
-Satellites speichern Attribute mit vollständiger Historie.
-Verwendet post_hook für dss_is_current Flag.
-Namenskonvention: sat_<entity>`,
+  description: `Creates a Data Vault 2.1 Satellite model.
+Validates naming conventions and checks dependencies (hub, staging).
+Includes hash diff for change detection and current flag logic.`,
   input_schema: {
     type: 'object' as const,
     properties: {
       entityName: {
         type: 'string',
-        description: 'Name der Entity (z.B. "product", "customer")',
+        description: 'Entity name without prefix (e.g., "product", "customer")',
       },
       payloadColumns: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Payload-Spalten (Attribute)',
+        description: 'Attribute columns to track',
       },
       sourceModel: {
         type: 'string',
-        description: 'Quell-Staging-Model (z.B. "stg_product")',
+        description: 'Source staging model (e.g., "stg_product")',
       },
       parentHub: {
         type: 'string',
-        description: 'Zugehöriger Hub (z.B. "hub_product") - optional',
+        description: 'Parent hub name (e.g., "hub_product") - optional, defaults to hub_<entity>',
       },
     },
     required: ['entityName', 'payloadColumns', 'sourceModel'],

@@ -2,11 +2,15 @@
  * Tool: Create Hub
  * 
  * Creates a Data Vault Hub model file.
+ * Includes DV 2.1 validation and dependency checking.
  */
 
 import { z } from 'zod';
 import * as path from 'path';
 import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { validateHub, formatValidationResult } from '../validators/dataVaultRules.js';
+import { checkStagingDependencies, formatDependencyResult } from '../validators/dependencies.js';
+import { resultBox, formatError } from '../ui.js';
 
 export const createHubSchema = z.object({
   entityName: z.string().describe('Name der Entity (z.B. "product", "customer")'),
@@ -23,19 +27,61 @@ export async function createHub(input: CreateHubInput): Promise<string> {
   const hashKey = `hk_${entityName}`;
   const filePath = path.join(PATHS.hubs, `${hubName}.sql`);
   
-  // Check if file already exists
-  if (await fileExists(filePath)) {
-    return `❌ Fehler: ${hubName}.sql existiert bereits unter ${getRelativePath(filePath)}`;
+  const output: string[] = [];
+  
+  // === VALIDATION ===
+  const validation = validateHub({
+    name: hubName,
+    hashKey,
+    businessKeys: businessKeyColumns,
+    source: sourceModel,
+  });
+  
+  if (!validation.valid) {
+    output.push(resultBox({
+      status: 'ERROR',
+      title: 'Validation Failed',
+      message: formatValidationResult(validation),
+    }));
+    return output.join('\n');
   }
   
+  if (validation.warnings.length > 0) {
+    output.push(resultBox({
+      status: 'WARN',
+      title: 'Validation Warnings',
+      message: formatValidationResult(validation),
+    }));
+  }
+  
+  // === DEPENDENCY CHECK ===
+  const deps = checkStagingDependencies({
+    name: hubName,
+    externalTable: sourceModel.replace('stg_', 'ext_'),
+  });
+  
+  // Dependency check is warning-only for hubs (staging might be created together)
+  if (!deps.valid) {
+    output.push(resultBox({
+      status: 'WARN',
+      title: 'Dependencies',
+      message: formatDependencyResult(deps) + '\nHub will be created anyway.',
+    }));
+  }
+  
+  // === FILE EXISTS CHECK ===
+  if (await fileExists(filePath)) {
+    output.push(formatError('FILE_EXISTS', getRelativePath(filePath), 'Use different entity name or delete existing file'));
+    return output.join('\n');
+  }
+  
+  // === GENERATE MODEL ===
   const businessKeyCols = businessKeyColumns.join(',\n        ');
   
   const content = `/*
  * Hub: ${hubName}
- * Schema: vault
- * 
- * Speichert eindeutige Business Keys für ${entityName}.
- * Insert-Only: Neue Einträge werden hinzugefügt, nie gelöscht.
+ * Source: ${sourceModel}
+ * Business Keys: ${businessKeyColumns.join(', ')}
  */
 
 {{ config(
@@ -80,35 +126,46 @@ SELECT * FROM new_records
 
   await writeFile(filePath, content);
   
-  return `✅ Hub erstellt: ${getRelativePath(filePath)}
+  // === SUCCESS OUTPUT ===
+  output.push(resultBox({
+    status: 'OK',
+    title: `Created: ${hubName}`,
+    details: {
+      'Path': getRelativePath(filePath),
+      'Hash Key': hashKey,
+      'Business Keys': businessKeyColumns.join(', '),
+      'Source': sourceModel,
+    },
+  }));
+  
+  output.push(`
+[NEXT]
+  dbt run --select ${hubName}
+  dbt test --select ${hubName}`);
 
-Nächste Schritte:
-1. Tests zu models/schema.yml hinzufügen
-2. External Table prüfen: dbt run-operation stage_external_sources
-3. Hub bauen: dbt run --select ${hubName}
-4. Tests ausführen: dbt test --select ${hubName}`;
+  return output.join('\n');
 }
 
 export const createHubTool = {
   name: 'create_hub',
-  description: `Erstellt ein Data Vault Hub Model.
-Hubs speichern eindeutige Business Keys und sind insert-only.
-Namenskonvention: hub_<entity>`,
+  description: `Creates a Data Vault 2.1 Hub model.
+Validates naming conventions (hub_<entity>, hk_<entity>).
+Hubs store unique business keys and are insert-only.`,
   input_schema: {
     type: 'object' as const,
     properties: {
       entityName: {
         type: 'string',
-        description: 'Name der Entity (z.B. "product", "customer")',
+        description: 'Entity name without prefix (e.g., "product", "customer")',
       },
       businessKeyColumns: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Business Key Spalte(n)',
+        description: 'Business key column(s)',
       },
       sourceModel: {
         type: 'string',
-        description: 'Quell-Staging-Model (z.B. "stg_product")',
+        description: 'Source staging model (e.g., "stg_product")',
       },
     },
     required: ['entityName', 'businessKeyColumns', 'sourceModel'],
