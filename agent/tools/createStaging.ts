@@ -189,7 +189,8 @@ export const createStagingTool = {
   name: 'create_staging',
   description: `Creates a staging view with hash calculations.
 Calculates hk_<entity> (hash key) and hd_<entity> (hash diff).
-Uses SQL Server HASHBYTES for SHA2_256 hashing.`,
+Uses SQL Server HASHBYTES for SHA2_256 hashing.
+Supports composite business keys (multiple columns).`,
   input_schema: {
     type: 'object' as const,
     properties: {
@@ -201,9 +202,10 @@ Uses SQL Server HASHBYTES for SHA2_256 hashing.`,
         type: 'string',
         description: 'External table name (e.g., "ext_product")',
       },
-      businessKeyColumn: {
-        type: 'string',
-        description: 'Business key column (e.g., "object_id")',
+      businessKeyColumns: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Business key column(s) (e.g., ["object_id"] or ["tenant_id", "object_id"] for composite)',
       },
       payloadColumns: {
         type: 'array',
@@ -223,6 +225,6 @@ Uses SQL Server HASHBYTES for SHA2_256 hashing.`,
         description: 'Foreign keys to other entities',
       },
     },
-    required: ['entityName', 'externalTable', 'businessKeyColumn', 'payloadColumns'],
+    required: ['entityName', 'externalTable', 'businessKeyColumns', 'payloadColumns'],
   },
 };

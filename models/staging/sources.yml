@@ -339,3 +339,122 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # Invoice (Rechnungen)
+      # ===========================================
+      - name: ext_invoice
+        description: "Werkportal Invoices - External Table"
+        external:
+          location: "werkportal/postgres/public.wp_invoices.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: object_id
+            data_type: BIGINT
+            description: "Business Key - Primärschlüssel aus Quellsystem"
+            tests:
+              - not_null
+          - name: date_created
+            data_type: DATETIME2
+          - name: date_updated
+            data_type: DATETIME2
+          - name: subscription
+            data_type: NVARCHAR(4000)
+          - name: name
+            data_type: NVARCHAR(4000)
+            description: "Rechnungsname/-nummer"
+          - name: state
+            data_type: NVARCHAR(4000)
+            description: "Rechnungsstatus"
+          - name: deductions_description
+            data_type: NVARCHAR(4000)
+            description: "Beschreibung der Abzüge"
+          - name: gross
+            data_type: BIT
+            description: "Brutto-Flag"
+          - name: invoicing_period_year
+            data_type: "NUMERIC(38,18)"
+            description: "Abrechnungsjahr"
+          - name: project
+            data_type: BIGINT
+            description: "FK zu Project"
+          - name: invoice_date
+            data_type: DATETIME2
+            description: "Rechnungsdatum"
+          - name: date_payed
+            data_type: DATETIME2
+            description: "Zahlungsdatum"
+          - name: description
+            data_type: NVARCHAR(4000)
+            description: "Beschreibung"
+          - name: advance_payment
+            data_type: BIT
+            description: "Vorauszahlung-Flag"
+          - name: date_payed_internally
+            data_type: DATETIME2
+            description: "Internes Zahlungsdatum"
+          - name: payed
+            data_type: NVARCHAR(4000)
+            description: "Bezahlt-Status"
+          - name: contractor
+            data_type: BIGINT
+            description: "FK zu Company Contractor"
+          - name: client
+            data_type: BIGINT
+            description: "FK zu Company Client"
+          - name: sum_goal
+            data_type: "NUMERIC(38,18)"
+            description: "Zielsumme"
+          - name: credit_period
+            data_type: "NUMERIC(38,18)"
+            description: "Zahlungsziel (Tage)"
+          - name: deductions
+            data_type: "NUMERIC(38,18)"
+            description: "Abzüge"
+          - name: sum_payed
+            data_type: "NUMERIC(38,18)"
+            description: "Bezahlte Summe"
+          - name: hours_worked
+            data_type: "NUMERIC(38,18)"
+            description: "Gearbeitete Stunden"
+          - name: subtractions
+            data_type: "NUMERIC(38,18)"
+            description: "Subtraktionen"
+          - name: credit_rating_check
+            data_type: "NUMERIC(38,18)"
+            description: "Bonitätsprüfung"
+          - name: discount
+            data_type: "NUMERIC(38,18)"
+            description: "Rabatt"
+          - name: ordering
+            data_type: "NUMERIC(38,18)"
+            description: "Sortierung"
+          - name: createdby
+            data_type: NVARCHAR(4000)
+            description: "Erstellt von"
+          - name: member
+            data_type: NVARCHAR(4000)
+            description: "Zugeordnetes Mitglied"
+          - name: pay_target_date
+            data_type: DATETIME2
+            description: "Zahlungszieldatum"
+          - name: u_amount
+            data_type: "NUMERIC(38,18)"
+            description: "U-Betrag"
+          - name: comission_amount
+            data_type: "NUMERIC(38,18)"
+            description: "Provisionsbetrag"
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+            description: "Datenquelle"
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+            description: "Ladedatum"
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+            description: "Pipeline Run ID"
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
