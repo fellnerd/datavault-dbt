@@ -34,15 +34,74 @@ const RAG_SIMILARITY_THRESHOLD = parseFloat(process.env.RAG_SIMILARITY_THRESHOLD
 // Project root (parent of agent directory)
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-// Documents to index for RAG
+// Documents to index for RAG - organized by category
 const DOCUMENTS_TO_INDEX = [
+  // === Documentation ===
   'LESSONS_LEARNED.md',
   'docs/SYSTEM.md',
   'docs/USER.md',
   'docs/DEVELOPER.md',
   'docs/MODEL_ARCHITECTURE.md',
+  'docs/MCP_SERVER.md',
+  'docs/RAG_SYSTEM.md',
+  
+  // === Instructions & Prompts ===
   '.github/copilot-instructions.md',
   '.github/instructions/datavault-dbt.instructions.md',
+  
+  // === dbt Configuration ===
+  'dbt_project.yml',
+  
+  // === Macros (SQL Templates) ===
+  'macros/generate_schema_name.sql',
+  'macros/hash_override.sql',
+  'macros/satellite_current_flag.sql',
+  'macros/ghost_records.sql',
+  'macros/cleanup_old_objects.sql',
+  
+  // === Staging Layer ===
+  'models/staging/sources.yml',
+  'models/staging/stg_company.sql',
+  'models/staging/stg_country.sql',
+  'models/staging/stg_project.sql',
+  
+  // === Raw Vault - Hubs ===
+  'models/raw_vault/hubs/hub_company.sql',
+  'models/raw_vault/hubs/hub_country.sql',
+  'models/raw_vault/hubs/hub_project.sql',
+  
+  // === Raw Vault - Satellites ===
+  'models/raw_vault/satellites/sat_company.sql',
+  'models/raw_vault/satellites/sat_company_client_ext.sql',
+  'models/raw_vault/satellites/sat_country.sql',
+  'models/raw_vault/satellites/sat_project.sql',
+  'models/raw_vault/satellites/eff_sat_company_country.sql',
+  
+  // === Raw Vault - Links ===
+  'models/raw_vault/links/link_company_country.sql',
+  'models/raw_vault/links/link_company_role.sql',
+  
+  // === Business Vault ===
+  'models/business_vault/pit_company.sql',
+  
+  // === Marts ===
+  'models/mart/v_company_current.sql',
+  'models/mart/v_company_top3.sql',
+  'models/mart/v_countries.sql',
+  'models/mart/customer/v_top10_customers.sql',
+  'models/mart/project/company_current_v.sql',
+  'models/mart/reference/v_country_names.sql',
+  'models/mart/reporting/v_company_top5.sql',
+  
+  // === Schema Definitions ===
+  'models/schema.yml',
+  'seeds/schema.yml',
+  
+  // === Scripts ===
+  'scripts/setup_werkportal_prod.sql',
+  
+  // === Agent Documentation ===
+  'agent/README.md',
 ];
 
 // ============== Types ==============
@@ -345,6 +404,29 @@ export function getIndexStats(): {
     totalChunks: allChunks.length,
     documentsIndexed: Array.from(documentsIndexed),
     chunksPerDocument,
+  };
+}
+
+/**
+ * Get detailed indexing statistics for CLI display
+ */
+export async function getIndexStatsDetailed(): Promise<{
+  documentsCount: number;
+  chunksCount: number;
+  avgChunksPerDoc: number;
+  documents: Array<{ source_file: string; chunks: number }>;
+}> {
+  const db = getDatabase();
+  
+  // Use the new public method
+  const rows = db.getChunkStats();
+  const chunksCount = rows.reduce((sum, r) => sum + r.chunks, 0);
+  
+  return {
+    documentsCount: rows.length,
+    chunksCount,
+    avgChunksPerDoc: rows.length > 0 ? chunksCount / rows.length : 0,
+    documents: rows,
   };
 }
 

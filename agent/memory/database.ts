@@ -508,6 +508,40 @@ export class AgentDatabase {
   vacuum(): void {
     this.db.exec('VACUUM');
   }
+
+  /**
+   * Execute raw SQL statement (for admin operations)
+   */
+  execRaw(sql: string): void {
+    this.db.exec(sql);
+  }
+
+  /**
+   * Execute raw SQL query and return results
+   */
+  queryRaw<T = unknown>(sql: string): T[] {
+    return this.db.prepare(sql).all() as T[];
+  }
+
+  /**
+   * Clear all document chunks (for re-indexing)
+   */
+  clearAllChunks(): number {
+    const result = this.db.prepare('DELETE FROM doc_chunks').run();
+    return result.changes;
+  }
+
+  /**
+   * Get chunk statistics grouped by source file
+   */
+  getChunkStats(): Array<{ source_file: string; chunks: number }> {
+    return this.db.prepare(`
+      SELECT source_file, COUNT(*) as chunks 
+      FROM doc_chunks 
+      GROUP BY source_file 
+      ORDER BY source_file
+    `).all() as Array<{ source_file: string; chunks: number }>;
+  }
 }
 
 // Singleton instance

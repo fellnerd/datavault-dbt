@@ -9,7 +9,11 @@
     "dev": "tsx watch index.ts",
     "build": "tsc",
     "mcp": "node dist/mcp-server.js",
-    "mcp:dev": "tsx mcp-server.ts"
+    "mcp:dev": "tsx mcp-server.ts",
+    "index": "node dist/scripts/index-rag.js index",
+    "index:force": "node dist/scripts/index-rag.js force",
+    "index:stats": "node dist/scripts/index-rag.js stats",
+    "index:search": "node dist/scripts/index-rag.js search"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

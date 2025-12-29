@@ -712,3 +712,45 @@ export async function getAvailableAttributesForSatellite(
   
   return { available, source: extTableName };
 }
+
+/**
+ * Get current attributes from a satellite model
+ */
+export async function getSatelliteAttributes(satelliteName: string): Promise<string[]> {
+  const satPath = path.join(PROJECT_ROOT, 'models', 'raw_vault', 'satellites', `${satelliteName}.sql`);
+  
+  try {
+    const sql = await fs.readFile(satPath, 'utf-8');
+    
+    // Extract payload columns from hashdiff_columns
+    const hashdiffMatch = sql.match(/\{%-?\s*set\s+hashdiff_columns\s*=\s*\[([\s\S]*?)\]\s*-?%\}/i);
+    if (hashdiffMatch) {
+      const columnsStr = hashdiffMatch[1];
+      const columns: string[] = [];
+      const columnMatches = columnsStr.matchAll(/'([^']+)'/g);
+      for (const match of columnMatches) {
+        columns.push(match[1]);
+      }
+      return columns;
+    }
+    
+    // Fallback: extract from SELECT statement
+    const attributes: string[] = [];
+    const selectMatch = sql.match(/SELECT\s+([\s\S]*?)\s+FROM/i);
+    if (selectMatch) {
+      const selectSection = selectMatch[1];
+      const colMatches = selectSection.matchAll(/^\s+([a-z_][a-z0-9_]*)\s*[,\n]/gim);
+      for (const match of colMatches) {
+        const col = match[1].toLowerCase();
+        // Exclude system/hash columns
+        if (!col.startsWith('hk_') && !col.startsWith('hd_') && !col.startsWith('dss_')) {
+          attributes.push(col);
+        }
+      }
+    }
+    
+    return attributes;
+  } catch {
+    return [];
+  }
+}
