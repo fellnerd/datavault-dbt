@@ -7,11 +7,17 @@
 
 import { spawn } from 'child_process';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import type Anthropic from '@anthropic-ai/sdk';
 import chalk from 'chalk';
 
-// PROJECT_ROOT should be the dbt project root (parent of agent directory)
-const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(process.cwd(), '..');
+// Get directory of current file and compute PROJECT_ROOT
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// PROJECT_ROOT should be the dbt project root (3 levels up from dist/tools: dist/tools -> dist -> agent -> project)
+const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '..', '..', '..');
+
+// Path to the Python venv with dbt installed
+const VENV_PATH = path.join(PROJECT_ROOT, '.venv', 'bin');
 
 // Tool definition for Claude API
 export const runCommandTool: Anthropic.Messages.Tool = {
@@ -106,7 +112,9 @@ export async function handleRunCommand(input: RunCommandInput): Promise<string> 
       shell: true,
       cwd,
       env: { 
-        ...process.env, 
+        ...process.env,
+        // Prepend venv to PATH so dbt is found
+        PATH: `${VENV_PATH}:${process.env.PATH}`,
         FORCE_COLOR: '1',
         TERM: 'xterm-256color',
       },

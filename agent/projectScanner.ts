@@ -7,9 +7,12 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-// Project root is parent of agent directory
-const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+// Get directory of current file and compute PROJECT_ROOT
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// PROJECT_ROOT: 3 levels up from dist/ (dist -> agent -> project)
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 // ============================================================================
 // Types

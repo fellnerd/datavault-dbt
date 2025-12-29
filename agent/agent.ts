@@ -12,6 +12,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { type MenuAction, ACTION_DESCRIPTIONS } from './menu.js';
 import { getAllTools, executeTool } from './tools/index.js';
 import { getSystemPrompt } from './context/systemPrompt.js';
@@ -32,8 +33,10 @@ import {
 const client = new Anthropic();
 
 const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
-// PROJECT_ROOT should be the parent directory (dbt project root), not the agent directory
-const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(process.cwd(), '..');
+// Get directory of current file and compute PROJECT_ROOT
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// PROJECT_ROOT: 2 levels up from dist/ (dist -> agent -> project)
+const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '..', '..');
 
 /**
  * Browse project objects - show existing structure

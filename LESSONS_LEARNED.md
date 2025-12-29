@@ -1,6 +1,6 @@
 # Lessons Learned - Data Vault 2.1 mit dbt auf Azure
 
-> **Letzte Aktualisierung:** 2025-12-27  
+> **Letzte Aktualisierung:** 2025-12-29  
 > **DV 2.1 Compliance:** ~85% (nach Optimierung)
 
 ## Projektkontext
@@ -131,6 +131,44 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 **Lösung:** Composite Key aus `object_id + source_table`:
 ```sql
 HASHBYTES('SHA2_256', CONCAT(object_id, '^^', source_table))
+```
+
+### Problem 7: Schema-Änderungen bei Incremental Models
+**Symptom:** Neue Spalten im Model erscheinen nicht in der DB-Tabelle
+
+**Ursache:** dbt fügt bei `incremental` Models standardmäßig **keine neuen Spalten** hinzu
+
+**Lösung:** In `dbt_project.yml`:
+```yaml
+models:
+  datavault:
+    raw_vault:
+      satellites:
+        +on_schema_change: append_new_columns
+```
+
+**Wichtig:** 
+- `append_new_columns` fügt neue Spalten hinzu (bestehende Zeilen haben NULL)
+- `sync_all_columns` würde auch Spalten entfernen (gefährlich!)
+- `fail` (default) bricht ab, wenn Schema abweicht
+- **Nie** `--full-refresh` bei historisierten Data Vault Tabellen!
+
+### Problem 8: MCP Agent schreibt auf Datenbank
+**Symptom:** Agent versucht ALTER TABLE direkt auf DB auszuführen
+
+**Ursache:** Fehlende Read-Only Beschränkung im MCP-Server
+
+**Lösung:**
+1. Alle DB-Tools auf READ-ONLY beschränken (nur SELECT erlaubt)
+2. Schreiboperationen **nur** über dbt Commands (`run_command: dbt run ...`)
+3. isReadOnlyQuery() Funktion blockiert INSERT, UPDATE, DELETE, DROP, etc.
+
+```typescript
+// agent/tools/database/dbConnection.ts
+const FORBIDDEN_KEYWORDS = [
+  'INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER',
+  'TRUNCATE', 'EXEC', 'EXECUTE', 'MERGE', 'GRANT', 'REVOKE'
+];
 ```
 
 ---

@@ -12,8 +12,9 @@ import { fileURLToPath } from 'url';
 // Get directory of current file
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Project root (two levels up from utils folder: agent/utils -> agent -> project root)
-export const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+// Project root (three levels up from dist/utils folder: dist/utils -> dist -> agent -> project root)
+// When running from dist/utils/fileOperations.js, we need to go up 3 levels
+export const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 export const PATHS = {
   models: path.join(PROJECT_ROOT, 'models'),

@@ -13,8 +13,10 @@ import {
 } from '../projectScanner.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 interface SuggestAttributesInput {
   entity: string;

@@ -49,16 +49,19 @@ models:
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
+        +on_schema_change: append_new_columns
       satellites:
         +schema: vault
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
+        +on_schema_change: append_new_columns
       links:
         +schema: vault
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
+        +on_schema_change: append_new_columns
     business_vault:
       +schema: vault
       +materialized: table

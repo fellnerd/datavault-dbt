@@ -213,29 +213,98 @@ models:
         tests:
           - not_null
           - unique
-  - name: v_country_current
+  - name: stg_project
+    description: Staging Model für Projekte
     columns:
-      - name: hk_country
+      - name: hk_project
+        description: Hash Key (SHA256 von object_id)
+        tests:
+          - not_null
+      - name: hd_project
+        description: Hash Diff für Change Detection
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        tests:
+          - not_null
+  - name: hub_project
+    description: Hub für Projekte
+    columns:
+      - name: hk_project
+        description: Hash Key (Primary Key)
         tests:
           - not_null
           - unique
       - name: object_id
+        description: Business Key
         tests:
           - not_null
-          - unique
-      - name: name
+      - name: dss_load_date
+        description: Erstes Ladedatum
         tests:
           - not_null
-  - name: v_company_extended
+      - name: dss_record_source
+        description: Datenquelle
+        tests:
+          - not_null
+  - name: sat_project
+    description: Satellite mit Projekt-Attributen
     columns:
-      - name: hk_company
+      - name: hk_project
+        description: Hash Key (FK zu hub_project)
         tests:
           - not_null
-          - unique
-      - name: company_id
+          - relationships:
+              to: ref('hub_project')
+              field: hk_project
+      - name: hd_project
+        description: Hash Diff für Change Detection
         tests:
           - not_null
-          - unique
-      - name: company_name
+      - name: name
+        description: Projektname
+      - name: state
+        description: Projektstatus
+      - name: begin
+        description: Projektstart (geplant)
+      - name: location
+        description: Standort
+      - name: price
+        description: Preis
+      - name: commission
+        description: Provision
+      - name: end
+        description: Projektende (geplant)
+      - name: work_begin
+        description: Arbeitsbeginn (tatsächlich)
+      - name: author_email
+        description: E-Mail des Erstellers
+      - name: description
+        description: Projektbeschreibung
+      - name: price_units_value
+        description: Preis-Einheiten
+      - name: commission_units_value
+        description: Provisions-Einheiten
+      - name: details
+        description: Zusätzliche Details
+      - name: client
+        description: Zugeordneter Client
+      - name: contractor
+        description: Zugeordneter Contractor
+      - name: member
+        description: Zugeordnetes Mitglied
+      - name: dss_load_date
+        description: Ladedatum
         tests:
           - not_null
+      - name: dss_record_source
+        description: Datenquelle
+        tests:
+          - not_null
+      - name: dss_is_current
+        description: Aktueller Datensatz (Y/N)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Y', 'N']
