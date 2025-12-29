@@ -34,7 +34,13 @@ WITH source_data AS (
         details,
         client,
         contractor,
-        member
+        member,
+        subscription,
+        [user],
+        provision_charged_state,
+        contractor_count,
+        hidden,
+        is_contracting
     FROM {{ ref('stg_project') }}
     WHERE hk_project IS NOT NULL
 ),
@@ -69,7 +75,13 @@ new_records AS (
         src.details,
         src.client,
         src.contractor,
-        src.member
+        src.member,
+        src.subscription,
+        src.[user],
+        src.provision_charged_state,
+        src.contractor_count,
+        src.hidden,
+        src.is_contracting
     FROM source_data src
     {% if is_incremental() %}
     WHERE NOT EXISTS (

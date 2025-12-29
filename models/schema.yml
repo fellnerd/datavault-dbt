@@ -307,4 +307,18 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['Y', 'N']
+              values:
+                - Y
+                - N
+      - name: subscription
+        tests: []
+      - name: user
+        tests: []
+      - name: provision_charged_state
+        tests: []
+      - name: contractor_count
+        tests: []
+      - name: hidden
+        tests: []
+      - name: is_contracting
+        tests: []

@@ -163,15 +163,17 @@ export async function handleRunCommand(input: RunCommandInput): Promise<string> 
         console.log(chalk.yellow(`  ⚠️ Command exited with code ${code}`));
       }
       
-      const result: RunCommandResult = {
+      // Format output for MCP response
+      const result = formatCommandOutput({
+        command,
         success: code === 0,
         exit_code: code,
-        stdout: stdout.slice(-10000), // Last 10KB
-        stderr: stderr.slice(-5000),  // Last 5KB
+        stdout,
+        stderr,
         killed_by_timeout: killed,
-      };
+      });
       
-      resolve(JSON.stringify(result));
+      resolve(result);
     });
     
     // Handle process errors
@@ -179,13 +181,194 @@ export async function handleRunCommand(input: RunCommandInput): Promise<string> 
       clearTimeout(timer);
       console.log(chalk.red(`\n  ❌ Error: ${err.message}`));
       
-      resolve(JSON.stringify({
-        success: false,
-        exit_code: null,
-        stdout: '',
-        stderr: '',
-        error: err.message,
-      }));
+      resolve(`# ❌ Command Failed\n\n**Error:** ${err.message}\n\n**Command:** \`${command}\``);
     });
   });
+}
+
+/**
+ * Format command output for readable MCP response
+ */
+function formatCommandOutput(result: {
+  command: string;
+  success: boolean;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  killed_by_timeout?: boolean;
+}): string {
+  const { command, success, exit_code, stdout, stderr, killed_by_timeout } = result;
+  
+  // Check if this is a dbt command
+  const isDbtCommand = command.startsWith('dbt ');
+  
+  if (isDbtCommand) {
+    return formatDbtOutput(result);
+  }
+  
+  // Generic command output
+  const lines: string[] = [];
+  
+  if (success) {
+    lines.push(`# ✅ Command Successful`);
+  } else if (killed_by_timeout) {
+    lines.push(`# ⏱️ Command Timed Out`);
+  } else {
+    lines.push(`# ❌ Command Failed (exit code: ${exit_code})`);
+  }
+  
+  lines.push('');
+  lines.push(`**Command:** \`${command}\``);
+  lines.push('');
+  
+  if (stdout.trim()) {
+    lines.push('## Output');
+    lines.push('```');
+    lines.push(stripAnsi(stdout).trim().slice(-8000)); // Last 8KB, stripped of ANSI
+    lines.push('```');
+  }
+  
+  if (stderr.trim() && !success) {
+    lines.push('');
+    lines.push('## Errors');
+    lines.push('```');
+    lines.push(stripAnsi(stderr).trim().slice(-4000));
+    lines.push('```');
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Format dbt-specific output with summary
+ */
+function formatDbtOutput(result: {
+  command: string;
+  success: boolean;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
+  killed_by_timeout?: boolean;
+}): string {
+  const { command, success, exit_code, stdout, stderr, killed_by_timeout } = result;
+  const output = stripAnsi(stdout);
+  const lines: string[] = [];
+  
+  // Extract dbt summary line (e.g., "Done. PASS=5 WARN=0 ERROR=0 SKIP=0 TOTAL=5")
+  const summaryMatch = output.match(/Done\.\s+PASS=(\d+)\s+WARN=(\d+)\s+ERROR=(\d+)\s+SKIP=(\d+).*TOTAL=(\d+)/);
+  const completedMatch = output.match(/Completed successfully/);
+  
+  // Extract timing info
+  const timingMatch = output.match(/Finished running.*in\s+(\d+\s+hours?\s+)?(\d+\s+minutes?\s+)?and\s+([\d.]+)\s+seconds/);
+  
+  // Extract model results
+  const modelResults: { name: string; status: string; time: string }[] = [];
+  const modelPattern = /\d+\s+of\s+\d+\s+(OK|ERROR|SKIP|WARN)\s+\w+\s+model\s+(\S+)\s+.*\[(OK|ERROR|SKIP|WARN)?\s*(?:in\s+)?([\d.]+s)?\]/g;
+  let match;
+  while ((match = modelPattern.exec(output)) !== null) {
+    modelResults.push({
+      name: match[2],
+      status: match[1] || match[3],
+      time: match[4] || '',
+    });
+  }
+  
+  // Alternative pattern for simpler output
+  if (modelResults.length === 0) {
+    const simplePattern = /\d+\s+of\s+\d+\s+(START|OK|ERROR)\s+\w+\s+\w+\s+model\s+(\S+)/g;
+    const okPattern = /(\S+)\s+\.\.\.\.\.*\s+\[(OK|ERROR|WARN)\s+in\s+([\d.]+s)\]/g;
+    while ((match = okPattern.exec(output)) !== null) {
+      modelResults.push({
+        name: match[1],
+        status: match[2],
+        time: match[3],
+      });
+    }
+  }
+  
+  // Header
+  if (success && summaryMatch) {
+    const [, pass, warn, error, skip, total] = summaryMatch;
+    lines.push(`# ✅ dbt Run Complete`);
+    lines.push('');
+    lines.push(`| PASS | WARN | ERROR | SKIP | TOTAL |`);
+    lines.push(`|------|------|-------|------|-------|`);
+    lines.push(`| ${pass} | ${warn} | ${error} | ${skip} | ${total} |`);
+  } else if (success || completedMatch) {
+    lines.push(`# ✅ dbt Command Successful`);
+  } else if (killed_by_timeout) {
+    lines.push(`# ⏱️ dbt Command Timed Out`);
+  } else {
+    lines.push(`# ❌ dbt Command Failed (exit code: ${exit_code})`);
+  }
+  
+  lines.push('');
+  lines.push(`**Command:** \`${command}\``);
+  
+  // Timing
+  if (timingMatch) {
+    const duration = timingMatch[3];
+    lines.push(`**Duration:** ${duration}s`);
+  }
+  
+  // Model results table
+  if (modelResults.length > 0) {
+    lines.push('');
+    lines.push('## Models');
+    lines.push('');
+    lines.push('| Model | Status | Time |');
+    lines.push('|-------|--------|------|');
+    for (const m of modelResults) {
+      const statusIcon = m.status === 'OK' ? '✅' : m.status === 'ERROR' ? '❌' : m.status === 'WARN' ? '⚠️' : '⏭️';
+      lines.push(`| ${m.name} | ${statusIcon} ${m.status} | ${m.time} |`);
+    }
+  }
+  
+  // Errors (if any)
+  if (!success) {
+    lines.push('');
+    lines.push('## Error Details');
+    lines.push('');
+    
+    // Extract error messages
+    const errorSection = output.split('Completed with')[0];
+    const relevantLines = errorSection
+      .split('\n')
+      .filter(l => l.includes('Error') || l.includes('ERROR') || l.includes('Compilation Error'))
+      .slice(-20);
+    
+    if (relevantLines.length > 0) {
+      lines.push('```');
+      lines.push(relevantLines.join('\n'));
+      lines.push('```');
+    } else {
+      lines.push('```');
+      lines.push(output.slice(-2000));
+      lines.push('```');
+    }
+  }
+  
+  // Warnings (extract from output)
+  const warnings = output.match(/\[WARNING\].*$/gm);
+  if (warnings && warnings.length > 0 && warnings.length <= 5) {
+    lines.push('');
+    lines.push('## Warnings');
+    lines.push('');
+    for (const w of warnings.slice(0, 5)) {
+      lines.push(`- ${w.replace('[WARNING]', '⚠️')}`);
+    }
+    if (warnings.length > 5) {
+      lines.push(`- ... and ${warnings.length - 5} more warnings`);
+    }
+  }
+  
+  return lines.join('\n');
+}
+
+/**
+ * Strip ANSI color codes from string
+ */
+function stripAnsi(str: string): string {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
 }

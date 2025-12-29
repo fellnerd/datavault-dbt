@@ -22,7 +22,13 @@
     'details',
     'client',
     'contractor',
-    'member'
+    'member',
+    'subscription',
+    '[user]',
+    'provision_charged_state',
+    'contractor_count',
+    'hidden',
+    'is_contracting'
 ] -%}
 
 WITH source AS (
@@ -73,6 +79,12 @@ staged AS (
         client,
         contractor,
         member,
+        subscription,
+        [user],
+        provision_charged_state,
+        contractor_count,
+        hidden,
+        is_contracting,
         
         -- ===========================================
         -- METADATA
