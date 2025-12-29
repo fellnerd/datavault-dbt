@@ -1,0 +1,45 @@
+[Unit]
+Description=Data Vault dbt Agent MCP Server
+Documentation=https://github.com/your-org/datavault-dbt
+After=network.target ollama.service
+
+[Service]
+Type=simple
+User=user
+Group=user
+WorkingDirectory=/home/user/projects/datavault-dbt/agent
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PATH=/home/user/.nvm/versions/node/v23.6.1/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/home/user/projects/datavault-dbt/agent/.env
+
+# Node.js execution (using nvm node)
+ExecStart=/home/user/.nvm/versions/node/v23.6.1/bin/node dist/mcp-server.js
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=datavault-agent
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/user/projects/datavault-dbt/agent/data
+ReadWritePaths=/home/user/projects/datavault-dbt/models
+ReadWritePaths=/home/user/projects/datavault-dbt/logs
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

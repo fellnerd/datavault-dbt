@@ -4,166 +4,303 @@ Ein Claude-powered CLI-Assistent für die Entwicklung von Data Vault 2.1 Modelle
 
 ## Features
 
+### CLI Agent (Lokal)
 - **Interaktives Menü** mit Pfeil-Tasten-Navigation
 - **Automatische Model-Generierung** basierend auf Projektkonventionen
 - **Claude AI Integration** für intelligente Aufgabenbearbeitung
-- **10 Entwicklungsaufgaben:**
-  1. Neues Attribut hinzufügen
-  2. Neue Entity erstellen (komplett)
-  3. Hub erstellen
-  4. Satellite erstellen
-  5. Link erstellen
-  6. Reference Table erstellen
-  7. Effectivity Satellite erstellen
-  8. PIT Table erstellen
-  9. Mart View erstellen
-  10. Tests hinzufügen
+- **15 Tools** für Data Vault Entwicklung
 
-## Installation
-
-```bash
-# Im agent/ Verzeichnis
-cd agent
-npm install
-
-# API Key konfigurieren
-cp .env.example .env
-# Dann .env bearbeiten und ANTHROPIC_API_KEY eintragen
-```
-
-## Verwendung
-
-```bash
-# Agent starten
-cd agent
-npm start
-
-# Oder aus dem Projekt-Root:
-cd ~/projects/datavault-dbt
-npm run agent
-```
-
-## Menü-Navigation
-
-```
-╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   🏗️  Data Vault 2.1 dbt Agent                                ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
-
-? Was möchtest du tun? (Use arrow keys)
-❯ 📦 Neues Attribut hinzufügen
-  🆕 Neue Entity erstellen (komplett)
-  🏠 Hub erstellen
-  🛰️  Satellite erstellen
-  🔗 Link erstellen
-  📚 Reference Table erstellen
-  ⏱️  Effectivity Satellite erstellen
-  📊 PIT Table erstellen
-  👁️  Mart View erstellen
-  🧪 Tests hinzufügen
-  ❌ Beenden
-```
-
-## Beispiel: Hub erstellen
-
-```
-? Was möchtest du tun? 🏠 Hub erstellen
-? Beschreibe deine Anforderung: Erstelle einen Hub für Products mit object_id als Business Key
-
-🤖 Agent arbeitet...
-
-  ⚙️  Tool: create_hub
-     {
-       "entityName": "product",
-       "businessKeyColumns": ["object_id"],
-       "sourceModel": "stg_product"
-     }
-
-  ▶ Executing create_hub...
-  ✅ Hub erstellt: models/raw_vault/hubs/hub_product.sql
-
-Nächste Schritte:
-1. Tests zu models/schema.yml hinzufügen
-2. External Table prüfen: dbt run-operation stage_external_sources
-3. Hub bauen: dbt run --select hub_product
-4. Tests ausführen: dbt test --select hub_product
-
-✅ Aufgabe abgeschlossen!
-```
-
-## Konfiguration
-
-### Umgebungsvariablen (.env)
-
-```bash
-# Pflicht: Anthropic API Key
-ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
-
-# Optional: Claude Model (default: claude-sonnet-4-20250514)
-CLAUDE_MODEL=claude-sonnet-4-20250514
-```
+### MCP Server (Remote)
+- **Multi-User Support** mit Token-basierter Authentifizierung
+- **RAG System** mit Ollama für kontextbezogene Antworten
+- **Persistente Sessions** in SQLite
+- **HTTP API** für Claude Code Integration
 
 ## Architektur
 
 ```
-agent/
-├── index.ts              # Entry Point & Main Loop
-├── menu.ts               # Menü-Definitionen
-├── agent.ts              # Claude Agent Logik
-├── context/
-│   └── systemPrompt.ts   # System Prompt mit Projekt-Kontext
-├── tools/
-│   ├── index.ts          # Tool Registry
-│   ├── createHub.ts      # Hub erstellen
-│   ├── createSatellite.ts# Satellite erstellen
-│   ├── createLink.ts     # Link erstellen
-│   ├── createStaging.ts  # Staging View erstellen
-│   ├── createRefTable.ts # Reference Table erstellen
-│   ├── createEffSat.ts   # Effectivity Satellite erstellen
-│   ├── createPIT.ts      # PIT Table erstellen
-│   ├── createMart.ts     # Mart View erstellen
-│   ├── addTests.ts       # Tests hinzufügen
-│   ├── addAttribute.ts   # Attribut hinzufügen
-│   ├── readFile.ts       # Dateien lesen
-│   └── listFiles.ts      # Verzeichnisse auflisten
-└── utils/
-    └── fileOperations.ts # Datei-Operationen
+┌─────────────────────────────────────────────────────────────┐
+│                    Client (Claude Code)                      │
+│                    auf beliebigem Rechner                    │
+└─────────────────────────┬───────────────────────────────────┘
+                          │ HTTP + Bearer Token
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 MCP Server (10.0.0.25:3001)                  │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ Auth        │  │ 15 Tools    │  │ RAG (Ollama)        │  │
+│  │ Middleware  │  │ - create_*  │  │ - nomic-embed-text  │  │
+│  │             │  │ - edit_*    │  │ - 768 dimensions    │  │
+│  └─────────────┘  │ - run_*     │  └─────────────────────┘  │
+│                   └─────────────┘                            │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              SQLite (Persistent Memory)                │  │
+│  │  - users, sessions, messages                          │  │
+│  │  - dv_objects, deployments, undo_stack                │  │
+│  │  - doc_chunks (RAG vectors)                           │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Entwicklung
+## Installation
+
+### Voraussetzungen
+- Node.js >= 18
+- npm
+- Linux (für Ollama und systemd)
+
+### 1. Dependencies installieren
 
 ```bash
-# Development Mode (Auto-Reload)
-npm run dev
-
-# TypeScript kompilieren (optional)
-npx tsc
+cd /home/user/projects/datavault-dbt/agent
+npm install
 ```
 
-## Limitationen
+### 2. Ollama einrichten (für RAG)
 
-- Erfordert Anthropic API Key (kostenpflichtig)
-- External Tables müssen manuell in sources.yml definiert werden
-- Bei Schema-Änderungen ist `dbt run --full-refresh` erforderlich
+```bash
+./scripts/setup-ollama.sh
+```
+
+Dies installiert:
+- Ollama Server
+- nomic-embed-text Embedding-Modell (274 MB)
+
+### 3. Konfiguration
+
+```bash
+cp .env.example .env
+```
+
+Dann `.env` bearbeiten:
+
+```env
+# Anthropic API Key (für CLI Agent)
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
+
+# MCP Server
+MCP_PORT=3001
+MCP_HOST=0.0.0.0
+
+# Multi-User Tokens (generieren mit: openssl rand -hex 32)
+MCP_USER_TOKENS=admin:your-token,user:another-token
+
+# Ollama
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_EMBED_MODEL=nomic-embed-text
+
+# SQLite
+SQLITE_PATH=./data/agent.db
+
+# RAG
+RAG_CHUNK_SIZE=500
+RAG_TOP_K=5
+```
+
+### 4. Build
+
+```bash
+npm run build
+```
+
+## Verwendung
+
+### CLI Agent (Interaktiv)
+
+```bash
+npm start
+# oder
+npm run dev  # mit Hot-Reload
+```
+
+### MCP Server
+
+**Entwicklung:**
+```bash
+npm run mcp:dev
+```
+
+**Produktion (als Service):**
+```bash
+sudo ./scripts/install-service.sh
+```
+
+## MCP API
+
+### Endpoints
+
+| Endpoint | Methode | Auth | Beschreibung |
+|----------|---------|------|--------------|
+| `/health` | GET | ❌ | Health Check |
+| `/mcp/info` | GET | ❌ | Server Info & Tool-Liste |
+| `/mcp/v1/messages` | POST | ✅ | MCP JSON-RPC Endpoint |
+
+### Authentifizierung
+
+Bearer Token im Authorization Header:
+
+```bash
+curl -X POST http://10.0.0.25:3001/mcp/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### Verfügbare Tools
+
+| Tool | Beschreibung |
+|------|--------------|
+| `create_hub` | Hub erstellen |
+| `create_satellite` | Satellite erstellen |
+| `create_link` | Link erstellen |
+| `create_staging` | Staging View erstellen |
+| `create_ref_table` | Reference Table erstellen |
+| `create_eff_sat` | Effectivity Satellite erstellen |
+| `create_pit` | PIT Table erstellen |
+| `create_mart` | Mart View erstellen |
+| `add_tests` | dbt Tests hinzufügen |
+| `add_attribute` | Attribut zu Satellite hinzufügen |
+| `edit_model` | Model bearbeiten |
+| `delete_model` | Model löschen |
+| `read_file` | Datei lesen |
+| `list_files` | Dateien auflisten |
+| `run_command` | dbt Command ausführen |
+
+### Beispiel: Tool aufrufen
+
+```bash
+curl -X POST http://10.0.0.25:3001/mcp/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "list_files",
+      "arguments": {
+        "directory": "models/raw_vault/hubs"
+      }
+    }
+  }'
+```
+
+## Claude Code Integration
+
+### mcp.json Konfiguration
+
+Auf dem Client-Rechner in Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "datavault": {
+      "url": "http://10.0.0.25:3001/mcp/v1/messages",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+## Service Management
+
+```bash
+# Status prüfen
+sudo systemctl status datavault-agent
+
+# Neu starten
+sudo systemctl restart datavault-agent
+
+# Logs anzeigen
+journalctl -u datavault-agent -f
+
+# Stoppen
+sudo systemctl stop datavault-agent
+```
+
+## Projektstruktur
+
+```
+agent/
+├── index.ts              # CLI Entry Point
+├── agent.ts              # Hauptlogik mit Claude API
+├── mcp-server.ts         # MCP HTTP Server
+├── menu.ts               # Interaktives Menü
+├── wizards.ts            # Wizard-UI für Eingaben
+├── projectScanner.ts     # Projekt-Metadaten Scanner
+├── auth/
+│   └── tokens.ts         # Token-Authentifizierung
+├── memory/
+│   ├── database.ts       # SQLite Wrapper
+│   ├── embeddings.ts     # Ollama Embeddings
+│   ├── rag.ts            # RAG Pipeline
+│   └── schema.sql        # DB Schema
+├── tools/
+│   ├── createHub.ts
+│   ├── createSatellite.ts
+│   ├── createLink.ts
+│   └── ...               # Weitere Tools
+├── scripts/
+│   ├── setup-ollama.sh   # Ollama Installation
+│   ├── install-service.sh
+│   └── datavault-agent.service
+└── data/
+    └── agent.db          # SQLite Datenbank
+```
+
+## Tokens
+
+### Aktuelle Tokens
+
+| User | Token |
+|------|-------|
+| admin | `733e343ed8702516343ca0145b49d6b68ab0b35e09cbdc8e7b318ab0dd524ece` |
+| user | `38127d618ec2f4d7a012505f05ab4e0e371fedec25046f3ac074a9b778b07dd9` |
+
+### Neue Tokens generieren
+
+```bash
+openssl rand -hex 32
+```
+
+Dann in `.env` unter `MCP_USER_TOKENS` eintragen.
 
 ## Troubleshooting
 
-### API Key Fehler
-```
-❌ Error: ANTHROPIC_API_KEY not found!
-```
-→ `.env` Datei erstellen mit gültigem API Key
+### Ollama nicht erreichbar
 
-### Rate Limit
-```
-❌ API Fehler: Rate limit exceeded
-```
-→ Kurz warten und erneut versuchen
+```bash
+# Status prüfen
+systemctl status ollama
 
-### Model nicht gefunden
+# Neu starten
+sudo systemctl restart ollama
+
+# Manuell starten
+ollama serve
 ```
-❌ Staging View stg_xxx.sql nicht gefunden
+
+### MCP Server Error
+
+```bash
+# Logs prüfen
+journalctl -u datavault-agent -n 50
+
+# Manuell starten für Debug
+cd /home/user/projects/datavault-dbt/agent
+npm run mcp:dev
 ```
-→ Erst Staging View erstellen, dann Hub/Satellite
+
+### Token ungültig
+
+Prüfen ob Token in `.env` korrekt eingetragen:
+```bash
+grep MCP_USER_TOKENS .env
+```
+
+## Lizenz
+
+Intern - Dimetrics
