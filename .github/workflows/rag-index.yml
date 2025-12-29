@@ -35,8 +35,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: agent/package-lock.json
+          # No cache for self-hosted runner - deps stay local
 
       - name: Install dependencies
         working-directory: agent
