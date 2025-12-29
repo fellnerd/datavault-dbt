@@ -1,0 +1,95 @@
+name: RAG Index Update
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'docs/**'
+      - 'models/**'
+      - 'macros/**'
+      - 'seeds/**'
+      - '.github/**/*.md'
+      - 'LESSONS_LEARNED.md'
+      - 'agent/**/*.ts'
+      - 'scripts/**'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force full re-index (clear cache)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  update-rag-index:
+    name: Update RAG Index
+    runs-on: [self-hosted, linux]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # No cache for self-hosted runner - deps stay local
+
+      - name: Install dependencies
+        working-directory: agent
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: agent
+        run: npm run build
+
+      - name: Check Ollama
+        run: |
+          echo "Checking Ollama service..."
+          curl -s http://localhost:11434/api/tags || {
+            echo "⚠️ Ollama not responding. Assuming it's managed externally."
+          }
+          
+          # Check if model is loaded
+          curl -s http://localhost:11434/api/tags | grep -q "nomic-embed-text" || {
+            echo "Pulling nomic-embed-text model..."
+            ollama pull nomic-embed-text
+          }
+        continue-on-error: true
+
+      - name: Update RAG Index
+        working-directory: agent
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "🔄 Force re-indexing..."
+            npm run index:force
+          else
+            echo "📄 Updating index (incremental)..."
+            npm run index
+          fi
+        env:
+          OLLAMA_HOST: http://localhost:11434
+
+      - name: Show Index Stats
+        working-directory: agent
+        run: npm run index:stats
+
+      - name: Restart MCP Server
+        run: |
+          if systemctl is-active --quiet datavault-agent; then
+            echo "Restarting MCP server to pick up new index..."
+            # Use systemctl --user or skip if sudo not available
+            systemctl --user restart datavault-agent 2>/dev/null || \
+            echo "⚠️ Skipping restart (no sudo/user service). Server will use new index on next request."
+          fi
+        continue-on-error: true
+
+      - name: Summary
+        run: |
+          echo "## RAG Index Update Complete 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Triggered by: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Force re-index: ${{ github.event.inputs.force || 'false' }}" >> $GITHUB_STEP_SUMMARY

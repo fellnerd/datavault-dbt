@@ -1,0 +1,10 @@
+{
+  "name": "datavault-dbt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Data Vault 2.1 dbt project with Claude AI development assistant",
+  "scripts": {
+    "agent": "cd agent && npm start",
+    "agent:dev": "cd agent && npm run dev"
+  }
+}

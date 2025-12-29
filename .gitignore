@@ -17,3 +17,6 @@ __pycache__/
 
 # Credentials
 profiles.yml
+
+# Agent session files
+agent/.agent-session.json

@@ -1,0 +1,47 @@
+{
+  "name": "datavault-agent",
+  "version": "1.0.0",
+  "description": "Claude-powered development assistant for Data Vault 2.1 dbt project",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts",
+    "build": "tsc",
+    "mcp": "node dist/mcp-server.js",
+    "mcp:dev": "tsx mcp-server.ts",
+    "index": "node dist/scripts/index-rag.js index",
+    "index:force": "node dist/scripts/index-rag.js force",
+    "index:stats": "node dist/scripts/index-rag.js stats",
+    "index:search": "node dist/scripts/index-rag.js search"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@inquirer/checkbox": "^5.0.3",
+    "@inquirer/prompts": "^7.2.1",
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "better-sqlite3": "^12.5.0",
+    "chalk": "^5.4.1",
+    "cli-spinners": "^3.3.0",
+    "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "handlebars": "^4.7.8",
+    "log-update": "^7.0.2",
+    "ollama": "^0.6.3",
+    "ora": "^9.0.0",
+    "uuid": "^13.0.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.2",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -251,3 +251,91 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
+      # ===========================================
+      # Project (Projekte/Aufträge)
+      # ===========================================
+      - name: ext_project
+        description: "Werkportal Project Overview - External Table"
+        external:
+          location: "werkportal/postgres/public.wp_project_overview.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: object_id
+            data_type: BIGINT
+            description: "Business Key - Primärschlüssel aus Quellsystem"
+            tests:
+              - not_null
+          - name: user_created
+            data_type: NVARCHAR(4000)
+          - name: date_created
+            data_type: DATETIME2
+          - name: user_updated
+            data_type: NVARCHAR(4000)
+          - name: date_updated
+            data_type: DATETIME2
+          - name: subscription
+            data_type: NVARCHAR(4000)
+          - name: name
+            data_type: NVARCHAR(4000)
+            description: "Projektname"
+          - name: state
+            data_type: NVARCHAR(4000)
+            description: "Projektstatus"
+          - name: begin
+            data_type: DATETIME2
+            description: "Projektbeginn"
+          - name: location
+            data_type: NVARCHAR(4000)
+            description: "Projektstandort"
+          - name: price
+            data_type: NUMERIC(38,18)
+            description: "Projektpreis"
+          - name: commission
+            data_type: NUMERIC(38,18)
+            description: "Provision"
+          - name: end
+            data_type: DATETIME2
+            description: "Projektende"
+          - name: work_begin
+            data_type: NVARCHAR(4000)
+          - name: author_email
+            data_type: NVARCHAR(4000)
+          - name: description
+            data_type: NVARCHAR(4000)
+          - name: price_units_value
+            data_type: NVARCHAR(4000)
+          - name: commission_units_value
+            data_type: NVARCHAR(4000)
+          - name: details
+            data_type: NVARCHAR(4000)
+          - name: user
+            data_type: BIGINT
+            description: "FK zu User"
+          - name: provision_charged_state
+            data_type: NVARCHAR(4000)
+          - name: contractor_count
+            data_type: INT
+            description: "Anzahl Contractors"
+          - name: client
+            data_type: BIGINT
+            description: "FK zu Company Client"
+          - name: contractor
+            data_type: BIGINT
+            description: "FK zu Company Contractor"
+          - name: member
+            data_type: NVARCHAR(4000)
+          - name: hidden
+            data_type: BIT
+          - name: is_contracting
+            data_type: BIT
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
