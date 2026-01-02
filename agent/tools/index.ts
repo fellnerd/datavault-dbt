@@ -16,6 +16,7 @@ import { createEffSat, createEffSatTool } from './createEffSat.js';
 import { createPIT, createPITTool } from './createPIT.js';
 import { createMart, createMartTool } from './createMart.js';
 import { createBridge, createBridgeTool } from './createBridge.js';
+import { createStaticTable, createStaticTableTool } from './createStaticTable.js';
 
 // Modification Tools
 import { addTests, addTestsTool } from './addTests.js';
@@ -50,6 +51,7 @@ export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
   createPITTool,
   createMartTool,
   createBridgeTool,
+  createStaticTableTool,
   // Modification
   addTestsTool,
   addAttributeTool,
@@ -89,6 +91,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   create_pit: (input) => createPIT(input as Parameters<typeof createPIT>[0]),
   create_mart: (input) => createMart(input as Parameters<typeof createMart>[0]),
   create_bridge: (input) => createBridge(input as Parameters<typeof createBridge>[0]),
+  create_static_table: (input) => createStaticTable(input as Parameters<typeof createStaticTable>[0]),
   // Modification
   add_tests: (input) => addTests(input as Parameters<typeof addTests>[0]),
   add_attribute: (input) => addAttribute(input as Parameters<typeof addAttribute>[0]),

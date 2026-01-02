@@ -36,7 +36,8 @@ vars:
 # [vault].[sat_<entity>]         - Satellites
 # [vault].[link_<entity>]        - Links
 # [stg].[stg_<entity>]           - Staging Views
-# [mart_<context>].[<object>_v]  - Information Mart Views
+# [mart_<context>].[<object>]    - Information Mart Views
+# [mart_static].[<object>]       - Static Tables (persistierte Marts)
 
 models:
   datavault:
@@ -70,6 +71,14 @@ models:
       project:
         +schema: mart_project
         +materialized: view
+      # Static Tables (persistierte Marts mit Index)
+      tables:
+        +schema: mart_static
+        +materialized: incremental
+        +incremental_strategy: merge
+        +unique_key: 'hk_key'
+        +as_columnstore: false
+        +tags: ['static']
       # Weitere Business Contexts hier hinzufügen:
       # finance:
       #   +schema: mart_finance
