@@ -1,0 +1,96 @@
+# Master Data Services - Docker Compose
+# 
+# Services:
+# - mds-app: Next.js frontend (Port 3000)
+# - mds-worker: BullMQ job worker
+# - redis: Message queue backend
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose logs -f        # View logs
+#   docker-compose down           # Stop all services
+
+services:
+  # Redis for BullMQ job queue
+  redis:
+    image: redis:7-alpine
+    container_name: mds-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js Application
+  mds-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mds-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Auth
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_URL=http://localhost:3000
+      # Azure AD (optional for Microsoft login)
+      - AUTH_MICROSOFT_ENTRA_ID_ID=${AUTH_MICROSOFT_ENTRA_ID_ID:-}
+      - AUTH_MICROSOFT_ENTRA_ID_SECRET=${AUTH_MICROSOFT_ENTRA_ID_SECRET:-}
+      - AUTH_MICROSOFT_ENTRA_ID_ISSUER=${AUTH_MICROSOFT_ENTRA_ID_ISSUER:-}
+      # Database
+      - DB_SERVER=${DB_SERVER:-sql-datavault-weu-001.database.windows.net}
+      - DB_NAME=${DB_NAME:-Vault}
+      - DB_MOCK=${DB_MOCK:-false}
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - QUEUE_MOCK=false
+      # Dev mode (disable in production)
+      - NEXT_PUBLIC_DEV_MODE=${NEXT_PUBLIC_DEV_MODE:-false}
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # BullMQ Worker
+  mds-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: mds-worker
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      # Database
+      - DB_SERVER=${DB_SERVER:-sql-datavault-weu-001.database.windows.net}
+      - DB_NAME=${DB_NAME:-Vault}
+      - DB_MOCK=${DB_MOCK:-false}
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # Worker settings
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
+      # dbt project path (mount volume in production)
+      - DBT_PROJECT_PATH=/app/dbt
+    volumes:
+      # Mount dbt project for running dbt commands
+      - ../:/app/dbt:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:
+    driver: local
