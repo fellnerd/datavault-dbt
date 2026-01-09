@@ -32,26 +32,40 @@ export default function DashboardPage() {
     dqScore: 0,
     runningJobs: 0
   })
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking'>('checking')
 
-  // Recent activity - could be fetched from API later
-  const recentActivity: RecentActivity[] = [
-    { id: '1', action: 'Created', entity: 'Customer "ACME Corp"', user: 'admin', time: '5 min ago', icon: 'add' },
-    { id: '2', action: 'Updated', entity: 'Product "Widget Pro"', user: 'editor', time: '12 min ago', icon: 'edit' },
-    { id: '3', action: 'Committed', entity: 'Batch #2024-001', user: 'admin', time: '1 hour ago', icon: 'git-commit' },
-    { id: '4', action: 'Deployed', entity: 'Model "CRM"', user: 'admin', time: '2 hours ago', icon: 'play' },
-    { id: '5', action: 'Approved', entity: 'Commit #47', user: 'approver', time: '3 hours ago', icon: 'tick' },
-  ]
+  const mapOperationToIcon = (op: string) => {
+    switch (op?.toUpperCase()) {
+      case 'INSERT': return 'add'
+      case 'UPDATE': return 'edit'
+      case 'DELETE': return 'trash'
+      case 'COMMIT': return 'git-commit'
+      default: return 'info-sign'
+    }
+  }
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) return 'just now'
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
+    return date.toLocaleDateString()
+  }
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setLoading(true)
         
-        const [modelsRes, entitiesRes] = await Promise.all([
+        const [modelsRes, entitiesRes, historyRes] = await Promise.all([
           fetch('/api/models'),
-          fetch('/api/entities')
+          fetch('/api/entities'),
+          fetch('/api/history?limit=5')
         ])
         
         if (modelsRes.ok && entitiesRes.ok) {
@@ -75,6 +89,20 @@ export default function DashboardPage() {
         } else {
           setDbStatus('error')
         }
+
+        if (historyRes.ok) {
+           const historyData = await historyRes.json()
+           const mappedActivity = historyData.slice(0, 5).map((h: any) => ({
+             id: h.id.toString(),
+             action: h.operation.charAt(0) + h.operation.slice(1).toLowerCase(),
+             entity: `${h.entity_name} (${h.record_key})`,
+             user: h.changed_by || 'system',
+             time: formatTimeAgo(h.changed_at),
+             icon: mapOperationToIcon(h.operation)
+           }))
+           setRecentActivity(mappedActivity)
+        }
+
       } catch (err) {
         console.error('Failed to fetch stats:', err)
         setDbStatus('error')
@@ -240,7 +268,7 @@ export default function DashboardPage() {
           <h2>System Status</h2>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+        <div className="card-grid">
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span>Database Connection</span>

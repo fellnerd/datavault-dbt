@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   Button, 
   HTMLTable, 
@@ -38,6 +39,7 @@ interface Model {
 }
 
 export default function EntitiesPage() {
+  const router = useRouter()
   const [entities, setEntities] = useState<Entity[]>([])
   const [models, setModels] = useState<Model[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,6 +47,9 @@ export default function EntitiesPage() {
   const [filterModel, setFilterModel] = useState<string>('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editEntity, setEditEntity] = useState<Entity | null>(null)
   const [newEntity, setNewEntity] = useState({
     code: '',
     name: '',
@@ -118,6 +123,61 @@ export default function EntitiesPage() {
       alert(err instanceof Error ? err.message : 'Failed to create entity')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleOpenEdit = (entity: Entity) => {
+    setEditEntity(entity)
+    setIsEditOpen(true)
+  }
+
+  const handleEditEntity = async () => {
+    if (!editEntity) return
+    try {
+      setIsEditing(true)
+      const res = await fetch(`/api/entities/${editEntity.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editEntity.name,
+          description: editEntity.description,
+          is_versioned: editEntity.is_versioned
+        })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update entity')
+      }
+      
+      setEditEntity(null)
+      setIsEditOpen(false)
+      fetchData() // Refresh list
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update entity')
+    } finally {
+      setIsEditing(false)
+    }
+  }
+
+  const handleDeleteEntity = async (entityId: number, entityCode: string) => {
+    if (!confirm(`Are you sure you want to delete entity "${entityCode}"? This cannot be undone.`)) {
+      return
+    }
+    
+    try {
+      const res = await fetch(`/api/entities/${entityId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete entity')
+      }
+      
+      fetchData() // Refresh list
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete entity')
     }
   }
 
@@ -229,9 +289,10 @@ export default function EntitiesPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <Button minimal small icon="edit" title="Edit" />
-                          <Button minimal small icon="column-layout" title="Attributes" />
-                          <Button minimal small icon="database" title="Data" />
+                          <Button minimal small icon="edit" title="Edit" onClick={() => handleOpenEdit(entity)} />
+                          <Button minimal small icon="column-layout" title="Attributes" onClick={() => router.push(`/attributes?entity_id=${entity.id}`)} />
+                          <Button minimal small icon="database" title="Data" onClick={() => router.push(`/data?entity_id=${entity.id}`)} />
+                          <Button minimal small icon="trash" title="Delete" intent="danger" onClick={() => handleDeleteEntity(entity.id, entity.code)} />
                         </div>
                       </td>
                     </tr>
@@ -298,6 +359,52 @@ export default function EntitiesPage() {
               loading={isCreating}
             >
               Create Entity
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Edit Entity Dialog */}
+      <Dialog
+        isOpen={isEditOpen}
+        onClose={() => { setIsEditOpen(false); setEditEntity(null); }}
+        title="Edit Entity"
+        icon="edit"
+      >
+        <div className="bp5-dialog-body">
+          <FormGroup label="Entity Code" labelFor="edit-entity-code" helperText="Code cannot be changed">
+            <InputGroup
+              id="edit-entity-code"
+              value={editEntity?.code || ''}
+              disabled
+            />
+          </FormGroup>
+          <FormGroup label="Display Name" labelFor="edit-entity-name" labelInfo="(required)">
+            <InputGroup
+              id="edit-entity-name"
+              placeholder="e.g., Customers"
+              value={editEntity?.name || ''}
+              onChange={(e) => editEntity && setEditEntity({ ...editEntity, name: e.target.value })}
+            />
+          </FormGroup>
+          <FormGroup>
+            <Checkbox
+              checked={editEntity?.is_versioned ?? true}
+              onChange={(e) => editEntity && setEditEntity({ ...editEntity, is_versioned: e.target.checked })}
+              label="Enable SCD2 History (versioned records)"
+            />
+          </FormGroup>
+        </div>
+        <div className="bp5-dialog-footer">
+          <div className="bp5-dialog-footer-actions">
+            <Button onClick={() => { setIsEditOpen(false); setEditEntity(null); }} disabled={isEditing}>Cancel</Button>
+            <Button 
+              intent="primary" 
+              onClick={handleEditEntity}
+              disabled={!editEntity?.name?.trim() || isEditing}
+              loading={isEditing}
+            >
+              Save Changes
             </Button>
           </div>
         </div>

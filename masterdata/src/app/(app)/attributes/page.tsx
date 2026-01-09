@@ -73,7 +73,18 @@ export default function AttributesPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [newAttribute, setNewAttribute] = useState({
+  const [newAttribute, setNewAttribute] = useState<{
+    code: string;
+    name: string;
+    entity_id: number;
+    data_type: string;
+    max_length: string;
+    is_required: boolean;
+    is_unique: boolean;
+    is_business_key: boolean;
+    description: string;
+    reference_entity_id?: number;
+  }>({
     code: '',
     name: '',
     entity_id: 0,
@@ -83,6 +94,7 @@ export default function AttributesPage() {
     is_unique: false,
     is_business_key: false,
     description: '',
+    reference_entity_id: 0
   });
 
   const fetchData = async () => {
@@ -189,6 +201,7 @@ export default function AttributesPage() {
           is_unique: newAttribute.is_unique,
           is_business_key: newAttribute.is_business_key,
           description: newAttribute.description || null,
+          reference_entity_id: newAttribute.data_type === 'reference' ? newAttribute.reference_entity_id : null
         })
       });
       
@@ -219,18 +232,18 @@ export default function AttributesPage() {
 
   if (loading) {
     return (
-      <div className="page-container">
+      <>
         <Header title="Attributes" breadcrumb={['Model Design', 'Attributes']} />
         <div className="page-content" style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
           <Spinner size={40} />
         </div>
-      </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="page-container">
+      <>
         <Header title="Attributes" breadcrumb={['Model Design', 'Attributes']} />
         <div className="page-content">
           <NonIdealState
@@ -240,12 +253,12 @@ export default function AttributesPage() {
             action={<Button icon="refresh" onClick={fetchData}>Retry</Button>}
           />
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="page-container">
+    <>
       <Header title="Attributes" breadcrumb={['Model Design', 'Attributes']} />
 
       <div className="page-content">
@@ -477,6 +490,25 @@ export default function AttributesPage() {
                 <option value="reference">Reference</option>
               </HTMLSelect>
             </FormGroup>
+            {newAttribute.data_type === 'reference' && (
+              <FormGroup label="Referenced Entity" labelFor="attr-ref" labelInfo="(required)">
+                <HTMLSelect
+                  id="attr-ref"
+                  value={newAttribute.reference_entity_id}
+                  onChange={(e) =>
+                    setNewAttribute({ ...newAttribute, reference_entity_id: Number(e.target.value) })
+                  }
+                  fill
+                >
+                  <option value={0}>Select entity...</option>
+                  {entities.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {entity.name} ({entity.model_code})
+                    </option>
+                  ))}
+                </HTMLSelect>
+              </FormGroup>
+            )}
             {newAttribute.data_type === 'string' && (
               <FormGroup label="Max Length" labelFor="attr-length">
                 <InputGroup
@@ -553,6 +585,6 @@ export default function AttributesPage() {
           />
         </Dialog>
       </div>
-    </div>
+    </>
   );
 }

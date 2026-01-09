@@ -30,6 +30,7 @@ const navigation: NavSection[] = [
       { icon: 'cube', label: 'Models', href: '/models' },
       { icon: 'th', label: 'Entities', href: '/entities' },
       { icon: 'column-layout', label: 'Attributes', href: '/attributes' },
+      { icon: 'eye-open', label: 'Views', href: '/views' },
     ]
   },
   {

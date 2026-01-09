@@ -9,9 +9,10 @@ import { useRef, useState, useEffect } from 'react'
 interface HeaderProps {
   title: string
   breadcrumb?: string[]
+  actions?: React.ReactNode
 }
 
-export function Header({ title, breadcrumb }: HeaderProps) {
+export function Header({ title, breadcrumb, actions }: HeaderProps) {
   const { theme, toggleTheme } = useTheme()
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -57,6 +58,12 @@ export function Header({ title, breadcrumb }: HeaderProps) {
           </nav>
         )}
       </div>
+
+      {actions && (
+        <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
+          {actions}
+        </div>
+      )}
 
       <div className="header-right">
         <Button

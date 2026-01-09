@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   Button, 
   Card, 
@@ -12,7 +13,11 @@ import {
   TextArea,
   Intent,
   Spinner,
-  NonIdealState
+  NonIdealState,
+  Popover,
+  Menu,
+  MenuItem,
+  MenuDivider
 } from '@blueprintjs/core'
 import { Header } from '@/components/layout/Header'
 
@@ -40,6 +45,10 @@ export default function ModelsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newModel, setNewModel] = useState({ code: '', name: '', description: '' })
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editModel, setEditModel] = useState<Model | null>(null)
+  const router = useRouter()
 
   // Fetch models from API
   const fetchModels = async () => {
@@ -88,6 +97,79 @@ export default function ModelsPage() {
       alert(err instanceof Error ? err.message : 'Failed to create model')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleOpenEdit = (model: Model) => {
+    setEditModel(model)
+    setIsEditOpen(true)
+  }
+
+  const handleEditModel = async () => {
+    if (!editModel) return
+    try {
+      setIsEditing(true)
+      const res = await fetch(`/api/models/${editModel.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editModel.name,
+          description: editModel.description
+        })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update model')
+      }
+      
+      setEditModel(null)
+      setIsEditOpen(false)
+      fetchModels() // Refresh list
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update model')
+    } finally {
+      setIsEditing(false)
+    }
+  }
+
+  const handleActivateModel = async (modelId: number) => {
+    try {
+      const res = await fetch(`/api/models/${modelId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to activate model')
+      }
+      
+      fetchModels() // Refresh list
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to activate model')
+    }
+  }
+
+  const handleDeleteModel = async (modelId: number, modelCode: string) => {
+    if (!confirm(`Are you sure you want to delete model "${modelCode}"? This cannot be undone.`)) {
+      return
+    }
+    
+    try {
+      const res = await fetch(`/api/models/${modelId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete model')
+      }
+      
+      fetchModels() // Refresh list
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete model')
     }
   }
 
@@ -156,7 +238,7 @@ export default function ModelsPage() {
             action={<Button icon="add" intent="primary" onClick={() => setIsCreateOpen(true)}>Create Model</Button>}
           />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+          <div className="card-grid">
             {models.map((model) => (
               <Card key={model.id} className="model-card" elevation={0}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -179,7 +261,25 @@ export default function ModelsPage() {
                       </Tag>
                     </div>
                   </div>
-                  <Button minimal small icon="more" />
+                  <Popover
+                    content={
+                      <Menu>
+                        <MenuItem icon="edit" text="Edit" onClick={() => handleOpenEdit(model)} />
+                        <MenuItem icon="duplicate" text="Duplicate" onClick={() => alert(`Duplicate model ${model.code} - Coming soon!`)} />
+                        <MenuItem icon="export" text="Export" onClick={() => alert(`Export model ${model.code} - Coming soon!`)} />
+                        <MenuDivider />
+                        <MenuItem 
+                          icon="trash" 
+                          text="Delete" 
+                          intent="danger" 
+                          onClick={() => handleDeleteModel(model.id, model.code)} 
+                        />
+                      </Menu>
+                    }
+                    placement="bottom-end"
+                  >
+                    <Button minimal small icon="more" />
+                  </Popover>
                 </div>
 
                 <div style={{ fontWeight: 500, fontSize: 12, marginBottom: 4 }}>{model.name}</div>
@@ -199,13 +299,23 @@ export default function ModelsPage() {
                 </div>
 
                 <div className="card-footer" style={{ display: 'flex', gap: 6, paddingTop: 10 }}>
-                  <Button small icon="th" text="Entities" />
-                  <Button small icon="database" text="Data" />
+                  <Button 
+                    small 
+                    icon="th" 
+                    text="Entities" 
+                    onClick={() => router.push('/entities')}
+                  />
+                  <Button 
+                    small 
+                    icon="database" 
+                    text="Data" 
+                    onClick={() => router.push('/data')}
+                  />
                   {model.status === 'active' && (
-                    <Button small icon="play" intent="success" text="Deploy" />
+                    <Button small icon="play" intent="success" text="Deploy" onClick={() => router.push('/deploy')} />
                   )}
                   {model.status === 'draft' && (
-                    <Button small icon="tick" intent="primary" text="Activate" />
+                    <Button small icon="tick" intent="primary" text="Activate" onClick={() => handleActivateModel(model.id)} />
                   )}
                 </div>
 
@@ -265,6 +375,57 @@ export default function ModelsPage() {
               loading={isCreating}
             >
               Create Model
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Edit Model Dialog */}
+      <Dialog
+        isOpen={isEditOpen}
+        onClose={() => { setIsEditOpen(false); setEditModel(null); }}
+        title="Edit Model"
+        icon="edit"
+        style={{ width: 420 }}
+      >
+        <div className="bp5-dialog-body">
+          <FormGroup label="Model Code" labelFor="edit-model-code" helperText="Code cannot be changed">
+            <InputGroup
+              id="edit-model-code"
+              value={editModel?.code || ''}
+              disabled
+            />
+          </FormGroup>
+          <FormGroup label="Model Name" labelFor="edit-model-name" labelInfo="(required)">
+            <InputGroup
+              id="edit-model-name"
+              placeholder="e.g., Customer Relationship Management"
+              value={editModel?.name || ''}
+              onChange={(e) => editModel && setEditModel({ ...editModel, name: e.target.value })}
+            />
+          </FormGroup>
+          <FormGroup label="Description" labelFor="edit-model-desc">
+            <TextArea
+              id="edit-model-desc"
+              placeholder="Brief description of this data model..."
+              fill
+              autoResize
+              value={editModel?.description || ''}
+              onChange={(e) => editModel && setEditModel({ ...editModel, description: e.target.value })}
+            />
+          </FormGroup>
+        </div>
+        <div className="bp5-dialog-footer">
+          <div className="bp5-dialog-footer-actions">
+            <Button small onClick={() => { setIsEditOpen(false); setEditModel(null); }} disabled={isEditing}>Cancel</Button>
+            <Button 
+              small
+              intent="primary" 
+              onClick={handleEditModel}
+              disabled={!editModel?.name?.trim() || isEditing}
+              loading={isEditing}
+            >
+              Save Changes
             </Button>
           </div>
         </div>

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         r.business_key_hash,
         r.data,
         r.previous_data,
-        r.validation_status,
+        r.status AS validation_status,
         r.validation_errors,
         r.created_at,
         r.created_by
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (status) {
-      sql += ` AND r.validation_status = @status`
+      sql += ` AND r.status = @status`
       params.status = status
     }
     
@@ -170,13 +170,14 @@ export async function POST(request: NextRequest) {
     
     await dbExecute(
       `INSERT INTO [mds_stage].[staged_record] 
-        (commit_id, entity_id, operation, business_key, business_key_hash, data, validation_status, created_by)
+        (commit_id, entity_id, operation, business_key, business_key_hash, payload, data, status, created_by)
        VALUES (
          @commitId, 
          @entityId, 
          @operation, 
          @businessKey, 
          CONVERT(CHAR(64), HASHBYTES('SHA2_256', @businessKey), 2),
+         @data,
          @data, 
          'pending', 
          @user
@@ -189,6 +190,14 @@ export async function POST(request: NextRequest) {
         data: dataJson,
         user: created_by 
       }
+    )
+    
+    // Update record_count in the commit
+    await dbExecute(
+      `UPDATE [mds_stage].[commit] 
+       SET record_count = (SELECT COUNT(*) FROM [mds_stage].[staged_record] WHERE commit_id = @commitId)
+       WHERE id = @commitId`,
+      { commitId }
     )
     
     // Fetch the created record

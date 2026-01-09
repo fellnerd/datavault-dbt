@@ -1,14 +1,17 @@
 # Master Data Services - Docker Compose
 # 
 # Services:
-# - mds-app: Next.js frontend (Port 3000)
-# - mds-worker: BullMQ job worker
+# - mds-app: Next.js frontend (Port 3000) mit embedded dbt
+# - mds-worker: BullMQ job worker mit dbt für async Jobs
 # - redis: Message queue backend
 #
 # Usage:
 #   docker-compose up -d          # Start all services
 #   docker-compose logs -f        # View logs
 #   docker-compose down           # Stop all services
+#
+# Bei Start führt mds-app automatisch "dbt run --select tag:bootstrap"
+# aus um alle MDS Schemas und Tabellen zu erstellen.
 
 services:
   # Redis for BullMQ job queue
@@ -27,7 +30,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Next.js Application
+  # Next.js Application with embedded dbt
   mds-app:
     build:
       context: .
@@ -45,10 +48,15 @@ services:
       - AUTH_MICROSOFT_ENTRA_ID_ID=${AUTH_MICROSOFT_ENTRA_ID_ID:-}
       - AUTH_MICROSOFT_ENTRA_ID_SECRET=${AUTH_MICROSOFT_ENTRA_ID_SECRET:-}
       - AUTH_MICROSOFT_ENTRA_ID_ISSUER=${AUTH_MICROSOFT_ENTRA_ID_ISSUER:-}
-      # Database
+      # Database (für Next.js API)
       - DB_SERVER=${DB_SERVER:-sql-datavault-weu-001.database.windows.net}
       - DB_NAME=${DB_NAME:-Vault}
       - DB_MOCK=${DB_MOCK:-false}
+      # dbt Database Connection (für Container-Start Bootstrap)
+      - MDS_DB_SERVER=${DB_SERVER:-sql-datavault-weu-001.database.windows.net}
+      - MDS_DB_DATABASE=${DB_NAME:-Vault}
+      - MDS_DB_USER=${DB_USER:-}
+      - MDS_DB_PASSWORD=${DB_PASSWORD:-}
       # Redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -64,7 +72,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # BullMQ Worker
+  # BullMQ Worker with dbt for async jobs
   mds-worker:
     build:
       context: .
@@ -73,20 +81,22 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      # Database
+      # Database (für dbt)
       - DB_SERVER=${DB_SERVER:-sql-datavault-weu-001.database.windows.net}
       - DB_NAME=${DB_NAME:-Vault}
       - DB_MOCK=${DB_MOCK:-false}
+      # dbt Database Connection
+      - MDS_DB_SERVER=${DB_SERVER:-sql-datavault-weu-001.database.windows.net}
+      - MDS_DB_DATABASE=${DB_NAME:-Vault}
+      - MDS_DB_USER=${DB_USER:-}
+      - MDS_DB_PASSWORD=${DB_PASSWORD:-}
+      - MDS_DBT_TARGET=${DBT_TARGET:-prod}
+      - DBT_PROFILES_DIR=/app/dbt
       # Redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       # Worker settings
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
-      # dbt project path (mount volume in production)
-      - DBT_PROJECT_PATH=/app/dbt
-    volumes:
-      # Mount dbt project for running dbt commands
-      - ../:/app/dbt:ro
     depends_on:
       redis:
         condition: service_healthy

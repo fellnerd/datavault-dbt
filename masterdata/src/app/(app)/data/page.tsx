@@ -68,8 +68,14 @@ export default function DataEntryPage() {
   const [error, setError] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editRecord, setEditRecord] = useState<StagedRecord | null>(null)
+  const [editData, setEditData] = useState<Record<string, DataValue>>({})
   const [selectedRecord, setSelectedRecord] = useState<StagedRecord | null>(null)
   const [newRecord, setNewRecord] = useState<Record<string, DataValue>>({})
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<number>>(new Set())
+  const [isCommitting, setIsCommitting] = useState(false)
 
   // Fetch entities on mount
   useEffect(() => {
@@ -159,6 +165,118 @@ export default function DataEntryPage() {
       alert(err instanceof Error ? err.message : 'Failed to create record')
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleOpenEdit = (record: StagedRecord) => {
+    setEditRecord(record)
+    setEditData(record.data as Record<string, DataValue>)
+    setIsEditOpen(true)
+  }
+
+  const handleEditRecord = async () => {
+    if (!editRecord) return
+    try {
+      setIsEditing(true)
+      const res = await fetch(`/api/records/${editRecord.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: editData
+        })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to update record')
+      }
+      
+      setEditRecord(null)
+      setEditData({})
+      setIsEditOpen(false)
+      // Refresh records
+      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
+      const recordsJson = await recordsRes.json()
+      setRecords(recordsJson.data || [])
+      setSummary(recordsJson.summary || summary)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update record')
+    } finally {
+      setIsEditing(false)
+    }
+  }
+
+  const handleDeleteRecord = async (recordId: number) => {
+    if (!confirm('Are you sure you want to delete this record?')) {
+      return
+    }
+    
+    try {
+      const res = await fetch(`/api/records/${recordId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to delete record')
+      }
+      
+      // Refresh records
+      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
+      const recordsJson = await recordsRes.json()
+      setRecords(recordsJson.data || [])
+      setSummary(recordsJson.summary || summary)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete record')
+    }
+  }
+
+  const handleToggleRecord = (recordId: number) => {
+    setSelectedRecordIds(prev => {
+      const next = new Set(prev)
+      if (next.has(recordId)) {
+        next.delete(recordId)
+      } else {
+        next.add(recordId)
+      }
+      return next
+    })
+  }
+
+  const handleToggleAll = () => {
+    if (selectedRecordIds.size === filteredRecords.length) {
+      setSelectedRecordIds(new Set())
+    } else {
+      setSelectedRecordIds(new Set(filteredRecords.map(r => r.id)))
+    }
+  }
+
+  const handleCommitSelected = async () => {
+    if (selectedRecordIds.size === 0) return
+    try {
+      setIsCommitting(true)
+      const res = await fetch('/api/commits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entity_id: selectedEntityId,
+          change_ids: Array.from(selectedRecordIds)
+        })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to create commit')
+      }
+      // Clear selection and refresh
+      setSelectedRecordIds(new Set())
+      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
+      const recordsJson = await recordsRes.json()
+      setRecords(recordsJson.data || [])
+      setSummary(recordsJson.summary || summary)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to commit records')
+    } finally {
+      setIsCommitting(false)
     }
   }
 
@@ -279,7 +397,11 @@ export default function DataEntryPage() {
               <thead>
                 <tr>
                   <th style={{ width: 40 }}>
-                    <Checkbox />
+                    <Checkbox 
+                      checked={filteredRecords.length > 0 && selectedRecordIds.size === filteredRecords.length}
+                      indeterminate={selectedRecordIds.size > 0 && selectedRecordIds.size < filteredRecords.length}
+                      onChange={handleToggleAll}
+                    />
                   </th>
                   <th>Business Key</th>
                   {attributes.slice(0, 4).map(attr => (
@@ -295,7 +417,10 @@ export default function DataEntryPage() {
                 {filteredRecords.map((record) => (
                   <tr key={record.id} onClick={() => setSelectedRecord(record)} style={{ cursor: 'pointer' }}>
                     <td onClick={(e) => e.stopPropagation()}>
-                      <Checkbox />
+                      <Checkbox 
+                        checked={selectedRecordIds.has(record.id)}
+                        onChange={() => handleToggleRecord(record.id)}
+                      />
                     </td>
                     <td><strong>{record.business_key}</strong></td>
                     {attributes.slice(0, 4).map(attr => (
@@ -316,8 +441,8 @@ export default function DataEntryPage() {
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <Button minimal small icon="edit" title="Edit" />
-                        <Button minimal small icon="trash" title="Delete" intent="danger" />
+                        <Button minimal small icon="edit" title="Edit" onClick={() => handleOpenEdit(record)} disabled={record.validation_status !== 'pending'} />
+                        <Button minimal small icon="trash" title="Delete" intent="danger" onClick={() => handleDeleteRecord(record.id)} disabled={record.validation_status !== 'pending'} />
                       </div>
                     </td>
                   </tr>
@@ -329,10 +454,16 @@ export default function DataEntryPage() {
 
         <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="text-muted" style={{ fontSize: 11 }}>
-            {filteredRecords.length} records
+            {filteredRecords.length} records{selectedRecordIds.size > 0 && ` (${selectedRecordIds.size} selected)`}
           </span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <Button small icon="git-commit" disabled={summary.draft === 0}>
+            <Button 
+              small 
+              icon="git-commit" 
+              disabled={selectedRecordIds.size === 0}
+              loading={isCommitting}
+              onClick={handleCommitSelected}
+            >
               Commit Selected
             </Button>
             <Button small icon="export">Export</Button>
@@ -438,11 +569,59 @@ export default function DataEntryPage() {
             <div className="bp5-dialog-footer">
               <div className="bp5-dialog-footer-actions">
                 <Button small onClick={() => setSelectedRecord(null)}>Close</Button>
-                <Button small icon="edit">Edit</Button>
+                <Button small icon="edit" onClick={() => { setSelectedRecord(null); handleOpenEdit(selectedRecord); }}>Edit</Button>
               </div>
             </div>
           </>
         )}
+      </Dialog>
+
+      {/* Edit Record Dialog */}
+      <Dialog
+        isOpen={isEditOpen}
+        onClose={() => { setIsEditOpen(false); setEditRecord(null); setEditData({}); }}
+        title={`Edit Record: ${editRecord?.business_key || ''}`}
+        icon="edit"
+        style={{ width: 500 }}
+      >
+        <div className="bp5-dialog-body">
+          {attributes.map(attr => (
+            <FormGroup 
+              key={attr.id} 
+              label={attr.name} 
+              labelFor={`edit-${attr.code}`}
+              labelInfo={attr.is_required ? '(required)' : ''}
+              helperText={attr.is_business_key ? 'Business Key' : undefined}
+            >
+              <InputGroup
+                id={`edit-${attr.code}`}
+                type={attr.data_type === 'integer' || attr.data_type === 'decimal' ? 'number' : 'text'}
+                placeholder={`Enter ${attr.name.toLowerCase()}`}
+                value={String(editData[attr.code] ?? '')}
+                onChange={(e) => setEditData({ 
+                  ...editData, 
+                  [attr.code]: attr.data_type === 'integer' ? parseInt(e.target.value) || '' :
+                               attr.data_type === 'decimal' ? parseFloat(e.target.value) || '' :
+                               e.target.value 
+                })}
+                intent={attr.is_business_key ? 'primary' : 'none'}
+              />
+            </FormGroup>
+          ))}
+        </div>
+        <div className="bp5-dialog-footer">
+          <div className="bp5-dialog-footer-actions">
+            <Button small onClick={() => { setIsEditOpen(false); setEditRecord(null); setEditData({}); }} disabled={isEditing}>Cancel</Button>
+            <Button 
+              small
+              intent="primary" 
+              onClick={handleEditRecord}
+              loading={isEditing}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </>
   )

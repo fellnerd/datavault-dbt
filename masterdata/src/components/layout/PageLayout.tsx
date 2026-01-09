@@ -10,6 +10,8 @@ interface PageLayoutProps {
   breadcrumb: string[]
   /** Seiteninhalt */
   children: React.ReactNode
+  /** Aktions-Buttons im Header (z.B. Erstellen-Button) */
+  actions?: React.ReactNode
   /** Ladezustand */
   loading?: boolean
   /** Ladetext */
@@ -45,6 +47,7 @@ export function PageLayout({
   title,
   breadcrumb,
   children,
+  actions,
   loading = false,
   loadingText = 'Laden...',
   error = null,
@@ -54,7 +57,7 @@ export function PageLayout({
   if (loading) {
     return (
       <>
-        <Header title={title} breadcrumb={breadcrumb} />
+        <Header title={title} breadcrumb={breadcrumb} actions={actions} />
         <div className="page-content" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
           <Spinner size={40} />
           <p style={{ marginTop: 12 }}>{loadingText}</p>
@@ -67,7 +70,7 @@ export function PageLayout({
   if (error) {
     return (
       <>
-        <Header title={title} breadcrumb={breadcrumb} />
+        <Header title={title} breadcrumb={breadcrumb} actions={actions} />
         <div className="page-content">
           <NonIdealState
             icon="error"
@@ -83,7 +86,7 @@ export function PageLayout({
   // Normal Content
   return (
     <>
-      <Header title={title} breadcrumb={breadcrumb} />
+      <Header title={title} breadcrumb={breadcrumb} actions={actions} />
       <div className="page-content">
         {children}
       </div>

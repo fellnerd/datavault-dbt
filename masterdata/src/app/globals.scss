@@ -715,3 +715,47 @@ body.bp5-dark {
 .bp5-toast-container {
   z-index: 100;
 }
+
+// Page specific layouts
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  padding: 16px; 
+  text-align: center;
+  
+  .stat-label {
+    color: #5c7080;
+    font-size: var(--font-size-small);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  
+  .stat-value {
+    font-size: 24px;
+    font-weight: 300;
+    color: #182026;
+    
+    .bp5-dark & {
+      color: #f5f8fa;
+    }
+  }
+}
+
+// Consistent Model/Card Grid
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}

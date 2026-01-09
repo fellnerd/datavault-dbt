@@ -18,7 +18,8 @@ import {
   Spinner,
   NonIdealState
 } from '@blueprintjs/core'
-import { Header } from '@/components/layout/Header'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { KpiCard, KpiGrid } from '@/components/ui/KpiCard'
 
 interface Commit {
   id: number
@@ -146,15 +147,35 @@ export default function CommitsPage() {
   const handleDeploy = async (commit: Commit) => {
     try {
       setActionLoading(true)
-      const res = await fetch('/api/commits', {
-        method: 'PATCH',
+      
+      // Step 1: Transfer data to mds_load tables via Deploy API
+      const deployRes = await fetch('/api/deploy', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: commit.id,
-          action: 'deploy'
+          commit_ids: [commit.id]
         })
       })
-      if (!res.ok) throw new Error('Failed to deploy commit')
+      
+      if (!deployRes.ok) {
+        const error = await deployRes.json()
+        throw new Error(error.error || 'Failed to deploy commit')
+      }
+      
+      // Step 2: Trigger dbt job for master table generation (optional)
+      try {
+        await fetch('/api/dbt/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            models: ['mds_master']
+          })
+        })
+      } catch {
+        // dbt job is optional - don't fail if it errors
+        console.warn('dbt job could not be triggered')
+      }
+      
       await fetchCommits()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to deploy')
@@ -192,33 +213,6 @@ export default function CommitsPage() {
       case 'rejected': return rejectedCommits
       default: return commits
     }
-  }
-
-  if (loading) {
-    return (
-      <>
-        <Header title="Commits" breadcrumb={['Data Management', 'Commits']} />
-        <div className="page-content" style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-          <Spinner size={40} />
-        </div>
-      </>
-    )
-  }
-
-  if (error) {
-    return (
-      <>
-        <Header title="Commits" breadcrumb={['Data Management', 'Commits']} />
-        <div className="page-content">
-          <NonIdealState
-            icon="error"
-            title="Failed to load commits"
-            description={error}
-            action={<Button icon="refresh" onClick={fetchCommits}>Retry</Button>}
-          />
-        </div>
-      </>
-    )
   }
 
   const CommitCard = ({ commit }: { commit: Commit }) => (
@@ -340,72 +334,63 @@ export default function CommitsPage() {
   )
 
   return (
-    <>
-      <Header title="Commits" breadcrumb={['Data Management', 'Commits']} />
-      
-      <div className="page-content">
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Pending Review</span>
-            <span className="kpi-value">{summary.pending}</span>
-          </div>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Approved</span>
-            <span className="kpi-value">{summary.approved}</span>
-          </div>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Deployed</span>
-            <span className="kpi-value">{summary.deployed}</span>
-          </div>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Rejected</span>
-            <span className="kpi-value">{summary.rejected}</span>
-          </div>
-        </div>
+    <PageLayout
+      title="Commits"
+      breadcrumb={['Data Management', 'Commits']}
+      loading={loading}
+      loadingText="Lade Commits..."
+      error={error}
+      onRetry={fetchCommits}
+    >
+      {/* Stats */}
+      <KpiGrid>
+        <KpiCard label="Pending Review" value={summary.pending} intent="warning" />
+        <KpiCard label="Approved" value={summary.approved} intent="success" />
+        <KpiCard label="Deployed" value={summary.deployed} intent="primary" />
+        <KpiCard label="Rejected" value={summary.rejected} intent="danger" />
+      </KpiGrid>
 
-        {/* Tabs */}
-        <div className="section-header">
-          <h2>Commit Queue</h2>
-        </div>
+      {/* Tabs */}
+      <div className="section-header">
+        <h2>Commit Queue</h2>
+      </div>
 
-        <Tabs 
-          id="commit-tabs" 
-          selectedTabId={selectedTab} 
-          onChange={(newTab) => setSelectedTab(newTab as string)}
-          large={false}
-        >
-          <Tab 
-            id="pending" 
-            title={
-              <span>
-                Pending Review
-                {pendingCommits.length > 0 && (
-                  <Tag minimal round intent="warning" style={{ marginLeft: 8 }}>
-                    {pendingCommits.length}
-                  </Tag>
-                )}
-              </span>
-            }
+      <Tabs 
+        id="commit-tabs" 
+        selectedTabId={selectedTab} 
+        onChange={(newTab) => setSelectedTab(newTab as string)}
+        large={false}
+      >
+        <Tab 
+          id="pending" 
+          title={
+            <span>
+              Pending Review
+              {pendingCommits.length > 0 && (
+                <Tag minimal round intent="warning" style={{ marginLeft: 8 }}>
+                  {pendingCommits.length}
+                </Tag>
+              )}
+            </span>
+          }
+        />
+        <Tab id="approved" title="Ready to Deploy" />
+        <Tab id="deployed" title="Deployed" />
+        <Tab id="rejected" title="Rejected" />
+      </Tabs>
+
+      <div style={{ marginTop: 16 }}>
+        {getFilteredCommits().length === 0 ? (
+          <NonIdealState
+            icon="inbox"
+            title="No commits"
+            description={`No ${selectedTab} commits found.`}
           />
-          <Tab id="approved" title="Ready to Deploy" />
-          <Tab id="deployed" title="Deployed" />
-          <Tab id="rejected" title="Rejected" />
-        </Tabs>
-
-        <div style={{ marginTop: 16 }}>
-          {getFilteredCommits().length === 0 ? (
-            <NonIdealState
-              icon="inbox"
-              title="No commits"
-              description={`No ${selectedTab} commits found.`}
-            />
-          ) : (
-            getFilteredCommits().map(commit => (
-              <CommitCard key={commit.id} commit={commit} />
-            ))
-          )}
-        </div>
+        ) : (
+          getFilteredCommits().map(commit => (
+            <CommitCard key={commit.id} commit={commit} />
+          ))
+        )}
       </div>
 
       {/* Review Dialog */}
@@ -461,6 +446,6 @@ export default function CommitsPage() {
           </div>
         </div>
       </Dialog>
-    </>
+    </PageLayout>
   )
 }

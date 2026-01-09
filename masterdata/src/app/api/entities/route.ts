@@ -21,6 +21,9 @@ export interface Entity {
   is_deployed: boolean
   last_deployed_at: string | null
   record_count: number | null
+  status: 'draft' | 'active' | 'deprecated'
+  is_versioned: boolean
+  primary_key_attribute: string | null
   created_at: string
   created_by: string
   updated_at: string
@@ -52,6 +55,9 @@ export async function GET(request: NextRequest) {
         e.is_deployed,
         e.last_deployed_at,
         e.record_count,
+        e.status,
+        e.is_versioned,
+        e.primary_key_attribute,
         e.created_at,
         e.created_by,
         e.updated_at,
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json()
-    const { model_id, code, name, description, source_table, staging_view, hub_name } = body
+    const { model_id, code, name, description, source_table, staging_view, hub_name, is_versioned } = body
     
     if (!model_id || !code || !name) {
       return NextResponse.json(
@@ -125,11 +131,15 @@ export async function POST(request: NextRequest) {
     }
     
     const currentUser = 'admin'
+    // Generate target_table from code (auto-generated)
+    const target_table = code.toLowerCase()
+    // Default business_key_columns to 'id' if not specified
+    const business_key_columns = 'id'
     
     await dbExecute(
       `INSERT INTO [mds_meta].[entity] 
-        (model_id, code, name, description, source_table, staging_view, hub_name, created_by, updated_by)
-       VALUES (@modelId, @code, @name, @description, @source_table, @staging_view, @hub_name, @user, @user)`,
+        (model_id, code, name, description, source_table, staging_view, hub_name, target_table, business_key_columns, is_versioned, created_by, updated_by)
+       VALUES (@modelId, @code, @name, @description, @source_table, @staging_view, @hub_name, @target_table, @business_key_columns, @is_versioned, @user, @user)`,
       { 
         modelId: model_id,
         code, 
@@ -138,6 +148,9 @@ export async function POST(request: NextRequest) {
         source_table: source_table || null,
         staging_view: staging_view || null,
         hub_name: hub_name || null,
+        target_table,
+        business_key_columns,
+        is_versioned: is_versioned !== undefined ? is_versioned : true,
         user: currentUser 
       }
     )

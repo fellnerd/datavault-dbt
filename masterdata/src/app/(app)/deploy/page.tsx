@@ -122,7 +122,7 @@ export default function DeployPage() {
     })
   }
 
-  // Deploy handler
+  // Deploy handler - Uses new Deploy API with dbt integration
   async function handleDeploy() {
     setShowDeployDialog(false)
     setDeploying(true)
@@ -136,29 +136,71 @@ export default function DeployPage() {
       status: 'running',
       progress: 0,
       startedAt: new Date().toISOString(),
-      logs: ['Starting deployment...']
+      logs: ['🚀 Starte Deployment...']
     })
 
     try {
-      // Deploy each commit
-      for (let i = 0; i < commitIds.length; i++) {
-        const commitId = commitIds[i]
-        
+      // Step 1: Call Deploy API to transfer data to mds_load tables
+      setCurrentJob(prev => prev ? {
+        ...prev,
+        progress: 20,
+        logs: [...prev.logs, '📦 Übertrage Daten nach mds_load...']
+      } : null)
+
+      const deployRes = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commit_ids: commitIds })
+      })
+
+      if (!deployRes.ok) {
+        const error = await deployRes.json()
+        throw new Error(error.error || 'Deploy API failed')
+      }
+
+      const deployResult = await deployRes.json()
+      
+      setCurrentJob(prev => prev ? {
+        ...prev,
+        progress: 50,
+        logs: [
+          ...prev.logs, 
+          `✅ ${deployResult.total_records} Datensätze übertragen`,
+          `📊 ${deployResult.commits_success}/${deployResult.commits_processed} Commits erfolgreich`
+        ]
+      } : null)
+
+      // Step 2: Trigger dbt run for master table generation
+      setCurrentJob(prev => prev ? {
+        ...prev,
+        progress: 60,
+        logs: [...prev.logs, '🔄 Starte dbt-Job für Master-Tabellen...']
+      } : null)
+
+      const dbtRes = await fetch('/api/dbt/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          commit_id: commitIds[0],
+          command: 'dbt run',
+          models: ['mds_master'] // Run master models
+        })
+      })
+
+      if (dbtRes.ok) {
+        const dbtJob = await dbtRes.json()
         setCurrentJob(prev => prev ? {
           ...prev,
-          progress: Math.round((i / commitIds.length) * 100),
-          logs: [...prev.logs, `Deploying commit ${commitId}...`]
+          progress: 80,
+          logs: [...prev.logs, `🔧 dbt-Job gestartet: ${dbtJob.job_id}`]
         } : null)
-
-        const res = await fetch(`/api/commits/${commitId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'deployed' })
-        })
-
-        if (!res.ok) {
-          throw new Error(`Failed to deploy commit ${commitId}`)
-        }
+      } else {
+        // dbt job is optional, don't fail deployment
+        setCurrentJob(prev => prev ? {
+          ...prev,
+          progress: 80,
+          logs: [...prev.logs, '⚠️ dbt-Job konnte nicht gestartet werden (optional)']
+        } : null)
       }
 
       // Complete
@@ -167,7 +209,11 @@ export default function DeployPage() {
         status: 'completed',
         progress: 100,
         completedAt: new Date().toISOString(),
-        logs: [...prev.logs, 'Deployment completed successfully!']
+        logs: [
+          ...prev.logs, 
+          '✅ Deployment erfolgreich abgeschlossen!',
+          `📈 Deployment ID: ${deployResult.deployment_id}`
+        ]
       } : null)
 
       setSelectedCommits(new Set())

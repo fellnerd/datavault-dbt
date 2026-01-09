@@ -1,5 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
+import { dbQuery, dbExecute } from '@/lib/db-server'
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+interface Model {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  version: number
+  status: string
+  source_database: string | null
+  target_schema: string | null
+  created_at: string
+  created_by: string
+  updated_at: string | null
+  updated_by: string | null
+}
 
 // GET /api/models/[modelId] - Get single model
 export async function GET(
@@ -10,20 +29,19 @@ export async function GET(
   logger.info({ modelId }, 'GET /api/models/[modelId]')
   
   try {
-    // TODO: Replace with DB query
-    // const results = await query<Model>('SELECT * FROM mds_meta.model WHERE model_id = @id', { id: modelId })
+    const results = await dbQuery<Model>(
+      'SELECT * FROM mds_meta.model WHERE id = @id',
+      { id: parseInt(modelId) }
+    )
     
-    // Mock response
-    const model = {
-      model_id: modelId,
-      model_name: 'CRM',
-      model_description: 'Customer Relationship Management',
-      created_by: 'admin',
-      created_at: '2023-01-15T10:00:00Z',
-      is_active: true,
+    if (results.length === 0) {
+      return NextResponse.json(
+        { error: 'Model not found' },
+        { status: 404 }
+      )
     }
     
-    return NextResponse.json(model)
+    return NextResponse.json(results[0])
   } catch (error) {
     logger.error({ error, modelId }, 'Failed to fetch model')
     return NextResponse.json(
@@ -43,19 +61,52 @@ export async function PUT(
   
   try {
     const body = await request.json()
-    const { name, description, is_active } = body
+    const { name, description, status, source_database, target_schema } = body
     
-    // TODO: Replace with DB update
-    // await execute(
-    //   'UPDATE mds_meta.model SET model_name = @name, model_description = @desc, is_active = @active WHERE model_id = @id',
-    //   { id: modelId, name, desc: description, active: is_active }
-    // )
+    // Build dynamic update query
+    const updates: string[] = []
+    const queryParams: Record<string, unknown> = { id: parseInt(modelId) }
+    
+    if (name !== undefined) {
+      updates.push('name = @name')
+      queryParams.name = name
+    }
+    if (description !== undefined) {
+      updates.push('description = @description')
+      queryParams.description = description
+    }
+    if (status !== undefined) {
+      updates.push('status = @status')
+      queryParams.status = status
+    }
+    if (source_database !== undefined) {
+      updates.push('source_database = @source_database')
+      queryParams.source_database = source_database
+    }
+    if (target_schema !== undefined) {
+      updates.push('target_schema = @target_schema')
+      queryParams.target_schema = target_schema
+    }
+    
+    if (updates.length === 0) {
+      return NextResponse.json(
+        { error: 'No fields to update' },
+        { status: 400 }
+      )
+    }
+    
+    // Always update updated_at and updated_by
+    updates.push('updated_at = GETUTCDATE()')
+    updates.push('updated_by = @updated_by')
+    queryParams.updated_by = 'admin'
+    
+    await dbExecute(
+      `UPDATE mds_meta.model SET ${updates.join(', ')} WHERE id = @id`,
+      queryParams
+    )
     
     return NextResponse.json({
       model_id: modelId,
-      model_name: name,
-      model_description: description,
-      is_active,
       updated_at: new Date().toISOString(),
     })
   } catch (error) {
@@ -67,7 +118,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/models/[modelId] - Delete model (soft delete)
+// DELETE /api/models/[modelId] - Delete model
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ modelId: string }> }
@@ -76,10 +127,25 @@ export async function DELETE(
   logger.info({ modelId }, 'DELETE /api/models/[modelId]')
   
   try {
-    // TODO: Replace with DB update (soft delete)
-    // await execute('UPDATE mds_meta.model SET is_active = 0 WHERE model_id = @id', { id: modelId })
+    // Check if model has entities
+    const entities = await dbQuery<{count: number}>(
+      'SELECT COUNT(*) as count FROM mds_meta.entity WHERE model_id = @id',
+      { id: parseInt(modelId) }
+    )
     
-    return NextResponse.json({ deleted: true, model_id: modelId })
+    if (entities[0].count > 0) {
+      return NextResponse.json(
+        { error: 'Cannot delete model with existing entities. Delete entities first.' },
+        { status: 400 }
+      )
+    }
+    
+    await dbExecute(
+      'DELETE FROM mds_meta.model WHERE id = @id',
+      { id: parseInt(modelId) }
+    )
+    
+    return NextResponse.json({ success: true })
   } catch (error) {
     logger.error({ error, modelId }, 'Failed to delete model')
     return NextResponse.json(
