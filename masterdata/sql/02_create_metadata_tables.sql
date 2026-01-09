@@ -47,6 +47,9 @@ BEGIN
         [is_deployed] BIT NOT NULL DEFAULT 0,
         [last_deployed_at] DATETIME2 NULL,
         [record_count] INT NULL,
+        [status] NVARCHAR(20) NOT NULL DEFAULT 'draft',  -- draft, active, deprecated
+        [is_versioned] BIT NOT NULL DEFAULT 1,           -- Enable SCD2 versioning
+        [primary_key_attribute] NVARCHAR(100) NULL,      -- Business key attribute code
         [created_at] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         [created_by] NVARCHAR(100) NOT NULL,
         [updated_at] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
@@ -137,6 +140,40 @@ BEGIN
         CONSTRAINT [CK_user_role_role] CHECK ([role] IN ('viewer', 'editor', 'approver', 'admin'))
     );
     PRINT 'Created table: mds_meta.user_role';
+END
+GO
+
+-- ----------------------------------------------------------------------------
+-- Entity View: View definitions for entities
+-- ----------------------------------------------------------------------------
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'entity_view' AND schema_id = SCHEMA_ID('mds_meta'))
+BEGIN
+    CREATE TABLE [mds_meta].[entity_view] (
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [entity_id] INT NOT NULL REFERENCES [mds_meta].[entity]([id]),
+        [code] NVARCHAR(100) NOT NULL,
+        [name] NVARCHAR(255) NOT NULL,
+        [description] NVARCHAR(MAX) NULL,
+        [view_type] NVARCHAR(50) NOT NULL DEFAULT 'scd1',  -- scd1, scd2, custom
+        [custom_sql] NVARCHAR(MAX) NULL,                   -- SQL query für custom views
+        [column_config] NVARCHAR(MAX) NULL,                -- JSON config für Spalten
+        [filter_condition] NVARCHAR(MAX) NULL,             -- WHERE clause filter
+        [filter_expression] NVARCHAR(MAX) NULL,            -- Additional filter expression
+        [is_default] BIT NOT NULL DEFAULT 0,
+        [is_deployed] BIT NOT NULL DEFAULT 0,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        [status] NVARCHAR(20) NOT NULL DEFAULT 'draft',    -- draft, active, deprecated
+        [last_deployed_at] DATETIME2 NULL,
+        [deployed_at] DATETIME2 NULL,
+        [deployed_by] NVARCHAR(100) NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+        [created_by] NVARCHAR(100) NOT NULL,
+        [updated_at] DATETIME2 NULL,
+        [updated_by] NVARCHAR(100) NULL,
+        CONSTRAINT [UQ_entity_view_entity_code] UNIQUE ([entity_id], [code]),
+        CONSTRAINT [CK_entity_view_type] CHECK ([view_type] IN ('scd1', 'scd2', 'custom'))
+    );
+    PRINT 'Created table: mds_meta.entity_view';
 END
 GO
 

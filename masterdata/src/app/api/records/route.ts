@@ -114,27 +114,48 @@ export async function POST(request: NextRequest) {
     const { 
       entity_id, 
       operation = 'INSERT',
-      business_key,
+      business_key: providedBusinessKey,
       data,
       created_by = 'admin'
     } = body
     
-    if (!entity_id || !business_key || !data) {
+    if (!entity_id || !data) {
       return NextResponse.json(
-        { error: 'entity_id, business_key and data are required' },
+        { error: 'entity_id and data are required' },
         { status: 400 }
       )
     }
     
-    // Check if entity exists
-    const entity = await dbQuery<{ id: number }>(
-      'SELECT id FROM [mds_meta].[entity] WHERE id = @entityId',
+    // Check if entity exists and get business key attribute
+    const entity = await dbQuery<{ id: number; code: string }>(
+      'SELECT id, code FROM [mds_meta].[entity] WHERE id = @entityId',
       { entityId: entity_id }
     )
     if (entity.length === 0) {
       return NextResponse.json(
         { error: 'Entity not found' },
         { status: 404 }
+      )
+    }
+    
+    // Get business key attribute for this entity
+    const bkAttribute = await dbQuery<{ code: string }>(
+      `SELECT code FROM [mds_meta].[attribute] 
+       WHERE entity_id = @entityId AND is_business_key = 1`,
+      { entityId: entity_id }
+    )
+    
+    // Extract business_key from data if not provided
+    let business_key = providedBusinessKey
+    if (!business_key && bkAttribute.length > 0) {
+      const bkCode = bkAttribute[0].code
+      business_key = data[bkCode]
+    }
+    
+    if (!business_key) {
+      return NextResponse.json(
+        { error: 'business_key is required (either directly or in data with a business key attribute)' },
+        { status: 400 }
       )
     }
     

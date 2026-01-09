@@ -65,3 +65,27 @@ See [stg_company_client.sql](models/staging/stg_company_client.sql) for the patt
 - Schema creates as `dv_stg` instead of `stg` → Check `generate_schema_name` macro
 - External table errors → Run `dbt run-operation stage_external_sources` first
 - Cross-database error → Replace hardcoded DB with `{{ target.database }}`
+
+## Testing & Development Tools
+
+### Database Access
+- **Verwende `mssql_connect`** für Datenbankzugriff (nicht pyodbc oder Azure CLI)
+- Server: `sql-datavault-weu-001.database.windows.net`
+- Database: `Vault`
+- Nach Connect: `mssql_run_query` für SQL-Abfragen
+
+### UI Testing
+- **Verwende Playwright MCP Tools** für Browser-Tests:
+  - `mcp_playwright_browser_navigate` - Seite öffnen
+  - `mcp_playwright_browser_snapshot` - Aktuelle Seite analysieren
+  - `mcp_playwright_browser_click` - Element klicken
+  - `mcp_playwright_browser_type` - Text eingeben
+  - `mcp_playwright_browser_fill_form` - Formulare ausfüllen
+- Dev Login: `admin@example.com` / `dev`
+- App URL: `http://localhost:3000`
+
+### MDS Bootstrap Testing
+1. Drop alle MDS-Objekte (mssql_run_query)
+2. `dbt run-operation bootstrap_mds --target local`
+3. Verifiziere Tabellen (mssql_run_query)
+4. Teste UI mit Playwright

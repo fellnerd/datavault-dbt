@@ -187,19 +187,35 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 7. Log deployment
-    await dbExecute(
-      `INSERT INTO mds_load.deployment_log 
-       (entity_id, commit_ids, status, records_deployed, deployed_by)
-       VALUES (@entityId, @commitIds, @status, @recordsDeployed, @user)`,
-      {
-        entityId: results[0]?.entity_id || 0,
-        commitIds: commit_ids.join(','),
-        status: results.every(r => r.status === 'success') ? 'completed' : 'failed',
-        recordsDeployed: results.reduce((sum, r) => sum + r.records_deployed, 0),
-        user
+    // 7. Log deployment for each unique entity
+    const entitiesSeen = new Set<number>()
+    for (const result of results) {
+      if (result.status === 'success' && !entitiesSeen.has(result.entity_id)) {
+        entitiesSeen.add(result.entity_id)
+        
+        // Get entity code
+        const entityData = await dbQuery<{ code: string }>(
+          `SELECT code FROM mds_meta.entity WHERE id = @entityId`,
+          { entityId: result.entity_id }
+        )
+        const entityCode = entityData[0]?.code || 'unknown'
+        
+        await dbExecute(
+          `INSERT INTO mds_load.deployment_log 
+           (deployment_id, commit_id, entity_id, entity_code, records_deployed, status, started_at, deployed_by)
+           VALUES (@deploymentId, @commitId, @entityId, @entityCode, @recordsDeployed, @status, GETUTCDATE(), @user)`,
+          {
+            deploymentId,
+            commitId: result.commit_id,
+            entityId: result.entity_id,
+            entityCode,
+            recordsDeployed: result.records_deployed,
+            status: 'completed',
+            user
+          }
+        )
       }
-    )
+    }
     
     // 8. TODO: Trigger dbt run for master table generation
     // This would be done via BullMQ job queue in production
