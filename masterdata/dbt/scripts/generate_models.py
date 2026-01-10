@@ -27,6 +27,7 @@ from datetime import datetime
 
 # Konfiguration
 MODELS_DIR = Path(__file__).parent.parent / "models" / "mds_master"
+LOAD_DIR = Path(__file__).parent.parent / "models" / "mds_load"
 VIEWS_DIR = Path(__file__).parent.parent / "models" / "mds_view"
 
 # SQL Login aus Environment Variables (MDS_DB_USER, MDS_DB_PASSWORD)
@@ -75,7 +76,7 @@ def get_entities(conn, entity_code=None):
             e.id,
             e.code,
             e.name,
-            e.is_versioned
+            e.scd_type
         FROM mds_meta.entity e
         WHERE e.status = 'active'
     """
@@ -138,6 +139,7 @@ def generate_model_sql(entity, attributes):
     """Generiert das dbt Model SQL für eine Entity"""
     
     entity_code = entity['code'].lower()
+    entity_id = entity['id']
     # Load table: mds_load.<entity_code> (ohne load_ prefix)
     load_table = f"mds_load.{entity_code}"
     master_table = f"mds_master.{entity_code}"
@@ -196,7 +198,10 @@ def generate_model_sql(entity, attributes):
       {{% endif %}}"
     ],
     post_hook=[
-      "UPDATE {load_table} SET is_processed = 1, processed_at = GETUTCDATE() WHERE is_processed = 0"
+      "-- Mark load records as processed",
+      "UPDATE {load_table} SET is_processed = 1, processed_at = GETUTCDATE() WHERE is_processed = 0",
+      "-- Update commit status to 'deployed' for all loaded commits",
+      "UPDATE mds_stage.[commit] SET status = 'deployed' WHERE status = 'loaded' AND entity_id = {entity_id}"
     ]
   )
 }}}}
@@ -222,7 +227,7 @@ def generate_model_sql(entity, attributes):
 -- Incremental: Nur unverarbeitete Records aus Load-Tabelle
 WITH source_data AS (
     SELECT 
-        id AS load_id,
+        CAST(source_id AS BIGINT) AS load_id,
         business_key,
         business_key_hash,
         operation,
@@ -266,7 +271,7 @@ SELECT
     commit_id,
     source_system,
     source_id,
-    load_id AS source_load_id,
+    CAST(load_id AS BIGINT) AS source_load_id,
     GETUTCDATE() AS created_at,
     'dbt' AS created_by,
     CAST(NULL AS DATETIME2) AS updated_at,
@@ -288,7 +293,7 @@ SELECT
     commit_id,
     source_system,
     source_id,
-    id AS source_load_id,
+    CAST(source_id AS BIGINT) AS source_load_id,
     GETUTCDATE() AS created_at,
     'dbt' AS created_by,
     CAST(NULL AS DATETIME2) AS updated_at,
@@ -300,6 +305,119 @@ WHERE is_processed = 0
 '''
     
     return model_sql
+
+
+def generate_load_model_sql(entity, attributes):
+    """Generiert das dbt Load Model SQL für eine Entity (JSON → flache Tabelle)"""
+    
+    entity_code = entity['code'].lower()
+    entity_id = entity['id']
+    
+    # JSON_VALUE Spalten generieren
+    json_columns = []
+    for attr in attributes:
+        col = attr['code']
+        json_columns.append(f"    JSON_VALUE(sr.data, '$.{col}') AS {col}")
+    
+    json_select = ",\n".join(json_columns)
+    
+    load_sql = f'''{{{{
+  config(
+    materialized='incremental',
+    schema='mds_load',
+    alias='{entity_code}',
+    incremental_strategy='append',
+    as_columnstore=false,
+    post_hook=[
+      "-- Update staged_record status to 'loaded'",
+      "UPDATE sr SET sr.status = 'loaded' FROM mds_stage.staged_record sr INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id WHERE sr.entity_id = {entity_id} AND sr.status = 'committed' AND c.status = 'approved'",
+      "-- Update commit status to 'loaded'",
+      "UPDATE mds_stage.[commit] SET status = 'loaded', deployed_at = GETUTCDATE() WHERE status = 'approved' AND entity_id = {entity_id}"
+    ]
+  )
+}}}}
+
+{{#
+  =====================================================
+  MDS Load: {entity['name']}
+  =====================================================
+  
+  Entity Code: {entity_code}
+  Entity ID:   {entity_id}
+  Generated:   {datetime.now().isoformat()}
+  
+  Source: mds_stage.staged_record (JSON data)
+  Target: mds_load.{entity_code} (flache Tabelle)
+  
+  Lädt alle committed Records aus staged_record,
+  deren Commit status='approved' hat.
+  =====================================================
+#}}
+
+{{% if is_incremental() %}}
+
+-- Incremental: Nur approved Commits laden
+SELECT
+    sr.business_key_hash,
+    sr.business_key,
+{json_select},
+    sr.commit_id,
+    sr.operation,
+    'MDS' AS source_system,
+    CAST(sr.id AS NVARCHAR(255)) AS source_id,
+    CAST(0 AS BIT) AS is_processed,
+    GETUTCDATE() AS created_at,
+    CAST(NULL AS DATETIME2) AS processed_at
+FROM mds_stage.staged_record sr
+INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
+WHERE sr.entity_id = {entity_id}
+  AND sr.status = 'committed'
+  AND c.status = 'approved'
+  AND NOT EXISTS (
+    -- Verhindere Duplikate
+    SELECT 1 FROM {{{{ this }}}} t 
+    WHERE t.source_id = CAST(sr.id AS NVARCHAR(255))
+  )
+
+{{% else %}}
+
+-- Full Refresh: Alle committed Records laden
+SELECT
+    sr.business_key_hash,
+    sr.business_key,
+{json_select},
+    sr.commit_id,
+    sr.operation,
+    'MDS' AS source_system,
+    CAST(sr.id AS NVARCHAR(255)) AS source_id,
+    CAST(0 AS BIT) AS is_processed,
+    GETUTCDATE() AS created_at,
+    CAST(NULL AS DATETIME2) AS processed_at
+FROM mds_stage.staged_record sr
+INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
+WHERE sr.entity_id = {entity_id}
+  AND sr.status = 'committed'
+  AND c.status IN ('approved', 'loaded', 'deployed')
+
+{{% endif %}}
+'''
+    
+    return load_sql
+
+
+def write_load_file(entity_code, load_sql):
+    """Schreibt das Load Model in eine .sql Datei"""
+    
+    LOAD_DIR.mkdir(parents=True, exist_ok=True)
+    
+    filename = f"load_{entity_code}.sql"
+    filepath = LOAD_DIR / filename
+    
+    with open(filepath, 'w') as f:
+        f.write(load_sql)
+    
+    print(f"  ✓ Generated Load: {filepath}")
+    return filepath
 
 
 def write_model_file(entity_code, model_sql):
@@ -400,6 +518,7 @@ def main():
     parser.add_argument('--entity', '-e', help='Generate model for specific entity code')
     parser.add_argument('--views-only', action='store_true', help='Only generate view models')
     parser.add_argument('--masters-only', action='store_true', help='Only generate master models')
+    parser.add_argument('--loads-only', action='store_true', help='Only generate load models')
     parser.add_argument('--dry-run', '-n', action='store_true', help='Show what would be generated')
     args = parser.parse_args()
     
@@ -417,6 +536,7 @@ def main():
         
         print(f"\nFound {len(entities)} active entities:\n")
         
+        generated_loads = []
         generated_masters = []
         generated_views = []
         
@@ -432,8 +552,18 @@ def main():
             
             print(f"  Attributes: {len(attributes)}")
             
-            # Generate Master Model
-            if not args.views_only:
+            # Generate Load Model (JSON → flat table)
+            if not args.views_only and not args.masters_only:
+                load_sql = generate_load_model_sql(entity, attributes)
+                
+                if args.dry_run:
+                    print(f"  [DRY-RUN] Would generate: models/mds_load/load_{entity_code}.sql")
+                else:
+                    filepath = write_load_file(entity_code, load_sql)
+                    generated_loads.append(filepath)
+            
+            # Generate Master Model (SCD2)
+            if not args.views_only and not args.loads_only:
                 model_sql = generate_model_sql(entity, attributes)
                 
                 if args.dry_run:
@@ -443,7 +573,7 @@ def main():
                     generated_masters.append(filepath)
             
             # Generate View Models
-            if not args.masters_only:
+            if not args.masters_only and not args.loads_only:
                 views = get_entity_views(conn, entity['id'])
                 if views:
                     print(f"  Views: {len(views)}")
@@ -458,16 +588,19 @@ def main():
                             generated_views.append(filepath)
         
         print("\n" + "=" * 60)
+        print(f"Generated {len(generated_loads)} load model(s)")
         print(f"Generated {len(generated_masters)} master model(s)")
         print(f"Generated {len(generated_views)} view model(s)")
         print("=" * 60)
         
-        if (generated_masters or generated_views) and not args.dry_run:
+        if (generated_loads or generated_masters or generated_views) and not args.dry_run:
             print("\nNext steps:")
+            if generated_loads:
+                print("  1. dbt run --select mds_load      # JSON → Load tables")
             if generated_masters:
-                print("  1. dbt run --select mds_master")
+                print("  2. dbt run --select mds_master    # Load → Master (SCD2)")
             if generated_views:
-                print("  2. dbt run --select mds_view")
+                print("  3. dbt run --select mds_view      # Views")
         
         conn.close()
         return 0

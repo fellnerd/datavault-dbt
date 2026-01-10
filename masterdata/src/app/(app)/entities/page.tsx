@@ -26,7 +26,7 @@ interface Entity {
   description: string | null
   model_id: number
   model_code: string
-  is_versioned: boolean
+  scd_type: 'SCD1' | 'SCD2'
   status: 'draft' | 'active' | 'deprecated'
   primary_key_attribute: string | null
   attribute_count: number
@@ -56,7 +56,7 @@ export default function EntitiesPage() {
     code: '',
     name: '',
     model_id: 0,
-    is_versioned: true
+    scd_type: 'SCD2' as 'SCD1' | 'SCD2'
   })
 
   // Fetch entities and models from API
@@ -109,7 +109,7 @@ export default function EntitiesPage() {
           code: newEntity.code.toLowerCase().replace(/\s+/g, '_'),
           name: newEntity.name,
           model_id: newEntity.model_id,
-          is_versioned: newEntity.is_versioned
+          scd_type: newEntity.scd_type
         })
       })
       
@@ -118,7 +118,7 @@ export default function EntitiesPage() {
         throw new Error(err.error || 'Failed to create entity')
       }
       
-      setNewEntity({ code: '', name: '', model_id: models[0]?.id || 0, is_versioned: true })
+      setNewEntity({ code: '', name: '', model_id: models[0]?.id || 0, scd_type: 'SCD2' })
       setIsCreateOpen(false)
       fetchData() // Refresh list
     } catch (err) {
@@ -143,7 +143,7 @@ export default function EntitiesPage() {
         body: JSON.stringify({
           name: editEntity.name,
           description: editEntity.description,
-          is_versioned: editEntity.is_versioned
+          scd_type: editEntity.scd_type
         })
       })
       
@@ -197,7 +197,7 @@ export default function EntitiesPage() {
   // Compute summary stats
   const totalEntities = entities.length
   const activeEntities = entities.filter(e => e.status === 'active').length
-  const versionedEntities = entities.filter(e => e.is_versioned).length
+  const scd2Entities = entities.filter(e => e.scd_type === 'SCD2').length
   const totalAttributes = entities.reduce((sum, e) => sum + e.attribute_count, 0)
 
   if (error) {
@@ -216,7 +216,7 @@ export default function EntitiesPage() {
       <KpiGrid>
         <KpiCard label="Entities" value={totalEntities} />
         <KpiCard label="Active" value={activeEntities} />
-        <KpiCard label="Versioned" value={versionedEntities} />
+        <KpiCard label="SCD2 History" value={scd2Entities} />
         <KpiCard label="Attributes" value={totalAttributes} />
       </KpiGrid>
       
@@ -260,7 +260,7 @@ export default function EntitiesPage() {
                   <th>Entity</th>
                   <th>Model</th>
                     <th>Attributes</th>
-                    <th>History</th>
+                    <th>SCD Type</th>
                     <th>Status</th>
                     <th style={{ width: 120 }}>Actions</th>
                   </tr>
@@ -282,11 +282,9 @@ export default function EntitiesPage() {
                       </td>
                       <td>{entity.attribute_count}</td>
                       <td>
-                        {entity.is_versioned ? (
-                          <Icon icon="time" size={14} intent="success" />
-                        ) : (
-                          <span className="text-muted">—</span>
-                        )}
+                        <Tag minimal intent={entity.scd_type === 'SCD2' ? 'success' : 'none'}>
+                          {entity.scd_type}
+                        </Tag>
                       </td>
                       <td>
                         <Tag 
@@ -349,11 +347,16 @@ export default function EntitiesPage() {
               options={models.map(m => ({ value: m.id, label: m.name }))}
             />
           </FormGroup>
-          <FormGroup>
-            <Checkbox
-              checked={newEntity.is_versioned}
-              onChange={(e) => setNewEntity({ ...newEntity, is_versioned: e.target.checked })}
-              label="Enable SCD2 History (versioned records)"
+          <FormGroup label="SCD Type" labelFor="entity-scd-type" helperText="SCD1: No history (overwrite) | SCD2: Full history tracking">
+            <HTMLSelect
+              id="entity-scd-type"
+              fill
+              value={newEntity.scd_type}
+              onChange={(e) => setNewEntity({ ...newEntity, scd_type: e.target.value as 'SCD1' | 'SCD2' })}
+              options={[
+                { value: 'SCD1', label: 'SCD1 - No History (Overwrite)' },
+                { value: 'SCD2', label: 'SCD2 - Full History Tracking' }
+              ]}
             />
           </FormGroup>
         </div>
@@ -395,11 +398,16 @@ export default function EntitiesPage() {
               onChange={(e) => editEntity && setEditEntity({ ...editEntity, name: e.target.value })}
             />
           </FormGroup>
-          <FormGroup>
-            <Checkbox
-              checked={editEntity?.is_versioned ?? true}
-              onChange={(e) => editEntity && setEditEntity({ ...editEntity, is_versioned: e.target.checked })}
-              label="Enable SCD2 History (versioned records)"
+          <FormGroup label="SCD Type" labelFor="edit-entity-scd-type" helperText="SCD1: No history | SCD2: Full history tracking">
+            <HTMLSelect
+              id="edit-entity-scd-type"
+              fill
+              value={editEntity?.scd_type || 'SCD2'}
+              onChange={(e) => editEntity && setEditEntity({ ...editEntity, scd_type: e.target.value as 'SCD1' | 'SCD2' })}
+              options={[
+                { value: 'SCD1', label: 'SCD1 - No History (Overwrite)' },
+                { value: 'SCD2', label: 'SCD2 - Full History Tracking' }
+              ]}
             />
           </FormGroup>
         </div>

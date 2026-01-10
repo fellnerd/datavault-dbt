@@ -24,7 +24,7 @@ DELETE FROM mds_audit.change_log;
 ### Schritt 1.2: Load-Tabellen löschen
 ```sql
 DELETE FROM mds_load.master_record;
-DELETE FROM mds_load.deployment_log;Bitte
+DELETE FROM mds_load.deployment_log;
 ```
 
 ### Schritt 1.3: Stage-Tabellen löschen

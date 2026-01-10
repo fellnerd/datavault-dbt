@@ -105,35 +105,6 @@ export async function POST(request: NextRequest) {
       manual_command: manualCommand,
       note: 'BullMQ worker integration pending. Run the command manually on the server.',
     })
-        const progressInterval = setInterval(() => {
-          const job = jobs.get(j.job_id)
-          if (job && job.status === 'running') {
-            job.models_run++
-            job.models_success++
-            job.logs.push(`[${new Date().toISOString()}] Model ${job.models_run} completed successfully`)
-            
-            // Complete after 5 models
-            if (job.models_run >= 5) {
-              clearInterval(progressInterval)
-              job.status = 'completed'
-              job.completed_at = new Date().toISOString()
-              job.exit_code = 0
-              job.logs.push(`[${new Date().toISOString()}] dbt run completed successfully`)
-            }
-          } else {
-            clearInterval(progressInterval)
-          }
-        }, 2000)
-      }
-    }, 1000)
-    
-    logger.info({ job_id: job.job_id, command: fullCommand }, 'dbt job queued')
-    
-    return NextResponse.json({
-      job_id: job.job_id,
-      status: job.status,
-      message: 'Job queued successfully',
-    }, { status: 201 })
   } catch (error) {
     logger.error({ error }, 'Failed to start dbt run')
     return NextResponse.json(

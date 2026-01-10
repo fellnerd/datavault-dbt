@@ -209,8 +209,12 @@ export default function DataEntryPage() {
     }
   }
 
-  const handleDeleteRecord = async (recordId: number) => {
-    if (!confirm('Are you sure you want to delete this record?')) {
+  const handleDeleteRecord = async (recordId: number, isLoaded: boolean) => {
+    const confirmMessage = isLoaded 
+      ? 'This will create a DELETE operation for this record. The deletion will be applied after commit and deploy. Continue?'
+      : 'Are you sure you want to delete this pending record?'
+    
+    if (!confirm(confirmMessage)) {
       return
     }
     
@@ -219,9 +223,15 @@ export default function DataEntryPage() {
         method: 'DELETE'
       })
       
+      const result = await res.json()
+      
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to delete record')
+        throw new Error(result.error || 'Failed to delete record')
+      }
+      
+      // Show success message for DELETE operation creation
+      if (result.action === 'delete_operation_created') {
+        alert(result.message)
       }
       
       // Refresh records
@@ -424,8 +434,15 @@ export default function DataEntryPage() {
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <Button minimal small icon="edit" title="Edit" onClick={() => handleOpenEdit(record)} disabled={record.validation_status !== 'pending'} />
-                        <Button minimal small icon="trash" title="Delete" intent="danger" onClick={() => handleDeleteRecord(record.id)} disabled={record.validation_status !== 'pending'} />
+                        <Button minimal small icon="edit" title="Edit" onClick={() => handleOpenEdit(record)} />
+                        <Button 
+                          minimal 
+                          small 
+                          icon="trash" 
+                          title={record.validation_status === 'pending' ? 'Delete' : 'Create DELETE operation'}
+                          intent="danger" 
+                          onClick={() => handleDeleteRecord(record.id, record.validation_status !== 'pending')}
+                        />
                       </div>
                     </td>
                   </tr>

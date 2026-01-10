@@ -11,7 +11,7 @@ interface Entity {
   name: string
   description: string | null
   model_id: number
-  is_versioned: boolean
+  scd_type: 'SCD1' | 'SCD2'
   status: string
 }
 
@@ -80,7 +80,7 @@ export async function PUT(
   
   try {
     const body = await request.json()
-    const { name, description, is_versioned, status } = body
+    const { name, description, scd_type, status } = body
     
     // Build dynamic update query
     const updates: string[] = []
@@ -94,9 +94,9 @@ export async function PUT(
       updates.push('description = @description')
       queryParams.description = description
     }
-    if (is_versioned !== undefined) {
-      updates.push('is_versioned = @is_versioned')
-      queryParams.is_versioned = is_versioned ? 1 : 0
+    if (scd_type !== undefined) {
+      updates.push('scd_type = @scd_type')
+      queryParams.scd_type = scd_type
     }
     if (status !== undefined) {
       updates.push('status = @status')

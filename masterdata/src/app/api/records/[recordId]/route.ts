@@ -80,17 +80,17 @@ export async function PUT(
     
     const current = currentRecords[0]
     
-    // Only allow updates on pending records
-    if (current.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Can only edit pending records' },
-        { status: 400 }
-      )
-    }
-    
     // Build update
     const updates: string[] = []
     const queryParams: Record<string, unknown> = { id: parseInt(recordId) }
+    
+    // If editing a loaded/committed record, reset status to pending
+    if (current.status !== 'pending') {
+      updates.push('status = @newStatus')
+      updates.push('commit_id = NULL')  // Detach from old commit
+      queryParams.newStatus = 'pending'
+      logger.info({ recordId, oldStatus: current.status }, 'Resetting record to pending for re-edit')
+    }
     
     if (data !== undefined) {
       const dataJson = JSON.stringify(data)
@@ -156,9 +156,12 @@ export async function DELETE(
   logger.info({ recordId }, 'DELETE /api/records/[recordId]')
   
   try {
-    // Get current record
-    const currentRecords = await dbQuery<StagedRecord>(
-      'SELECT * FROM mds_stage.staged_record WHERE id = @id',
+    // Get current record with entity info
+    const currentRecords = await dbQuery<StagedRecord & { scd_type: string }>(
+      `SELECT sr.*, e.scd_type 
+       FROM mds_stage.staged_record sr
+       JOIN mds_meta.entity e ON e.id = sr.entity_id
+       WHERE sr.id = @id`,
       { id: parseInt(recordId) }
     )
     
@@ -171,32 +174,57 @@ export async function DELETE(
     
     const current = currentRecords[0]
     
-    // Only allow deletion of pending records
-    if (current.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'Can only delete pending records' },
-        { status: 400 }
+    // Pending records: Direct delete
+    if (current.status === 'pending') {
+      await dbExecute(
+        'DELETE FROM mds_stage.staged_record WHERE id = @id',
+        { id: parseInt(recordId) }
       )
+      
+      // Update commit record count if attached to commit
+      if (current.commit_id) {
+        await dbExecute(
+          `UPDATE mds_stage.[commit] 
+           SET record_count = (SELECT COUNT(*) FROM mds_stage.staged_record WHERE commit_id = @commitId)
+           WHERE id = @commitId`,
+          { commitId: current.commit_id }
+        )
+      }
+      
+      return NextResponse.json({ success: true, action: 'deleted' })
     }
     
-    await dbExecute(
-      'DELETE FROM mds_stage.staged_record WHERE id = @id',
-      { id: parseInt(recordId) }
+    // Loaded records: Create DELETE operation (soft delete for master)
+    // This creates a new staged_record with operation='DELETE'
+    const businessKeyHash = await dbQuery<{ hash: string }>(
+      `SELECT CONVERT(CHAR(64), HASHBYTES('SHA2_256', @bk), 2) AS hash`,
+      { bk: current.business_key }
     )
     
-    // Update commit record count
     await dbExecute(
-      `UPDATE mds_stage.[commit] 
-       SET record_count = (SELECT COUNT(*) FROM mds_stage.staged_record WHERE commit_id = @commitId)
-       WHERE id = @commitId`,
-      { commitId: current.commit_id }
+      `INSERT INTO mds_stage.staged_record 
+        (entity_id, business_key_hash, business_key, payload, data, operation, status, source_system, created_by)
+       VALUES (@entityId, @hash, @bk, @payload, @data, 'DELETE', 'pending', 'MDS', 'admin')`,
+      {
+        entityId: current.entity_id,
+        hash: businessKeyHash[0].hash,
+        bk: current.business_key,
+        payload: current.data || '{}',
+        data: current.data || '{}'
+      }
     )
     
-    return NextResponse.json({ success: true })
+    logger.info({ recordId, businessKey: current.business_key }, 'Created DELETE operation for loaded record')
+    
+    return NextResponse.json({ 
+      success: true, 
+      action: 'delete_operation_created',
+      message: `DELETE operation created for business key "${current.business_key}". Commit and deploy to apply.`
+    })
   } catch (error) {
     logger.error({ error, recordId }, 'Failed to delete record')
     return NextResponse.json(
-      { error: 'Failed to delete record' },
+      { error: 'Failed to delete record', details: String(error) },
       { status: 500 }
     )
   }

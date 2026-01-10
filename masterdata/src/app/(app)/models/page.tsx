@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   Button, 
@@ -14,12 +14,89 @@ import {
   Intent,
   Spinner,
   NonIdealState,
-  Popover,
   Menu,
   MenuItem,
   MenuDivider
 } from '@blueprintjs/core'
 import { Header } from '@/components/layout/Header'
+
+// Custom Dropdown Menu Component to fix Blueprint Popover positioning issues
+function ModelCardMenu({ 
+  model, 
+  onEdit, 
+  onActivate, 
+  onDeactivate, 
+  onDelete 
+}: { 
+  model: { id: number; code: string; status: string }
+  onEdit: () => void
+  onActivate: () => void
+  onDeactivate: () => void
+  onDelete: () => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <Button 
+        ref={buttonRef}
+        minimal 
+        small 
+        icon="more" 
+        onClick={() => setIsOpen(!isOpen)}
+        active={isOpen}
+      />
+      {isOpen && (
+        <div 
+          ref={menuRef}
+          style={{ 
+            position: 'absolute', 
+            top: '100%', 
+            right: 0, 
+            zIndex: 100,
+            marginTop: 4
+          }}
+        >
+          <Menu>
+            <MenuItem icon="edit" text="Edit" onClick={() => { onEdit(); setIsOpen(false); }} />
+            {model.status === 'draft' && (
+              <MenuItem icon="tick" text="Activate" intent="success" onClick={() => { onActivate(); setIsOpen(false); }} />
+            )}
+            {model.status === 'active' && (
+              <MenuItem icon="disable" text="Deactivate" intent="warning" onClick={() => { onDeactivate(); setIsOpen(false); }} />
+            )}
+            <MenuDivider />
+            <MenuItem icon="duplicate" text="Duplicate" onClick={() => { alert(`Duplicate model ${model.code} - Coming soon!`); setIsOpen(false); }} />
+            <MenuItem icon="export" text="Export" onClick={() => { alert(`Export model ${model.code} - Coming soon!`); setIsOpen(false); }} />
+            <MenuDivider />
+            <MenuItem 
+              icon="trash" 
+              text="Delete" 
+              intent="danger" 
+              onClick={() => { onDelete(); setIsOpen(false); }} 
+            />
+          </Menu>
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface Model {
   id: number
@@ -173,6 +250,25 @@ export default function ModelsPage() {
     }
   }
 
+  const handleDeactivateModel = async (modelId: number) => {
+    try {
+      const res = await fetch(`/api/models/${modelId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'draft' })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to deactivate model')
+      }
+      
+      fetchModels() // Refresh list
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to deactivate model')
+    }
+  }
+
   const getStatusIntent = (status: Model['status']): Intent => {
     switch (status) {
       case 'active': return 'success'
@@ -261,25 +357,13 @@ export default function ModelsPage() {
                       </Tag>
                     </div>
                   </div>
-                  <Popover
-                    content={
-                      <Menu>
-                        <MenuItem icon="edit" text="Edit" onClick={() => handleOpenEdit(model)} />
-                        <MenuItem icon="duplicate" text="Duplicate" onClick={() => alert(`Duplicate model ${model.code} - Coming soon!`)} />
-                        <MenuItem icon="export" text="Export" onClick={() => alert(`Export model ${model.code} - Coming soon!`)} />
-                        <MenuDivider />
-                        <MenuItem 
-                          icon="trash" 
-                          text="Delete" 
-                          intent="danger" 
-                          onClick={() => handleDeleteModel(model.id, model.code)} 
-                        />
-                      </Menu>
-                    }
-                    placement="bottom-end"
-                  >
-                    <Button minimal small icon="more" />
-                  </Popover>
+                  <ModelCardMenu
+                    model={model}
+                    onEdit={() => handleOpenEdit(model)}
+                    onActivate={() => handleActivateModel(model.id)}
+                    onDeactivate={() => handleDeactivateModel(model.id)}
+                    onDelete={() => handleDeleteModel(model.id, model.code)}
+                  />
                 </div>
 
                 <div style={{ fontWeight: 500, fontSize: 12, marginBottom: 4 }}>{model.name}</div>

@@ -22,7 +22,7 @@ export interface Entity {
   last_deployed_at: string | null
   record_count: number | null
   status: 'draft' | 'active' | 'deprecated'
-  is_versioned: boolean
+  scd_type: 'SCD1' | 'SCD2'
   primary_key_attribute: string | null
   created_at: string
   created_by: string
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
         e.last_deployed_at,
         e.record_count,
         e.status,
-        e.is_versioned,
+        e.scd_type,
         e.primary_key_attribute,
         e.created_at,
         e.created_by,
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   
   try {
     const body = await request.json()
-    const { model_id, code, name, description, source_table, staging_view, hub_name, is_versioned } = body
+    const { model_id, code, name, description, source_table, staging_view, hub_name, scd_type } = body
     
     if (!model_id || !code || !name) {
       return NextResponse.json(
@@ -138,8 +138,8 @@ export async function POST(request: NextRequest) {
     
     await dbExecute(
       `INSERT INTO [mds_meta].[entity] 
-        (model_id, code, name, description, source_table, staging_view, hub_name, target_table, business_key_columns, is_versioned, created_by, updated_by)
-       VALUES (@modelId, @code, @name, @description, @source_table, @staging_view, @hub_name, @target_table, @business_key_columns, @is_versioned, @user, @user)`,
+        (model_id, code, name, description, source_table, staging_view, hub_name, target_table, business_key_columns, scd_type, created_by, updated_by)
+       VALUES (@modelId, @code, @name, @description, @source_table, @staging_view, @hub_name, @target_table, @business_key_columns, @scd_type, @user, @user)`,
       { 
         modelId: model_id,
         code, 
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         hub_name: hub_name || null,
         target_table,
         business_key_columns,
-        is_versioned: is_versioned !== undefined ? is_versioned : true,
+        scd_type: body.scd_type || 'SCD2',
         user: currentUser 
       }
     )

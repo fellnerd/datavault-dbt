@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       
       const commitId = newCommit[0].id
       
-      // Update the staged_records to point to this commit
+      // Update the staged_records to point to this commit AND set status to 'committed'
       // Build a parameterized query for the IDs
       const idParams: Record<string, unknown> = { commitId }
       const idPlaceholders = change_ids.map((id: number, idx: number) => {
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       
       await dbExecute(
         `UPDATE [mds_stage].[staged_record] 
-         SET commit_id = @commitId 
+         SET commit_id = @commitId, status = 'committed'
          WHERE id IN (${idPlaceholders}) AND entity_id = ${entity_id}`,
         idParams
       )

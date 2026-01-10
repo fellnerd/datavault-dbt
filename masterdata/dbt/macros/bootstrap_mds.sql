@@ -56,7 +56,7 @@ CREATE TABLE mds_meta.entity (
     is_active BIT NOT NULL DEFAULT 1,
     -- Neue Spalten für API-Kompatibilität
     status NVARCHAR(20) NOT NULL DEFAULT 'draft',
-    is_versioned BIT NOT NULL DEFAULT 1,
+    scd_type NVARCHAR(10) NOT NULL DEFAULT 'SCD2',  -- 'SCD1' or 'SCD2'
     primary_key_attribute NVARCHAR(100) NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     created_by NVARCHAR(100) NOT NULL DEFAULT 'system',

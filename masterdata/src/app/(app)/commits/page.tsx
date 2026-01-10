@@ -48,6 +48,17 @@ interface Summary {
   deployed: number
 }
 
+interface CommitRecord {
+  id: number
+  business_key: string
+  operation: string
+  status: string
+  data: Record<string, unknown>
+  previousData: Record<string, unknown> | null
+  created_at: string
+  created_by: string
+}
+
 export default function CommitsPage() {
   const [commits, setCommits] = useState<Commit[]>([])
   const [loading, setLoading] = useState(true)
@@ -184,14 +195,40 @@ export default function CommitsPage() {
     }
   }
 
-  const toggleExpand = (commitId: number) => {
+  const toggleExpand = async (commitId: number) => {
     const newExpanded = new Set(expandedCommits)
     if (newExpanded.has(commitId)) {
       newExpanded.delete(commitId)
     } else {
       newExpanded.add(commitId)
+      // Load records for this commit if not already loaded
+      if (!commitRecords[commitId]) {
+        await loadCommitRecords(commitId)
+      }
     }
     setExpandedCommits(newExpanded)
+  }
+
+  // State for commit records
+  const [commitRecords, setCommitRecords] = useState<Record<number, CommitRecord[]>>({})
+  const [recordsLoading, setRecordsLoading] = useState<Set<number>>(new Set())
+
+  const loadCommitRecords = async (commitId: number) => {
+    try {
+      setRecordsLoading(prev => new Set(prev).add(commitId))
+      const res = await fetch(`/api/commits/${commitId}/records`)
+      if (!res.ok) throw new Error('Failed to load records')
+      const json = await res.json()
+      setCommitRecords(prev => ({ ...prev, [commitId]: json.data || [] }))
+    } catch (err) {
+      console.error('Failed to load commit records:', err)
+    } finally {
+      setRecordsLoading(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(commitId)
+        return newSet
+      })
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -280,6 +317,58 @@ export default function CommitsPage() {
                 <span className="text-muted">Created:</span> {formatDate(commit.created_at)} by {commit.created_by}
               </div>
             </div>
+          </div>
+
+          {/* Record Changes */}
+          <div style={{ marginBottom: 16 }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: 12 }}>Changes</h4>
+            {recordsLoading.has(commit.id) ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <Spinner size={14} /> Loading records...
+              </div>
+            ) : commitRecords[commit.id] && commitRecords[commit.id].length > 0 ? (
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                <HTMLTable compact striped style={{ width: '100%', fontSize: 11 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 80 }}>Operation</th>
+                      <th style={{ width: 100 }}>Business Key</th>
+                      <th>Data</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commitRecords[commit.id].map(record => (
+                      <tr key={record.id}>
+                        <td>
+                          <Tag 
+                            minimal 
+                            intent={
+                              record.operation === 'INSERT' ? 'success' : 
+                              record.operation === 'UPDATE' ? 'warning' : 
+                              record.operation === 'DELETE' ? 'danger' : 'none'
+                            }
+                          >
+                            {record.operation}
+                          </Tag>
+                        </td>
+                        <td><code>{record.business_key}</code></td>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {record.data && Object.entries(record.data).map(([key, value]) => (
+                              <Tag key={key} minimal style={{ fontSize: 10 }}>
+                                <span className="text-muted">{key}:</span> {String(value)}
+                              </Tag>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </HTMLTable>
+              </div>
+            ) : (
+              <div className="text-muted" style={{ fontSize: 12 }}>No records found</div>
+            )}
           </div>
 
           {/* Approval Info */}

@@ -5,6 +5,15 @@
 @import "@blueprintjs/select/lib/css/blueprint-select.css";
 @import "@blueprintjs/datetime/lib/css/blueprint-datetime.css";
 
+// Fix Blueprint Popover positioning in Next.js
+// The popover gets wrong coordinates due to CSS transforms on parent elements
+.model-card-popover {
+  // Force the popover to use the viewport as reference
+  &.bp5-popover {
+    // The transform will be set by JS, we just ensure it's not overridden
+  }
+}
+
 // CSS Variables for theming
 :root {
   --sidebar-width: 220px;

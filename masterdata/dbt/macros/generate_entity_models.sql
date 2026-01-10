@@ -20,7 +20,7 @@
         e.id,
         e.code,
         e.name,
-        e.is_versioned
+        e.scd_type
     FROM mds_meta.entity e
     WHERE e.status = 'active'
     ORDER BY e.code
@@ -32,9 +32,9 @@
     {% for entity in entities %}
         {% set entity_code = entity['code'] | lower %}
         {% set entity_name = entity['name'] %}
-        {% set is_versioned = entity['is_versioned'] %}
+        {% set scd_type = entity['scd_type'] %}
         
-        {{ log("Generating model for entity: " ~ entity_code, info=True) }}
+        {{ log("Generating model for entity: " ~ entity_code ~ " (SCD Type: " ~ scd_type ~ ")", info=True) }}
         
         {# Get attributes for this entity #}
         {% set attrs_query %}
