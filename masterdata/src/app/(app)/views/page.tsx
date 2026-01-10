@@ -20,6 +20,7 @@ import {
 } from '@blueprintjs/core'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { KpiCard, KpiGrid } from '@/components/ui/KpiCard'
+import { SectionHeader } from '@/components/ui/SectionHeader'
 
 interface Entity {
   id: number
@@ -281,49 +282,48 @@ export default function ViewsPage() {
     <PageLayout 
       title="Views" 
       breadcrumb={['Model Design', 'Views']}
-      actions={
-        <>
-          <Button 
-            icon="add" 
-            intent="primary" 
-            onClick={handleCreateView}
-          >
-            Neue View
-          </Button>
-          {pendingViews > 0 && (
-            <Button 
-              icon="cloud-upload" 
-              intent="success"
-              onClick={handleDeployAll}
-              loading={deploying}
-            >
-              Alle deployen ({pendingViews})
-            </Button>
-          )}
-        </>
-      }
     >
       <KpiGrid>
-        <KpiCard label="Views gesamt" value={totalViews} icon="eye-open" />
-        <KpiCard label="Deployed" value={deployedViews} icon="cloud-tick" intent="success" />
-        <KpiCard label="Pending" value={pendingViews} icon="cloud-upload" intent={pendingViews > 0 ? 'warning' : 'none'} />
-        <KpiCard label="Entities" value={Object.keys(viewsByEntity).length} icon="database" />
+        <KpiCard label="Views gesamt" value={totalViews} />
+        <KpiCard label="Deployed" value={deployedViews} />
+        <KpiCard label="Pending" value={pendingViews} />
+        <KpiCard label="Entities" value={Object.keys(viewsByEntity).length} />
       </KpiGrid>
       
-      {/* Entity Filter */}
-      <div style={{ marginBottom: '20px' }}>
-        <FormGroup label="Entity Filter" inline>
-          <HTMLSelect 
-            value={selectedEntity || ''} 
-            onChange={e => setSelectedEntity(e.target.value ? parseInt(e.target.value) : null)}
-          >
-            <option value="">Alle Entities</option>
-            {entities.map(entity => (
-              <option key={entity.id} value={entity.id}>{entity.name}</option>
-            ))}
-          </HTMLSelect>
-        </FormGroup>
-      </div>
+      {/* Section Header with Filter and Actions */}
+      <SectionHeader 
+        title="View Definitions"
+        actions={
+          <>
+            <HTMLSelect 
+              value={selectedEntity || ''} 
+              onChange={e => setSelectedEntity(e.target.value ? parseInt(e.target.value) : null)}
+            >
+              <option value="">Alle Entities</option>
+              {entities.map(entity => (
+                <option key={entity.id} value={entity.id}>{entity.name}</option>
+              ))}
+            </HTMLSelect>
+            {pendingViews > 0 && (
+              <Button 
+                icon="cloud-upload" 
+                intent="success"
+                onClick={handleDeployAll}
+                loading={deploying}
+              >
+                Alle deployen ({pendingViews})
+              </Button>
+            )}
+            <Button 
+              icon="add" 
+              intent="primary" 
+              onClick={handleCreateView}
+            >
+              Neue View
+            </Button>
+          </>
+        }
+      />
       
       {loading ? (
         <Spinner />

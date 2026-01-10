@@ -2,8 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '@/lib/logger'
 
+/**
+ * dbt Run API
+ * 
+ * HINWEIS: Diese API ist ein PLACEHOLDER für zukünftige BullMQ Integration.
+ * dbt wird aktuell NICHT automatisch ausgeführt.
+ * 
+ * Manueller Workflow:
+ * 1. Deploy API lädt Daten in mds_load
+ * 2. MANUELL: ./scripts/deploy.sh --entity <code>
+ * 3. View Deploy API erstellt Views auf mds_master
+ * 
+ * Später: BullMQ Worker führt dbt via scripts/deploy.sh aus
+ */
+
 // Types
-type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'manual_required'
 
 interface DbtJob {
   job_id: string
@@ -18,12 +32,13 @@ interface DbtJob {
   models_run: number
   models_success: number
   models_error: number
+  manual_command?: string // Manueller Befehl für User
 }
 
 // In-memory job store (would use Redis/BullMQ in production)
 const jobs: Map<string, DbtJob> = new Map()
 
-// POST /api/dbt/run - Start a new dbt run
+// POST /api/dbt/run - Request a dbt run (currently manual)
 export async function POST(request: NextRequest) {
   logger.info('POST /api/dbt/run')
   
@@ -45,39 +60,51 @@ export async function POST(request: NextRequest) {
       fullCommand += ' --full-refresh'
     }
     
+    // Build manual command for user
+    let manualCommand = 'cd ~/projects/datavault-dbt/masterdata/dbt && ./scripts/deploy.sh'
+    if (models && models.length > 0) {
+      // Extract entity code from model name (e.g., mds_customer -> customer)
+      const entityCode = models[0].replace('mds_', '').replace('mds_master.', '')
+      manualCommand += ` --entity ${entityCode}`
+    }
+    if (full_refresh) {
+      manualCommand += ' --full-refresh'
+    }
+    
     const job: DbtJob = {
       job_id: uuidv4(),
       commit_id: commit_id || null,
       command: fullCommand,
-      status: 'queued',
+      status: 'manual_required',  // Changed from 'queued'
       started_at: null,
       completed_at: null,
-      created_by: 'admin', // TODO: Get from session
-      logs: [],
+      created_by: 'admin',
+      logs: [
+        `[${new Date().toISOString()}] dbt job registered`,
+        `[${new Date().toISOString()}] MANUAL EXECUTION REQUIRED`,
+        `[${new Date().toISOString()}] Run: ${manualCommand}`,
+      ],
       exit_code: null,
       models_run: 0,
       models_success: 0,
       models_error: 0,
+      manual_command: manualCommand,
     }
     
     jobs.set(job.job_id, job)
     
-    // TODO: Add to BullMQ queue
-    // await dbtQueue.add('dbt-run', { 
-    //   job_id: job.job_id, 
-    //   command: fullCommand 
-    // })
+    logger.info({ jobId: job.job_id, manualCommand }, 'dbt job registered (manual execution required)')
     
-    // Simulate job starting after short delay
-    setTimeout(() => {
-      const j = jobs.get(job.job_id)
-      if (j && j.status === 'queued') {
-        j.status = 'running'
-        j.started_at = new Date().toISOString()
-        j.logs.push(`[${new Date().toISOString()}] Starting dbt run...`)
-        j.logs.push(`[${new Date().toISOString()}] Running: ${fullCommand}`)
-        
-        // Simulate progress
+    // TODO: BullMQ Integration
+    // await dbtQueue.add('dbt-run', { job_id: job.job_id, command: fullCommand })
+    
+    return NextResponse.json({
+      job_id: job.job_id,
+      status: job.status,
+      message: 'dbt job registered. Manual execution required.',
+      manual_command: manualCommand,
+      note: 'BullMQ worker integration pending. Run the command manually on the server.',
+    })
         const progressInterval = setInterval(() => {
           const job = jobs.get(j.job_id)
           if (job && job.status === 'running') {

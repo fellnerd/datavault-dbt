@@ -605,24 +605,10 @@ body.bp5-dark {
   }
 }
 
-// Section Headers
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-
-  h2 {
-    font-size: var(--font-size-title);
-    font-weight: 600;
-    margin: 0;
-  }
-}
-
 // Data Table Container
 .data-table-container {
   background: white;
-  border-radius: 3px;
+  border-radius: 4px;
   border: 1px solid #e1e8ed;
   overflow: hidden;
 
@@ -638,7 +624,7 @@ body.bp5-dark {
   
   th, td {
     vertical-align: middle !important;
-    padding: 8px 10px !important;
+    padding: 10px 12px !important;
   }
   
   th {
@@ -646,6 +632,11 @@ body.bp5-dark {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.3px;
+    background: white;
+    
+    .bp5-dark & {
+      background: #394b59;
+    }
   }
 }
 
@@ -659,15 +650,23 @@ body.bp5-dark {
   }
 }
 
+// KPI Grid
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
 // KPI Cards (einheitliches Design)
 .kpi-card {
   background: white;
   border: 1px solid #e1e8ed;
-  border-radius: 3px;
-  padding: 10px 14px;
+  border-radius: 4px;
+  padding: 12px 16px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 4px;
   
   .bp5-dark & {
     background: #30404d;
@@ -675,8 +674,11 @@ body.bp5-dark {
   }
   
   .kpi-label {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-small);
     color: #5c7080;
+    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: 0.3px;
     
     .bp5-dark & {
       color: #a7b6c2;
@@ -684,8 +686,36 @@ body.bp5-dark {
   }
   
   .kpi-value {
-    font-size: 16px;
-    font-weight: 500;
+    font-size: 20px;
+    font-weight: 600;
+    color: #182026;
+    
+    .bp5-dark & {
+      color: #f5f8fa;
+    }
+  }
+}
+
+// Section Header (einheitlich)
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+
+  h2 {
+    font-size: var(--font-size-title);
+    font-weight: 600;
+    margin: 0;
+    white-space: nowrap;
+  }
+  
+  .section-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
   }
 }
 
@@ -717,42 +747,6 @@ body.bp5-dark {
 }
 
 // Page specific layouts
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  padding: 16px; 
-  text-align: center;
-  
-  .stat-label {
-    color: #5c7080;
-    font-size: var(--font-size-small);
-    text-transform: uppercase;
-    margin-bottom: 8px;
-    font-weight: 600;
-  }
-  
-  .stat-value {
-    font-size: 24px;
-    font-weight: 300;
-    color: #182026;
-    
-    .bp5-dark & {
-      color: #f5f8fa;
-    }
-  }
-}
-
 // Consistent Model/Card Grid
 .card-grid {
   display: grid;

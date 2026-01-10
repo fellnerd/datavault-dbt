@@ -15,7 +15,9 @@ import {
   Spinner,
   NonIdealState
 } from '@blueprintjs/core'
-import { Header } from '@/components/layout/Header'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { KpiCard, KpiGrid } from '@/components/ui/KpiCard'
+import { SectionHeader } from '@/components/ui/SectionHeader'
 
 interface Entity {
   id: number
@@ -183,39 +185,45 @@ export default function EntitiesPage() {
 
   if (loading) {
     return (
-      <>
-        <Header title="Entities" breadcrumb={['Model Design', 'Entities']} />
-        <div className="page-content" style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-          <Spinner size={40} />
-        </div>
-      </>
+      <PageLayout 
+        title="Entities" 
+        breadcrumb={['Model Design', 'Entities']}
+        loading={true}
+        loadingText="Loading entities..."
+      />
     )
   }
 
+  // Compute summary stats
+  const totalEntities = entities.length
+  const activeEntities = entities.filter(e => e.status === 'active').length
+  const versionedEntities = entities.filter(e => e.is_versioned).length
+  const totalAttributes = entities.reduce((sum, e) => sum + e.attribute_count, 0)
+
   if (error) {
     return (
-      <>
-        <Header title="Entities" breadcrumb={['Model Design', 'Entities']} />
-        <div className="page-content">
-          <NonIdealState
-            icon="error"
-            title="Failed to load entities"
-            description={error}
-            action={<Button icon="refresh" onClick={fetchData}>Retry</Button>}
-          />
-        </div>
-      </>
+      <PageLayout 
+        title="Entities" 
+        breadcrumb={['Model Design', 'Entities']}
+        error={error}
+        onRetry={fetchData}
+      />
     )
   }
 
   return (
-    <>
-      <Header title="Entities" breadcrumb={['Model Design', 'Entities']} />
+    <PageLayout title="Entities" breadcrumb={['Model Design', 'Entities']}>
+      <KpiGrid>
+        <KpiCard label="Entities" value={totalEntities} />
+        <KpiCard label="Active" value={activeEntities} />
+        <KpiCard label="Versioned" value={versionedEntities} />
+        <KpiCard label="Attributes" value={totalAttributes} />
+      </KpiGrid>
       
-      <div className="page-content">
-        <div className="section-header">
-          <h2>Entity Definitions</h2>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <SectionHeader 
+        title="Entity Definitions"
+        actions={
+          <>
             <HTMLSelect 
               value={filterModel} 
               onChange={(e) => setFilterModel(e.target.value)}
@@ -232,24 +240,25 @@ export default function EntitiesPage() {
             >
               New Entity
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {entities.length === 0 ? (
-          <NonIdealState
-            icon="th"
-            title="No entities yet"
-            description={models.length === 0 ? "Create a model first, then add entities" : "Create your first entity to get started"}
-            action={models.length > 0 && <Button icon="add" intent="primary" onClick={() => setIsCreateOpen(true)}>Create Entity</Button>}
-          />
-        ) : (
-          <>
-            <div className="data-table-container">
-              <HTMLTable striped interactive style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th>Entity</th>
-                    <th>Model</th>
+      {entities.length === 0 ? (
+        <NonIdealState
+          icon="th"
+          title="No entities yet"
+          description={models.length === 0 ? "Create a model first, then add entities" : "Create your first entity to get started"}
+          action={models.length > 0 && <Button icon="add" intent="primary" onClick={() => setIsCreateOpen(true)}>Create Entity</Button>}
+        />
+      ) : (
+        <>
+          <div className="data-table-container">
+            <HTMLTable striped interactive style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Entity</th>
+                  <th>Model</th>
                     <th>Attributes</th>
                     <th>History</th>
                     <th>Status</th>
@@ -304,9 +313,8 @@ export default function EntitiesPage() {
             <div className="text-muted" style={{ marginTop: 16, fontSize: 13 }}>
               Showing {filteredEntities.length} of {entities.length} entities
             </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Create Entity Dialog */}
       <Dialog
@@ -409,6 +417,6 @@ export default function EntitiesPage() {
           </div>
         </div>
       </Dialog>
-    </>
+    </PageLayout>
   )
 }

@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         
         const entity = entities[0]
         
-        // Check if master table exists
+        // Check if master table exists - Views MÜSSEN auf mds_master zeigen
         const masterTableExists = await dbQuery<{ exists: number }>(
           `SELECT CASE WHEN EXISTS (
              SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
@@ -113,11 +113,19 @@ export async function POST(request: NextRequest) {
           { tableName: entity.code.toLowerCase() }
         )
         
-        // If master table doesn't exist, use load table as fallback
-        const sourceSchema = masterTableExists[0].exists === 1 ? 'mds_master' : 'mds_load'
-        const sourceTable = masterTableExists[0].exists === 1 
-          ? entity.code.toLowerCase() 
-          : `load_${entity.code.toLowerCase()}`
+        // Master table MUSS existieren - kein Fallback auf mds_load
+        if (masterTableExists[0].exists !== 1) {
+          results.push({
+            view_id: viewId,
+            code: view.code,
+            status: 'failed',
+            error: `Master table mds_master.${entity.code.toLowerCase()} does not exist. Run dbt first: dbt run --select mds_${entity.code.toLowerCase()}`
+          })
+          continue
+        }
+        
+        const sourceSchema = 'mds_master'
+        const sourceTable = entity.code.toLowerCase()
         
         // Generate view SQL
         const viewSql = await generateViewSQL(view, entity, sourceSchema, sourceTable)

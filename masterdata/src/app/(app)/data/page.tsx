@@ -14,9 +14,12 @@ import {
   Tab,
   Spinner,
   NonIdealState,
-  Callout
+  Callout,
+  Icon
 } from '@blueprintjs/core'
-import { Header } from '@/components/layout/Header'
+import { PageLayout } from '@/components/layout/PageLayout'
+import { KpiCard, KpiGrid } from '@/components/ui/KpiCard'
+import { SectionHeader } from '@/components/ui/SectionHeader'
 
 // Define a type for dynamic data values
 type DataValue = string | number | boolean | null
@@ -291,39 +294,39 @@ export default function DataEntryPage() {
 
   if (loading && entities.length === 0) {
     return (
-      <>
-        <Header title="Data Entry" breadcrumb={['Data Management', 'Data Entry']} />
-        <div className="page-content" style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-          <Spinner size={40} />
-        </div>
-      </>
+      <PageLayout 
+        title="Data Entry" 
+        breadcrumb={['Data Management', 'Data Entry']}
+        loading={true}
+        loadingText="Loading data..."
+      />
     )
   }
 
   if (error && entities.length === 0) {
     return (
-      <>
-        <Header title="Data Entry" breadcrumb={['Data Management', 'Data Entry']} />
-        <div className="page-content">
-          <NonIdealState
-            icon="error"
-            title="Failed to load data"
-            description={error}
-            action={<Button icon="refresh" onClick={() => window.location.reload()}>Retry</Button>}
-          />
-        </div>
-      </>
+      <PageLayout 
+        title="Data Entry" 
+        breadcrumb={['Data Management', 'Data Entry']}
+        error={error}
+        onRetry={() => window.location.reload()}
+      />
     )
   }
 
   return (
-    <>
-      <Header title="Data Entry" breadcrumb={['Data Management', 'Data Entry']} />
+    <PageLayout title="Data Entry" breadcrumb={['Data Management', 'Data Entry']}>
+      <KpiGrid>
+        <KpiCard label="Total Records" value={summary.total} />
+        <KpiCard label="Draft" value={summary.draft} />
+        <KpiCard label="Validated" value={summary.validated} />
+        <KpiCard label="Invalid" value={summary.invalid} />
+      </KpiGrid>
       
-      <div className="page-content">
-        <div className="section-header">
-          <h2>Master Data Records</h2>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <SectionHeader 
+        title="Master Data Records"
+        actions={
+          <>
             <HTMLSelect 
               value={selectedEntityId} 
               onChange={(e) => setSelectedEntityId(Number(e.target.value))}
@@ -342,90 +345,70 @@ export default function DataEntryPage() {
             <Button 
               icon="add" 
               intent="primary"
-              small
               onClick={() => setIsCreateOpen(true)}
               disabled={!selectedEntityId || attributes.length === 0}
             >
               Add Record
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {entities.length === 0 && (
-          <Callout intent="warning" icon="info-sign" style={{ marginBottom: 16 }}>
-            No entities found. Create an entity first in the Entities page.
-          </Callout>
-        )}
+      {entities.length === 0 && (
+        <Callout intent="warning" icon="info-sign" style={{ marginBottom: 16 }}>
+          No entities found. Create an entity first in the Entities page.
+        </Callout>
+      )}
 
-        {selectedEntityId > 0 && attributes.length === 0 && (
-          <Callout intent="warning" icon="info-sign" style={{ marginBottom: 16 }}>
-            No attributes defined for {selectedEntity?.name}. Create attributes first in the Attributes page.
-          </Callout>
-        )}
+      {selectedEntityId > 0 && attributes.length === 0 && (
+        <Callout intent="warning" icon="info-sign" style={{ marginBottom: 16 }}>
+          No attributes defined for {selectedEntity?.name}. Create attributes first in the Attributes page.
+        </Callout>
+      )}
 
-        {/* Stats Cards */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Total Records</span>
-            <span className="kpi-value">{summary.total}</span>
-          </div>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Draft</span>
-            <span className="kpi-value">{summary.draft}</span>
-          </div>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Validated</span>
-            <span className="kpi-value">{summary.validated}</span>
-          </div>
-          <div className="kpi-card" style={{ flex: 1 }}>
-            <span className="kpi-label">Invalid</span>
-            <span className="kpi-value">{summary.invalid}</span>
-          </div>
-        </div>
-
+      {loading ? (
+        <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={30} /></div>
+      ) : filteredRecords.length === 0 ? (
+        <NonIdealState
+          icon="database"
+          title="No Records"
+          description={`No staged records found for ${selectedEntity?.name || 'this entity'}.`}
+        />
+      ) : (
         <div className="data-table-container">
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center' }}><Spinner size={30} /></div>
-          ) : filteredRecords.length === 0 ? (
-            <NonIdealState
-              icon="database"
-              title="No Records"
-              description={`No staged records found for ${selectedEntity?.name || 'this entity'}.`}
-            />
-          ) : (
-            <HTMLTable striped interactive style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 40 }}>
+          <HTMLTable striped interactive style={{ width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ width: 40 }}>
+                  <Checkbox 
+                    checked={filteredRecords.length > 0 && selectedRecordIds.size === filteredRecords.length}
+                    indeterminate={selectedRecordIds.size > 0 && selectedRecordIds.size < filteredRecords.length}
+                    onChange={handleToggleAll}
+                  />
+                </th>
+                <th>Business Key</th>
+                {attributes.slice(0, 4).map(attr => (
+                  <th key={attr.id}>{attr.name}</th>
+                ))}
+                <th>Operation</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th style={{ width: 100 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.map((record) => (
+                <tr key={record.id} onClick={() => setSelectedRecord(record)} style={{ cursor: 'pointer' }}>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <Checkbox 
-                      checked={filteredRecords.length > 0 && selectedRecordIds.size === filteredRecords.length}
-                      indeterminate={selectedRecordIds.size > 0 && selectedRecordIds.size < filteredRecords.length}
-                      onChange={handleToggleAll}
+                      checked={selectedRecordIds.has(record.id)}
+                      onChange={() => handleToggleRecord(record.id)}
                     />
-                  </th>
-                  <th>Business Key</th>
+                  </td>
+                  <td><strong>{record.business_key}</strong></td>
                   {attributes.slice(0, 4).map(attr => (
-                    <th key={attr.id}>{attr.name}</th>
-                  ))}
-                  <th>Operation</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th style={{ width: 100 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((record) => (
-                  <tr key={record.id} onClick={() => setSelectedRecord(record)} style={{ cursor: 'pointer' }}>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <Checkbox 
-                        checked={selectedRecordIds.has(record.id)}
-                        onChange={() => handleToggleRecord(record.id)}
-                      />
-                    </td>
-                    <td><strong>{record.business_key}</strong></td>
-                    {attributes.slice(0, 4).map(attr => (
-                      <td key={attr.id}>
-                        {String(record.data[attr.code] ?? '-')}
+                    <td key={attr.id}>
+                      {String(record.data[attr.code] ?? '-')}
                       </td>
                     ))}
                     <td>
@@ -449,25 +432,23 @@ export default function DataEntryPage() {
                 ))}
               </tbody>
             </HTMLTable>
-          )}
-        </div>
-
-        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="text-muted" style={{ fontSize: 11 }}>
-            {filteredRecords.length} records{selectedRecordIds.size > 0 && ` (${selectedRecordIds.size} selected)`}
-          </span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <Button 
-              small 
-              icon="git-commit" 
-              disabled={selectedRecordIds.size === 0}
-              loading={isCommitting}
-              onClick={handleCommitSelected}
-            >
-              Commit Selected
-            </Button>
-            <Button small icon="export">Export</Button>
           </div>
+        )}
+
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span className="text-muted" style={{ fontSize: 11 }}>
+          {filteredRecords.length} records{selectedRecordIds.size > 0 && ` (${selectedRecordIds.size} selected)`}
+        </span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Button 
+            icon="git-commit" 
+            disabled={selectedRecordIds.size === 0}
+            loading={isCommitting}
+            onClick={handleCommitSelected}
+          >
+            Commit Selected
+          </Button>
+          <Button icon="export">Export</Button>
         </div>
       </div>
 
@@ -623,6 +604,6 @@ export default function DataEntryPage() {
           </div>
         </div>
       </Dialog>
-    </>
+    </PageLayout>
   )
 }

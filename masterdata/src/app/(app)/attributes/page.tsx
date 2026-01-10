@@ -17,10 +17,13 @@ import {
   Tooltip,
   Callout,
   Spinner,
+  Icon,
   type IconName,
 } from '@blueprintjs/core';
 import { useState, useEffect } from 'react';
-import { Header } from '@/components/layout/Header';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { KpiCard, KpiGrid } from '@/components/ui/KpiCard';
+import { SectionHeader } from '@/components/ui/SectionHeader';
 
 interface Attribute {
   id: number;
@@ -232,105 +235,81 @@ export default function AttributesPage() {
 
   if (loading) {
     return (
-      <>
-        <Header title="Attributes" breadcrumb={['Model Design', 'Attributes']} />
-        <div className="page-content" style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-          <Spinner size={40} />
-        </div>
-      </>
+      <PageLayout 
+        title="Attributes" 
+        breadcrumb={['Model Design', 'Attributes']}
+        loading={true}
+        loadingText="Loading attributes..."
+      />
     );
   }
 
   if (error) {
     return (
-      <>
-        <Header title="Attributes" breadcrumb={['Model Design', 'Attributes']} />
-        <div className="page-content">
-          <NonIdealState
-            icon="error"
-            title="Failed to load attributes"
-            description={error}
-            action={<Button icon="refresh" onClick={fetchData}>Retry</Button>}
-          />
-        </div>
-      </>
+      <PageLayout 
+        title="Attributes" 
+        breadcrumb={['Model Design', 'Attributes']}
+        error={error}
+        onRetry={fetchData}
+      />
     );
   }
 
   return (
-    <>
-      <Header title="Attributes" breadcrumb={['Model Design', 'Attributes']} />
+    <PageLayout title="Attributes" breadcrumb={['Model Design', 'Attributes']}>
+      <KpiGrid>
+        <KpiCard label="Attributes" value={summary.total} />
+        <KpiCard label="Business Keys" value={summary.businessKeys} />
+        <KpiCard label="References" value={summary.references} />
+        <KpiCard label="Entities" value={summary.entities} />
+      </KpiGrid>
 
-      <div className="page-content">
-        {/* Stats */}
-        <div className="stats-grid">
-          <Card className="stat-card">
-            <div className="stat-label">Total Attributes</div>
-            <div className="stat-value">{summary.total}</div>
-          </Card>
-          <Card className="stat-card">
-            <div className="stat-label">Business Keys</div>
-            <div className="stat-value">{summary.businessKeys}</div>
-          </Card>
-          <Card className="stat-card">
-            <div className="stat-label">References</div>
-            <div className="stat-value">{summary.references}</div>
-          </Card>
-          <Card className="stat-card">
-            <div className="stat-label">Entities</div>
-            <div className="stat-value">{summary.entities}</div>
-          </Card>
-        </div>
+      <SectionHeader 
+        title="Attribute Definitions"
+        actions={
+          <>
+            <InputGroup
+              leftIcon="search"
+              placeholder="Search attributes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: 200 }}
+            />
+            <HTMLSelect
+              value={entityFilter}
+              onChange={(e) => setEntityFilter(e.target.value)}
+            >
+              <option value="all">All Entities</option>
+              {uniqueEntityNames.map((entity) => (
+                <option key={entity} value={entity}>
+                  {entity}
+                </option>
+              ))}
+            </HTMLSelect>
+            <HTMLSelect
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              {dataTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </HTMLSelect>
+            <Button
+              icon="add"
+              intent="primary"
+              onClick={() => setShowAddDialog(true)}
+            >
+              Add Attribute
+            </Button>
+          </>
+        }
+      />
 
-        <Callout intent="primary" icon="info-sign">
-          Attributes define the structure of your entities. Business Keys are used for Data Vault
-          hash key generation. Reference attributes create relationships between entities.
-        </Callout>
-
-        {/* Filters & Table */}
-        <Card>
-          <div className="section-header">
-            <h2 className="bp5-heading">Attribute Definitions</h2>
-            <div className="header-actions">
-              <InputGroup
-                leftIcon="search"
-                placeholder="Search attributes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ width: 200 }}
-              />
-              <HTMLSelect
-                value={entityFilter}
-                onChange={(e) => setEntityFilter(e.target.value)}
-              >
-                <option value="all">All Entities</option>
-                {uniqueEntityNames.map((entity) => (
-                  <option key={entity} value={entity}>
-                    {entity}
-                  </option>
-                ))}
-              </HTMLSelect>
-              <HTMLSelect
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-              >
-                <option value="all">All Types</option>
-                {dataTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </HTMLSelect>
-              <Button
-                icon="add"
-                intent="primary"
-                text="Add Attribute"
-                onClick={() => setShowAddDialog(true)}
-              />
-            </div>
-          </div>
-
-          {filteredAttributes.length > 0 ? (
+      {filteredAttributes.length > 0 ? (
+        <div className="data-table-container">
             <HTMLTable striped interactive style={{ width: '100%' }}>
               <thead>
                 <tr>
@@ -419,36 +398,36 @@ export default function AttributesPage() {
                 ))}
               </tbody>
             </HTMLTable>
-          ) : (
-            <NonIdealState
-              icon="search"
-              title="No attributes found"
-              description="No attributes match your current filters."
-            />
-          )}
-        </Card>
+          </div>
+        ) : (
+          <NonIdealState
+            icon="search"
+            title="No attributes found"
+            description="No attributes match your current filters."
+          />
+        )}
 
-        {/* Add Attribute Dialog */}
-        <Dialog
-          isOpen={showAddDialog}
-          onClose={() => setShowAddDialog(false)}
-          title="Add Attribute"
-          icon="add"
-        >
-          <DialogBody>
-            <FormGroup label="Attribute Code" labelFor="attr-code" labelInfo="(required)" helperText="Technical name (e.g., customer_name)">
-              <InputGroup
-                id="attr-code"
-                placeholder="e.g. customer_name"
-                value={newAttribute.code}
-                onChange={(e) =>
-                  setNewAttribute({ ...newAttribute, code: e.target.value.toLowerCase() })
-                }
-              />
-            </FormGroup>
-            <FormGroup label="Display Name" labelFor="attr-name" labelInfo="(required)">
-              <InputGroup
-                id="attr-name"
+      {/* Add Attribute Dialog */}
+      <Dialog
+        isOpen={showAddDialog}
+        onClose={() => setShowAddDialog(false)}
+        title="Add Attribute"
+        icon="add"
+      >
+        <DialogBody>
+          <FormGroup label="Attribute Code" labelFor="attr-code" labelInfo="(required)" helperText="Technical name (e.g., customer_name)">
+            <InputGroup
+              id="attr-code"
+              placeholder="e.g. customer_name"
+              value={newAttribute.code}
+              onChange={(e) =>
+                setNewAttribute({ ...newAttribute, code: e.target.value.toLowerCase() })
+              }
+            />
+          </FormGroup>
+          <FormGroup label="Display Name" labelFor="attr-name" labelInfo="(required)">
+            <InputGroup
+              id="attr-name"
                 placeholder="e.g. Customer Name"
                 value={newAttribute.name}
                 onChange={(e) =>
@@ -584,7 +563,6 @@ export default function AttributesPage() {
             }
           />
         </Dialog>
-      </div>
-    </>
+    </PageLayout>
   );
 }

@@ -361,22 +361,10 @@ export default function CommitsPage() {
         onChange={(newTab) => setSelectedTab(newTab as string)}
         large={false}
       >
-        <Tab 
-          id="pending" 
-          title={
-            <span>
-              Pending Review
-              {pendingCommits.length > 0 && (
-                <Tag minimal round intent="warning" style={{ marginLeft: 8 }}>
-                  {pendingCommits.length}
-                </Tag>
-              )}
-            </span>
-          }
-        />
-        <Tab id="approved" title="Ready to Deploy" />
-        <Tab id="deployed" title="Deployed" />
-        <Tab id="rejected" title="Rejected" />
+        <Tab id="pending" title={`Pending Review (${pendingCommits.length})`} />
+        <Tab id="approved" title={`Ready to Deploy (${approvedCommits.length})`} />
+        <Tab id="deployed" title={`Deployed (${deployedCommits.length})`} />
+        <Tab id="rejected" title={`Rejected (${rejectedCommits.length})`} />
       </Tabs>
 
       <div style={{ marginTop: 16 }}>
