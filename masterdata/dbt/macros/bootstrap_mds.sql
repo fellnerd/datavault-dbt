@@ -206,6 +206,22 @@ CREATE TABLE mds_load.deployment_log (
 );
 {% endset %}
 
+{% set schema_deployment_sql %}
+-- mds_meta.schema_deployment Tabelle (Schema-Änderungen für Deploy-Queue)
+IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = 'mds_meta' AND t.name = 'schema_deployment')
+CREATE TABLE mds_meta.schema_deployment (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    entity_id INT NOT NULL UNIQUE,
+    status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NULL,
+    deployed_at DATETIME2 NULL,
+    deployed_by NVARCHAR(100) NULL,
+    CONSTRAINT FK__schema_deployment__entity_id FOREIGN KEY (entity_id) 
+        REFERENCES mds_meta.entity(id) ON DELETE CASCADE
+);
+{% endset %}
+
 -- Ausführen
 {{ log("Creating MDS schemas...", info=True) }}
 {% do run_query(schemas_sql) %}
@@ -233,6 +249,9 @@ CREATE TABLE mds_load.deployment_log (
 
 {{ log("Creating mds_load.deployment_log table...", info=True) }}
 {% do run_query(deployment_log_sql) %}
+
+{{ log("Creating mds_meta.schema_deployment table...", info=True) }}
+{% do run_query(schema_deployment_sql) %}
 
 {{ log("MDS Bootstrap completed successfully!", info=True) }}
 

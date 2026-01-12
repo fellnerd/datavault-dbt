@@ -6,6 +6,8 @@ import {
   HTMLTable,
   Tag,
   Dialog,
+  DialogBody,
+  DialogFooter,
   FormGroup,
   TextArea,
   Tabs,
@@ -16,7 +18,8 @@ import {
   Collapse,
   IconName,
   Spinner,
-  NonIdealState
+  NonIdealState,
+  ProgressBar
 } from '@blueprintjs/core'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { KpiCard, KpiGrid } from '@/components/ui/KpiCard'
@@ -70,6 +73,15 @@ export default function CommitsPage() {
   const [reviewComment, setReviewComment] = useState('')
   const [expandedCommits, setExpandedCommits] = useState<Set<number>>(new Set())
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // Deploy Dialog State
+  const [deployDialogOpen, setDeployDialogOpen] = useState(false)
+  const [deployCommit, setDeployCommit] = useState<Commit | null>(null)
+  const [deployMode, setDeployMode] = useState<'load' | 'full'>('full')
+  const [deploying, setDeploying] = useState(false)
+  const [deployProgress, setDeployProgress] = useState(0)
+  const [deployLogs, setDeployLogs] = useState<string[]>([])
+  const [activeJobId, setActiveJobId] = useState<string | null>(null)
 
   // Fetch commits from API
   const fetchCommits = async () => {
@@ -155,43 +167,121 @@ export default function CommitsPage() {
     }
   }
 
-  const handleDeploy = async (commit: Commit) => {
+  // Open deploy dialog
+  const handleDeploy = (commit: Commit) => {
+    setDeployCommit(commit)
+    setDeployMode('full')
+    setDeployLogs([])
+    setDeployProgress(0)
+    setDeploying(false)
+    setActiveJobId(null)
+    setDeployDialogOpen(true)
+  }
+
+  // Execute deployment with SSE streaming
+  const handleDeployConfirm = async () => {
+    if (!deployCommit) return
+    
+    setDeploying(true)
+    setDeployProgress(5)
+    setDeployLogs([
+      '🚀 Starte Data-Deployment...',
+      `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`,
+      `📦 Commit: ${deployCommit.code}`
+    ])
+
     try {
-      setActionLoading(true)
-      
-      // Step 1: Transfer data to mds_load tables via Deploy API
+      // Call Deploy API
+      setDeployProgress(10)
+      setDeployLogs(prev => [...prev, '📦 Erstelle Deployment-Job...'])
+
       const deployRes = await fetch('/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          commit_ids: [commit.id]
+          commit_ids: [deployCommit.id],
+          deploy_mode: deployMode
         })
       })
-      
+
       if (!deployRes.ok) {
         const error = await deployRes.json()
-        throw new Error(error.error || 'Failed to deploy commit')
+        throw new Error(error.error || 'Deploy API failed')
       }
-      
-      // Step 2: Trigger dbt job for master table generation (optional)
-      try {
-        await fetch('/api/dbt/run', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            models: ['mds_master']
-          })
-        })
-      } catch {
-        // dbt job is optional - don't fail if it errors
-        console.warn('dbt job could not be triggered')
+
+      const deployResult = await deployRes.json()
+      const jobId = deployResult.job_id
+
+      if (!jobId) {
+        // No job created
+        setDeployLogs(prev => [...prev, '✅ ' + (deployResult.message || 'Fertig')])
+        setDeployProgress(100)
+        setTimeout(() => {
+          setDeployDialogOpen(false)
+          fetchCommits()
+        }, 1500)
+        return
       }
-      
-      await fetchCommits()
+
+      // Start SSE stream
+      setActiveJobId(jobId)
+      setDeployProgress(20)
+      setDeployLogs(prev => [
+        ...prev,
+        `✅ ${deployResult.total_records} Datensätze bereit`,
+        `📊 Job erstellt: ${jobId}`,
+        '📡 Verbinde mit Log-Stream...'
+      ])
+
+      const eventSource = new EventSource(`/api/jobs/${jobId}/stream`)
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+
+          if (data.type === 'log') {
+            setDeployLogs(prev => [...prev.slice(-30), data.message])
+          } else if (data.type === 'progress') {
+            setDeployProgress(Math.min(95, data.progress || 0))
+            if (data.message) {
+              setDeployLogs(prev => [...prev.slice(-30), data.message])
+            }
+          } else if (data.type === 'completed') {
+            setDeployProgress(100)
+            setDeployLogs(prev => [...prev, '✅ Data-Deployment erfolgreich!'])
+            eventSource.close()
+            setActiveJobId(null)
+            setDeploying(false)
+            setTimeout(() => {
+              setDeployDialogOpen(false)
+              fetchCommits()
+            }, 2000)
+          } else if (data.type === 'failed') {
+            setDeployLogs(prev => [...prev, `❌ Fehler: ${data.error}`])
+            eventSource.close()
+            setActiveJobId(null)
+            setDeploying(false)
+          }
+        } catch (err) {
+          console.error('Failed to parse SSE message:', err)
+        }
+      }
+
+      eventSource.onerror = () => {
+        console.error('SSE connection error')
+        setDeployLogs(prev => [...prev, '⚠️ Stream unterbrochen, Job läuft im Hintergrund'])
+        eventSource.close()
+        setActiveJobId(null)
+        setDeploying(false)
+        setTimeout(() => {
+          setDeployDialogOpen(false)
+          fetchCommits()
+        }, 2000)
+      }
+
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to deploy')
-    } finally {
-      setActionLoading(false)
+      setDeployLogs(prev => [...prev, `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`])
+      setDeploying(false)
     }
   }
 
@@ -522,6 +612,117 @@ export default function CommitsPage() {
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* Deploy Dialog with Mode Selection and SSE Streaming */}
+      <Dialog
+        isOpen={deployDialogOpen}
+        onClose={() => !deploying && setDeployDialogOpen(false)}
+        title={deploying ? "Deployment läuft..." : "Deploy to Data Vault"}
+        icon="cloud-upload"
+        style={{ width: 600 }}
+        canOutsideClickClose={!deploying}
+        canEscapeKeyClose={!deploying}
+      >
+        <DialogBody>
+          {!deploying ? (
+            <>
+              {/* Commit Info */}
+              {deployCommit && (
+                <Callout intent="none" icon="info-sign" style={{ marginBottom: 16 }}>
+                  <strong>{deployCommit.entity_name}</strong>: {deployCommit.record_count} Datensätze
+                  <div style={{ marginTop: 4, color: 'var(--gray3)' }}>
+                    Commit: <code>{deployCommit.code}</code>
+                  </div>
+                </Callout>
+              )}
+
+              {/* Deploy Mode Selection */}
+              <div style={{ marginBottom: 16, padding: 12, background: 'var(--dark-gray4)', borderRadius: 4 }}>
+                <div style={{ marginBottom: 8, fontWeight: 500 }}>Deploy-Modus:</div>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="deployMode"
+                      value="full"
+                      checked={deployMode === 'full'}
+                      onChange={() => setDeployMode('full')}
+                      style={{ marginRight: 8 }}
+                    />
+                    <span><strong>Load + Master</strong> (Empfohlen)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="deployMode"
+                      value="load"
+                      checked={deployMode === 'load'}
+                      onChange={() => setDeployMode('load')}
+                      style={{ marginRight: 8 }}
+                    />
+                    <span><strong>Nur Load</strong></span>
+                  </label>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--gray3)' }}>
+                  {deployMode === 'full'
+                    ? '📊 Daten werden in mds_load geladen UND nach mds_master übertragen (SCD2 historisiert)'
+                    : '📦 Daten werden nur in mds_load geladen (für manuelle Weiterverarbeitung)'}
+                </div>
+              </div>
+
+              <Callout intent="warning" icon="warning-sign">
+                Dieser Vorgang kann nicht rückgängig gemacht werden.
+              </Callout>
+            </>
+          ) : (
+            <>
+              {/* Progress Display */}
+              <div style={{ marginBottom: 16 }}>
+                <ProgressBar
+                  value={deployProgress / 100}
+                  intent={deployProgress === 100 ? 'success' : 'primary'}
+                  animate={deployProgress < 100}
+                  stripes={deployProgress < 100}
+                />
+                {activeJobId && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--gray3)' }}>
+                    Job ID: {activeJobId}
+                  </div>
+                )}
+              </div>
+
+              {/* Live Logs */}
+              <pre style={{
+                background: 'var(--dark-gray5)',
+                padding: 12,
+                borderRadius: 4,
+                maxHeight: 250,
+                overflow: 'auto',
+                fontSize: 12,
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}>
+                {deployLogs.join('\n')}
+              </pre>
+            </>
+          )}
+        </DialogBody>
+        <DialogFooter
+          actions={
+            deploying ? (
+              <Button disabled>Deployment läuft...</Button>
+            ) : (
+              <>
+                <Button onClick={() => setDeployDialogOpen(false)}>Abbrechen</Button>
+                <Button intent="primary" icon="cloud-upload" onClick={handleDeployConfirm}>
+                  Ja, deployen
+                </Button>
+              </>
+            )
+          }
+        />
       </Dialog>
     </PageLayout>
   )

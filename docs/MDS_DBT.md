@@ -104,8 +104,10 @@ masterdata/
 
 | Tabelle | Beschreibung |
 |---------|-------------|
-| `<entity>` | Flache Daten aus JSON (z.B. `country`, `customer`) - erzeugt durch `load_<entity>.sql` |
+| `<entity>` | Flache Daten aus JSON (z.B. `product`, `country`) - erzeugt durch `load_<entity>.sql` |
 | `deployment_log` | Log aller Deployments |
+
+**Wichtig:** Die Tabelle heißt nur `<entity>` (z.B. `mds_load.product`), nicht `load_<entity>`!
 
 **Spaltenstruktur mds_load.<entity>:**
 | Spalte | Typ | Beschreibung |
@@ -254,6 +256,28 @@ dbt run --select mds_view --target local
 
 ### Kompletter Deploy-Workflow
 
+#### Via UI (empfohlen)
+
+1. **Commits-Seite** öffnen (`/commits`)
+2. Tab **"Ready to Deploy"** auswählen
+3. Commit-Karte expandieren
+4. **"Deploy to Data Vault"** Button klicken
+5. Im **Deploy-Dialog**:
+   - **Deploy-Modus** auswählen:
+     - **Load + Master** (empfohlen): Lädt nach `mds_load` UND `mds_master` (SCD2)
+     - **Nur Load**: Lädt nur nach `mds_load` (für manuelle Weiterverarbeitung)
+   - **"Ja, deployen"** klicken
+6. **Live-Log** verfolgen (SSE-Streaming zeigt dbt-Output in Echtzeit)
+7. Nach Abschluss: Commit wandert zu **"Deployed"** Tab
+
+**Status-Flow:**
+```
+Commit: approved → loaded → deployed
+staged_record: committed → loaded → deployed
+```
+
+#### Via CLI (manuell)
+
 ```bash
 # 1. Models generieren (liest aus mds_meta)
 python3 scripts/generate_models.py --entity country
@@ -279,6 +303,22 @@ dbt run --select load_country mds_country v_country --target local
 ```
 
 ### Worker-Aufrufe (BullMQ)
+
+**Worker starten (Voraussetzung für UI-Deploy):**
+```bash
+cd /home/user/projects/datavault-dbt/masterdata
+source .venv/bin/activate  # falls venv verwendet wird
+
+# Worker im Vordergrund starten (für Debugging)
+DBT_TARGET=local DBT_PROJECT_PATH=/home/user/projects/datavault-dbt/masterdata/dbt \
+  npx tsx src/lib/queue/worker.ts
+
+# Worker im Hintergrund starten
+DBT_TARGET=local DBT_PROJECT_PATH=/home/user/projects/datavault-dbt/masterdata/dbt \
+  npx tsx src/lib/queue/worker.ts &
+```
+
+**Wichtig:** Der Worker muss laufen, damit UI-Deploys verarbeitet werden!
 
 Der Worker ruft dbt über das `run-dbt.sh` Script:
 

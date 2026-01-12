@@ -6,7 +6,7 @@
 
 import { Queue } from 'bullmq';
 import { 
-  REDIS_CONFIG, 
+  getRedisConfig, 
   QUEUE_NAMES, 
   DEFAULT_JOB_OPTIONS, 
   JOB_TYPE_OPTIONS,
@@ -29,8 +29,15 @@ export function getMdsQueue(): Queue<MdsJobData> {
       return createMockQueue();
     }
     
+    const redisConfig = getRedisConfig();
+    console.log('🔌 Connecting to Redis:', { 
+      host: redisConfig.host, 
+      port: redisConfig.port, 
+      tls: !!redisConfig.tls 
+    });
+    
     mdsQueue = new Queue<MdsJobData>(QUEUE_NAMES.MDS_JOBS, {
-      connection: REDIS_CONFIG,
+      connection: redisConfig,
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
 
@@ -50,7 +57,10 @@ export async function addJob(
   userName: string,
   params?: Record<string, unknown>
 ): Promise<{ id: string; name: string }> {
+  console.log('⏳ addJob called:', { type, target, userId });
+  
   const queue = getMdsQueue();
+  console.log('✅ Got queue instance');
   
   const jobData: MdsJobData = {
     type,
@@ -62,11 +72,14 @@ export async function addJob(
   };
 
   const jobOptions = JOB_TYPE_OPTIONS[type];
+  console.log('⏳ Calling queue.add()...');
   
   const job = await queue.add(type, jobData, {
     priority: jobOptions.priority,
     timeout: jobOptions.timeout,
   });
+  
+  console.log('✅ queue.add() completed, job.id:', job.id);
 
   console.log(`📬 Job added: ${type} - ${target} (${job.id})`);
 

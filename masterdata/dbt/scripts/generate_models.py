@@ -60,6 +60,30 @@ SQL_TYPE_MAP = {
     'text': 'NVARCHAR(MAX)',
 }
 
+# SQL Server Reserved Keywords die escaped werden müssen
+SQL_RESERVED_KEYWORDS = {
+    'order', 'user', 'group', 'table', 'column', 'index', 'key', 'primary',
+    'foreign', 'references', 'select', 'insert', 'update', 'delete', 'from',
+    'where', 'join', 'on', 'and', 'or', 'not', 'null', 'create', 'alter',
+    'drop', 'truncate', 'grant', 'revoke', 'commit', 'rollback', 'transaction',
+    'begin', 'end', 'if', 'else', 'case', 'when', 'then', 'default', 'check',
+    'constraint', 'unique', 'identity', 'view', 'procedure', 'function',
+    'trigger', 'schema', 'database', 'use', 'exec', 'execute', 'return',
+    'values', 'set', 'declare', 'cursor', 'open', 'close', 'fetch', 'next',
+    'prior', 'first', 'last', 'absolute', 'relative', 'union', 'intersect',
+    'except', 'all', 'any', 'some', 'exists', 'between', 'like', 'in', 'is',
+    'as', 'by', 'asc', 'desc', 'top', 'percent', 'with', 'over', 'partition',
+    'row', 'rows', 'range', 'unbounded', 'preceding', 'following', 'current',
+    'rank', 'dense_rank', 'row_number', 'ntile', 'lead', 'lag', 'level'
+}
+
+
+def escape_sql_identifier(name: str) -> str:
+    """Escaped SQL Identifier wenn es ein Reserved Keyword ist"""
+    if name.lower() in SQL_RESERVED_KEYWORDS:
+        return f'[{name}]'
+    return name
+
 
 def get_connection():
     """Erstellt Datenbankverbindung mit SQL Auth"""
@@ -67,8 +91,8 @@ def get_connection():
     return pyodbc.connect(conn_str)
 
 
-def get_entities(conn, entity_code=None):
-    """Lädt alle aktiven Entities aus mds_meta"""
+def get_entities(conn, entity_code=None, entity_ids=None):
+    """Lädt Entities aus mds_meta - alle aktiven, oder gefiltert nach code/ids"""
     cursor = conn.cursor()
     
     query = """
@@ -78,13 +102,21 @@ def get_entities(conn, entity_code=None):
             e.name,
             e.scd_type
         FROM mds_meta.entity e
-        WHERE e.status = 'active'
+        WHERE 1=1
     """
     
     if entity_code:
-        query += " AND e.code = ?"
+        # Filter by code - only active entities
+        query += " AND e.status = 'active' AND e.code = ?"
         cursor.execute(query, entity_code)
+    elif entity_ids:
+        # Filter by list of IDs - include draft/pending entities (being deployed)
+        placeholders = ','.join(['?' for _ in entity_ids])
+        query += f" AND e.status IN ('active', 'pending', 'draft') AND e.id IN ({placeholders})"
+        cursor.execute(query, entity_ids)
     else:
+        # No filter - only active entities
+        query += " AND e.status = 'active'"
         cursor.execute(query)
     
     columns = [desc[0] for desc in cursor.description]
@@ -140,9 +172,13 @@ def generate_model_sql(entity, attributes):
     
     entity_code = entity['code'].lower()
     entity_id = entity['id']
+    
+    # Escape table names if reserved keyword
+    escaped_entity = escape_sql_identifier(entity_code)
+    
     # Load table: mds_load.<entity_code> (ohne load_ prefix)
-    load_table = f"mds_load.{entity_code}"
-    master_table = f"mds_master.{entity_code}"
+    load_table = f"mds_load.{escaped_entity}"
+    master_table = f"mds_master.{escaped_entity}"
     
     # Business Key finden
     business_key = None
@@ -172,6 +208,7 @@ def generate_model_sql(entity, attributes):
     
     # Model SQL - angepasst an mds_load Spaltenstruktur
     # mds_load.<entity> hat: id, business_key_hash, business_key, <attrs>, commit_id, operation, source_system, source_id, is_processed, created_at, processed_at
+    # WICHTIG: alias OHNE Brackets, dbt-sqlserver escaped automatisch
     model_sql = f'''{{{{
   config(
     materialized='incremental',
@@ -201,7 +238,9 @@ def generate_model_sql(entity, attributes):
       "-- Mark load records as processed",
       "UPDATE {load_table} SET is_processed = 1, processed_at = GETUTCDATE() WHERE is_processed = 0",
       "-- Update commit status to 'deployed' for all loaded commits",
-      "UPDATE mds_stage.[commit] SET status = 'deployed' WHERE status = 'loaded' AND entity_id = {entity_id}"
+      "UPDATE mds_stage.[commit] SET status = 'deployed' WHERE status = 'loaded' AND entity_id = {entity_id}",
+      "-- Remove DELETE records from load (they should not appear in current state)",
+      "DELETE FROM {load_table} WHERE operation = 'DELETE'"
     ]
   )
 }}}}
@@ -308,10 +347,18 @@ WHERE is_processed = 0
 
 
 def generate_load_model_sql(entity, attributes):
-    """Generiert das dbt Load Model SQL für eine Entity (JSON → flache Tabelle)"""
+    """Generiert das dbt Load Model SQL für eine Entity (JSON → flache Tabelle)
+    
+    WICHTIG: Load-Tabelle enthält immer nur den LETZTGÜLTIGEN Stand pro Business Key.
+    Bei Updates wird die existierende Zeile überschrieben (MERGE).
+    Die Historisierung erfolgt im Master (SCD2).
+    """
     
     entity_code = entity['code'].lower()
     entity_id = entity['id']
+    
+    # Escape table name if reserved keyword (nur für SQL Statements im Model, nicht für dbt alias)
+    escaped_entity = escape_sql_identifier(entity_code)
     
     # JSON_VALUE Spalten generieren
     json_columns = []
@@ -321,12 +368,15 @@ def generate_load_model_sql(entity, attributes):
     
     json_select = ",\n".join(json_columns)
     
+    # Alias OHNE Brackets - dbt-sqlserver escaped automatisch bei Bedarf
+    # incremental_strategy='merge' sorgt dafür, dass pro BK nur 1 Zeile existiert
     load_sql = f'''{{{{
   config(
     materialized='incremental',
     schema='mds_load',
     alias='{entity_code}',
-    incremental_strategy='append',
+    incremental_strategy='merge',
+    unique_key='business_key_hash',
     as_columnstore=false,
     post_hook=[
       "-- Update staged_record status to 'loaded'",
@@ -349,14 +399,18 @@ def generate_load_model_sql(entity, attributes):
   Source: mds_stage.staged_record (JSON data)
   Target: mds_load.{entity_code} (flache Tabelle)
   
-  Lädt alle committed Records aus staged_record,
-  deren Commit status='approved' hat.
+  WICHTIG: Diese Tabelle enthält immer nur den LETZTGÜLTIGEN
+  Stand pro Business Key. Bei Updates wird die existierende
+  Zeile überschrieben (MERGE auf business_key_hash).
+  
+  Die vollständige Historie wird im Master (mds_master.{entity_code})
+  via SCD2 geführt.
   =====================================================
 #}}
 
 {{% if is_incremental() %}}
 
--- Incremental: Nur approved Commits laden
+-- Incremental: Nur approved Commits laden (MERGE - überschreibt bei gleichem BK)
 SELECT
     sr.business_key_hash,
     sr.business_key,
@@ -373,16 +427,12 @@ INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
 WHERE sr.entity_id = {entity_id}
   AND sr.status = 'committed'
   AND c.status = 'approved'
-  AND NOT EXISTS (
-    -- Verhindere Duplikate
-    SELECT 1 FROM {{{{ this }}}} t 
-    WHERE t.source_id = CAST(sr.id AS NVARCHAR(255))
-  )
 
 {{% else %}}
 
--- Full Refresh: Alle committed Records laden
-SELECT
+-- Full Refresh: Alle committed Records laden (neueste pro BK)
+WITH ranked AS (
+  SELECT
     sr.business_key_hash,
     sr.business_key,
 {json_select},
@@ -392,12 +442,19 @@ SELECT
     CAST(sr.id AS NVARCHAR(255)) AS source_id,
     CAST(0 AS BIT) AS is_processed,
     GETUTCDATE() AS created_at,
-    CAST(NULL AS DATETIME2) AS processed_at
-FROM mds_stage.staged_record sr
-INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
-WHERE sr.entity_id = {entity_id}
-  AND sr.status = 'committed'
-  AND c.status IN ('approved', 'loaded', 'deployed')
+    CAST(NULL AS DATETIME2) AS processed_at,
+    ROW_NUMBER() OVER (PARTITION BY sr.business_key_hash ORDER BY sr.id DESC) AS rn
+  FROM mds_stage.staged_record sr
+  INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
+  WHERE sr.entity_id = {entity_id}
+    AND sr.status IN ('committed', 'loaded')
+    AND c.status IN ('approved', 'loaded', 'deployed')
+)
+SELECT 
+  business_key_hash, business_key, 
+  {', '.join([attr['code'] for attr in attributes])},
+  commit_id, operation, source_system, source_id, is_processed, created_at, processed_at
+FROM ranked WHERE rn = 1
 
 {{% endif %}}
 '''
@@ -516,6 +573,7 @@ def write_view_file(view_code, view_sql):
 def main():
     parser = argparse.ArgumentParser(description='Generate dbt models for MDS entities')
     parser.add_argument('--entity', '-e', help='Generate model for specific entity code')
+    parser.add_argument('--entity-ids', help='Generate models for specific entity IDs (comma-separated)')
     parser.add_argument('--views-only', action='store_true', help='Only generate view models')
     parser.add_argument('--masters-only', action='store_true', help='Only generate master models')
     parser.add_argument('--loads-only', action='store_true', help='Only generate load models')
@@ -526,9 +584,15 @@ def main():
     print("MDS Entity Model Generator")
     print("=" * 60)
     
+    # Parse entity IDs if provided
+    entity_ids = None
+    if args.entity_ids:
+        entity_ids = [int(x.strip()) for x in args.entity_ids.split(',')]
+        print(f"Filtering by entity IDs: {entity_ids}")
+    
     try:
         conn = get_connection()
-        entities = get_entities(conn, args.entity)
+        entities = get_entities(conn, args.entity, entity_ids)
         
         if not entities:
             print("No active entities found.")

@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { dbQuery, dbExecute } from '@/lib/db-server'
 import { logger } from '@/lib/logger'
 import { v4 as uuidv4 } from 'uuid'
+import { addJob } from '@/lib/queue/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * Deploy API - Bereitet den Deploy-Workflow vor:
+ * Deploy API - Startet den Data-Deploy-Workflow:
  * 
  * 1. Validiert approved commits
  * 2. Stellt sicher, dass mds_load.<entity> Tabelle existiert
- * 3. Triggert dbt (manuell oder via BullMQ)
+ * 3. Erstellt BullMQ Job für dbt-Ausführung
  * 
- * Neuer Datenfluss (dbt-basiert):
+ * Datenfluss (dbt-basiert):
  * mds_stage.staged_record (JSON, status='committed')
  *    ↓ dbt load_<entity>.sql (commit.status → 'loaded')
  * mds_load.<entity> (strukturiert)
@@ -22,8 +23,7 @@ export const dynamic = 'force-dynamic'
  *    ↓
  * mds_view.v_<entity> → Data Vault Source
  * 
- * Note: Die API macht KEIN INSERT mehr in mds_load!
- * Alle Datentransformationen laufen über dbt.
+ * Die API erstellt einen Job, der Worker führt dbt aus.
  */
 
 interface Entity {
@@ -51,7 +51,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { 
       commit_ids, // Array of commit IDs to deploy
-      user = 'admin'
+      user = 'admin',
+      deploy_mode = 'full' // 'load' = nur mds_load, 'full' = load + master
     } = body
     
     if (!commit_ids || !Array.isArray(commit_ids) || commit_ids.length === 0) {
@@ -60,6 +61,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    
+    logger.info({ commit_ids, deploy_mode }, 'Starting data deployment')
     
     const deploymentId = uuidv4()
     const results: Array<{
@@ -127,8 +130,11 @@ export async function POST(request: NextRequest) {
         
         const entity = entities[0]
         
-        // 3. Ensure mds_load table exists for this entity
-        await ensureLoadTable(entity)
+        // 3. Skip ensureLoadTable - dbt handles table creation with correct schema
+        // The dbt load model (load_<entity>.sql) creates mds_load.<entity> with:
+        // business_key_hash, business_key, <attrs>, commit_id, operation, source_system, source_id, is_processed, created_at, processed_at
+        // This avoids schema mismatch between API-created tables and dbt expectations
+        // await ensureLoadTable(entity)
         
         // 4. Count staged records for this commit (for reporting)
         const stagedRecords = await dbQuery<{ cnt: number }>(
@@ -143,21 +149,21 @@ export async function POST(request: NextRequest) {
         // The load model (load_<entity>.sql) reads from staged_record 
         // and writes to mds_load.<entity>, then updates commit status to 'loaded'
         
-        // 6. Status remains 'approved' - dbt will set 'loaded' after processing
-        // No status change here - just ensure table exists for dbt to write to
+        // 6. DON'T update commit status here - dbt job will do it after successful run
+        // The status stays 'approved' until dbt load model processes it
+        
         logger.info({ commitId, entityName: entity.name, recordsDeployed }, 
-          'Commit ready for dbt processing (status remains approved)')
+          'Commit prepared for deployment')
         
         results.push({
           commit_id: commitId,
           entity_id: entity.id,
           entity_name: entity.name,
           records_deployed: recordsDeployed,
-          status: 'pending_dbt',
-          message: 'Table ensured, ready for dbt load'
+          status: 'success'
         })
         
-        logger.info({ commitId, entityName: entity.name, recordsDeployed }, 'Commit prepared for dbt load')
+        logger.info({ commitId, entityName: entity.name, recordsDeployed }, 'Commit deployed')
         
       } catch (error) {
         logger.error({ error, commitId }, 'Failed to deploy commit')
@@ -172,10 +178,10 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // 7. Log preparation for each unique entity (optional - for tracking)
+    // 7. Log deployment for each unique entity
     const entitiesSeen = new Set<number>()
     for (const result of results) {
-      if (result.status === 'pending_dbt' && !entitiesSeen.has(result.entity_id)) {
+      if (result.status === 'success' && !entitiesSeen.has(result.entity_id)) {
         entitiesSeen.add(result.entity_id)
         
         // Get entity code
@@ -185,45 +191,96 @@ export async function POST(request: NextRequest) {
         )
         const entityCode = entityData[0]?.code || 'unknown'
         
-        // Log as 'pending_dbt' - will be updated by dbt post-hooks
+        // Log deployment
         await dbExecute(
           `INSERT INTO mds_load.deployment_log 
-           (deployment_id, commit_id, entity_id, entity_code, records_deployed, status, started_at, deployed_by)
-           VALUES (@deploymentId, @commitId, @entityId, @entityCode, @recordsDeployed, @status, GETUTCDATE(), @user)`,
+           (deployment_id, commit_id, entity_id, entity_code, records_deployed, status, started_at, completed_at, deployed_by)
+           VALUES (@deploymentId, @commitId, @entityId, @entityCode, @recordsDeployed, @status, GETUTCDATE(), GETUTCDATE(), @user)`,
           {
             deploymentId,
             commitId: result.commit_id,
             entityId: result.entity_id,
             entityCode,
             recordsDeployed: result.records_deployed,
-            status: 'pending_dbt',
+            status: 'deployed',
             user
           }
         )
       }
     }
     
-    // 8. Next: Run dbt to transfer data
-    // Manual: dbt run --select load_<entity> --target local
-    // Production: BullMQ job queue triggers dbt
-    
+    // 8. Summary
     const totalRecords = results.reduce((sum, r) => sum + r.records_deployed, 0)
-    const successCount = results.filter(r => r.status === 'pending_dbt').length
+    const successCount = results.filter(r => r.status === 'success').length
+    
+    // 9. Collect unique entity codes for dbt job
+    const entityCodes = [...new Set(
+      results
+        .filter(r => r.status === 'success')
+        .map(async r => {
+          const entityData = await dbQuery<{ code: string }>(
+            `SELECT code FROM mds_meta.entity WHERE id = @entityId`,
+            { entityId: r.entity_id }
+          )
+          return entityData[0]?.code?.toLowerCase()
+        })
+    )]
+    
+    // Resolve entity codes
+    const resolvedEntityCodes: string[] = []
+    for (const result of results.filter(r => r.status === 'success')) {
+      const entityData = await dbQuery<{ code: string }>(
+        `SELECT code FROM mds_meta.entity WHERE id = @entityId`,
+        { entityId: result.entity_id }
+      )
+      if (entityData[0]?.code) {
+        const code = entityData[0].code.toLowerCase()
+        if (!resolvedEntityCodes.includes(code)) {
+          resolvedEntityCodes.push(code)
+        }
+      }
+    }
+    
+    // 10. Create Job Queue entry for dbt execution
+    let jobId: string | null = null
+    if (successCount > 0 && resolvedEntityCodes.length > 0) {
+      try {
+        const job = await addJob(
+          'deploy',
+          `data-deploy-${deploymentId}`,
+          user,
+          user,
+          {
+            entityCodes: resolvedEntityCodes,
+            commitIds: results.filter(r => r.status === 'success').map(r => r.commit_id),
+            deploymentId,
+            deployMode: deploy_mode // 'load' or 'full'
+          }
+        )
+        jobId = job.id || null
+        
+        logger.info({ jobId, deploymentId, entityCodes: resolvedEntityCodes, deployMode: deploy_mode }, 
+          'Data deploy job created')
+      } catch (queueError) {
+        logger.error({ queueError, deploymentId }, 'Failed to create deploy job')
+        // Continue - job creation failure shouldn't block response
+      }
+    }
 
     return NextResponse.json({
       deployment_id: deploymentId,
+      job_id: jobId,
       commits_processed: results.length,
       commits_success: successCount,
       commits_failed: results.length - successCount,
       total_records: totalRecords,
       results,
-      message: successCount === results.length 
-        ? 'All commits prepared for dbt processing. Run "dbt run --select load_*" to transfer data.'
-        : `${successCount} of ${results.length} commits prepared for dbt processing`,
-      next_steps: [
-        'dbt run --select load_<entity> --target local  # Transfer to mds_load',
-        'dbt run --select mds_<entity> --target local   # Transfer to mds_master'
-      ]
+      message: jobId 
+        ? `Deploy job ${jobId} created for ${resolvedEntityCodes.join(', ')}`
+        : successCount === results.length 
+          ? `${successCount} commits successfully deployed`
+          : `${successCount} of ${results.length} commits deployed`,
+      entity_codes: resolvedEntityCodes
     })
     
   } catch (error) {
@@ -239,9 +296,12 @@ export async function POST(request: NextRequest) {
  * Ensure the mds_load table exists for the entity
  * Creates it dynamically based on entity attributes
  * Also adds any missing attribute columns if table already exists
+ * 
+ * NOTE: Table name should match dbt model alias (entity code only, no prefix)
  */
 async function ensureLoadTable(entity: Entity): Promise<void> {
-  const tableName = `load_${entity.code.toLowerCase()}`
+  // Use entity code directly (matches dbt model alias='product')
+  const tableName = entity.code.toLowerCase()
   
   // Get entity attributes for DDL generation
   const attributes = await dbQuery<Attribute>(
@@ -360,7 +420,8 @@ function generateLoadTableDDL(entity: Entity, attributes: Attribute[]): string {
     'is_processed BIT DEFAULT 0'
   )
   
-  const tableName = `load_${entity.code.toLowerCase()}`
+// Use entity code directly (matches dbt model alias)
+  const tableName = entity.code.toLowerCase()
   
   return `
     CREATE TABLE mds_load.[${tableName}] (

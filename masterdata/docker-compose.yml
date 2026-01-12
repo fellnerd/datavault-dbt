@@ -3,7 +3,8 @@
 # Services:
 # - mds-app: Next.js frontend (Port 3000) mit embedded dbt
 # - mds-worker: BullMQ job worker mit dbt für async Jobs
-# - redis: Message queue backend
+#
+# Redis: Uses Upstash Redis (cloud) via UPSTASH_REDIS_URL
 #
 # Usage:
 #   docker-compose up -d          # Start all services
@@ -14,22 +15,6 @@
 # aus um alle MDS Schemas und Tabellen zu erstellen.
 
 services:
-  # Redis for BullMQ job queue
-  redis:
-    image: redis:7-alpine
-    container_name: mds-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Next.js Application with embedded dbt
   mds-app:
     build:
@@ -57,15 +42,11 @@ services:
       - MDS_DB_DATABASE=${DB_NAME:-Vault}
       - MDS_DB_USER=${DB_USER:-}
       - MDS_DB_PASSWORD=${DB_PASSWORD:-}
-      # Redis
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - QUEUE_MOCK=false
+      # Redis - Upstash (cloud)
+      - UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
+      - QUEUE_MOCK=${QUEUE_MOCK:-false}
       # Dev mode (disable in production)
       - NEXT_PUBLIC_DEV_MODE=${NEXT_PUBLIC_DEV_MODE:-false}
-    depends_on:
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -92,15 +73,9 @@ services:
       - MDS_DB_PASSWORD=${DB_PASSWORD:-}
       - MDS_DBT_TARGET=${DBT_TARGET:-prod}
       - DBT_PROFILES_DIR=/app/dbt
-      # Redis
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # Redis - Upstash (cloud)
+      - UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
       # Worker settings
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-2}
-    depends_on:
-      redis:
-        condition: service_healthy
 
-volumes:
-  redis_data:
-    driver: local
+# No volumes needed - using Upstash Redis (cloud)

@@ -80,6 +80,12 @@ export async function GET(request: NextRequest) {
     const approved = results.filter(c => c.status === 'approved').length
     const deployed = results.filter(c => c.status === 'deployed').length
     
+    // Get pending schema deployments count
+    const schemaDeployments = await dbQuery<{ count: number }>(
+      `SELECT COUNT(*) as count FROM mds_meta.schema_deployment WHERE status = 'pending'`
+    )
+    const schemaPending = schemaDeployments.length > 0 ? schemaDeployments[0].count : 0
+    
     return NextResponse.json({
       data: results,
       total: results.length,
@@ -88,7 +94,8 @@ export async function GET(request: NextRequest) {
         draft,
         pending,
         approved,
-        deployed
+        deployed,
+        schema_pending: schemaPending
       }
     })
   } catch (error) {

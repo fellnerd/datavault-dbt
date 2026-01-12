@@ -5,6 +5,33 @@ import { logger } from '@/lib/logger'
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Helper: UPSERT schema_deployment for entity (only if model is active)
+async function upsertSchemaDeployment(entityId: number) {
+  // Check if model is active
+  const modelCheck = await dbQuery<{ model_status: string }>(
+    `SELECT m.status AS model_status 
+     FROM mds_meta.entity e 
+     JOIN mds_meta.model m ON m.id = e.model_id 
+     WHERE e.id = @entityId`,
+    { entityId }
+  )
+  
+  if (modelCheck.length > 0 && modelCheck[0].model_status === 'active') {
+    // UPSERT: Insert or update if exists
+    await dbExecute(
+      `MERGE mds_meta.schema_deployment AS target
+       USING (SELECT @entityId AS entity_id) AS source
+       ON target.entity_id = source.entity_id
+       WHEN MATCHED THEN
+         UPDATE SET updated_at = GETUTCDATE(), status = 'pending'
+       WHEN NOT MATCHED THEN
+         INSERT (entity_id, status, created_at) VALUES (@entityId, 'pending', GETUTCDATE());`,
+      { entityId }
+    )
+    logger.info({ entityId }, 'Created/updated schema_deployment entry')
+  }
+}
+
 export interface Attribute {
   id: number
   entity_id: number
@@ -204,6 +231,9 @@ export async function POST(request: NextRequest) {
        WHERE a.entity_id = @entityId AND a.code = @code`,
       { entityId: entity_id, code }
     )
+    
+    // UPSERT schema_deployment for the entity
+    await upsertSchemaDeployment(entity_id)
     
     return NextResponse.json(created[0], { status: 201 })
   } catch (error) {

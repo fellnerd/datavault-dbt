@@ -65,9 +65,12 @@ export async function PUT(
     const body = await request.json()
     const { data, operation } = body
     
-    // Get current record
-    const currentRecords = await dbQuery<StagedRecord>(
-      'SELECT * FROM mds_stage.staged_record WHERE id = @id',
+    // Get current record with entity info
+    const currentRecords = await dbQuery<StagedRecord & { scd_type: string }>(
+      `SELECT sr.*, e.scd_type 
+       FROM mds_stage.staged_record sr
+       JOIN mds_meta.entity e ON e.id = sr.entity_id
+       WHERE sr.id = @id`,
       { id: parseInt(recordId) }
     )
     
@@ -80,16 +83,17 @@ export async function PUT(
     
     const current = currentRecords[0]
     
-    // Build update
+    // Always update in-place - Data Entry shows the current state
     const updates: string[] = []
     const queryParams: Record<string, unknown> = { id: parseInt(recordId) }
     
-    // If editing a loaded/committed record, reset status to pending
-    if (current.status !== 'pending') {
-      updates.push('status = @newStatus')
-      updates.push('commit_id = NULL')  // Detach from old commit
-      queryParams.newStatus = 'pending'
-      logger.info({ recordId, oldStatus: current.status }, 'Resetting record to pending for re-edit')
+    // If record was already deployed (loaded), change operation to UPDATE and reset to pending
+    // This enables SCD2 historization when deployed to master
+    if (current.status === 'loaded') {
+      updates.push('operation = \'UPDATE\'')
+      updates.push('status = \'pending\'')
+      logger.info({ recordId, previousStatus: current.status }, 
+        'Resetting deployed record to pending with UPDATE operation for SCD2')
     }
     
     if (data !== undefined) {
@@ -117,7 +121,8 @@ export async function PUT(
       }
     }
     
-    if (operation !== undefined) {
+    if (operation !== undefined && current.status !== 'loaded') {
+      // Only allow explicit operation change if not already deployed
       updates.push('operation = @operation')
       queryParams.operation = operation
     }
@@ -194,32 +199,23 @@ export async function DELETE(
       return NextResponse.json({ success: true, action: 'deleted' })
     }
     
-    // Loaded records: Create DELETE operation (soft delete for master)
-    // This creates a new staged_record with operation='DELETE'
-    const businessKeyHash = await dbQuery<{ hash: string }>(
-      `SELECT CONVERT(CHAR(64), HASHBYTES('SHA2_256', @bk), 2) AS hash`,
-      { bk: current.business_key }
-    )
-    
+    // Loaded records: Update in-place to DELETE operation (soft delete for master)
+    // Same pattern as UPDATE - modify existing record, don't create new one
     await dbExecute(
-      `INSERT INTO mds_stage.staged_record 
-        (entity_id, business_key_hash, business_key, payload, data, operation, status, source_system, created_by)
-       VALUES (@entityId, @hash, @bk, @payload, @data, 'DELETE', 'pending', 'MDS', 'admin')`,
-      {
-        entityId: current.entity_id,
-        hash: businessKeyHash[0].hash,
-        bk: current.business_key,
-        payload: current.data || '{}',
-        data: current.data || '{}'
-      }
+      `UPDATE mds_stage.staged_record 
+       SET operation = 'DELETE',
+           status = 'pending',
+           commit_id = NULL
+       WHERE id = @id`,
+      { id: parseInt(recordId) }
     )
     
-    logger.info({ recordId, businessKey: current.business_key }, 'Created DELETE operation for loaded record')
+    logger.info({ recordId, businessKey: current.business_key }, 'Set DELETE operation for loaded record')
     
     return NextResponse.json({ 
       success: true, 
-      action: 'delete_operation_created',
-      message: `DELETE operation created for business key "${current.business_key}". Commit and deploy to apply.`
+      action: 'delete_operation_set',
+      message: `DELETE operation set for business key "${current.business_key}". Commit and deploy to apply.`
     })
   } catch (error) {
     logger.error({ error, recordId }, 'Failed to delete record')

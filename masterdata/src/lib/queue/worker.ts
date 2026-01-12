@@ -5,10 +5,14 @@
  * npx ts-node src/lib/queue/worker.ts
  */
 
+// Load .env.local for standalone worker process
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
 import { Worker, Job } from 'bullmq';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { 
-  REDIS_CONFIG, 
+  getRedisConfig, 
   QUEUE_NAMES, 
   MdsJobData, 
   JobProgress 
@@ -20,6 +24,7 @@ const jobHandlers: Record<string, (job: Job<MdsJobData>) => Promise<void>> = {
   'dbt-test': handleDbtTest,
   'validate': handleValidate,
   'deploy': handleDeploy,
+  'schema-deploy': handleSchemaDeploy,
   'import': handleImport,
   'export': handleExport,
 };
@@ -94,22 +99,106 @@ async function handleValidate(job: Job<MdsJobData>): Promise<void> {
 }
 
 /**
- * Deploy Handler
+ * Deploy Handler - Deploys committed data via dbt
+ * 
+ * Flow:
+ * 1. Run dbt load_<entity> to transfer staged_record → mds_load
+ * 2. (Optional) Run dbt mds_<entity> to transfer mds_load → mds_master (SCD2)
+ * 3. Update commit status to 'deployed' or 'loaded'
+ * 
+ * deployMode:
+ * - 'load': nur load_<entity> ausführen (status='loaded')
+ * - 'full': load + master ausführen (status='deployed')
  */
 async function handleDeploy(job: Job<MdsJobData>): Promise<void> {
-  const { target, params } = job.data;
+  const { params } = job.data;
+  const entityCodes = params?.entityCodes as string[] | undefined;
+  const commitIds = params?.commitIds as number[] | undefined;
+  const deploymentId = params?.deploymentId as string | undefined;
+  const deployMode = (params?.deployMode as string) || 'full'; // 'load' or 'full'
   
-  await updateProgress(job, 0, 'Starting deployment...', [`Deploying: ${target}`]);
-  
-  // Run dbt to deploy staged data
-  const args = ['run', '--select', 'tag:deploy'];
-  if (params?.targetDb) {
-    args.push('--target', String(params.targetDb));
+  if (!entityCodes || entityCodes.length === 0) {
+    throw new Error('No entity codes provided for data deployment');
   }
-
-  await executeDbtCommand(job, args);
   
-  await updateProgress(job, 100, 'Deployment completed', ['Data deployed to target database']);
+  const modeLabel = deployMode === 'full' ? 'Load + Master' : 'Nur Load';
+  
+  await updateProgress(job, 0, 'Starting data deployment...', [
+    `Deployment ID: ${deploymentId}`,
+    `Modus: ${modeLabel}`,
+    `Entities: ${entityCodes.join(', ')}`,
+    `Commits: ${commitIds?.join(', ') || 'all approved'}`
+  ]);
+  
+  // Step 1: Run dbt load models (staged_record → mds_load)
+  await updateProgress(job, 10, 'Loading data to mds_load tables...', []);
+  
+  const loadModels = entityCodes.map(code => `load_${code}`);
+  const loadArgs = [
+    'run',
+    '--select', loadModels.join(' '),
+    '--target', process.env.DBT_TARGET || 'local'
+  ];
+  
+  await executeDbtCommand(job, loadArgs);
+  
+  let finalStatus = 'loaded';
+  let masterModels: string[] = [];
+  
+  // Step 2: Run dbt master models (mds_load → mds_master with SCD2) - ONLY if deployMode is 'full'
+  if (deployMode === 'full') {
+    await updateProgress(job, 50, 'Processing data to mds_master tables...', []);
+    
+    masterModels = entityCodes.map(code => `mds_${code}`);
+    const masterArgs = [
+      'run',
+      '--select', masterModels.join(' '),
+      '--target', process.env.DBT_TARGET || 'local'
+    ];
+    
+    await executeDbtCommand(job, masterArgs);
+    finalStatus = 'deployed';
+  } else {
+    await updateProgress(job, 50, 'Überspringe mds_master (Nur Load-Modus)...', []);
+  }
+  
+  // Step 3: Update commit status via API
+  await updateProgress(job, 90, 'Updating commit status...', []);
+  
+  if (commitIds && commitIds.length > 0) {
+    try {
+      const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+      const internalSecret = process.env.INTERNAL_API_SECRET || 'mds-worker-secret-dev';
+      const response = await fetch(`${baseUrl}/api/deploy/data/status`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-internal-secret': internalSecret
+        },
+        body: JSON.stringify({
+          deploymentId,
+          commitIds,
+          status: finalStatus // 'loaded' or 'deployed' based on mode
+        })
+      });
+      
+      if (!response.ok) {
+        console.warn(`[${job.id}] Failed to update commit status: ${response.status}`);
+      }
+    } catch (err) {
+      console.warn(`[${job.id}] Failed to update commit status:`, err);
+    }
+  }
+  
+  const completionMsg = deployMode === 'full' 
+    ? 'Data deployment completed!' 
+    : 'Load completed (Master skipped)';
+  
+  await updateProgress(job, 100, completionMsg, [
+    `Loaded to: ${loadModels.join(', ')}`,
+    ...(masterModels.length > 0 ? [`Processed to: ${masterModels.join(', ')}`] : ['Master: übersprungen']),
+    `Final status: ${finalStatus}`
+  ]);
 }
 
 /**
@@ -155,13 +244,207 @@ async function handleExport(job: Job<MdsJobData>): Promise<void> {
 }
 
 /**
+ * Schema Deploy Handler
+ * Führt generate_models.py + dbt run aus für Schema-Änderungen
+ */
+async function handleSchemaDeploy(job: Job<MdsJobData>): Promise<void> {
+  const { entityIds, deploymentId } = job.data;
+  
+  if (!entityIds || entityIds.length === 0) {
+    throw new Error('No entity IDs provided for schema deployment');
+  }
+
+  const logs: string[] = [];
+  
+  await updateProgress(job, 0, 'Starting schema deployment...', [
+    `🚀 Deploying ${entityIds.length} entity(s)`,
+    `Deployment ID: ${deploymentId}`
+  ]);
+
+  try {
+    // Step 1: Update deployment status to 'deploying'
+    await updateProgress(job, 5, 'Updating deployment status...', [
+      '📝 Setting status to deploying...'
+    ]);
+
+    // Step 2: Run generate_models.py
+    await updateProgress(job, 10, 'Generating dbt models...', [
+      '🔧 Running generate_models.py...'
+    ]);
+
+    const entityIdList = entityIds.join(',');
+    const pythonCmd = process.env.PYTHON_CMD || 'python';
+    const genResult = await runCommandWithStreaming(
+      pythonCmd,
+      [
+        process.env.GENERATE_MODELS_PATH || '/app/scripts/generate_models.py',
+        '--entity-ids', entityIdList
+      ],
+      job,
+      logs
+    );
+
+    if (genResult.exitCode !== 0) {
+      throw new Error(`generate_models.py failed with exit code ${genResult.exitCode}\n${genResult.stderr}`);
+    }
+
+    await updateProgress(job, 50, 'Models generated successfully', [
+      '✅ generate_models.py completed',
+      '🚀 Starting dbt run...'
+    ]);
+
+    // Step 3: Run dbt run for the generated models
+    // Use entity codes to build selector: load_<code> mds_<code> for each entity
+    const entityCodes = job.data.entityCodes || [];
+    let modelSelector = 'tag:mds_generated'; // Fallback
+    
+    if (entityCodes.length > 0) {
+      // Build selector for load and master models: load_code1 mds_code1 load_code2 mds_code2...
+      const selectors = entityCodes.flatMap(code => [`load_${code}`, `mds_${code}`]);
+      modelSelector = selectors.join(' ');
+      logs.push(`📋 Selecting models: ${modelSelector}`);
+    }
+    
+    const dbtArgs = [
+      'run',
+      '--profiles-dir', process.env.DBT_PROFILES_DIR || '/app/dbt',
+      '--project-dir', process.env.DBT_PROJECT_PATH || '/app/dbt',
+      '--target', process.env.DBT_TARGET || 'local',  // Use SQL Basic Auth target
+      '--select', modelSelector
+    ];
+
+    const dbtResult = await runCommandWithStreaming('dbt', dbtArgs, job, logs);
+
+    if (dbtResult.exitCode !== 0) {
+      throw new Error(`dbt run failed with exit code ${dbtResult.exitCode}\n${dbtResult.stderr}`);
+    }
+
+    await updateProgress(job, 90, 'dbt run completed', [
+      '✅ dbt models executed successfully',
+      '📝 Updating entity status...'
+    ]);
+
+    // Step 4: Update entity and schema_deployment status via API
+    const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3002';
+    const apiSecret = process.env.INTERNAL_API_SECRET || 'mds-worker-secret-dev';
+    const response = await fetch(`${apiBaseUrl}/api/deploy/schema`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-internal-secret': apiSecret
+      },
+      body: JSON.stringify({
+        entity_ids: entityIds,
+        status: 'deployed',
+        deployed_by: job.data.userName || 'system'
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log(`[${job.id}] Warning: Failed to update entity status: ${errorText}`);
+    } else {
+      console.log(`[${job.id}] Entity status updated to 'active'`);
+    }
+
+    await updateProgress(job, 100, 'Schema deployment completed', [
+      '✅ Schema deployment successful!',
+      `📊 ${entityIds.length} entity(s) deployed`,
+      `🆔 Deployment ID: ${deploymentId}`
+    ]);
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    await updateProgress(job, -1, 'Schema deployment failed', [
+      `❌ Error: ${errorMessage}`,
+      ...logs.slice(-10) // Include last 10 log lines for context
+    ]);
+
+    throw error;
+  }
+}
+
+/**
+ * Execute command with real-time streaming to job logs
+ */
+async function runCommandWithStreaming(
+  cmd: string,
+  args: string[],
+  job: Job<MdsJobData>,
+  logs: string[]
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    console.log(`[${job.id}] Executing: ${cmd} ${args.join(' ')}`);
+    
+    const proc: ChildProcess = spawn(cmd, args, {
+      cwd: process.env.DBT_PROJECT_PATH || process.cwd(),
+      shell: true,
+      env: { ...process.env },
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout?.on('data', async (data) => {
+      const lines = data.toString().split('\n').filter((l: string) => l.trim());
+      for (const line of lines) {
+        stdout += line + '\n';
+        logs.push(line);
+        // Update job progress with streaming log
+        await job.updateProgress({
+          log: line,
+          timestamp: new Date().toISOString()
+        });
+        console.log(`[${job.id}] ${line}`);
+      }
+    });
+
+    proc.stderr?.on('data', async (data) => {
+      const lines = data.toString().split('\n').filter((l: string) => l.trim());
+      for (const line of lines) {
+        stderr += line + '\n';
+        logs.push(`[stderr] ${line}`);
+        await job.updateProgress({
+          log: `[stderr] ${line}`,
+          timestamp: new Date().toISOString()
+        });
+        console.log(`[${job.id}] [stderr] ${line}`);
+      }
+    });
+
+    proc.on('close', (code) => {
+      resolve({ exitCode: code ?? 1, stdout, stderr });
+    });
+
+    proc.on('error', (err) => {
+      stderr += err.message;
+      logs.push(`[error] ${err.message}`);
+      resolve({ exitCode: 1, stdout, stderr });
+    });
+  });
+}
+
+/**
  * Execute dbt command and stream output
  */
 async function executeDbtCommand(job: Job<MdsJobData>, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Ensure dbt project path is set
+    const dbtProjectPath = process.env.DBT_PROJECT_PATH || 
+      '/home/user/projects/datavault-dbt/masterdata/dbt';
+    
+    console.log(`[${job.id}] Running dbt in ${dbtProjectPath}: dbt ${args.join(' ')}`);
+    
     const dbtProcess = spawn('dbt', args, {
-      cwd: process.env.DBT_PROJECT_PATH || process.cwd(),
+      cwd: dbtProjectPath,
       shell: true,
+      env: {
+        ...process.env,
+        // Ensure dbt env vars are set
+        MDS_DB_USER: process.env.MDS_DB_USER,
+        MDS_DB_PASSWORD: process.env.MDS_DB_PASSWORD,
+      }
     });
 
     const logs: string[] = [];
@@ -254,7 +537,7 @@ export function startWorker(): Worker<MdsJobData> {
       console.log(`✅ Job ${job.id} completed`);
     },
     {
-      connection: REDIS_CONFIG,
+      connection: getRedisConfig(),
       concurrency: parseInt(process.env.WORKER_CONCURRENCY || '2'),
     }
   );

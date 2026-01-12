@@ -104,31 +104,8 @@ export async function PUT(
       `UPDATE mds_meta.model SET ${updates.join(', ')} WHERE id = @id`,
       queryParams
     )
-    
-    // Cascade status changes to entities
-    if (status === 'draft' || status === 'deprecated') {
-      // Deactivate all entities when model is deactivated
-      await dbExecute(
-        `UPDATE mds_meta.entity 
-         SET status = @status, 
-             updated_at = GETUTCDATE(), 
-             updated_by = @updated_by 
-         WHERE model_id = @id AND status = 'active'`,
-        { id: parseInt(modelId), status, updated_by: 'admin' }
-      )
-      logger.info({ modelId, status }, 'Cascaded deactivation to entities')
-    } else if (status === 'active') {
-      // Activate all draft entities when model is activated
-      await dbExecute(
-        `UPDATE mds_meta.entity 
-         SET status = 'active', 
-             updated_at = GETUTCDATE(), 
-             updated_by = @updated_by 
-         WHERE model_id = @id AND status = 'draft'`,
-        { id: parseInt(modelId), updated_by: 'admin' }
-      )
-      logger.info({ modelId }, 'Cascaded activation to entities')
-    }
+
+    // Note: Status cascade to entities removed - entity status is now controlled via schema deployment
     
     return NextResponse.json({
       model_id: modelId,
