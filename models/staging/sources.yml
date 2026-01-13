@@ -458,3 +458,45 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
+      # ===========================================
+      # Adventure Works Beispiel Tabellen
+      # ===========================================
+      - name: ext_aw_customer
+        description: "Adventure Works Customer - External Table"
+        external:
+          location: "adventureWorksLT2025/sqlserver/SalesLT.Customer.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: CustomerID
+            data_type: INT
+            tests:
+              - not_null
+            description: "Primary key for Product records"
+          - name: NameStyle
+            data_type: BIT 
+          - name: Title
+            data_type: NVARCHAR(4000)
+          - name: FirstName
+            data_type: NVARCHAR(4000)
+          - name: MiddleName  
+            data_type: NVARCHAR(4000)
+          - name: LastName  
+            data_type: NVARCHAR(4000)
+          - name: Suffix  
+            data_type: NVARCHAR(4000)
+          - name: CompanyName 
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+
+

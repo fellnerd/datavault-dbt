@@ -47,6 +47,15 @@ dbt run --full-refresh               # Alles neu bauen
 
 # External Tables aktualisieren
 dbt run-operation stage_external_sources
+# oder einzelne Tabelle
+dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
+# Full Refresh (DROP + CREATE, bei Schema-Änderungen)
+dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true}'
+# Full Refresh für einzelne Tabelle
+dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true, "external_table_name": "ext_aw_customer"}'
+
+# Source view erstellen
+dbt run --select stg_aw_customer
 
 # Tests
 dbt test                             # Alle Tests
@@ -526,6 +535,8 @@ models:
 ```bash
 # 1. External Table erstellen
 dbt run-operation stage_external_sources
+# or
+dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
 
 # 2. Alle neuen Models bauen
 dbt run --select stg_product hub_product sat_product
