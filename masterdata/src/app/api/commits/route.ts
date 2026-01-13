@@ -20,7 +20,7 @@ export interface Commit {
   approved_by: string | null
   rejected_at: string | null
   rejected_by: string | null
-  rejection_reason: string | null
+  review_comment: string | null
   deployed_at: string | null
   deployed_by: string | null
 }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         c.approved_by,
         c.rejected_at,
         c.rejected_by,
-        c.rejection_reason,
+        c.review_comment,
         c.deployed_at,
         c.deployed_by
       FROM [mds_stage].[commit] c
@@ -133,7 +133,37 @@ export async function POST(request: NextRequest) {
     
     // Option 1: Commit specific change_ids
     if (change_ids && Array.isArray(change_ids) && change_ids.length > 0) {
-      // Create a new commit
+      // Filter to only include records that are actually committable (status='pending')
+      // Records with status='loaded', 'committed', 'deployed' should NOT be committed again
+      const idParams: Record<string, unknown> = {}
+      const idPlaceholders = change_ids.map((id: number, idx: number) => {
+        idParams[`id${idx}`] = id
+        return `@id${idx}`
+      }).join(', ')
+      
+      const committableRecords = await dbQuery<{ id: number }>(
+        `SELECT id FROM [mds_stage].[staged_record] 
+         WHERE id IN (${idPlaceholders}) 
+           AND entity_id = ${entity_id}
+           AND status = 'pending'`,
+        idParams
+      )
+      
+      if (committableRecords.length === 0) {
+        return NextResponse.json(
+          { error: 'No pending records to commit. Records may already be committed or loaded.' },
+          { status: 400 }
+        )
+      }
+      
+      const committableIds = committableRecords.map(r => r.id)
+      logger.info({ 
+        requested: change_ids.length, 
+        committable: committableIds.length,
+        skipped: change_ids.length - committableIds.length 
+      }, 'Filtering committable records')
+      
+      // Create a new commit with only committable records
       await dbExecute(
         `INSERT INTO [mds_stage].[commit] (entity_id, code, description, status, record_count, created_at, created_by)
          VALUES (@entityId, @code, @description, 'pending', @recordCount, GETUTCDATE(), @createdBy)`,
@@ -141,7 +171,7 @@ export async function POST(request: NextRequest) {
           entityId: entity_id,
           code,
           description: description || null,
-          recordCount: change_ids.length,
+          recordCount: committableIds.length,
           createdBy: created_by
         }
       )
@@ -158,19 +188,18 @@ export async function POST(request: NextRequest) {
       
       const commitId = newCommit[0].id
       
-      // Update the staged_records to point to this commit AND set status to 'committed'
-      // Build a parameterized query for the IDs
-      const idParams: Record<string, unknown> = { commitId }
-      const idPlaceholders = change_ids.map((id: number, idx: number) => {
-        idParams[`id${idx}`] = id
+      // Update only the committable staged_records
+      const updateParams: Record<string, unknown> = { commitId }
+      const updatePlaceholders = committableIds.map((id: number, idx: number) => {
+        updateParams[`id${idx}`] = id
         return `@id${idx}`
       }).join(', ')
       
       await dbExecute(
         `UPDATE [mds_stage].[staged_record] 
          SET commit_id = @commitId, status = 'committed'
-         WHERE id IN (${idPlaceholders}) AND entity_id = ${entity_id}`,
-        idParams
+         WHERE id IN (${updatePlaceholders})`,
+        updateParams
       )
       
       // Fetch the created commit
@@ -182,7 +211,11 @@ export async function POST(request: NextRequest) {
         { commitId }
       )
       
-      return NextResponse.json(result[0], { status: 201 })
+      return NextResponse.json({
+        ...result[0],
+        committed_count: committableIds.length,
+        skipped_count: change_ids.length - committableIds.length
+      }, { status: 201 })
     }
     
     // Option 2: Commit all draft records for this entity (original behavior)
@@ -248,7 +281,7 @@ export async function PATCH(request: NextRequest) {
     const { 
       id,
       action, // 'approve' | 'reject' | 'deploy'
-      rejection_reason,
+      comment,
       user = 'admin'
     } = body
     
@@ -265,14 +298,39 @@ export async function PATCH(request: NextRequest) {
     switch (action) {
       case 'approve':
         sql = `UPDATE [mds_stage].[commit] 
-               SET status = 'approved', approved_at = GETUTCDATE(), approved_by = @user
+               SET status = 'approved', approved_at = GETUTCDATE(), approved_by = @user, review_comment = @comment
                WHERE id = @id AND status = 'pending'`
+        params.comment = comment || null
         break
       case 'reject':
         sql = `UPDATE [mds_stage].[commit] 
-               SET status = 'rejected', rejected_at = GETUTCDATE(), rejected_by = @user, rejection_reason = @reason
+               SET status = 'rejected', rejected_at = GETUTCDATE(), rejected_by = @user, review_comment = @comment
                WHERE id = @id AND status = 'pending'`
-        params.reason = rejection_reason || null
+        params.comment = comment || null
+        
+        // Reset staged_records to their previous state:
+        // - Records that were already loaded (have previous_data): restore to 'loaded' with original data
+        // - New records (no previous_data, operation='INSERT'): keep as 'pending' so they can be corrected
+        
+        // 1. Restore already-loaded records to their previous state (data, operation=INSERT, status=loaded)
+        await dbExecute(
+          `UPDATE [mds_stage].[staged_record] 
+           SET status = 'loaded', 
+               data = previous_data,
+               payload = previous_data,
+               operation = 'INSERT',
+               previous_data = NULL,
+               commit_id = NULL
+           WHERE commit_id = @id AND previous_data IS NOT NULL`,
+          { id }
+        )
+        
+        // 2. New records (never deployed, no previous_data) - delete them completely since they were rejected
+        await dbExecute(
+          `DELETE FROM [mds_stage].[staged_record] 
+           WHERE commit_id = @id AND previous_data IS NULL`,
+          { id }
+        )
         break
       case 'deploy':
         sql = `UPDATE [mds_stage].[commit] 

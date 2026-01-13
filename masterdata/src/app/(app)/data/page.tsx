@@ -15,7 +15,8 @@ import {
   Spinner,
   NonIdealState,
   Callout,
-  Icon
+  Icon,
+  TextArea
 } from '@blueprintjs/core'
 import { PageLayout } from '@/components/layout/PageLayout'
 import { KpiCard, KpiGrid } from '@/components/ui/KpiCard'
@@ -79,6 +80,9 @@ export default function DataEntryPage() {
   const [newRecord, setNewRecord] = useState<Record<string, DataValue>>({})
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<number>>(new Set())
   const [isCommitting, setIsCommitting] = useState(false)
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false)
+  const [commitMessage, setCommitMessage] = useState('')
+  const [commitMode, setCommitMode] = useState<'selected' | 'all'>('selected')
 
   // Fetch entities on mount
   useEffect(() => {
@@ -266,6 +270,28 @@ export default function DataEntryPage() {
 
   const handleCommitSelected = async () => {
     if (selectedRecordIds.size === 0) return
+    setCommitMode('selected')
+    setCommitDialogOpen(true)
+  }
+
+  // Commit all pending changes (INSERT, UPDATE, DELETE with status='pending')
+  const handleCommitAllChanges = async () => {
+    const pendingRecords = records.filter(r => r.validation_status === 'pending')
+    if (pendingRecords.length === 0) {
+      alert('No pending changes to commit.')
+      return
+    }
+    setCommitMode('all')
+    setCommitDialogOpen(true)
+  }
+
+  const handleConfirmCommit = async () => {
+    const idsToCommit = commitMode === 'selected' 
+      ? Array.from(selectedRecordIds)
+      : records.filter(r => r.validation_status === 'pending').map(r => r.id)
+    
+    if (idsToCommit.length === 0) return
+    
     try {
       setIsCommitting(true)
       const res = await fetch('/api/commits', {
@@ -273,15 +299,19 @@ export default function DataEntryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           entity_id: selectedEntityId,
-          change_ids: Array.from(selectedRecordIds)
+          change_ids: idsToCommit,
+          description: commitMessage || null
         })
       })
+      const result = await res.json()
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || 'Failed to create commit')
+        throw new Error(result.error || 'Failed to create commit')
       }
-      // Clear selection and refresh
+      // Clear selection and close dialog
       setSelectedRecordIds(new Set())
+      setCommitDialogOpen(false)
+      setCommitMessage('')
+      // Refresh records
       const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
       const recordsJson = await recordsRes.json()
       setRecords(recordsJson.data || [])
@@ -290,6 +320,63 @@ export default function DataEntryPage() {
       alert(err instanceof Error ? err.message : 'Failed to commit records')
     } finally {
       setIsCommitting(false)
+    }
+  }
+
+  // Bulk delete selected records
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  const handleBulkDelete = async () => {
+    if (selectedRecordIds.size === 0) return
+    
+    const selectedRecords = records.filter(r => selectedRecordIds.has(r.id))
+    const pendingCount = selectedRecords.filter(r => r.validation_status === 'pending').length
+    const loadedCount = selectedRecords.filter(r => r.validation_status === 'loaded').length
+    
+    let confirmMessage = `Delete ${selectedRecordIds.size} selected records?\n\n`
+    if (pendingCount > 0) confirmMessage += `• ${pendingCount} pending records will be permanently deleted\n`
+    if (loadedCount > 0) confirmMessage += `• ${loadedCount} loaded records will be marked for deletion (requires commit & deploy)`
+    
+    if (!confirm(confirmMessage)) return
+    
+    try {
+      setIsDeleting(true)
+      let deleted = 0
+      let markedForDelete = 0
+      let errors = 0
+      
+      for (const recordId of selectedRecordIds) {
+        try {
+          const res = await fetch(`/api/records/${recordId}`, { method: 'DELETE' })
+          const result = await res.json()
+          if (res.ok) {
+            if (result.action === 'deleted') deleted++
+            else markedForDelete++
+          } else {
+            errors++
+          }
+        } catch {
+          errors++
+        }
+      }
+      
+      // Show result
+      let resultMsg = ''
+      if (deleted > 0) resultMsg += `${deleted} records deleted. `
+      if (markedForDelete > 0) resultMsg += `${markedForDelete} records marked for deletion. `
+      if (errors > 0) resultMsg += `${errors} errors.`
+      if (resultMsg) alert(resultMsg)
+      
+      // Clear selection and refresh
+      setSelectedRecordIds(new Set())
+      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
+      const recordsJson = await recordsRes.json()
+      setRecords(recordsJson.data || [])
+      setSummary(recordsJson.summary || summary)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete records')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -352,6 +439,15 @@ export default function DataEntryPage() {
                 { value: 'invalid', label: 'Invalid' }
               ]}
             />
+            <Button 
+              icon="trash" 
+              intent="danger"
+              disabled={selectedRecordIds.size === 0}
+              loading={isDeleting}
+              onClick={handleBulkDelete}
+            >
+              Löschen ({selectedRecordIds.size})
+            </Button>
             <Button 
               icon="add" 
               intent="primary"
@@ -455,8 +551,19 @@ export default function DataEntryPage() {
       <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="text-muted" style={{ fontSize: 11 }}>
           {filteredRecords.length} records{selectedRecordIds.size > 0 && ` (${selectedRecordIds.size} selected)`}
+          {records.filter(r => r.validation_status === 'pending').length > 0 && 
+            ` • ${records.filter(r => r.validation_status === 'pending').length} pending changes`}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
+          <Button 
+            icon="git-commit" 
+            intent="primary"
+            disabled={records.filter(r => r.validation_status === 'pending').length === 0}
+            loading={isCommitting}
+            onClick={handleCommitAllChanges}
+          >
+            Commit All Changes ({records.filter(r => r.validation_status === 'pending').length})
+          </Button>
           <Button 
             icon="git-commit" 
             disabled={selectedRecordIds.size === 0}
@@ -572,6 +679,53 @@ export default function DataEntryPage() {
             </div>
           </>
         )}
+      </Dialog>
+
+      {/* Commit Dialog */}
+      <Dialog
+        isOpen={commitDialogOpen}
+        onClose={() => { setCommitDialogOpen(false); setCommitMessage(''); }}
+        title="Commit Changes"
+        icon="git-commit"
+        style={{ width: 450 }}
+      >
+        <div className="bp5-dialog-body">
+          <Callout intent="primary" icon="info-sign" style={{ marginBottom: 15 }}>
+            {commitMode === 'selected' 
+              ? `You are about to commit ${selectedRecordIds.size} selected record(s).`
+              : `You are about to commit ${records.filter(r => r.validation_status === 'pending').length} pending change(s).`
+            }
+          </Callout>
+          <FormGroup 
+            label="Commit Message" 
+            labelFor="commit-message"
+            helperText="Optional: Describe the changes being committed"
+          >
+            <TextArea
+              id="commit-message"
+              fill
+              growVertically
+              rows={3}
+              placeholder="e.g., Added new customer records"
+              value={commitMessage}
+              onChange={(e) => setCommitMessage(e.target.value)}
+            />
+          </FormGroup>
+        </div>
+        <div className="bp5-dialog-footer">
+          <div className="bp5-dialog-footer-actions">
+            <Button small onClick={() => { setCommitDialogOpen(false); setCommitMessage(''); }} disabled={isCommitting}>Cancel</Button>
+            <Button 
+              small
+              intent="success" 
+              icon="git-commit"
+              onClick={handleConfirmCommit}
+              loading={isCommitting}
+            >
+              Commit
+            </Button>
+          </div>
+        </div>
       </Dialog>
 
       {/* Edit Record Dialog */}

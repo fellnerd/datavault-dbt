@@ -152,7 +152,7 @@ export default function CommitsPage() {
         body: JSON.stringify({
           id: selectedCommit.id,
           action: 'reject',
-          reason: reviewComment
+          comment: reviewComment
         })
       })
       if (!res.ok) throw new Error('Failed to reject commit')

@@ -159,41 +159,14 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Get or create a pending commit for this entity
-    let commit = await dbQuery<{ id: number }>(
-      `SELECT id FROM [mds_stage].[commit] 
-       WHERE entity_id = @entityId AND status = 'pending'`,
-      { entityId: entity_id }
-    )
-    
-    let commitId: number
-    if (commit.length === 0) {
-      // Create new pending commit with auto-generated code
-      const commitCode = `COMMIT-${entity_id}-${Date.now()}`
-      await dbExecute(
-        `INSERT INTO [mds_stage].[commit] (code, entity_id, status, record_count, created_by)
-         VALUES (@code, @entityId, 'pending', 0, @user)`,
-        { code: commitCode, entityId: entity_id, user: created_by }
-      )
-      const newCommit = await dbQuery<{ id: number }>(
-        `SELECT id FROM [mds_stage].[commit] 
-         WHERE entity_id = @entityId AND status = 'pending'
-         ORDER BY id DESC`,
-        { entityId: entity_id }
-      )
-      commitId = newCommit[0].id
-    } else {
-      commitId = commit[0].id
-    }
-    
     // Calculate business key hash
     const dataJson = JSON.stringify(data)
     
+    // Create staged_record WITHOUT commit_id - commit is assigned later when user clicks "Commit"
     await dbExecute(
       `INSERT INTO [mds_stage].[staged_record] 
-        (commit_id, entity_id, operation, business_key, business_key_hash, payload, data, status, created_by)
+        (entity_id, operation, business_key, business_key_hash, payload, data, status, created_by)
        VALUES (
-         @commitId, 
          @entityId, 
          @operation, 
          @businessKey, 
@@ -204,7 +177,6 @@ export async function POST(request: NextRequest) {
          @user
        )`,
       { 
-        commitId,
         entityId: entity_id,
         operation,
         businessKey: business_key,
@@ -213,22 +185,14 @@ export async function POST(request: NextRequest) {
       }
     )
     
-    // Update record_count in the commit
-    await dbExecute(
-      `UPDATE [mds_stage].[commit] 
-       SET record_count = (SELECT COUNT(*) FROM [mds_stage].[staged_record] WHERE commit_id = @commitId)
-       WHERE id = @commitId`,
-      { commitId }
-    )
-    
     // Fetch the created record
     const created = await dbQuery<StagedRecord>(
       `SELECT TOP 1 r.*, e.code AS entity_code, e.name AS entity_name
        FROM [mds_stage].[staged_record] r
        INNER JOIN [mds_meta].[entity] e ON e.id = r.entity_id
-       WHERE r.commit_id = @commitId AND r.business_key = @businessKey
+       WHERE r.entity_id = @entityId AND r.business_key = @businessKey
        ORDER BY r.id DESC`,
-      { commitId, businessKey: business_key }
+      { entityId: entity_id, businessKey: business_key }
     )
     
     return NextResponse.json({

@@ -89,9 +89,12 @@ export async function PUT(
     
     // If record was already deployed (loaded), change operation to UPDATE and reset to pending
     // This enables SCD2 historization when deployed to master
+    // Also save previous_data so we can restore on reject
     if (current.status === 'loaded') {
       updates.push('operation = \'UPDATE\'')
       updates.push('status = \'pending\'')
+      // Save current data as previous_data for potential reject rollback
+      updates.push('previous_data = data')
       logger.info({ recordId, previousStatus: current.status }, 
         'Resetting deployed record to pending with UPDATE operation for SCD2')
     }
@@ -201,9 +204,11 @@ export async function DELETE(
     
     // Loaded records: Update in-place to DELETE operation (soft delete for master)
     // Same pattern as UPDATE - modify existing record, don't create new one
+    // Save previous_data so we can restore on reject
     await dbExecute(
       `UPDATE mds_stage.staged_record 
-       SET operation = 'DELETE',
+       SET previous_data = data,
+           operation = 'DELETE',
            status = 'pending',
            commit_id = NULL
        WHERE id = @id`,
