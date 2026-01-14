@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Types
-type CommitStatus = 'pending' | 'approved' | 'rejected' | 'deployed'
+type CommitStatus = 'pending' | 'ready' | 'approved' | 'rejected' | 'deployed'
 
 interface CommitAction {
   action: 'approve' | 'reject' | 'deploy'

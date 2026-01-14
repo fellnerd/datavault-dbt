@@ -31,9 +31,9 @@ export function getMdsQueue(): Queue<MdsJobData> {
     
     const redisConfig = getRedisConfig();
     console.log('🔌 Connecting to Redis:', { 
-      host: redisConfig.host, 
-      port: redisConfig.port, 
-      tls: !!redisConfig.tls 
+      host: (redisConfig as { host?: string }).host, 
+      port: (redisConfig as { port?: number }).port, 
+      tls: !!(redisConfig as { tls?: unknown }).tls 
     });
     
     mdsQueue = new Queue<MdsJobData>(QUEUE_NAMES.MDS_JOBS, {
@@ -87,7 +87,6 @@ export async function addJob(
   
   const job = await queue.add(type, jobData, {
     priority: jobOptions.priority,
-    timeout: jobOptions.timeout,
     delay,
   });
   

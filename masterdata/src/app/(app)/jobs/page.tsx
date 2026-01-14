@@ -20,7 +20,7 @@ import {
   Tab
 } from '@blueprintjs/core'
 import { Header } from '@/components/layout/Header'
-import { useJobsWithPagination, useCancelJob, useRetryJob, useBulkRetry, useBulkCancel, useBulkRemove, type Job } from '@/hooks/useJobs'
+import { useJobsWithPagination, useCancelJob, useRetryJob, useBulkRetry, useBulkCancel, useBulkRemove, type Job, type JobType } from '@/hooks/useJobs'
 import { usePromoteJob } from '@/hooks/useJob'
 import { useMultipleJobStreams, type JobStreamState } from '@/hooks/useJobStream'
 import { WorkerStatus } from '@/components/jobs/WorkerStatus'
@@ -742,18 +742,6 @@ export default function JobsPage() {
       <Header 
         title="Jobs" 
         breadcrumb={['Operations', 'Jobs']}
-        actions={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <WorkerStatus />
-            <Button 
-              icon="add" 
-              intent="primary" 
-              onClick={() => setCreateJobDialogOpen(true)}
-            >
-              Neuer Job
-            </Button>
-          </div>
-        }
       />
 
       <div className="page-content">
@@ -859,18 +847,30 @@ export default function JobsPage() {
         <div className="section-header">
           <h2>Job Queue</h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Tabs
-              id="job-tabs"
-              selectedTabId={activeTab}
-              onChange={(tabId) => setActiveTab(tabId as 'jobs' | 'schedules')}
+            <WorkerStatus />
+            <Button 
+              icon="add" 
+              intent="primary" 
+              onClick={() => setCreateJobDialogOpen(true)}
             >
-              <Tab id="jobs" title="Jobs" />
-              <Tab id="schedules" title="Zeitpläne" icon="time" />
-            </Tabs>
-            <Button small icon="refresh" minimal onClick={() => refetch()}>
+              Neuer Job
+            </Button>
+            <Button icon="refresh" minimal onClick={() => refetch()}>
               Aktualisieren
             </Button>
           </div>
+        </div>
+
+        {/* Tabs - positioned like on Deploy page */}
+        <div style={{ marginBottom: 16 }}>
+          <Tabs
+            id="job-tabs"
+            selectedTabId={activeTab}
+            onChange={(tabId) => setActiveTab(tabId as 'jobs' | 'schedules')}
+          >
+            <Tab id="jobs" title="Jobs" />
+            <Tab id="schedules" title="Zeitpläne" icon="time" />
+          </Tabs>
         </div>
 
         {/* Schedules Tab Content */}

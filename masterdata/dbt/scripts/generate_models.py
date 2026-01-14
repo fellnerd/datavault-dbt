@@ -209,12 +209,14 @@ def generate_model_sql(entity, attributes):
     # Model SQL - angepasst an mds_load Spaltenstruktur
     # mds_load.<entity> hat: id, business_key_hash, business_key, <attrs>, commit_id, operation, source_system, source_id, is_processed, created_at, processed_at
     # WICHTIG: alias OHNE Brackets, dbt-sqlserver escaped automatisch
+    # on_schema_change='sync_all_columns' erlaubt das Hinzufügen neuer Attribute nach Deployment
     model_sql = f'''{{{{
   config(
     materialized='incremental',
     schema='mds_master',
     alias='{entity_code}',
     incremental_strategy='append',
+    on_schema_change='sync_all_columns',
     as_columnstore=false,
     pre_hook=[
       "{{% if is_incremental() %}}
@@ -370,6 +372,7 @@ def generate_load_model_sql(entity, attributes):
     
     # Alias OHNE Brackets - dbt-sqlserver escaped automatisch bei Bedarf
     # incremental_strategy='merge' sorgt dafür, dass pro BK nur 1 Zeile existiert
+    # on_schema_change='sync_all_columns' erlaubt das Hinzufügen neuer Attribute nach Deployment
     load_sql = f'''{{{{
   config(
     materialized='incremental',
@@ -377,6 +380,7 @@ def generate_load_model_sql(entity, attributes):
     alias='{entity_code}',
     incremental_strategy='merge',
     unique_key='business_key_hash',
+    on_schema_change='sync_all_columns',
     as_columnstore=false,
     post_hook=[
       "-- Update staged_record status to 'loaded'",

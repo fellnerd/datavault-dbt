@@ -249,7 +249,7 @@ export default function EntitiesPage() {
           icon="th"
           title="No entities yet"
           description={models.length === 0 ? "Create a model first, then add entities" : "Create your first entity to get started"}
-          action={models.length > 0 && <Button icon="add" intent="primary" onClick={() => setIsCreateOpen(true)}>Create Entity</Button>}
+          action={models.length > 0 ? <Button icon="add" intent="primary" onClick={() => setIsCreateOpen(true)}>Create Entity</Button> : undefined}
         />
       ) : (
         <>

@@ -75,7 +75,27 @@ export default function AttributesPage() {
   const [entityFilter, setEntityFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedAttribute, setSelectedAttribute] = useState<Attribute | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editAttribute, setEditAttribute] = useState<{
+    name: string;
+    description: string;
+    is_required: boolean;
+    is_unique: boolean;
+    is_business_key: boolean;
+    max_length: string;
+  }>({
+    name: '',
+    description: '',
+    is_required: false,
+    is_unique: false,
+    is_business_key: false,
+    max_length: '',
+  });
   const [newAttribute, setNewAttribute] = useState<{
     code: string;
     name: string;
@@ -233,6 +253,85 @@ export default function AttributesPage() {
     }
   };
 
+  // Open edit dialog with selected attribute
+  const handleOpenEdit = (attr: Attribute) => {
+    setSelectedAttribute(attr);
+    setEditAttribute({
+      name: attr.name,
+      description: attr.description || '',
+      is_required: attr.is_required,
+      is_unique: attr.is_unique,
+      is_business_key: attr.is_business_key,
+      max_length: attr.max_length?.toString() || '',
+    });
+    setShowEditDialog(true);
+  };
+
+  // Update attribute
+  const handleUpdateAttribute = async () => {
+    if (!selectedAttribute) return;
+    
+    try {
+      setIsUpdating(true);
+      const res = await fetch(`/api/attributes/${selectedAttribute.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editAttribute.name,
+          description: editAttribute.description || null,
+          is_required: editAttribute.is_required,
+          is_unique: editAttribute.is_unique,
+          is_business_key: editAttribute.is_business_key,
+          max_length: editAttribute.max_length ? parseInt(editAttribute.max_length) : null,
+        })
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to update attribute');
+      }
+      
+      setShowEditDialog(false);
+      setSelectedAttribute(null);
+      fetchData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update attribute');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Open delete confirmation
+  const handleOpenDelete = (attr: Attribute) => {
+    setSelectedAttribute(attr);
+    setShowDeleteDialog(true);
+  };
+
+  // Delete attribute
+  const handleDeleteAttribute = async () => {
+    if (!selectedAttribute) return;
+    
+    try {
+      setIsDeleting(true);
+      const res = await fetch(`/api/attributes/${selectedAttribute.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete attribute');
+      }
+      
+      setShowDeleteDialog(false);
+      setSelectedAttribute(null);
+      fetchData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete attribute');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageLayout 
@@ -355,7 +454,7 @@ export default function AttributesPage() {
                             </Tag>
                           </Tooltip>
                         )}
-                        {!attr.is_nullable && (
+                        {attr.is_required && (
                           <Tooltip content="Required field">
                             <Tag intent="danger" minimal>
                               REQ
@@ -384,13 +483,13 @@ export default function AttributesPage() {
                     <td>
                       <ButtonGroup minimal>
                         <Tooltip content="Edit attribute">
-                          <Button icon="edit" small />
+                          <Button icon="edit" small onClick={() => handleOpenEdit(attr)} />
                         </Tooltip>
                         <Tooltip content="View usage">
-                          <Button icon="search-around" small />
+                          <Button icon="search-around" small onClick={() => alert(`Attribute "${attr.name}" wird in Entity "${attr.entity_name}" verwendet.`)} />
                         </Tooltip>
                         <Tooltip content="Delete">
-                          <Button icon="trash" small intent="danger" />
+                          <Button icon="trash" small intent="danger" onClick={() => handleOpenDelete(attr)} />
                         </Tooltip>
                       </ButtonGroup>
                     </td>
@@ -563,6 +662,110 @@ export default function AttributesPage() {
             }
           />
         </Dialog>
+
+      {/* Edit Attribute Dialog */}
+      <Dialog
+        isOpen={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+        title={`Edit: ${selectedAttribute?.name || ''}`}
+        icon="edit"
+      >
+        <DialogBody>
+          <FormGroup label="Display Name" labelFor="edit-name" labelInfo="(required)">
+            <InputGroup
+              id="edit-name"
+              value={editAttribute.name}
+              onChange={(e) => setEditAttribute({ ...editAttribute, name: e.target.value })}
+            />
+          </FormGroup>
+          <FormGroup label="Description" labelFor="edit-desc">
+            <InputGroup
+              id="edit-desc"
+              placeholder="Describe this attribute..."
+              value={editAttribute.description}
+              onChange={(e) => setEditAttribute({ ...editAttribute, description: e.target.value })}
+            />
+          </FormGroup>
+          {selectedAttribute?.data_type === 'string' && (
+            <FormGroup label="Max Length" labelFor="edit-length">
+              <InputGroup
+                id="edit-length"
+                type="number"
+                placeholder="e.g. 255"
+                value={editAttribute.max_length}
+                onChange={(e) => setEditAttribute({ ...editAttribute, max_length: e.target.value })}
+              />
+            </FormGroup>
+          )}
+          <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+            <Checkbox
+              checked={editAttribute.is_required}
+              onChange={(e) => setEditAttribute({ ...editAttribute, is_required: (e.target as HTMLInputElement).checked })}
+            >
+              Required
+            </Checkbox>
+            <Checkbox
+              checked={editAttribute.is_unique}
+              onChange={(e) => setEditAttribute({ ...editAttribute, is_unique: (e.target as HTMLInputElement).checked })}
+            >
+              Unique
+            </Checkbox>
+            <Checkbox
+              checked={editAttribute.is_business_key}
+              onChange={(e) => setEditAttribute({ ...editAttribute, is_business_key: (e.target as HTMLInputElement).checked })}
+            >
+              Business Key
+            </Checkbox>
+          </div>
+        </DialogBody>
+        <DialogFooter
+          actions={
+            <>
+              <Button text="Cancel" onClick={() => setShowEditDialog(false)} disabled={isUpdating} />
+              <Button
+                intent="primary"
+                icon="tick"
+                text="Save Changes"
+                onClick={handleUpdateAttribute}
+                disabled={!editAttribute.name || isUpdating}
+                loading={isUpdating}
+              />
+            </>
+          }
+        />
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        title="Delete Attribute"
+        icon="trash"
+      >
+        <DialogBody>
+          <Callout intent="danger" icon="warning-sign">
+            <p>Are you sure you want to delete the attribute <strong>{selectedAttribute?.name}</strong>?</p>
+            <p style={{ marginTop: 8, fontSize: 12 }}>
+              This will remove the attribute from entity <strong>{selectedAttribute?.entity_name}</strong>.
+              This action cannot be undone.
+            </p>
+          </Callout>
+        </DialogBody>
+        <DialogFooter
+          actions={
+            <>
+              <Button text="Cancel" onClick={() => setShowDeleteDialog(false)} disabled={isDeleting} />
+              <Button
+                intent="danger"
+                icon="trash"
+                text="Delete Attribute"
+                onClick={handleDeleteAttribute}
+                loading={isDeleting}
+              />
+            </>
+          }
+        />
+      </Dialog>
     </PageLayout>
   );
 }

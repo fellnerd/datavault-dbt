@@ -294,11 +294,15 @@ export async function DELETE(request: NextRequest) {
       params
     )
     
-    logger.info({ entity_ids, rowsAffected: result.rowsAffected }, 'Reset schema deployment status to pending')
+    const rowsAffected = typeof result === 'object' && result !== null && 'rowsAffected' in result 
+      ? (result as { rowsAffected?: number }).rowsAffected 
+      : undefined
+    
+    logger.info({ entity_ids, rowsAffected }, 'Reset schema deployment status to pending')
     
     return NextResponse.json({
       success: true,
-      reset_count: result.rowsAffected || entity_ids.length
+      reset_count: rowsAffected || entity_ids.length
     })
     
   } catch (error) {

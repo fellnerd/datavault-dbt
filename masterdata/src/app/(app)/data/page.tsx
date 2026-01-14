@@ -704,7 +704,6 @@ export default function DataEntryPage() {
             <TextArea
               id="commit-message"
               fill
-              growVertically
               rows={3}
               placeholder="e.g., Added new customer records"
               value={commitMessage}

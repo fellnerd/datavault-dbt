@@ -8,8 +8,8 @@ interface PageLayoutProps {
   title: string
   /** Breadcrumb-Pfad für Header */
   breadcrumb: string[]
-  /** Seiteninhalt */
-  children: React.ReactNode
+  /** Seiteninhalt (optional bei loading/error states) */
+  children?: React.ReactNode
   /** Aktions-Buttons im Header (z.B. Erstellen-Button) */
   actions?: React.ReactNode
   /** Ladezustand */
