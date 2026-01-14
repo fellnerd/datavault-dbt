@@ -30,15 +30,36 @@ export async function GET(request: NextRequest) {
 
     const [stats, jobs] = await Promise.all([
       getQueueStats(),
-      getRecentJobs(limit),
+      getRecentJobs(limit + 1), // Fetch one extra to check if there are more
     ]);
+
+    // Check if there are more jobs
+    const hasMore = jobs.length > limit;
+    const returnedJobs = hasMore ? jobs.slice(0, limit) : jobs;
 
     return NextResponse.json({
       stats,
-      jobs,
+      jobs: returnedJobs,
+      hasMore,
+      total: stats.total,
     });
   } catch (error) {
     console.error('Failed to get jobs:', error);
+    
+    // Return empty state on Redis errors (e.g., rate limit)
+    const isRateLimitError = error instanceof Error && 
+      error.message?.includes('max requests limit exceeded');
+    
+    if (isRateLimitError) {
+      return NextResponse.json({
+        stats: { active: 0, waiting: 0, completed: 0, failed: 0, total: 0 },
+        jobs: [],
+        hasMore: false,
+        total: 0,
+        warning: 'Redis rate limit exceeded - showing empty state',
+      });
+    }
+    
     return NextResponse.json(
       { error: 'Failed to get jobs' },
       { status: 500 }

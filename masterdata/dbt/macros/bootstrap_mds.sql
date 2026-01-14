@@ -171,7 +171,7 @@ CREATE TABLE mds_stage.[commit] (
     approved_by NVARCHAR(100) NULL,
     rejected_at DATETIME2 NULL,
     rejected_by NVARCHAR(100) NULL,
-    rejection_reason NVARCHAR(MAX) NULL,
+    review_comment NVARCHAR(MAX) NULL,
     deployed_at DATETIME2 NULL,
     deployed_by NVARCHAR(100) NULL,
     CONSTRAINT FK__commit__entity_id FOREIGN KEY (entity_id) REFERENCES mds_meta.entity(id)
@@ -222,6 +222,46 @@ CREATE TABLE mds_meta.schema_deployment (
 );
 {% endset %}
 
+{% set job_sql %}
+-- mds_meta.job Tabelle (Job-History für Audit-Zwecke)
+IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = 'mds_meta' AND t.name = 'job')
+CREATE TABLE mds_meta.job (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code NVARCHAR(100) NOT NULL UNIQUE,
+    [type] NVARCHAR(50) NOT NULL,
+    name NVARCHAR(200) NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'queued',
+    priority INT NOT NULL DEFAULT 0,
+    payload NVARCHAR(MAX) NOT NULL,
+    result NVARCHAR(MAX) NULL,
+    progress INT NULL DEFAULT 0,
+    progress_message NVARCHAR(500) NULL,
+    logs NVARCHAR(MAX) NULL,
+    error NVARCHAR(MAX) NULL,
+    entity_id INT NULL,
+    commit_id INT NULL,
+    queued_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    started_at DATETIME2 NULL,
+    completed_at DATETIME2 NULL,
+    created_by NVARCHAR(100) NOT NULL,
+    worker_id NVARCHAR(100) NULL,
+    retry_count INT NOT NULL DEFAULT 0,
+    max_retries INT NOT NULL DEFAULT 3,
+    CONSTRAINT CK_job_status CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+    CONSTRAINT CK_job_type CHECK ([type] IN ('validate', 'deploy', 'import', 'export', 'sync', 'cleanup', 'dbt-run', 'dbt-test', 'schema-deploy')),
+    CONSTRAINT FK__job__entity_id FOREIGN KEY (entity_id) REFERENCES mds_meta.entity(id)
+);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_job_queue')
+CREATE INDEX IX_job_queue ON mds_meta.job(status, priority DESC, queued_at);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_job_entity')
+CREATE INDEX IX_job_entity ON mds_meta.job(entity_id, queued_at DESC);
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_job_type_status')
+CREATE INDEX IX_job_type_status ON mds_meta.job([type], status);
+{% endset %}
+
 -- Ausführen
 {{ log("Creating MDS schemas...", info=True) }}
 {% do run_query(schemas_sql) %}
@@ -252,6 +292,9 @@ CREATE TABLE mds_meta.schema_deployment (
 
 {{ log("Creating mds_meta.schema_deployment table...", info=True) }}
 {% do run_query(schema_deployment_sql) %}
+
+{{ log("Creating mds_meta.job table...", info=True) }}
+{% do run_query(job_sql) %}
 
 {{ log("MDS Bootstrap completed successfully!", info=True) }}
 

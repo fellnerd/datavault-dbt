@@ -78,6 +78,7 @@ export default function CommitsPage() {
   const [deployDialogOpen, setDeployDialogOpen] = useState(false)
   const [deployCommit, setDeployCommit] = useState<Commit | null>(null)
   const [deployMode, setDeployMode] = useState<'load' | 'full'>('full')
+  const [queueOnly, setQueueOnly] = useState(false)
   const [deploying, setDeploying] = useState(false)
   const [deployProgress, setDeployProgress] = useState(0)
   const [deployLogs, setDeployLogs] = useState<string[]>([])
@@ -179,28 +180,38 @@ export default function CommitsPage() {
   }
 
   // Execute deployment with SSE streaming
-  const handleDeployConfirm = async () => {
+  const handleDeployConfirm = async (useQueueOnly = false) => {
     if (!deployCommit) return
     
     setDeploying(true)
     setDeployProgress(5)
-    setDeployLogs([
-      '🚀 Starte Data-Deployment...',
-      `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`,
-      `📦 Commit: ${deployCommit.code}`
-    ])
+    
+    if (useQueueOnly) {
+      setDeployLogs([
+        '📋 Füge Job zur Queue hinzu...',
+        `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`,
+        `📦 Commit: ${deployCommit.code}`
+      ])
+    } else {
+      setDeployLogs([
+        '🚀 Starte Data-Deployment...',
+        `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`,
+        `📦 Commit: ${deployCommit.code}`
+      ])
+    }
 
     try {
       // Call Deploy API
       setDeployProgress(10)
-      setDeployLogs(prev => [...prev, '📦 Erstelle Deployment-Job...'])
+      setDeployLogs(prev => [...prev, useQueueOnly ? '📦 Erstelle pausierten Job...' : '📦 Erstelle Deployment-Job...'])
 
       const deployRes = await fetch('/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           commit_ids: [deployCommit.id],
-          deploy_mode: deployMode
+          deploy_mode: deployMode,
+          queue_only: useQueueOnly
         })
       })
 
@@ -220,6 +231,24 @@ export default function CommitsPage() {
           setDeployDialogOpen(false)
           fetchCommits()
         }, 1500)
+        return
+      }
+
+      // If queue_only, show success and close dialog
+      if (useQueueOnly) {
+        setDeployProgress(100)
+        setDeployLogs(prev => [
+          ...prev,
+          `✅ ${deployResult.total_records} Datensätze bereit`,
+          `📋 Job ${jobId} zur Queue hinzugefügt`,
+          '💡 Job kann auf der Jobs-Seite gestartet werden'
+        ])
+        setTimeout(() => {
+          setDeployDialogOpen(false)
+          setQueueOnly(false)
+          fetchCommits()
+        }, 2000)
+        setDeploying(false)
         return
       }
 
@@ -716,8 +745,16 @@ export default function CommitsPage() {
             ) : (
               <>
                 <Button onClick={() => setDeployDialogOpen(false)}>Abbrechen</Button>
-                <Button intent="primary" icon="cloud-upload" onClick={handleDeployConfirm}>
-                  Ja, deployen
+                <Button 
+                  intent="none" 
+                  icon="time" 
+                  onClick={() => handleDeployConfirm(true)}
+                  title="Job zur Queue hinzufügen ohne sofort zu starten"
+                >
+                  Zur Queue
+                </Button>
+                <Button intent="primary" icon="cloud-upload" onClick={() => handleDeployConfirm(false)}>
+                  Jetzt deployen
                 </Button>
               </>
             )

@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
     const { 
       commit_ids, // Array of commit IDs to deploy
       user = 'admin',
-      deploy_mode = 'full' // 'load' = nur mds_load, 'full' = load + master
+      deploy_mode = 'full', // 'load' = nur mds_load, 'full' = load + master
+      queue_only = false // If true, job is created but paused (won't start automatically)
     } = body
     
     if (!commit_ids || !Array.isArray(commit_ids) || commit_ids.length === 0) {
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    logger.info({ commit_ids, deploy_mode }, 'Starting data deployment')
+    logger.info({ commit_ids, deploy_mode, queue_only }, 'Starting data deployment')
     
     const deploymentId = uuidv4()
     const results: Array<{
@@ -243,6 +244,7 @@ export async function POST(request: NextRequest) {
     
     // 10. Create Job Queue entry for dbt execution
     let jobId: string | null = null
+    let jobPaused = false
     if (successCount > 0 && resolvedEntityCodes.length > 0) {
       try {
         const job = await addJob(
@@ -255,11 +257,13 @@ export async function POST(request: NextRequest) {
             commitIds: results.filter(r => r.status === 'success').map(r => r.commit_id),
             deploymentId,
             deployMode: deploy_mode // 'load' or 'full'
-          }
+          },
+          { paused: queue_only }
         )
         jobId = job.id || null
+        jobPaused = job.paused
         
-        logger.info({ jobId, deploymentId, entityCodes: resolvedEntityCodes, deployMode: deploy_mode }, 
+        logger.info({ jobId, deploymentId, entityCodes: resolvedEntityCodes, deployMode: deploy_mode, paused: jobPaused }, 
           'Data deploy job created')
       } catch (queueError) {
         logger.error({ queueError, deploymentId }, 'Failed to create deploy job')
@@ -270,13 +274,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       deployment_id: deploymentId,
       job_id: jobId,
+      job_paused: jobPaused,
       commits_processed: results.length,
       commits_success: successCount,
       commits_failed: results.length - successCount,
       total_records: totalRecords,
       results,
       message: jobId 
-        ? `Deploy job ${jobId} created for ${resolvedEntityCodes.join(', ')}`
+        ? jobPaused 
+          ? `Deploy job ${jobId} zur Queue hinzugefügt (pausiert)`
+          : `Deploy job ${jobId} created for ${resolvedEntityCodes.join(', ')}`
         : successCount === results.length 
           ? `${successCount} commits successfully deployed`
           : `${successCount} of ${results.length} commits deployed`,

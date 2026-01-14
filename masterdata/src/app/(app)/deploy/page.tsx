@@ -77,6 +77,8 @@ export default function DeployPage() {
   
   // Deploy-Modus: 'load' = nur mds_load, 'full' = load + master
   const [deployMode, setDeployMode] = useState<'load' | 'full'>('full')
+  // Queue Only: Job wird erstellt aber nicht gestartet
+  const [queueOnly, setQueueOnly] = useState(false)
 
   // Fetch commits and schema deployments
   useEffect(() => {
@@ -194,25 +196,40 @@ export default function DeployPage() {
     
     const commitIds = Array.from(selectedCommits)
     
-    // Start deployment job UI
-    setCurrentJob({
-      id: `job-${Date.now()}`,
-      commitIds,
-      status: 'running',
-      progress: 0,
-      startedAt: new Date().toISOString(),
-      logs: [
-        '🚀 Starte Data-Deployment...',
-        `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`
-      ]
-    })
+    // If queueOnly, show simpler message
+    if (queueOnly) {
+      setCurrentJob({
+        id: `job-${Date.now()}`,
+        commitIds,
+        status: 'running',
+        progress: 0,
+        startedAt: new Date().toISOString(),
+        logs: [
+          '📋 Füge Job zur Queue hinzu...',
+          `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`
+        ]
+      })
+    } else {
+      // Start deployment job UI
+      setCurrentJob({
+        id: `job-${Date.now()}`,
+        commitIds,
+        status: 'running',
+        progress: 0,
+        startedAt: new Date().toISOString(),
+        logs: [
+          '🚀 Starte Data-Deployment...',
+          `📋 Modus: ${deployMode === 'full' ? 'Load + Master' : 'Nur Load'}`
+        ]
+      })
+    }
 
     try {
       // Call Deploy API to create job
       setCurrentJob(prev => prev ? {
         ...prev,
         progress: 10,
-        logs: [...prev.logs, '📦 Erstelle Deployment-Job...']
+        logs: [...prev.logs, queueOnly ? '📦 Erstelle pausierten Job...' : '📦 Erstelle Deployment-Job...']
       } : null)
 
       const deployRes = await fetch('/api/deploy', {
@@ -220,7 +237,8 @@ export default function DeployPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           commit_ids: commitIds,
-          deploy_mode: deployMode  // 'load' or 'full'
+          deploy_mode: deployMode,  // 'load' or 'full'
+          queue_only: queueOnly     // If true, job is paused
         })
       })
 
@@ -248,6 +266,28 @@ export default function DeployPage() {
           ]
         } : null)
         setDeploying(false)
+        return
+      }
+
+      // If queue_only, show success and don't start SSE stream
+      if (queueOnly) {
+        setCurrentJob(prev => prev ? {
+          ...prev,
+          id: jobId,
+          status: 'completed',
+          progress: 100,
+          completedAt: new Date().toISOString(),
+          logs: [
+            ...prev.logs,
+            `✅ ${deployResult.total_records} Datensätze bereit`,
+            `📋 Job ${jobId} zur Queue hinzugefügt`,
+            '💡 Job kann auf der Jobs-Seite gestartet werden'
+          ]
+        } : null)
+        setDeploying(false)
+        setSelectedCommits(new Set())
+        setQueueOnly(false) // Reset for next time
+        fetchData()
         return
       }
 
@@ -938,8 +978,16 @@ export default function DeployPage() {
           actions={
             <>
               <Button onClick={() => setShowDeployDialog(false)}>Abbrechen</Button>
-              <Button intent="primary" icon="cloud-upload" onClick={handleDeploy}>
-                Ja, deployen
+              <Button 
+                intent="none" 
+                icon="time" 
+                onClick={() => { setQueueOnly(true); handleDeploy(); }}
+                title="Job zur Queue hinzufügen ohne sofort zu starten"
+              >
+                Zur Queue
+              </Button>
+              <Button intent="primary" icon="cloud-upload" onClick={() => { setQueueOnly(false); handleDeploy(); }}>
+                Jetzt deployen
               </Button>
             </>
           }

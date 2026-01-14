@@ -19,7 +19,8 @@ import {
 } from './config';
 
 // Worker-spezifische Handler
-const jobHandlers: Record<string, (job: Job<MdsJobData>) => Promise<void>> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const jobHandlers: Record<string, (job: Job<MdsJobData>) => Promise<any>> = {
   'dbt-run': handleDbtRun,
   'dbt-test': handleDbtTest,
   'validate': handleValidate,
@@ -32,10 +33,14 @@ const jobHandlers: Record<string, (job: Job<MdsJobData>) => Promise<void>> = {
 /**
  * dbt run Handler
  */
-async function handleDbtRun(job: Job<MdsJobData>): Promise<void> {
+async function handleDbtRun(job: Job<MdsJobData>): Promise<{ logs: string[] }> {
   const { target, params } = job.data;
   
-  await updateProgress(job, 0, 'Starting dbt run...', ['Initializing dbt project']);
+  // Small delay to allow SSE connection to establish
+  await delay(500);
+  
+  await updateProgress(job, 0, 'Starting dbt run...', ['🚀 Initializing dbt project...']);
+  await delay(200);
   
   // Build dbt command
   const args = ['run'];
@@ -46,30 +51,39 @@ async function handleDbtRun(job: Job<MdsJobData>): Promise<void> {
     args.push('--full-refresh');
   }
 
-  await updateProgress(job, 10, 'Running dbt models...', ['Executing: dbt ' + args.join(' ')]);
+  await updateProgress(job, 10, 'Running dbt models...', [`▶ Executing: dbt ${args.join(' ')}`]);
+  await delay(200);
 
-  // Execute dbt command
-  await executeDbtCommand(job, args);
+  // Execute dbt command and collect logs
+  const logs = await executeDbtCommand(job, args);
   
-  await updateProgress(job, 100, 'dbt run completed', ['All models executed successfully']);
+  await updateProgress(job, 100, 'dbt run completed', [...logs, '✅ All models executed successfully']);
+  
+  return { logs };
 }
 
 /**
  * dbt test Handler
  */
-async function handleDbtTest(job: Job<MdsJobData>): Promise<void> {
+async function handleDbtTest(job: Job<MdsJobData>): Promise<{ logs: string[] }> {
   const { target } = job.data;
   
-  await updateProgress(job, 0, 'Starting dbt tests...', ['Initializing test runner']);
+  // Small delay to allow SSE connection to establish
+  await delay(500);
+  
+  await updateProgress(job, 0, 'Starting dbt tests...', ['🧪 Initializing test runner...']);
+  await delay(200);
   
   const args = ['test'];
   if (target && target !== '*') {
     args.push('--select', target);
   }
 
-  await executeDbtCommand(job, args);
+  const logs = await executeDbtCommand(job, args);
   
-  await updateProgress(job, 100, 'dbt tests completed', ['All tests passed']);
+  await updateProgress(job, 100, 'dbt tests completed', [...logs, '✅ All tests passed']);
+  
+  return { logs };
 }
 
 /**
@@ -78,17 +92,20 @@ async function handleDbtTest(job: Job<MdsJobData>): Promise<void> {
 async function handleValidate(job: Job<MdsJobData>): Promise<void> {
   const { target, entityId } = job.data;
   
-  await updateProgress(job, 0, 'Starting validation...', [`Validating: ${target}`]);
+  // Small delay to allow SSE connection to establish
+  await delay(500);
+  
+  await updateProgress(job, 0, 'Starting validation...', [`🔍 Validating: ${target}`]);
   
   // Simulate validation steps
-  await delay(1000);
-  await updateProgress(job, 25, 'Checking data types...', ['Data type validation']);
+  await delay(800);
+  await updateProgress(job, 25, 'Checking data types...', ['📋 Data type validation...']);
   
-  await delay(1000);
-  await updateProgress(job, 50, 'Checking constraints...', ['Constraint validation']);
+  await delay(800);
+  await updateProgress(job, 50, 'Checking constraints...', ['🔗 Constraint validation...']);
   
-  await delay(1000);
-  await updateProgress(job, 75, 'Checking business rules...', ['Business rule validation']);
+  await delay(800);
+  await updateProgress(job, 75, 'Checking business rules...', ['📊 Business rule validation...']);
   
   await delay(1000);
   await updateProgress(job, 100, 'Validation completed', [
@@ -427,8 +444,9 @@ async function runCommandWithStreaming(
 
 /**
  * Execute dbt command and stream output
+ * Returns the collected logs for storage in job result
  */
-async function executeDbtCommand(job: Job<MdsJobData>, args: string[]): Promise<void> {
+async function executeDbtCommand(job: Job<MdsJobData>, args: string[]): Promise<string[]> {
   return new Promise((resolve, reject) => {
     // Ensure dbt project path is set
     const dbtProjectPath = process.env.DBT_PROJECT_PATH || 
@@ -447,33 +465,58 @@ async function executeDbtCommand(job: Job<MdsJobData>, args: string[]): Promise<
       }
     });
 
-    const logs: string[] = [];
+    const allLogs: string[] = [];
+    let lastProgress = 10;
 
     dbtProcess.stdout.on('data', async (data) => {
-      const line = data.toString().trim();
-      logs.push(line);
-      
-      // Parse progress from dbt output
-      const progress = parseDbtProgress(line);
-      if (progress !== null) {
+      const lines = data.toString().split('\n').filter((l: string) => l.trim());
+      for (const line of lines) {
+        allLogs.push(line);
+        
+        // Parse progress from dbt output
+        const progress = parseDbtProgress(line);
+        if (progress !== null) {
+          lastProgress = Math.max(lastProgress, progress);
+        }
+        
+        // Send individual log line for real-time streaming
         await job.updateProgress({ 
-          percent: progress, 
-          message: line,
-          logs: logs.slice(-10) 
+          log: line,
+          timestamp: new Date().toISOString()
         });
+        
+        // Also send overall progress
+        await job.updateProgress({ 
+          percent: lastProgress, 
+          message: line,
+          logs: allLogs
+        });
+        
+        console.log(`[${job.id}] ${line}`);
       }
     });
 
     dbtProcess.stderr.on('data', async (data) => {
-      const line = data.toString().trim();
-      logs.push(`[ERROR] ${line}`);
+      const lines = data.toString().split('\n').filter((l: string) => l.trim());
+      for (const line of lines) {
+        const errorLine = `[ERROR] ${line}`;
+        allLogs.push(errorLine);
+        
+        // Send error log for real-time streaming
+        await job.updateProgress({ 
+          log: errorLine,
+          timestamp: new Date().toISOString()
+        });
+        
+        console.error(`[${job.id}] ${errorLine}`);
+      }
     });
 
     dbtProcess.on('close', (code) => {
       if (code === 0) {
-        resolve();
+        resolve(allLogs);
       } else {
-        reject(new Error(`dbt exited with code ${code}\n${logs.slice(-5).join('\n')}`));
+        reject(new Error(`dbt exited with code ${code}\n${allLogs.slice(-10).join('\n')}`));
       }
     });
 
@@ -498,7 +541,7 @@ function parseDbtProgress(line: string): number | null {
 }
 
 /**
- * Update job progress
+ * Update job progress - sends individual log lines for SSE streaming
  */
 async function updateProgress(
   job: Job<MdsJobData>,
@@ -506,6 +549,17 @@ async function updateProgress(
   message: string,
   logs: string[]
 ): Promise<void> {
+  // Send each log line individually for real-time SSE streaming
+  for (const log of logs) {
+    if (log) {
+      await job.updateProgress({ 
+        log: log,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+  
+  // Also send the overall progress update
   const progress: JobProgress = { percent, message, logs };
   await job.updateProgress(progress);
   console.log(`[${job.id}] ${percent}% - ${message}`);
@@ -550,8 +604,36 @@ export function startWorker(): Worker<MdsJobData> {
     console.error(`❌ Job ${job?.id} failed:`, err.message);
   });
 
-  worker.on('error', (err) => {
-    console.error('Worker error:', err);
+  // Rate limit error handling with exponential backoff
+  let consecutiveErrors = 0;
+  let isPaused = false;
+  
+  worker.on('error', async (err) => {
+    console.error('Worker error:', err.message || err);
+    
+    // Check for rate limit errors
+    if (err.message?.includes('max requests limit exceeded')) {
+      consecutiveErrors++;
+      const backoffMs = Math.min(1000 * Math.pow(2, consecutiveErrors), 60000); // Max 60 seconds
+      
+      console.warn(`⚠️ Rate limit hit! Pausing worker for ${backoffMs / 1000}s (attempt ${consecutiveErrors})`);
+      
+      if (!isPaused) {
+        isPaused = true;
+        await worker.pause();
+        
+        setTimeout(async () => {
+          console.log('🔄 Resuming worker after backoff...');
+          isPaused = false;
+          await worker.resume();
+        }, backoffMs);
+      }
+    }
+  });
+  
+  worker.on('active', () => {
+    // Reset error counter on successful job pickup
+    consecutiveErrors = 0;
   });
 
   console.log('🔧 MDS Worker started, waiting for jobs...');

@@ -49,15 +49,23 @@ export function getMdsQueue(): Queue<MdsJobData> {
 
 /**
  * Add a job to the queue
+ * @param type - Job type (deploy, schema-deploy, etc.)
+ * @param target - Job target identifier
+ * @param userId - User ID
+ * @param userName - User display name
+ * @param params - Additional job parameters
+ * @param options - Additional options
+ * @param options.paused - If true, job is created in 'delayed' state and won't start automatically
  */
 export async function addJob(
   type: JobType,
   target: string,
   userId: string,
   userName: string,
-  params?: Record<string, unknown>
-): Promise<{ id: string; name: string }> {
-  console.log('⏳ addJob called:', { type, target, userId });
+  params?: Record<string, unknown>,
+  options?: { paused?: boolean }
+): Promise<{ id: string; name: string; paused: boolean }> {
+  console.log('⏳ addJob called:', { type, target, userId, paused: options?.paused });
   
   const queue = getMdsQueue();
   console.log('✅ Got queue instance');
@@ -74,18 +82,23 @@ export async function addJob(
   const jobOptions = JOB_TYPE_OPTIONS[type];
   console.log('⏳ Calling queue.add()...');
   
+  // If paused, use a very long delay (1 year) - job can be "unpaused" by promoting it
+  const delay = options?.paused ? 365 * 24 * 60 * 60 * 1000 : undefined;
+  
   const job = await queue.add(type, jobData, {
     priority: jobOptions.priority,
     timeout: jobOptions.timeout,
+    delay,
   });
   
-  console.log('✅ queue.add() completed, job.id:', job.id);
+  console.log('✅ queue.add() completed, job.id:', job.id, 'delayed:', !!delay);
 
-  console.log(`📬 Job added: ${type} - ${target} (${job.id})`);
+  console.log(`📬 Job added: ${type} - ${target} (${job.id})${options?.paused ? ' [PAUSED]' : ''}`);
 
   return {
     id: job.id || '',
     name: job.name,
+    paused: !!options?.paused,
   };
 }
 
@@ -119,29 +132,52 @@ export async function getQueueStats() {
 export async function getRecentJobs(limit: number = 20) {
   const queue = getMdsQueue();
   
-  const [active, waiting, completed, failed] = await Promise.all([
+  const [active, waiting, completed, failed, delayed] = await Promise.all([
     queue.getActive(0, limit),
     queue.getWaiting(0, limit),
     queue.getCompleted(0, limit),
     queue.getFailed(0, limit),
+    queue.getDelayed(0, limit),
   ]);
 
-  const allJobs = [...active, ...waiting, ...completed, ...failed]
-    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+  // Get actual state for each job
+  const jobsWithState = await Promise.all([
+    ...active.map(async job => ({ job, state: 'active' as const })),
+    ...waiting.map(async job => ({ job, state: 'waiting' as const })),
+    ...completed.map(async job => ({ job, state: 'completed' as const })),
+    ...failed.map(async job => ({ job, state: 'failed' as const })),
+    ...delayed.map(async job => ({ job, state: 'delayed' as const })),
+  ]);
+
+  const allJobs = jobsWithState
+    .sort((a, b) => (b.job.timestamp || 0) - (a.job.timestamp || 0))
     .slice(0, limit);
 
-  return allJobs.map(job => ({
-    id: job.id,
-    name: job.name,
-    data: job.data,
-    state: job.finishedOn ? (job.failedReason ? 'failed' : 'completed') : 
-           job.processedOn ? 'active' : 'waiting',
-    progress: job.progress,
-    timestamp: job.timestamp,
-    processedOn: job.processedOn,
-    finishedOn: job.finishedOn,
-    failedReason: job.failedReason,
-  }));
+  return allJobs.map(({ job, state }) => {
+    // Extract logs from multiple possible sources
+    const progressLogs = (job.progress as { logs?: string[] })?.logs || [];
+    const returnValueLogs = (job.returnvalue as { logs?: string[] })?.logs || [];
+    // Use returnvalue logs for completed jobs, progress logs for running jobs
+    const logs = state === 'completed' || state === 'failed' 
+      ? (returnValueLogs.length > 0 ? returnValueLogs : progressLogs)
+      : progressLogs;
+
+    return {
+      id: job.id,
+      name: job.name,
+      type: job.name, // job.name is the job type in BullMQ
+      data: job.data,
+      status: state,
+      progress: typeof job.progress === 'number' ? job.progress : 
+                (job.progress as { percent?: number })?.percent || 0,
+      timestamp: job.timestamp,
+      processedOn: job.processedOn,
+      finishedOn: job.finishedOn,
+      failedReason: job.failedReason,
+      returnvalue: job.returnvalue,
+      logs,
+    };
+  });
 }
 
 /**
@@ -159,6 +195,28 @@ export async function cancelJob(jobId: string): Promise<boolean> {
   const state = await job.getState();
   if (state === 'waiting' || state === 'delayed') {
     await job.remove();
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Promote a delayed (paused) job to start immediately
+ */
+export async function promoteJob(jobId: string): Promise<boolean> {
+  const queue = getMdsQueue();
+  const job = await queue.getJob(jobId);
+  
+  if (!job) {
+    return false;
+  }
+
+  // Can only promote delayed jobs
+  const state = await job.getState();
+  if (state === 'delayed') {
+    await job.promote();
+    console.log(`📬 Job promoted: ${jobId}`);
     return true;
   }
 
