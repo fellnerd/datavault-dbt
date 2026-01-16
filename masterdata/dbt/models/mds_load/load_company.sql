@@ -23,7 +23,7 @@
   
   Entity Code: company
   Entity ID:   4
-  Generated:   2026-01-14T22:08:59.133339
+  Generated:   2026-01-16T19:35:26.610489
   
   Source: mds_stage.staged_record (JSON data)
   Target: mds_load.company (flache Tabelle)

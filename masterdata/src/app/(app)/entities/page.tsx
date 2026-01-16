@@ -322,7 +322,8 @@ export default function EntitiesPage() {
       ...dvObjects.marts
     ]
     
-    const selected = allObjects.find(o => o.name === importConfig.source_object)
+    // Match by schema.name (full qualified name)
+    const selected = allObjects.find(o => `${o.schema}.${o.name}` === importConfig.source_object)
     return selected?.columns || []
   }
 
@@ -673,15 +674,15 @@ export default function EntitiesPage() {
                     { value: '', label: '-- Select Object --' },
                     ...(dvObjects ? [
                       { value: '', label: '─── Hubs ───', disabled: true },
-                      ...dvObjects.hubs.map(o => ({ value: o.name, label: `hub_${o.name.replace('hub_', '')}` })),
+                      ...dvObjects.hubs.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
                       { value: '', label: '─── Satellites ───', disabled: true },
-                      ...dvObjects.satellites.map(o => ({ value: o.name, label: `sat_${o.name.replace('sat_', '')}` })),
+                      ...dvObjects.satellites.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
                       { value: '', label: '─── Links ───', disabled: true },
-                      ...dvObjects.links.map(o => ({ value: o.name, label: `link_${o.name.replace('link_', '')}` })),
+                      ...dvObjects.links.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
                       { value: '', label: '─── Staging ───', disabled: true },
-                      ...dvObjects.staging.map(o => ({ value: o.name, label: o.name })),
+                      ...dvObjects.staging.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
                       { value: '', label: '─── Marts ───', disabled: true },
-                      ...dvObjects.marts.map(o => ({ value: o.name, label: o.name })),
+                      ...dvObjects.marts.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
                     ] : [])
                   ]}
                 />

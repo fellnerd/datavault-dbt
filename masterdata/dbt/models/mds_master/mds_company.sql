@@ -41,7 +41,7 @@
   =====================================================
   
   Entity Code: company
-  Generated:   2026-01-14T22:08:59.133698
+  Generated:   2026-01-16T19:35:26.610753
   
   Source: mds_load.company
   Target: mds_master.company (SCD2 historisiert)

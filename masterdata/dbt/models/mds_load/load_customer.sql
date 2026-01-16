@@ -9,9 +9,9 @@
     as_columnstore=false,
     post_hook=[
       "-- Update staged_record status to 'loaded'",
-      "UPDATE sr SET sr.status = 'loaded' FROM mds_stage.staged_record sr INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id WHERE sr.entity_id = 5 AND sr.status = 'committed' AND c.status = 'approved'",
+      "UPDATE sr SET sr.status = 'loaded' FROM mds_stage.staged_record sr INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id WHERE sr.entity_id = 6 AND sr.status = 'committed' AND c.status = 'approved'",
       "-- Update commit status to 'loaded'",
-      "UPDATE mds_stage.[commit] SET status = 'loaded', deployed_at = GETUTCDATE() WHERE status = 'approved' AND entity_id = 5"
+      "UPDATE mds_stage.[commit] SET status = 'loaded', deployed_at = GETUTCDATE() WHERE status = 'approved' AND entity_id = 6"
     ]
   )
 }}
@@ -22,8 +22,8 @@
   =====================================================
   
   Entity Code: customer
-  Entity ID:   5
-  Generated:   2026-01-16T19:00:18.716435
+  Entity ID:   6
+  Generated:   2026-01-16T19:35:26.766585
   
   Source: mds_stage.staged_record (JSON data)
   Target: mds_load.customer (flache Tabelle)
@@ -43,10 +43,10 @@
 SELECT
     sr.business_key_hash,
     sr.business_key,
-    JSON_VALUE(sr.data, '$.customerid') AS customerid,
     JSON_VALUE(sr.data, '$.firstname') AS firstname,
     JSON_VALUE(sr.data, '$.lastname') AS lastname,
     JSON_VALUE(sr.data, '$.companyname') AS companyname,
+    JSON_VALUE(sr.data, '$.customerid') AS customerid,
     sr.commit_id,
     sr.operation,
     'MDS' AS source_system,
@@ -56,7 +56,7 @@ SELECT
     CAST(NULL AS DATETIME2) AS processed_at
 FROM mds_stage.staged_record sr
 INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
-WHERE sr.entity_id = 5
+WHERE sr.entity_id = 6
   AND sr.status = 'committed'
   AND c.status = 'approved'
 
@@ -67,10 +67,10 @@ WITH ranked AS (
   SELECT
     sr.business_key_hash,
     sr.business_key,
-    JSON_VALUE(sr.data, '$.customerid') AS customerid,
     JSON_VALUE(sr.data, '$.firstname') AS firstname,
     JSON_VALUE(sr.data, '$.lastname') AS lastname,
     JSON_VALUE(sr.data, '$.companyname') AS companyname,
+    JSON_VALUE(sr.data, '$.customerid') AS customerid,
     sr.commit_id,
     sr.operation,
     'MDS' AS source_system,
@@ -81,13 +81,13 @@ WITH ranked AS (
     ROW_NUMBER() OVER (PARTITION BY sr.business_key_hash ORDER BY sr.id DESC) AS rn
   FROM mds_stage.staged_record sr
   INNER JOIN mds_stage.[commit] c ON sr.commit_id = c.id
-  WHERE sr.entity_id = 5
+  WHERE sr.entity_id = 6
     AND sr.status IN ('committed', 'loaded')
     AND c.status IN ('approved', 'loaded', 'deployed')
 )
 SELECT 
   business_key_hash, business_key, 
-  customerid, firstname, lastname, companyname,
+  firstname, lastname, companyname, customerid,
   commit_id, operation, source_system, source_id, is_processed, created_at, processed_at
 FROM ranked WHERE rn = 1
 

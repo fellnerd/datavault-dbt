@@ -28,7 +28,7 @@
       "-- Mark load records as processed",
       "UPDATE mds_load.customer SET is_processed = 1, processed_at = GETUTCDATE() WHERE is_processed = 0",
       "-- Update commit status to 'deployed' for all loaded commits",
-      "UPDATE mds_stage.[commit] SET status = 'deployed' WHERE status = 'loaded' AND entity_id = 5",
+      "UPDATE mds_stage.[commit] SET status = 'deployed' WHERE status = 'loaded' AND entity_id = 6",
       "-- Remove DELETE records from load (they should not appear in current state)",
       "DELETE FROM mds_load.customer WHERE operation = 'DELETE'"
     ]
@@ -41,13 +41,13 @@
   =====================================================
   
   Entity Code: customer
-  Generated:   2026-01-16T19:00:18.716738
+  Generated:   2026-01-16T19:35:26.766855
   
   Source: mds_load.customer
   Target: mds_master.customer (SCD2 historisiert)
   
   Business Key: customerid
-  Columns: customerid, firstname, lastname, companyname
+  Columns: firstname, lastname, companyname, customerid
   =====================================================
 #}
 
@@ -60,10 +60,10 @@ WITH source_data AS (
         business_key,
         business_key_hash,
         operation,
-        customerid,
         firstname,
         lastname,
         companyname,
+        customerid,
         commit_id,
         source_system,
         source_id,
@@ -81,10 +81,10 @@ changes AS (
             WHEN t.business_key IS NULL THEN 'NEW'
             WHEN s.operation = 'DELETE' THEN 'DELETE'
             WHEN s.operation = 'UPDATE' OR (
-                COALESCE(CAST(s.customerid AS NVARCHAR(MAX)), '') != COALESCE(CAST(t.customerid AS NVARCHAR(MAX)), '') OR
                 COALESCE(CAST(s.firstname AS NVARCHAR(MAX)), '') != COALESCE(CAST(t.firstname AS NVARCHAR(MAX)), '') OR
                 COALESCE(CAST(s.lastname AS NVARCHAR(MAX)), '') != COALESCE(CAST(t.lastname AS NVARCHAR(MAX)), '') OR
-                COALESCE(CAST(s.companyname AS NVARCHAR(MAX)), '') != COALESCE(CAST(t.companyname AS NVARCHAR(MAX)), '')
+                COALESCE(CAST(s.companyname AS NVARCHAR(MAX)), '') != COALESCE(CAST(t.companyname AS NVARCHAR(MAX)), '') OR
+                COALESCE(CAST(s.customerid AS NVARCHAR(MAX)), '') != COALESCE(CAST(t.customerid AS NVARCHAR(MAX)), '')
             ) THEN 'CHANGED'
             ELSE 'NO_CHANGE'
         END AS change_type
@@ -98,10 +98,10 @@ changes AS (
 SELECT
     business_key,
     business_key_hash,
-    customerid,
-        firstname,
+    firstname,
         lastname,
         companyname,
+        customerid,
     created_at AS valid_from,
     CAST('9999-12-31' AS DATETIME2) AS valid_to,
     CAST(1 AS BIT) AS is_current,
@@ -123,10 +123,10 @@ WHERE change_type IN ('NEW', 'CHANGED', 'DELETE')
 SELECT
     business_key,
     business_key_hash,
-    customerid,
-        firstname,
+    firstname,
         lastname,
         companyname,
+        customerid,
     created_at AS valid_from,
     CAST('9999-12-31' AS DATETIME2) AS valid_to,
     CAST(1 AS BIT) AS is_current,

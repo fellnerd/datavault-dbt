@@ -330,11 +330,14 @@ async function handleDataVaultImport(
 
   // Check if dbt_packages exists in MDS dbt project, if not run dbt deps
   const dbtPackagesPath = `${mdsDbtPath}/dbt_packages`;
+  // Use dbt from venv with sqlserver adapter
+  const dbtCmd = process.env.DBT_CMD || '/home/user/projects/datavault-dbt/.venv/bin/dbt';
+  
   if (!fs.existsSync(dbtPackagesPath)) {
     logs.push(`📦 Installing dbt packages for MDS project...`);
     await updateProgress(job, 15, 'Installing dbt packages...', logs);
     
-    const depsProc = spawn('dbt', ['deps', '--profiles-dir', profilesDir], {
+    const depsProc = spawn(dbtCmd, ['deps', '--profiles-dir', profilesDir], {
       cwd: mdsDbtPath,
       shell: true,
       env: { ...process.env }
@@ -376,7 +379,9 @@ async function handleDataVaultImport(
   try {
     // Execute dbt command with spawn in MDS dbt project directory
     // The import_from_datavault macro is defined in masterdata/dbt/macros/
-    const proc = spawn('dbt', [
+    // Use dbt from venv with sqlserver adapter
+    const dbtCmd = process.env.DBT_CMD || '/home/user/projects/datavault-dbt/.venv/bin/dbt';
+    const proc = spawn(dbtCmd, [
       'run-operation', 'import_from_datavault',
       '--args', `'${dbtArgs}'`,
       '--profiles-dir', profilesDir
