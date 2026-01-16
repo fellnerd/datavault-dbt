@@ -646,12 +646,12 @@ export default function CommitsPage() {
       {/* Deploy Dialog with Mode Selection and SSE Streaming */}
       <Dialog
         isOpen={deployDialogOpen}
-        onClose={() => !deploying && setDeployDialogOpen(false)}
+        onClose={() => setDeployDialogOpen(false)}
         title={deploying ? "Deployment läuft..." : "Deploy to Data Vault"}
         icon="cloud-upload"
         style={{ width: 600 }}
         canOutsideClickClose={!deploying}
-        canEscapeKeyClose={!deploying}
+        canEscapeKeyClose={true}
       >
         <DialogBody>
           {!deploying ? (
@@ -741,7 +741,23 @@ export default function CommitsPage() {
         <DialogFooter
           actions={
             deploying ? (
-              <Button disabled>Deployment läuft...</Button>
+              <>
+                <Button onClick={() => setDeployDialogOpen(false)}>
+                  Schließen (läuft im Hintergrund)
+                </Button>
+                {activeJobId && (
+                  <Button 
+                    intent="primary" 
+                    icon="application" 
+                    onClick={() => {
+                      setDeployDialogOpen(false)
+                      window.location.href = '/jobs'
+                    }}
+                  >
+                    Zu Jobs
+                  </Button>
+                )}
+              </>
             ) : (
               <>
                 <Button onClick={() => setDeployDialogOpen(false)}>Abbrechen</Button>

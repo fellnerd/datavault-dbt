@@ -1,121 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '@/lib/logger'
+import { query, execute } from '@/lib/db'
 
 // Types
 interface DataRow {
   row_id: string
-  entity_id: string
-  status: 'draft' | 'pending' | 'approved' | 'rejected'
+  entity_id: number
+  status: 'DRAFT' | 'PENDING' | 'VALIDATED' | 'INVALID' | 'COMMITTED'
   created_by: string
   created_at: string
-  modified_by: string | null
-  modified_at: string | null
-  approved_by: string | null
-  approved_at: string | null
-  commit_id: string | null
+  business_key: string | null
   data: Record<string, unknown>
 }
 
-// Mock data rows
-let dataRows: DataRow[] = [
-  {
-    row_id: 'row-001',
-    entity_id: 'entity-001',
-    status: 'approved',
-    created_by: 'admin',
-    created_at: '2023-01-20T10:00:00Z',
-    modified_by: null,
-    modified_at: null,
-    approved_by: 'approver',
-    approved_at: '2023-01-21T14:30:00Z',
-    commit_id: 'commit-001',
-    data: {
-      customer_id: 1001,
-      customer_name: 'Acme Corp',
-      email: 'contact@acme.com',
-      phone: '+49 123 456789',
-      address: 'Hauptstraße 1',
-      city: 'München',
-      country: 'Germany',
-      status: 'active',
-    },
-  },
-  {
-    row_id: 'row-002',
-    entity_id: 'entity-001',
-    status: 'approved',
-    created_by: 'admin',
-    created_at: '2023-01-20T10:05:00Z',
-    modified_by: null,
-    modified_at: null,
-    approved_by: 'approver',
-    approved_at: '2023-01-21T14:30:00Z',
-    commit_id: 'commit-001',
-    data: {
-      customer_id: 1002,
-      customer_name: 'TechStart GmbH',
-      email: 'info@techstart.de',
-      phone: '+49 89 123456',
-      address: 'Bahnhofstraße 42',
-      city: 'Berlin',
-      country: 'Germany',
-      status: 'active',
-    },
-  },
-  {
-    row_id: 'row-003',
-    entity_id: 'entity-001',
-    status: 'pending',
-    created_by: 'editor1',
-    created_at: '2023-02-15T09:00:00Z',
-    modified_by: null,
-    modified_at: null,
-    approved_by: null,
-    approved_at: null,
-    commit_id: null,
-    data: {
-      customer_id: 1003,
-      customer_name: 'NewClient AG',
-      email: 'hello@newclient.ch',
-      phone: '+41 44 123456',
-      address: 'Bahnhofplatz 5',
-      city: 'Zürich',
-      country: 'Switzerland',
-      status: 'active',
-    },
-  },
-  {
-    row_id: 'row-004',
-    entity_id: 'entity-001',
-    status: 'draft',
-    created_by: 'editor2',
-    created_at: '2023-02-16T14:20:00Z',
-    modified_by: 'editor2',
-    modified_at: '2023-02-16T15:00:00Z',
-    approved_by: null,
-    approved_at: null,
-    commit_id: null,
-    data: {
-      customer_id: 1004,
-      customer_name: 'Draft Company',
-      email: 'draft@example.com',
-      phone: '',
-      address: '',
-      city: 'Hamburg',
-      country: 'Germany',
-      status: 'draft',
-    },
-  },
-]
+interface StagedRecordRow {
+  id: number
+  entity_id: number
+  business_key: string
+  business_key_hash: string
+  status: string
+  payload: string
+  data: string
+  created_by: string
+  created_at: Date
+  validation_errors: string | null
+}
 
-// GET /api/data/[entityId] - List data rows for entity
+// GET /api/data/[entityId] - List data rows for entity from database
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   const { entityId } = await params
-  logger.info({ entityId }, 'GET /api/data/[entityId]')
+  const entityIdNum = parseInt(entityId)
+  logger.info({ entityId: entityIdNum }, 'GET /api/data/[entityId]')
   
   try {
     const { searchParams } = new URL(request.url)
@@ -123,28 +42,65 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1')
     const pageSize = parseInt(searchParams.get('pageSize') || '50')
     const search = searchParams.get('search')
+    const offset = (page - 1) * pageSize
     
-    // Filter data
-    let results = dataRows.filter(r => r.entity_id === entityId)
-    
+    // Build WHERE clause
+    let whereClause = 'WHERE entity_id = @entityId'
     if (status) {
-      results = results.filter(r => r.status === status)
+      whereClause += ' AND status = @status'
     }
-    
     if (search) {
-      const searchLower = search.toLowerCase()
-      results = results.filter(r => 
-        JSON.stringify(r.data).toLowerCase().includes(searchLower)
-      )
+      whereClause += ' AND (business_key LIKE @search OR payload LIKE @search)'
     }
     
-    // Pagination
-    const total = results.length
-    const start = (page - 1) * pageSize
-    const paginatedResults = results.slice(start, start + pageSize)
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM mds_stage.staged_record 
+      ${whereClause}
+    `
+    
+    const countParams: Record<string, unknown> = { entityId: entityIdNum }
+    if (status) countParams.status = status.toUpperCase()
+    if (search) countParams.search = `%${search}%`
+    
+    const countResult = await query<{ total: number }>(countQuery, countParams)
+    const total = countResult[0]?.total || 0
+    
+    // Get paginated data
+    const dataQuery = `
+      SELECT 
+        id, entity_id, business_key, business_key_hash, status,
+        payload, data, created_by, created_at, validation_errors
+      FROM mds_stage.staged_record 
+      ${whereClause}
+      ORDER BY created_at DESC
+      OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+    `
+    
+    const dataParams: Record<string, unknown> = { 
+      entityId: entityIdNum,
+      offset,
+      pageSize 
+    }
+    if (status) dataParams.status = status.toUpperCase()
+    if (search) dataParams.search = `%${search}%`
+    
+    const rows = await query<StagedRecordRow>(dataQuery, dataParams)
+    
+    // Transform to API format
+    const data: DataRow[] = rows.map(row => ({
+      row_id: row.id.toString(),
+      entity_id: row.entity_id,
+      status: row.status as DataRow['status'],
+      created_by: row.created_by || 'system',
+      created_at: row.created_at?.toISOString() || new Date().toISOString(),
+      business_key: row.business_key,
+      data: typeof row.data === 'string' ? JSON.parse(row.data) : row.data,
+    }))
     
     return NextResponse.json({
-      data: paginatedResults,
+      data,
       total,
       page,
       pageSize,
@@ -165,40 +121,44 @@ export async function POST(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   const { entityId } = await params
-  logger.info({ entityId }, 'POST /api/data/[entityId]')
+  const entityIdNum = parseInt(entityId)
+  logger.info({ entityId: entityIdNum }, 'POST /api/data/[entityId]')
   
   try {
     const body = await request.json()
     const { rows } = body // Can be single row or array
     
     const rowsToCreate = Array.isArray(rows) ? rows : [rows]
-    const createdRows: DataRow[] = []
+    const createdIds: number[] = []
     
     for (const rowData of rowsToCreate) {
-      const newRow: DataRow = {
-        row_id: uuidv4(),
-        entity_id: entityId,
-        status: 'draft',
-        created_by: 'admin', // TODO: Get from session
-        created_at: new Date().toISOString(),
-        modified_by: null,
-        modified_at: null,
-        approved_by: null,
-        approved_at: null,
-        commit_id: null,
-        data: rowData,
-      }
+      const payload = JSON.stringify(rowData)
+      // Generate a simple hash for business key if not provided
+      const businessKey = rowData.business_key || uuidv4()
       
-      dataRows.push(newRow)
-      createdRows.push(newRow)
+      const insertQuery = `
+        INSERT INTO mds_stage.staged_record 
+          (entity_id, business_key, business_key_hash, payload, data, status, operation, source_system, created_by)
+        OUTPUT INSERTED.id
+        VALUES 
+          (@entityId, @businessKey, CONVERT(CHAR(64), HASHBYTES('SHA2_256', @businessKey), 2), 
+           @payload, @payload, 'DRAFT', 'INSERT', 'MDS_UI', 'admin')
+      `
+      
+      const result = await query<{ id: number }>(insertQuery, {
+        entityId: entityIdNum,
+        businessKey,
+        payload
+      })
+      
+      if (result[0]) {
+        createdIds.push(result[0].id)
+      }
     }
     
-    // TODO: Insert into database
-    // Use dynamic SQL or EAV pattern based on entity attributes
-    
     return NextResponse.json({
-      data: createdRows,
-      created: createdRows.length,
+      data: createdIds.map(id => ({ row_id: id.toString() })),
+      created: createdIds.length,
     }, { status: 201 })
   } catch (error) {
     logger.error({ error, entityId }, 'Failed to create data')
@@ -215,7 +175,8 @@ export async function PUT(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   const { entityId } = await params
-  logger.info({ entityId }, 'PUT /api/data/[entityId] (batch)')
+  const entityIdNum = parseInt(entityId)
+  logger.info({ entityId: entityIdNum }, 'PUT /api/data/[entityId] (batch)')
   
   try {
     const body = await request.json()
@@ -228,24 +189,25 @@ export async function PUT(
       )
     }
     
-    const validStatuses = ['draft', 'pending', 'approved', 'rejected']
-    if (!validStatuses.includes(status)) {
+    const validStatuses = ['DRAFT', 'PENDING', 'VALIDATED', 'INVALID', 'COMMITTED']
+    const statusUpper = status.toUpperCase()
+    if (!validStatuses.includes(statusUpper)) {
       return NextResponse.json(
         { error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` },
         { status: 400 }
       )
     }
     
-    let updated = 0
-    for (const rowId of row_ids) {
-      const row = dataRows.find(r => r.row_id === rowId && r.entity_id === entityId)
-      if (row) {
-        row.status = status
-        row.modified_by = 'admin' // TODO: Get from session
-        row.modified_at = new Date().toISOString()
-        updated++
-      }
-    }
+    // Build IN clause for IDs
+    const idList = row_ids.map((id: string) => parseInt(id)).join(',')
+    
+    const updateQuery = `
+      UPDATE mds_stage.staged_record 
+      SET status = '${statusUpper}'
+      WHERE id IN (${idList}) AND entity_id = @entityId
+    `
+    
+    const updated = await execute(updateQuery, { entityId: entityIdNum })
     
     return NextResponse.json({
       success: true,
@@ -266,7 +228,8 @@ export async function DELETE(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   const { entityId } = await params
-  logger.info({ entityId }, 'DELETE /api/data/[entityId]')
+  const entityIdNum = parseInt(entityId)
+  logger.info({ entityId: entityIdNum }, 'DELETE /api/data/[entityId]')
   
   try {
     const body = await request.json()
@@ -279,20 +242,20 @@ export async function DELETE(
       )
     }
     
-    // Only allow deleting draft rows
-    const deletedIds: string[] = []
-    dataRows = dataRows.filter(r => {
-      if (row_ids.includes(r.row_id) && r.entity_id === entityId && r.status === 'draft') {
-        deletedIds.push(r.row_id)
-        return false
-      }
-      return true
-    })
+    // Only allow deleting DRAFT rows
+    const idList = row_ids.map((id: string) => parseInt(id)).join(',')
+    
+    const deleteQuery = `
+      DELETE FROM mds_stage.staged_record 
+      WHERE id IN (${idList}) AND entity_id = @entityId AND status = 'DRAFT'
+    `
+    
+    const deleted = await execute(deleteQuery, { entityId: entityIdNum })
     
     return NextResponse.json({
       success: true,
-      deleted: deletedIds.length,
-      deleted_ids: deletedIds,
+      deleted,
+      deleted_ids: row_ids,
     })
   } catch (error) {
     logger.error({ error, entityId }, 'Failed to delete data')

@@ -83,6 +83,9 @@ export default function DataEntryPage() {
   const [commitDialogOpen, setCommitDialogOpen] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
   const [commitMode, setCommitMode] = useState<'selected' | 'all'>('selected')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
+  const [pageSize, setPageSize] = useState(50)
 
   // Fetch entities on mount
   useEffect(() => {
@@ -104,25 +107,39 @@ export default function DataEntryPage() {
     fetchEntities()
   }, [])
 
-  // Fetch attributes and records when entity changes
+  // Fetch attributes when entity changes
+  useEffect(() => {
+    if (!selectedEntityId) return
+    setCurrentPage(1) // Reset to page 1 when entity changes
+    
+    const fetchAttributes = async () => {
+      try {
+        const attrsRes = await fetch(`/api/attributes?entity_id=${selectedEntityId}`)
+        if (!attrsRes.ok) throw new Error('Failed to load attributes')
+        const attrsJson = await attrsRes.json()
+        setAttributes(attrsJson.data || [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load attributes')
+      }
+    }
+    fetchAttributes()
+  }, [selectedEntityId])
+
+  // Fetch records when entity, page or pageSize changes
   useEffect(() => {
     if (!selectedEntityId) return
     
-    const fetchData = async () => {
+    const fetchRecords = async () => {
       try {
         setLoading(true)
-        const [attrsRes, recordsRes] = await Promise.all([
-          fetch(`/api/attributes?entity_id=${selectedEntityId}`),
-          fetch(`/api/records?entity_id=${selectedEntityId}`)
-        ])
+        const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}&page=${currentPage}&pageSize=${pageSize}`)
         
-        if (!attrsRes.ok || !recordsRes.ok) throw new Error('Failed to load data')
+        if (!recordsRes.ok) throw new Error('Failed to load data')
         
-        const attrsJson = await attrsRes.json()
         const recordsJson = await recordsRes.json()
         
-        setAttributes(attrsJson.data || [])
         setRecords(recordsJson.data || [])
+        setTotalRecords(recordsJson.pagination?.total || recordsJson.summary?.total || 0)
         setSummary(recordsJson.summary || { total: 0, draft: 0, validated: 0, invalid: 0 })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load data')
@@ -130,10 +147,23 @@ export default function DataEntryPage() {
         setLoading(false)
       }
     }
-    fetchData()
-  }, [selectedEntityId])
+    fetchRecords()
+  }, [selectedEntityId, currentPage, pageSize])
 
-  const filteredRecords = records.filter(r => !filterStatus || r.validation_status === filterStatus)
+  // Helper function to refresh records
+  const refreshRecords = async () => {
+    const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}&page=${currentPage}&pageSize=${pageSize}`)
+    const recordsJson = await recordsRes.json()
+    setRecords(recordsJson.data || [])
+    setTotalRecords(recordsJson.pagination?.total || recordsJson.summary?.total || 0)
+    setSummary(recordsJson.summary || summary)
+  }
+
+  // Helper for case-insensitive status check (DB uses UPPERCASE, UI uses lowercase)
+  const isPending = (record: StagedRecord) => 
+    record.validation_status?.toUpperCase() === 'PENDING'
+
+  const filteredRecords = records.filter(r => !filterStatus || r.validation_status?.toLowerCase() === filterStatus.toLowerCase())
 
   const selectedEntity = entities.find(e => e.id === selectedEntityId)
   const businessKeyAttr = attributes.find(a => a.is_business_key)
@@ -164,10 +194,7 @@ export default function DataEntryPage() {
       setNewRecord({})
       setIsCreateOpen(false)
       // Refresh records
-      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
-      const recordsJson = await recordsRes.json()
-      setRecords(recordsJson.data || [])
-      setSummary(recordsJson.summary || summary)
+      await refreshRecords()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to create record')
     } finally {
@@ -202,10 +229,7 @@ export default function DataEntryPage() {
       setEditData({})
       setIsEditOpen(false)
       // Refresh records
-      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
-      const recordsJson = await recordsRes.json()
-      setRecords(recordsJson.data || [])
-      setSummary(recordsJson.summary || summary)
+      await refreshRecords()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to update record')
     } finally {
@@ -239,10 +263,7 @@ export default function DataEntryPage() {
       }
       
       // Refresh records
-      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
-      const recordsJson = await recordsRes.json()
-      setRecords(recordsJson.data || [])
-      setSummary(recordsJson.summary || summary)
+      await refreshRecords()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete record')
     }
@@ -276,8 +297,7 @@ export default function DataEntryPage() {
 
   // Commit all pending changes (INSERT, UPDATE, DELETE with status='pending')
   const handleCommitAllChanges = async () => {
-    const pendingRecords = records.filter(r => r.validation_status === 'pending')
-    if (pendingRecords.length === 0) {
+    if (summary.draft === 0) {
       alert('No pending changes to commit.')
       return
     }
@@ -286,22 +306,29 @@ export default function DataEntryPage() {
   }
 
   const handleConfirmCommit = async () => {
+    // For 'selected' mode: send specific IDs
+    // For 'all' mode: don't send change_ids - API will commit ALL pending records
     const idsToCommit = commitMode === 'selected' 
       ? Array.from(selectedRecordIds)
-      : records.filter(r => r.validation_status === 'pending').map(r => r.id)
+      : null // null means commit ALL pending for this entity
     
-    if (idsToCommit.length === 0) return
+    if (commitMode === 'selected' && (!idsToCommit || idsToCommit.length === 0)) return
     
     try {
       setIsCommitting(true)
+      const requestBody: Record<string, unknown> = {
+        entity_id: selectedEntityId,
+        description: commitMessage || null
+      }
+      // Only include change_ids for selected mode
+      if (idsToCommit) {
+        requestBody.change_ids = idsToCommit
+      }
+      
       const res = await fetch('/api/commits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entity_id: selectedEntityId,
-          change_ids: idsToCommit,
-          description: commitMessage || null
-        })
+        body: JSON.stringify(requestBody)
       })
       const result = await res.json()
       if (!res.ok) {
@@ -312,10 +339,7 @@ export default function DataEntryPage() {
       setCommitDialogOpen(false)
       setCommitMessage('')
       // Refresh records
-      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
-      const recordsJson = await recordsRes.json()
-      setRecords(recordsJson.data || [])
-      setSummary(recordsJson.summary || summary)
+      await refreshRecords()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to commit records')
     } finally {
@@ -330,7 +354,7 @@ export default function DataEntryPage() {
     if (selectedRecordIds.size === 0) return
     
     const selectedRecords = records.filter(r => selectedRecordIds.has(r.id))
-    const pendingCount = selectedRecords.filter(r => r.validation_status === 'pending').length
+    const pendingCount = selectedRecords.filter(isPending).length
     const loadedCount = selectedRecords.filter(r => r.validation_status === 'loaded').length
     
     let confirmMessage = `Delete ${selectedRecordIds.size} selected records?\n\n`
@@ -369,10 +393,7 @@ export default function DataEntryPage() {
       
       // Clear selection and refresh
       setSelectedRecordIds(new Set())
-      const recordsRes = await fetch(`/api/records?entity_id=${selectedEntityId}`)
-      const recordsJson = await recordsRes.json()
-      setRecords(recordsJson.data || [])
-      setSummary(recordsJson.summary || summary)
+      await refreshRecords()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete records')
     } finally {
@@ -481,8 +502,8 @@ export default function DataEntryPage() {
           description={`No staged records found for ${selectedEntity?.name || 'this entity'}.`}
         />
       ) : (
-        <div className="data-table-container">
-          <HTMLTable striped interactive style={{ width: '100%' }}>
+        <div className="data-table-container" style={{ overflowX: 'auto' }}>
+          <HTMLTable striped interactive style={{ width: '100%', minWidth: 900 }}>
             <thead>
               <tr>
                 <th style={{ width: 40 }}>
@@ -535,7 +556,7 @@ export default function DataEntryPage() {
                           minimal 
                           small 
                           icon="trash" 
-                          title={record.validation_status === 'pending' ? 'Delete' : 'Create DELETE operation'}
+                          title={isPending(record) ? 'Delete' : 'Create DELETE operation'}
                           intent="danger" 
                           onClick={() => handleDeleteRecord(record.id, record.validation_status !== 'pending')}
                         />
@@ -548,21 +569,74 @@ export default function DataEntryPage() {
           </div>
         )}
 
+      {/* Pagination Controls */}
+      <div style={{ marginTop: 12, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: '1px solid #e1e8ed' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="text-muted" style={{ fontSize: 12 }}>
+            Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords.toLocaleString()} records
+          </span>
+          <HTMLSelect
+            value={pageSize}
+            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+            options={[
+              { value: 25, label: '25 per page' },
+              { value: 50, label: '50 per page' },
+              { value: 100, label: '100 per page' },
+              { value: 200, label: '200 per page' }
+            ]}
+            style={{ fontSize: 12 }}
+          />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Button
+            small
+            icon="double-chevron-left"
+            disabled={currentPage === 1 || loading}
+            onClick={() => setCurrentPage(1)}
+            title="First page"
+          />
+          <Button
+            small
+            icon="chevron-left"
+            disabled={currentPage === 1 || loading}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            title="Previous page"
+          />
+          <span style={{ padding: '0 12px', fontSize: 12 }}>
+            Page {currentPage} of {Math.ceil(totalRecords / pageSize) || 1}
+          </span>
+          <Button
+            small
+            icon="chevron-right"
+            disabled={currentPage >= Math.ceil(totalRecords / pageSize) || loading}
+            onClick={() => setCurrentPage(p => p + 1)}
+            title="Next page"
+          />
+          <Button
+            small
+            icon="double-chevron-right"
+            disabled={currentPage >= Math.ceil(totalRecords / pageSize) || loading}
+            onClick={() => setCurrentPage(Math.ceil(totalRecords / pageSize))}
+            title="Last page"
+          />
+        </div>
+      </div>
+
       <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="text-muted" style={{ fontSize: 11 }}>
-          {filteredRecords.length} records{selectedRecordIds.size > 0 && ` (${selectedRecordIds.size} selected)`}
-          {records.filter(r => r.validation_status === 'pending').length > 0 && 
-            ` • ${records.filter(r => r.validation_status === 'pending').length} pending changes`}
+          {selectedRecordIds.size > 0 && `${selectedRecordIds.size} selected • `}
+          {summary.draft > 0 && 
+            `${summary.draft.toLocaleString()} pending changes (total)`}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
           <Button 
             icon="git-commit" 
             intent="primary"
-            disabled={records.filter(r => r.validation_status === 'pending').length === 0}
+            disabled={summary.draft === 0}
             loading={isCommitting}
             onClick={handleCommitAllChanges}
           >
-            Commit All Changes ({records.filter(r => r.validation_status === 'pending').length})
+            Commit All Changes ({summary.draft.toLocaleString()})
           </Button>
           <Button 
             icon="git-commit" 
@@ -693,7 +767,7 @@ export default function DataEntryPage() {
           <Callout intent="primary" icon="info-sign" style={{ marginBottom: 15 }}>
             {commitMode === 'selected' 
               ? `You are about to commit ${selectedRecordIds.size} selected record(s).`
-              : `You are about to commit ${records.filter(r => r.validation_status === 'pending').length} pending change(s).`
+              : `You are about to commit ${summary.draft.toLocaleString()} pending change(s).`
             }
           </Callout>
           <FormGroup 

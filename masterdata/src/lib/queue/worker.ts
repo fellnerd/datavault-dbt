@@ -7,16 +7,65 @@
 
 // Load .env.local for standalone worker process
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import path from 'path';
+
+// Use absolute path to ensure .env.local is found regardless of cwd
+const envPath = path.resolve(__dirname, '../../../.env.local');
+console.log(`📁 Loading env from: ${envPath}`);
+dotenv.config({ path: envPath });
+
+// Debug: Check if MDS credentials are loaded
+console.log(`🔐 MDS_DB_USER: ${process.env.MDS_DB_USER ? 'SET' : 'NOT SET'}`);
+console.log(`🔐 MDS_DB_PASSWORD: ${process.env.MDS_DB_PASSWORD ? 'SET (hidden)' : 'NOT SET'}`);
 
 import { Worker, Job } from 'bullmq';
 import { spawn, ChildProcess } from 'child_process';
+import sql from 'mssql';
 import { 
   getRedisConfig, 
   QUEUE_NAMES, 
   MdsJobData, 
   JobProgress 
 } from './config';
+
+// Database connection pool for worker
+let dbPool: sql.ConnectionPool | null = null;
+
+async function getDbPool(): Promise<sql.ConnectionPool> {
+  if (dbPool && dbPool.connected) {
+    return dbPool;
+  }
+  
+  const config: sql.config = {
+    server: process.env.DB_SERVER || 'sql-datavault-weu-001.database.windows.net',
+    database: process.env.DB_NAME || 'Vault',
+    options: {
+      encrypt: true,
+      trustServerCertificate: false,
+      requestTimeout: 300000, // 5 min for bulk operations
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      idleTimeoutMillis: 60000,
+    },
+  };
+  
+  // Use SQL Auth if credentials provided, else Azure AD
+  if (process.env.DB_USER && process.env.DB_PASSWORD) {
+    config.user = process.env.DB_USER;
+    config.password = process.env.DB_PASSWORD;
+  } else {
+    config.authentication = {
+      type: 'azure-active-directory-default',
+      options: { clientId: process.env.AZURE_CLIENT_ID },
+    };
+  }
+  
+  dbPool = await sql.connect(config);
+  console.log('✅ Worker DB connected:', config.database);
+  return dbPool;
+}
 
 // Worker-spezifische Handler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +75,7 @@ const jobHandlers: Record<string, (job: Job<MdsJobData>) => Promise<any>> = {
   'validate': handleValidate,
   'deploy': handleDeploy,
   'schema-deploy': handleSchemaDeploy,
+  'bulk-commit': handleBulkCommit,
   'import': handleImport,
   'export': handleExport,
 };
@@ -223,10 +273,187 @@ async function handleDeploy(job: Job<MdsJobData>): Promise<void> {
  */
 async function handleImport(job: Job<MdsJobData>): Promise<void> {
   const { target, params } = job.data;
+  const logs: string[] = [];
   
-  await updateProgress(job, 0, 'Starting import...', [`Importing: ${target}`]);
+  // Check if this is a Data Vault import (entity_id provided) or file import
+  const entityId = params?.entity_id as number | undefined;
   
-  // Parse file path from params
+  if (entityId) {
+    // Data Vault Import via dbt run-operation
+    await handleDataVaultImport(job, entityId, logs);
+  } else {
+    // Legacy file import (CSV/Excel)
+    await handleFileImport(job, target, params, logs);
+  }
+}
+
+/**
+ * Data Vault Import via dbt run-operation
+ * 
+ * WICHTIG: Verwendet das MDS dbt-Projekt (masterdata/dbt) für die Import-Makros,
+ * nicht das geklonte Data Vault Projekt. Die profiles.yml wird vom Connect-Flow
+ * generiert und enthält die Verbindungsdaten zur Data Vault Datenbank.
+ */
+async function handleDataVaultImport(
+  job: Job<MdsJobData>, 
+  entityId: number, 
+  logs: string[]
+): Promise<void> {
+  await updateProgress(job, 0, 'Starting Data Vault import...', [
+    `Entity ID: ${entityId}`,
+    '🔄 Initializing dbt environment'
+  ]);
+
+  // MDS dbt project path - contains the import_from_datavault macro
+  const mdsDbtPath = process.env.MDS_DBT_PATH || '/home/user/projects/datavault-dbt/masterdata/dbt';
+  
+  // Import source path (cloned Data Vault project) - used for profiles.yml
+  const importSourcePath = process.env.DBT_IMPORT_SOURCE_PATH || '/tmp/mds-dbt-source';
+  
+  logs.push(`📁 MDS dbt project: ${mdsDbtPath}`);
+  logs.push(`📁 Import source (profiles): ${importSourcePath}`);
+  await updateProgress(job, 10, 'Checking dbt project...', logs);
+
+  // MDS dbt project uses its own profiles.yml with profile name "mds"
+  // The import_from_datavault macro runs in MDS context and connects to MDS database
+  const fs = require('fs');
+  const mdsDbtProfilesPath = `${mdsDbtPath}/profiles.yml`;
+  
+  // Always use MDS dbt profiles - the macro runs in MDS context
+  const profilesDir = mdsDbtPath;
+  
+  if (!fs.existsSync(mdsDbtProfilesPath)) {
+    throw new Error(`MDS profiles.yml not found at ${mdsDbtProfilesPath}`);
+  }
+  
+  logs.push(`📄 Using MDS profiles.yml`);
+
+  // Check if dbt_packages exists in MDS dbt project, if not run dbt deps
+  const dbtPackagesPath = `${mdsDbtPath}/dbt_packages`;
+  if (!fs.existsSync(dbtPackagesPath)) {
+    logs.push(`📦 Installing dbt packages for MDS project...`);
+    await updateProgress(job, 15, 'Installing dbt packages...', logs);
+    
+    const depsProc = spawn('dbt', ['deps', '--profiles-dir', profilesDir], {
+      cwd: mdsDbtPath,
+      shell: true,
+      env: { ...process.env }
+    });
+    
+    await new Promise<void>((resolve, reject) => {
+      depsProc.stdout?.on('data', (data) => {
+        const lines = data.toString().split('\n').filter((l: string) => l.trim());
+        for (const line of lines) {
+          logs.push(line);
+          console.log(`[${job.id}] ${line}`);
+        }
+      });
+      depsProc.stderr?.on('data', (data) => {
+        const lines = data.toString().split('\n').filter((l: string) => l.trim());
+        for (const line of lines) {
+          logs.push(line);
+          console.log(`[${job.id}] ${line}`);
+        }
+      });
+      depsProc.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`dbt deps failed with exit code ${code}`));
+      });
+      depsProc.on('error', reject);
+    });
+  }
+
+  // Build dbt command args - use YAML format for dbt run-operation
+  // Format: '{entity_id: 4}' (not JSON)
+  const dbtArgs = `{entity_id: ${entityId}}`;
+  
+  logs.push(`🚀 Running: dbt run-operation import_from_datavault`);
+  logs.push(`   Args: ${dbtArgs}`);
+  logs.push(`   Working dir: ${mdsDbtPath}`);
+  logs.push(`   Profiles dir: ${profilesDir}`);
+  await updateProgress(job, 20, 'Executing dbt operation...', logs);
+
+  try {
+    // Execute dbt command with spawn in MDS dbt project directory
+    // The import_from_datavault macro is defined in masterdata/dbt/macros/
+    const proc = spawn('dbt', [
+      'run-operation', 'import_from_datavault',
+      '--args', `'${dbtArgs}'`,
+      '--profiles-dir', profilesDir
+    ], {
+      cwd: mdsDbtPath,  // Use MDS dbt project, not the cloned Data Vault project
+      shell: true,
+      env: { ...process.env }
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    await new Promise<void>((resolve, reject) => {
+      proc.stdout?.on('data', (data) => {
+        const text = data.toString();
+        stdout += text;
+        const lines = text.split('\n').filter((l: string) => l.trim());
+        for (const line of lines) {
+          logs.push(line);
+          console.log(`[${job.id}] ${line}`);
+        }
+      });
+
+      proc.stderr?.on('data', (data) => {
+        const text = data.toString();
+        stderr += text;
+        const lines = text.split('\n').filter((l: string) => l.trim());
+        for (const line of lines) {
+          logs.push(`[stderr] ${line}`);
+          console.log(`[${job.id}] [stderr] ${line}`);
+        }
+      });
+
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(`dbt run-operation failed with exit code ${code}: ${stderr || stdout}`));
+        } else {
+          resolve();
+        }
+      });
+
+      proc.on('error', (err) => {
+        reject(err);
+      });
+    });
+
+    await updateProgress(job, 80, 'Processing results...', logs);
+
+    logs.push('✅ dbt operation completed successfully');
+    
+    // Parse output for record count if available
+    const recordMatch = stdout.match(/Imported (\d+) records/);
+    if (recordMatch) {
+      logs.push(`📊 Imported ${recordMatch[1]} records`);
+    }
+
+    await updateProgress(job, 100, 'Import completed', logs);
+    
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    logs.push(`❌ Error: ${errorMsg}`);
+    await updateProgress(job, -1, 'Import failed', logs);
+    throw error;
+  }
+}
+
+/**
+ * Legacy file import (CSV/Excel)
+ */
+async function handleFileImport(
+  job: Job<MdsJobData>,
+  target: string,
+  params: Record<string, unknown> | undefined,
+  logs: string[]
+): Promise<void> {
+  await updateProgress(job, 0, 'Starting file import...', [`Importing: ${target}`]);
+  
   const filePath = params?.filePath as string;
   
   await delay(1000);
@@ -258,6 +485,104 @@ async function handleExport(job: Job<MdsJobData>): Promise<void> {
     'Export file created',
     `Format: ${params?.format || 'csv'}`,
   ]);
+}
+
+/**
+ * Bulk Commit Handler
+ * Commits alle PENDING Records für eine Entity in Batches
+ */
+async function handleBulkCommit(job: Job<MdsJobData>): Promise<{ committed: number }> {
+  // Debug: Log incoming job data
+  console.log('🔍 handleBulkCommit job.data:', JSON.stringify(job.data, null, 2));
+  
+  // entityId and commitId come from params (passed via addJob)
+  const entityId = job.data.entityId || (job.data.params?.entityId as number);
+  const commitId = job.data.commitId || (job.data.params?.commitId as number);
+  const description = job.data.description || (job.data.params?.description as string);
+  
+  console.log('🔍 Extracted values:', { entityId, commitId, description });
+  
+  if (!entityId || !commitId) {
+    throw new Error(`entityId and commitId are required for bulk-commit. Got: entityId=${entityId}, commitId=${commitId}`);
+  }
+
+  const logs: string[] = [];
+  const BATCH_SIZE = 5000;
+  
+  await updateProgress(job, 0, 'Starting bulk commit...', [
+    `Entity ID: ${entityId}`,
+    `Commit ID: ${commitId}`,
+    `Batch size: ${BATCH_SIZE}`
+  ]);
+
+  const pool = await getDbPool();
+  
+  // Step 1: Count pending records
+  const countResult = await pool.request()
+    .input('entityId', entityId)
+    .query(`
+      SELECT COUNT(*) as total 
+      FROM [mds_stage].[staged_record] 
+      WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL
+    `);
+  
+  const totalRecords = countResult.recordset[0]?.total || 0;
+  
+  if (totalRecords === 0) {
+    await updateProgress(job, 100, 'No pending records', ['No records to commit']);
+    return { committed: 0 };
+  }
+
+  logs.push(`📊 Found ${totalRecords.toLocaleString()} pending records`);
+  await updateProgress(job, 5, `Found ${totalRecords.toLocaleString()} records`, logs);
+
+  // Step 2: Process in batches using TOP + UPDATE
+  let processed = 0;
+  let batchNum = 0;
+  const totalBatches = Math.ceil(totalRecords / BATCH_SIZE);
+
+  while (processed < totalRecords) {
+    batchNum++;
+    
+    // Update batch of records - use TOP to limit
+    const updateResult = await pool.request()
+      .input('commitId', commitId)
+      .input('entityId', entityId)
+      .input('batchSize', BATCH_SIZE)
+      .query(`
+        UPDATE TOP (@batchSize) [mds_stage].[staged_record]
+        SET commit_id = @commitId, status = 'COMMITTED'
+        WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL
+      `);
+    
+    const rowsAffected = updateResult.rowsAffected[0] || 0;
+    processed += rowsAffected;
+    
+    const percent = Math.min(95, Math.round((processed / totalRecords) * 90) + 5);
+    logs.push(`✓ Batch ${batchNum}/${totalBatches}: ${rowsAffected.toLocaleString()} records`);
+    await updateProgress(job, percent, `Batch ${batchNum}/${totalBatches}`, logs);
+    
+    // If no rows affected, we're done
+    if (rowsAffected === 0) break;
+    
+    // Small delay between batches to avoid overwhelming the DB
+    await delay(100);
+  }
+
+  // Step 3: Update commit record_count and status to 'pending' (ready for approval)
+  await pool.request()
+    .input('commitId', commitId)
+    .input('recordCount', processed)
+    .query(`
+      UPDATE [mds_stage].[commit]
+      SET record_count = @recordCount, status = 'pending'
+      WHERE id = @commitId
+    `);
+
+  logs.push(`✅ Commit completed: ${processed.toLocaleString()} records`);
+  await updateProgress(job, 100, 'Bulk commit completed', logs);
+
+  return { committed: processed };
 }
 
 /**
@@ -322,6 +647,9 @@ async function handleSchemaDeploy(job: Job<MdsJobData>): Promise<void> {
       logs.push(`📋 Selecting models: ${modelSelector}`);
     }
     
+    // Use dbt from venv with sqlserver adapter
+    const dbtCmd = process.env.DBT_CMD || '/home/user/projects/datavault-dbt/.venv/bin/dbt';
+    
     const dbtArgs = [
       'run',
       '--profiles-dir', process.env.DBT_PROFILES_DIR || '/app/dbt',
@@ -330,7 +658,7 @@ async function handleSchemaDeploy(job: Job<MdsJobData>): Promise<void> {
       '--select', modelSelector
     ];
 
-    const dbtResult = await runCommandWithStreaming('dbt', dbtArgs, job, logs);
+    const dbtResult = await runCommandWithStreaming(dbtCmd, dbtArgs, job, logs);
 
     if (dbtResult.exitCode !== 0) {
       throw new Error(`dbt run failed with exit code ${dbtResult.exitCode}\n${dbtResult.stderr}`);
@@ -452,17 +780,31 @@ async function executeDbtCommand(job: Job<MdsJobData>, args: string[]): Promise<
     const dbtProjectPath = process.env.DBT_PROJECT_PATH || 
       '/home/user/projects/datavault-dbt/masterdata/dbt';
     
-    console.log(`[${job.id}] Running dbt in ${dbtProjectPath}: dbt ${args.join(' ')}`);
+    // Use dbt from the project's virtual environment
+    const dbtCommand = process.env.DBT_COMMAND || 
+      '/home/user/projects/datavault-dbt/.venv/bin/dbt';
     
-    const dbtProcess = spawn('dbt', args, {
+    // Get credentials from environment
+    const mdsUser = process.env.MDS_DB_USER || process.env.DB_USER;
+    const mdsPassword = process.env.MDS_DB_PASSWORD || process.env.DB_PASSWORD;
+    
+    console.log(`[${job.id}] Running dbt in ${dbtProjectPath}: ${dbtCommand} ${args.join(' ')}`);
+    console.log(`[${job.id}] MDS_DB_USER: ${mdsUser ? mdsUser : 'NOT SET'}`);
+    console.log(`[${job.id}] MDS_DB_PASSWORD: ${mdsPassword ? '***SET***' : 'NOT SET'}`);
+    
+    // Build environment - use spawn without shell to avoid escaping issues
+    // The env option passes variables directly to the child process
+    const dbtEnv = {
+      ...process.env,
+      MDS_DB_USER: mdsUser,
+      MDS_DB_PASSWORD: mdsPassword,
+    };
+    
+    // Don't use shell: true - pass args directly to avoid shell escaping issues
+    const dbtProcess = spawn(dbtCommand, args, {
       cwd: dbtProjectPath,
-      shell: true,
-      env: {
-        ...process.env,
-        // Ensure dbt env vars are set
-        MDS_DB_USER: process.env.MDS_DB_USER,
-        MDS_DB_PASSWORD: process.env.MDS_DB_PASSWORD,
-      }
+      env: dbtEnv,
+      shell: false
     });
 
     const allLogs: string[] = [];

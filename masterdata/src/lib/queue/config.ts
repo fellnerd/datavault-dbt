@@ -67,6 +67,7 @@ export type JobType =
   | 'validate'
   | 'deploy'
   | 'schema-deploy'
+  | 'bulk-commit'
   | 'import'
   | 'export';
 
@@ -82,6 +83,8 @@ export interface MdsJobData {
   entityCodes?: string[];      // For schema/data-deploy: list of entity codes (for dbt selectors)
   deploymentId?: string;       // For schema/data-deploy: tracking ID
   commitIds?: number[];        // For data-deploy: list of commit IDs
+  commitId?: number;           // For bulk-commit: the commit ID to populate
+  description?: string;        // For bulk-commit: commit description
   params?: Record<string, unknown>;
   createdAt: string;
 }
@@ -117,6 +120,7 @@ export const JOB_TYPE_OPTIONS: Record<JobType, { timeout: number; priority: numb
   'validate': { timeout: 10 * 60 * 1000, priority: 1 },      // 10 min, highest priority
   'deploy': { timeout: 60 * 60 * 1000, priority: 4 },        // 1 hour
   'schema-deploy': { timeout: 30 * 60 * 1000, priority: 2 }, // 30 min for generate_models + dbt
+  'bulk-commit': { timeout: 30 * 60 * 1000, priority: 1 },   // 30 min, high priority
   'import': { timeout: 30 * 60 * 1000, priority: 2 },        // 30 min
   'export': { timeout: 15 * 60 * 1000, priority: 3 },        // 15 min
 };

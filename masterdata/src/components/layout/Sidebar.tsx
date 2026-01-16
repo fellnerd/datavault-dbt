@@ -60,7 +60,11 @@ const navigation: NavSection[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { theme, toggleTheme } = useTheme()
+  const { theme, toggleTheme, mounted } = useTheme()
+
+  // Determine icon and text - use consistent defaults before mount to avoid hydration mismatch
+  const themeIcon = mounted ? (theme === 'dark' ? 'flash' : 'moon') : 'moon'
+  const themeText = mounted ? (theme === 'dark' ? 'Light Mode' : 'Dark Mode') : 'Dark Mode'
 
   return (
     <aside className="sidebar">
@@ -97,9 +101,9 @@ export function Sidebar() {
       <div className="sidebar-footer">
         <Button
           minimal
-          icon={theme === 'dark' ? 'flash' : 'moon'}
+          icon={themeIcon}
           onClick={toggleTheme}
-          text={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          text={themeText}
           fill
         />
       </div>

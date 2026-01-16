@@ -20,6 +20,7 @@ const config: sql.config = {
   options: {
     encrypt: true,
     trustServerCertificate: false,
+    requestTimeout: 120000, // 2 minutes for bulk operations
   },
   pool: {
     max: 10,

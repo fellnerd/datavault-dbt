@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { dbQuery, dbExecute } from '@/lib/db-server'
 import { logger } from '@/lib/logger'
+import { addJob } from '@/lib/queue/queue'
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -218,51 +219,99 @@ export async function POST(request: NextRequest) {
       }, { status: 201 })
     }
     
-    // Option 2: Commit all draft records for this entity (original behavior)
-    // Check if there are draft records to commit
-    const draftRecords = await dbQuery<{ count: number }>(
+    // Option 2: Commit ALL pending records for this entity (no commit_id yet)
+    // Check if there are pending staged_records without a commit
+    const pendingRecords = await dbQuery<{ count: number }>(
       `SELECT COUNT(*) as count 
-       FROM [mds_stage].[staged_record] r
-       JOIN [mds_stage].[commit] c ON c.id = r.commit_id
-       WHERE c.entity_id = @entityId AND c.status = 'draft'`,
+       FROM [mds_stage].[staged_record] 
+       WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL`,
       { entityId: entity_id }
     )
     
-    if (draftRecords[0].count === 0) {
+    if (pendingRecords[0].count === 0) {
       return NextResponse.json(
-        { error: 'No draft records to commit' },
+        { error: 'No pending records to commit' },
         { status: 400 }
       )
     }
     
-    // Update the draft commit to pending
+    const pendingCount = pendingRecords[0].count
+    
+    // For large commits (> 1000 records), use background job
+    const USE_BACKGROUND_JOB = pendingCount > 1000
+    
+    // Create a new commit record first (status='processing' for background, 'pending' for sync)
+    const commitStatus = USE_BACKGROUND_JOB ? 'processing' : 'pending'
     await dbExecute(
-      `UPDATE [mds_stage].[commit] 
-       SET status = 'pending', 
-           code = @code, 
-           description = @description,
-           record_count = (
-             SELECT COUNT(*) FROM [mds_stage].[staged_record] 
-             WHERE commit_id = [mds_stage].[commit].id
-           )
-       WHERE entity_id = @entityId AND status = 'draft'`,
+      `INSERT INTO [mds_stage].[commit] (entity_id, code, description, status, record_count, created_at, created_by)
+       VALUES (@entityId, @code, @description, @status, @recordCount, GETUTCDATE(), @createdBy)`,
       { 
         entityId: entity_id,
         code,
-        description: description || null
+        description: description || null,
+        status: commitStatus,
+        recordCount: pendingCount,
+        createdBy: created_by
       }
     )
     
-    // Fetch the updated commit
-    const updated = await dbQuery<Commit>(
-      `SELECT c.*, e.code AS entity_code, e.name AS entity_name
-       FROM [mds_stage].[commit] c
-       INNER JOIN [mds_meta].[entity] e ON e.id = c.entity_id
-       WHERE c.code = @code`,
+    // Get the new commit ID
+    const newCommit = await dbQuery<{ id: number }>(
+      `SELECT id FROM [mds_stage].[commit] WHERE code = @code`,
       { code }
     )
     
-    return NextResponse.json(updated[0], { status: 201 })
+    if (newCommit.length === 0) {
+      throw new Error('Failed to create commit')
+    }
+    
+    const commitId = newCommit[0].id
+    
+    if (USE_BACKGROUND_JOB) {
+      // Queue background job for large commits
+      const job = await addJob(
+        'bulk-commit',
+        `commit-${commitId}`,
+        created_by,
+        created_by,
+        { entityId: entity_id, commitId: commitId, description: description || undefined }
+      )
+      
+      logger.info({ commitId, pendingCount, jobId: job.id }, 'Queued bulk commit job')
+      
+      return NextResponse.json({
+        id: commitId,
+        code,
+        status: 'processing',
+        record_count: pendingCount,
+        job_id: job.id,
+        message: `Bulk commit queued for ${pendingCount.toLocaleString()} records. Check Jobs page for progress.`
+      }, { status: 202 }) // 202 Accepted
+    }
+    
+    // For small commits, do it synchronously
+    await dbExecute(
+      `UPDATE [mds_stage].[staged_record] 
+       SET commit_id = @commitId, status = 'COMMITTED'
+       WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL`,
+      { commitId, entityId: entity_id }
+    )
+    
+    // Fetch the created commit
+    const result = await dbQuery<Commit>(
+      `SELECT c.*, e.code AS entity_code, e.name AS entity_name
+       FROM [mds_stage].[commit] c
+       INNER JOIN [mds_meta].[entity] e ON e.id = c.entity_id
+       WHERE c.id = @commitId`,
+      { commitId }
+    )
+    
+    logger.info({ commitId, recordCount: pendingCount }, 'Created commit for all pending records')
+    
+    return NextResponse.json({
+      ...result[0],
+      committed_count: pendingCount
+    }, { status: 201 })
   } catch (error) {
     logger.error({ error }, 'Failed to create commit')
     return NextResponse.json(

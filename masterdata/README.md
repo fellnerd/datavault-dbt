@@ -21,8 +21,12 @@ Eine moderne Master Data Management Lösung basierend auf Next.js und Blueprint.
 ## 🛠 Installation
 
 ```bash
+# Kill
+pkill -f "npm" 2>/dev/null; pkill -f "next" 2>/dev/null; echo "Done"
+
 # Dependencies installieren
 npm install --legacy-peer-deps
+
 
 # Umgebungsvariablen konfigurieren
 cp .env.example .env.local

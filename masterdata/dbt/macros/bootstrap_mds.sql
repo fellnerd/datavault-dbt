@@ -58,6 +58,12 @@ CREATE TABLE mds_meta.entity (
     status NVARCHAR(20) NOT NULL DEFAULT 'draft',
     scd_type NVARCHAR(10) NOT NULL DEFAULT 'SCD2',  -- 'SCD1' or 'SCD2'
     primary_key_attribute NVARCHAR(100) NULL,
+    -- Import-Konfiguration (Data Vault → MDS)
+    import_source_object NVARCHAR(255) NULL,        -- z.B. 'vault.hub_company'
+    import_column_mapping NVARCHAR(MAX) NULL,       -- JSON: {"mds_attr": "dv_column"}
+    import_filter NVARCHAR(MAX) NULL,               -- WHERE-Bedingung
+    import_schedule NVARCHAR(100) NULL,             -- Cron-Expression
+    last_import_at DATETIME2 NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     created_by NVARCHAR(100) NOT NULL DEFAULT 'system',
     updated_at DATETIME2,
@@ -222,6 +228,59 @@ CREATE TABLE mds_meta.schema_deployment (
 );
 {% endset %}
 
+{% set import_source_sql %}
+-- mds_meta.import_source Tabelle (Data Vault Import-Konfiguration)
+IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = 'mds_meta' AND t.name = 'import_source')
+CREATE TABLE mds_meta.import_source (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(100) NOT NULL DEFAULT 'default',
+    git_url NVARCHAR(500) NULL,
+    git_branch NVARCHAR(100) NOT NULL DEFAULT 'main',
+    dbt_project_path NVARCHAR(500) NOT NULL DEFAULT '/',
+    dbt_target NVARCHAR(100) NULL,
+    local_path NVARCHAR(500) NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'disconnected',
+    last_connected_at DATETIME2 NULL,
+    error_message NVARCHAR(MAX) NULL,
+    project_name NVARCHAR(100) NULL,
+    models_json NVARCHAR(MAX) NULL,
+    -- dbt Profile Connection Settings
+    profile_name NVARCHAR(100) NULL,
+    db_server NVARCHAR(500) NULL,
+    db_port INT NULL DEFAULT 1433,
+    db_database NVARCHAR(100) NULL,
+    db_schema NVARCHAR(100) NULL DEFAULT 'dbo',
+    db_auth_type NVARCHAR(20) NULL DEFAULT 'sql',
+    db_user NVARCHAR(100) NULL,
+    db_password NVARCHAR(500) NULL,
+    db_encrypt BIT NULL DEFAULT 1,
+    db_trust_cert BIT NULL DEFAULT 0,
+    created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    updated_at DATETIME2 NULL,
+    CONSTRAINT CK_import_source_status CHECK (status IN ('disconnected', 'connecting', 'connected', 'error')),
+    CONSTRAINT CK_import_source_auth_type CHECK (db_auth_type IN ('sql', 'cli', 'msi', 'auto'))
+);
+
+-- Neue Spalten hinzufügen falls Tabelle schon existiert
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('mds_meta.import_source') AND name = 'profile_name')
+BEGIN
+    ALTER TABLE mds_meta.import_source ADD profile_name NVARCHAR(100) NULL;
+    ALTER TABLE mds_meta.import_source ADD db_server NVARCHAR(500) NULL;
+    ALTER TABLE mds_meta.import_source ADD db_port INT NULL DEFAULT 1433;
+    ALTER TABLE mds_meta.import_source ADD db_database NVARCHAR(100) NULL;
+    ALTER TABLE mds_meta.import_source ADD db_schema NVARCHAR(100) NULL DEFAULT 'dbo';
+    ALTER TABLE mds_meta.import_source ADD db_auth_type NVARCHAR(20) NULL DEFAULT 'sql';
+    ALTER TABLE mds_meta.import_source ADD db_user NVARCHAR(100) NULL;
+    ALTER TABLE mds_meta.import_source ADD db_password NVARCHAR(500) NULL;
+    ALTER TABLE mds_meta.import_source ADD db_encrypt BIT NULL DEFAULT 1;
+    ALTER TABLE mds_meta.import_source ADD db_trust_cert BIT NULL DEFAULT 0;
+END
+
+-- Default-Eintrag wenn nicht vorhanden
+IF NOT EXISTS (SELECT 1 FROM mds_meta.import_source WHERE name = 'default')
+INSERT INTO mds_meta.import_source (name) VALUES ('default');
+{% endset %}
+
 {% set job_sql %}
 -- mds_meta.job Tabelle (Job-History für Audit-Zwecke)
 IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE s.name = 'mds_meta' AND t.name = 'job')
@@ -292,6 +351,9 @@ CREATE INDEX IX_job_type_status ON mds_meta.job([type], status);
 
 {{ log("Creating mds_meta.schema_deployment table...", info=True) }}
 {% do run_query(schema_deployment_sql) %}
+
+{{ log("Creating mds_meta.import_source table...", info=True) }}
+{% do run_query(import_source_sql) %}
 
 {{ log("Creating mds_meta.job table...", info=True) }}
 {% do run_query(job_sql) %}

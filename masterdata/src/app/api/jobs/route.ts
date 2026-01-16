@@ -79,10 +79,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, target, params } = body;
+    const { type, target, params, scheduled } = body;
 
     // Validate job type
-    const validTypes: JobType[] = ['dbt-run', 'dbt-test', 'validate', 'deploy', 'import', 'export'];
+    const validTypes: JobType[] = ['dbt-run', 'dbt-test', 'validate', 'deploy', 'import', 'export', 'schema-deploy'];
     if (!validTypes.includes(type)) {
       return NextResponse.json(
         { error: `Invalid job type: ${type}` },
@@ -90,18 +90,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Add job to queue
+    // Add job to queue (paused if scheduled=true)
     const job = await addJob(
       type,
       target || '*',
       session.user?.id || 'unknown',
       session.user?.name || 'Unknown User',
-      params
+      params,
+      { paused: scheduled === true }
     );
 
     return NextResponse.json({
       success: true,
       job,
+      scheduled: scheduled === true,
     });
   } catch (error) {
     console.error('Failed to create job:', error);

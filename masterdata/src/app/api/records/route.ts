@@ -31,8 +31,57 @@ export async function GET(request: NextRequest) {
     const entityId = searchParams.get('entity_id')
     const commitId = searchParams.get('commit_id')
     const status = searchParams.get('status')
+    const page = parseInt(searchParams.get('page') || '1')
+    const pageSize = parseInt(searchParams.get('pageSize') || '50')
+    const offset = (page - 1) * pageSize
     
-    let sql = `
+    // Build WHERE clause for both count and data queries
+    let whereClause = 'WHERE 1=1'
+    const params: Record<string, unknown> = {}
+    
+    if (entityId) {
+      whereClause += ` AND r.entity_id = @entityId`
+      params.entityId = parseInt(entityId)
+    }
+    
+    if (commitId) {
+      whereClause += ` AND r.commit_id = @commitId`
+      params.commitId = parseInt(commitId)
+    }
+    
+    if (status) {
+      whereClause += ` AND r.status = @status`
+      params.status = status
+    }
+    
+    // Get total count for pagination
+    const countSql = `
+      SELECT COUNT(*) AS total
+      FROM [mds_stage].[staged_record] r
+      ${whereClause}
+    `
+    const countResult = await dbQuery<{ total: number }>(countSql, params)
+    const total = countResult[0]?.total || 0
+    
+    // Get summary counts by status
+    const summarySql = `
+      SELECT 
+        SUM(CASE WHEN r.status = 'PENDING' THEN 1 ELSE 0 END) AS draft,
+        SUM(CASE WHEN r.status = 'VALIDATED' THEN 1 ELSE 0 END) AS validated,
+        SUM(CASE WHEN r.status = 'INVALID' THEN 1 ELSE 0 END) AS invalid
+      FROM [mds_stage].[staged_record] r
+      ${whereClause}
+    `
+    const summaryResult = await dbQuery<{ draft: number; validated: number; invalid: number }>(summarySql, params)
+    const summary = {
+      total,
+      draft: summaryResult[0]?.draft || 0,
+      validated: summaryResult[0]?.validated || 0,
+      invalid: summaryResult[0]?.invalid || 0
+    }
+    
+    // Get paginated data
+    const sql = `
       SELECT 
         r.id,
         r.commit_id,
@@ -50,29 +99,12 @@ export async function GET(request: NextRequest) {
         r.created_by
       FROM [mds_stage].[staged_record] r
       INNER JOIN [mds_meta].[entity] e ON e.id = r.entity_id
-      WHERE 1=1
+      ${whereClause}
+      ORDER BY r.created_at DESC
+      OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
     `
     
-    const params: Record<string, unknown> = {}
-    
-    if (entityId) {
-      sql += ` AND r.entity_id = @entityId`
-      params.entityId = parseInt(entityId)
-    }
-    
-    if (commitId) {
-      sql += ` AND r.commit_id = @commitId`
-      params.commitId = parseInt(commitId)
-    }
-    
-    if (status) {
-      sql += ` AND r.status = @status`
-      params.status = status
-    }
-    
-    sql += ` ORDER BY r.created_at DESC`
-    
-    const results = await dbQuery<StagedRecord>(sql, params)
+    const results = await dbQuery<StagedRecord>(sql, { ...params, offset, pageSize })
     
     // Parse JSON data for each record
     const records = results.map(r => ({
@@ -81,20 +113,13 @@ export async function GET(request: NextRequest) {
       previous_data: r.previous_data ? JSON.parse(r.previous_data) : null
     }))
     
-    // Compute summary stats
-    const draft = records.filter(r => r.validation_status === 'pending').length
-    const validated = records.filter(r => r.validation_status === 'valid').length
-    const invalid = records.filter(r => r.validation_status === 'invalid').length
-    
     return NextResponse.json({
       data: records,
-      total: records.length,
-      summary: {
-        total: records.length,
-        draft,
-        validated,
-        invalid
-      }
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+      summary
     })
   } catch (error) {
     logger.error({ error }, 'Failed to fetch records')

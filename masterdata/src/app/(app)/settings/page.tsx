@@ -33,11 +33,11 @@ export default function SettingsPage() {
     },
     {
       title: 'Data Sources',
-      description: 'Configure data connections and sync settings',
+      description: 'Configure dbt project connection for Data Vault imports',
       icon: 'database',
       href: '/settings/sources',
       color: '#9179f2',
-      disabled: true
+      disabled: false
     },
     {
       title: 'Notifications',

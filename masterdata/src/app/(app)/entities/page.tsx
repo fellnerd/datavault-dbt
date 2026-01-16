@@ -32,12 +32,42 @@ interface Entity {
   attribute_count: number
   created_at: string
   created_by: string
+  // Import configuration
+  import_source_object?: string | null
+  import_column_mapping?: Record<string, string> | null
+  import_filter?: string | null
+  import_schedule?: string | null
+  last_import_at?: string | null
 }
 
 interface Model {
   id: number
   code: string
   name: string
+}
+
+interface DvObject {
+  name: string
+  path: string
+  schema: string
+  materialized: string
+  columns?: string[]
+}
+
+interface DvObjects {
+  hubs: DvObject[]
+  satellites: DvObject[]
+  links: DvObject[]
+  staging: DvObject[]
+  marts: DvObject[]
+}
+
+interface Attribute {
+  id: number
+  code: string
+  name: string
+  data_type: string
+  is_business_key: boolean
 }
 
 export default function EntitiesPage() {
@@ -58,6 +88,20 @@ export default function EntitiesPage() {
     model_id: 0,
     scd_type: 'SCD2' as 'SCD1' | 'SCD2'
   })
+  
+  // Import dialog state
+  const [isImportOpen, setIsImportOpen] = useState(false)
+  const [importEntity, setImportEntity] = useState<Entity | null>(null)
+  const [dvObjects, setDvObjects] = useState<DvObjects | null>(null)
+  const [entityAttributes, setEntityAttributes] = useState<Attribute[]>([])
+  const [importConfig, setImportConfig] = useState({
+    source_object: '',
+    column_mapping: {} as Record<string, string>,
+    filter: '',
+    schedule: ''
+  })
+  const [isSavingImport, setIsSavingImport] = useState(false)
+  const [isImportSourceConnected, setIsImportSourceConnected] = useState(false)
 
   // Fetch entities and models from API
   const fetchData = async () => {
@@ -183,6 +227,144 @@ export default function EntitiesPage() {
     }
   }
 
+  // Import Dialog handlers
+  const handleOpenImport = async (entity: Entity) => {
+    setImportEntity(entity)
+    setIsImportOpen(true)
+    
+    // Load DV objects from import source
+    try {
+      const [sourceRes, objectsRes, attrsRes] = await Promise.all([
+        fetch('/api/settings/import-source'),
+        fetch('/api/settings/import-source/objects'),
+        fetch(`/api/attributes?entity_id=${entity.id}`)
+      ])
+      
+      const sourceData = await sourceRes.json()
+      // API returns object directly (not wrapped in data property)
+      setIsImportSourceConnected(sourceData?.status === 'connected')
+      
+      if (objectsRes.ok) {
+        const objectsData = await objectsRes.json()
+        // API returns { grouped: { hubs, satellites, ... }, objects, count }
+        setDvObjects(objectsData.grouped || null)
+      }
+      
+      if (attrsRes.ok) {
+        const attrsData = await attrsRes.json()
+        setEntityAttributes(attrsData.data || [])
+      }
+      
+      // Load existing import config
+      setImportConfig({
+        source_object: entity.import_source_object || '',
+        column_mapping: entity.import_column_mapping || {},
+        filter: entity.import_filter || '',
+        schedule: entity.import_schedule || ''
+      })
+    } catch (err) {
+      console.error('Failed to load import data:', err)
+    }
+  }
+
+  const handleSaveImport = async () => {
+    if (!importEntity) return
+    
+    try {
+      setIsSavingImport(true)
+      const res = await fetch(`/api/entities/${importEntity.id}/import-mapping`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          import_source_object: importConfig.source_object || null,
+          import_column_mapping: Object.keys(importConfig.column_mapping).length > 0 
+            ? importConfig.column_mapping 
+            : null,
+          import_filter: importConfig.filter || null,
+          import_schedule: importConfig.schedule || null
+        })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to save import mapping')
+      }
+      
+      setIsImportOpen(false)
+      setImportEntity(null)
+      fetchData() // Refresh to show updated import info
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save import mapping')
+    } finally {
+      setIsSavingImport(false)
+    }
+  }
+
+  const handleColumnMappingChange = (attributeCode: string, dvColumn: string) => {
+    setImportConfig(prev => ({
+      ...prev,
+      column_mapping: {
+        ...prev.column_mapping,
+        [attributeCode]: dvColumn
+      }
+    }))
+  }
+
+  // Get columns from selected DV object
+  const getSelectedObjectColumns = (): string[] => {
+    if (!dvObjects || !importConfig.source_object) return []
+    
+    const allObjects = [
+      ...dvObjects.hubs,
+      ...dvObjects.satellites,
+      ...dvObjects.links,
+      ...dvObjects.staging,
+      ...dvObjects.marts
+    ]
+    
+    const selected = allObjects.find(o => o.name === importConfig.source_object)
+    return selected?.columns || []
+  }
+
+  // Schedule import job for an entity (creates as pending, not immediately executed)
+  const handleScheduleImport = async (entity: Entity) => {
+    if (!entity.import_source_object) {
+      alert('Please configure import settings first')
+      return
+    }
+    
+    if (!confirm(`Schedule import from "${entity.import_source_object}" for entity "${entity.name}"?\n\nThe job will be created as pending. You can start it manually from the Jobs page.`)) {
+      return
+    }
+    
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'import',
+          target: entity.code,
+          params: {
+            entity_id: entity.id,
+            source_object: entity.import_source_object
+          },
+          scheduled: true  // Don't execute immediately, just schedule
+        })
+      })
+      
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Failed to schedule import job')
+      }
+      
+      const job = await res.json()
+      alert(`Import job scheduled! Job ID: ${job.id}\n\nGo to Jobs page to start or schedule it.`)
+      router.push('/jobs')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to schedule import')
+    }
+  }
+
   if (loading) {
     return (
       <PageLayout 
@@ -261,8 +443,9 @@ export default function EntitiesPage() {
                   <th>Model</th>
                     <th>Attributes</th>
                     <th>SCD Type</th>
+                    <th>Import</th>
                     <th>Status</th>
-                    <th style={{ width: 120 }}>Actions</th>
+                    <th style={{ width: 150 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -287,6 +470,15 @@ export default function EntitiesPage() {
                         </Tag>
                       </td>
                       <td>
+                        {entity.import_source_object ? (
+                          <Tag minimal intent="primary" icon="import">
+                            {entity.import_source_object}
+                          </Tag>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td>
                         <Tag 
                           minimal 
                           intent={entity.status === 'active' ? 'success' : entity.status === 'draft' ? 'warning' : 'none'}
@@ -298,6 +490,16 @@ export default function EntitiesPage() {
                         <div style={{ display: 'flex', gap: 4 }}>
                           <Button minimal small icon="edit" title="Edit" onClick={() => handleOpenEdit(entity)} />
                           <Button minimal small icon="column-layout" title="Attributes" onClick={() => router.push(`/attributes?entity_id=${entity.id}`)} />
+                          <Button minimal small icon="import" title="Import Config" onClick={() => handleOpenImport(entity)} />
+                          <Button 
+                            minimal 
+                            small 
+                            icon="time" 
+                            title="Schedule Import" 
+                            intent="primary"
+                            disabled={!entity.import_source_object}
+                            onClick={() => handleScheduleImport(entity)} 
+                          />
                           <Button minimal small icon="database" title="Data" onClick={() => router.push(`/data?entity_id=${entity.id}`)} />
                           <Button minimal small icon="trash" title="Delete" intent="danger" onClick={() => handleDeleteEntity(entity.id, entity.code)} />
                         </div>
@@ -422,6 +624,161 @@ export default function EntitiesPage() {
             >
               Save Changes
             </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Import Configuration Dialog */}
+      <Dialog
+        isOpen={isImportOpen}
+        onClose={() => { setIsImportOpen(false); setImportEntity(null); }}
+        title={`Import Configuration: ${importEntity?.name || ''}`}
+        icon="import"
+        style={{ width: 700 }}
+      >
+        <div className="bp5-dialog-body">
+          {!isImportSourceConnected ? (
+            <NonIdealState
+              icon="warning-sign"
+              title="No Import Source Connected"
+              description="Please connect a Data Vault dbt project in Settings → Data Sources first."
+              action={
+                <Button 
+                  intent="primary" 
+                  icon="settings"
+                  onClick={() => router.push('/settings/sources')}
+                >
+                  Go to Settings
+                </Button>
+              }
+            />
+          ) : (
+            <>
+              <FormGroup 
+                label="Source Object" 
+                labelFor="import-source-object" 
+                labelInfo="(required)"
+                helperText="Select the Data Vault object to import from (Hub, Satellite, Link, etc.)"
+              >
+                <HTMLSelect
+                  id="import-source-object"
+                  fill
+                  value={importConfig.source_object}
+                  onChange={(e) => setImportConfig(prev => ({ 
+                    ...prev, 
+                    source_object: e.target.value,
+                    column_mapping: {} // Reset mapping when object changes
+                  }))}
+                  options={[
+                    { value: '', label: '-- Select Object --' },
+                    ...(dvObjects ? [
+                      { value: '', label: '─── Hubs ───', disabled: true },
+                      ...dvObjects.hubs.map(o => ({ value: o.name, label: `hub_${o.name.replace('hub_', '')}` })),
+                      { value: '', label: '─── Satellites ───', disabled: true },
+                      ...dvObjects.satellites.map(o => ({ value: o.name, label: `sat_${o.name.replace('sat_', '')}` })),
+                      { value: '', label: '─── Links ───', disabled: true },
+                      ...dvObjects.links.map(o => ({ value: o.name, label: `link_${o.name.replace('link_', '')}` })),
+                      { value: '', label: '─── Staging ───', disabled: true },
+                      ...dvObjects.staging.map(o => ({ value: o.name, label: o.name })),
+                      { value: '', label: '─── Marts ───', disabled: true },
+                      ...dvObjects.marts.map(o => ({ value: o.name, label: o.name })),
+                    ] : [])
+                  ]}
+                />
+              </FormGroup>
+
+              {importConfig.source_object && (
+                <>
+                  <FormGroup 
+                    label="Column Mapping" 
+                    helperText="Map entity attributes to Data Vault columns. Leave empty for auto-mapping by name."
+                  >
+                    <HTMLTable striped style={{ width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th>Entity Attribute</th>
+                          <th>Data Vault Column</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {entityAttributes.map((attr) => (
+                          <tr key={attr.id}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {attr.is_business_key && <Icon icon="key" size={12} intent="warning" />}
+                                <span>{attr.name}</span>
+                                <span className="text-muted" style={{ fontSize: 11 }}>({attr.code})</span>
+                              </div>
+                            </td>
+                            <td>
+                              <HTMLSelect
+                                fill
+                                value={importConfig.column_mapping[attr.code] || ''}
+                                onChange={(e) => handleColumnMappingChange(attr.code, e.target.value)}
+                                options={[
+                                  { value: '', label: `-- Auto (${attr.code}) --` },
+                                  ...getSelectedObjectColumns().map(col => ({ value: col, label: col }))
+                                ]}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                        {entityAttributes.length === 0 && (
+                          <tr>
+                            <td colSpan={2} className="text-muted" style={{ textAlign: 'center', padding: 20 }}>
+                              No attributes defined for this entity. Add attributes first.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </HTMLTable>
+                  </FormGroup>
+
+                  <FormGroup 
+                    label="Filter (WHERE clause)" 
+                    labelFor="import-filter"
+                    helperText="Optional SQL WHERE clause to filter records (e.g., status = 'active')"
+                  >
+                    <InputGroup
+                      id="import-filter"
+                      placeholder="e.g., status = 'active' AND created_at > '2024-01-01'"
+                      value={importConfig.filter}
+                      onChange={(e) => setImportConfig(prev => ({ ...prev, filter: e.target.value }))}
+                    />
+                  </FormGroup>
+
+                  <FormGroup 
+                    label="Schedule (Cron)" 
+                    labelFor="import-schedule"
+                    helperText="Optional cron expression for automatic import (e.g., 0 2 * * * for daily at 2 AM)"
+                  >
+                    <InputGroup
+                      id="import-schedule"
+                      placeholder="e.g., 0 2 * * * (daily at 2 AM)"
+                      value={importConfig.schedule}
+                      onChange={(e) => setImportConfig(prev => ({ ...prev, schedule: e.target.value }))}
+                    />
+                  </FormGroup>
+                </>
+              )}
+            </>
+          )}
+        </div>
+        <div className="bp5-dialog-footer">
+          <div className="bp5-dialog-footer-actions">
+            <Button onClick={() => { setIsImportOpen(false); setImportEntity(null); }} disabled={isSavingImport}>
+              Cancel
+            </Button>
+            {isImportSourceConnected && (
+              <Button 
+                intent="primary" 
+                onClick={handleSaveImport}
+                disabled={!importConfig.source_object || isSavingImport}
+                loading={isSavingImport}
+              >
+                Save Import Configuration
+              </Button>
+            )}
           </div>
         </div>
       </Dialog>

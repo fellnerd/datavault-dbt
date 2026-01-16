@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
 type Theme = 'light' | 'dark'
 
@@ -8,26 +8,25 @@ interface ThemeContextType {
   theme: Theme
   toggleTheme: () => void
   setTheme: (theme: Theme) => void
+  mounted: boolean
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
-// Helper to get initial theme without hydration issues
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'light'
-  const savedTheme = localStorage.getItem('mds-theme') as Theme | null
-  if (savedTheme) return savedTheme
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'
-  return 'light'
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Use lazy initializer to avoid calling setState in useEffect
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme)
-  const mountedRef = useRef(false)
+  // Always start with 'light' to match server render
+  const [theme, setThemeState] = useState<Theme>('light')
+  const [mounted, setMounted] = useState(false)
 
+  // After mount, read the actual theme from localStorage/system preference
   useEffect(() => {
-    mountedRef.current = true
+    const savedTheme = localStorage.getItem('mds-theme') as Theme | null
+    if (savedTheme) {
+      setThemeState(savedTheme)
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setThemeState('dark')
+    }
+    setMounted(true)
   }, [])
 
   useEffect(() => {
@@ -47,7 +46,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, mounted }}>
       {children}
     </ThemeContext.Provider>
   )
