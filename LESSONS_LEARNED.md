@@ -1,6 +1,6 @@
 # Lessons Learned - Data Vault 2.1 mit dbt auf Azure
 
-> **Letzte Aktualisierung:** 2025-12-29  
+> **Letzte Aktualisierung:** 2026-01-11  
 > **DV 2.1 Compliance:** ~85% (nach Optimierung)
 
 ## Projektkontext
@@ -171,6 +171,34 @@ const FORBIDDEN_KEYWORDS = [
 ];
 ```
 
+### Problem 9: Deploy-Dialog auf Commits-Seite fehlte
+**Symptom:** "Deploy to Data Vault" Button auf Commits-Seite machte nur Seiten-Refresh, kein Dialog
+
+**Ursache:** Zwei verschiedene Deploy-Implementierungen:
+- `/deploy` Seite: Hatte korrekten Dialog mit SSE-Streaming
+- `/commits` Seite: Direkter API-Call ohne Dialog
+
+**Lösung:**
+1. Dialog mit Modus-Auswahl zur Commits-Seite hinzugefügt
+2. SSE-Streaming (EventSource) für Live-Logs implementiert
+3. Deploy-Modi: "Load + Master" (full) und "Nur Load" (load)
+
+### Problem 10: Doppelte mds_load Tabellen (load_product vs product)
+**Symptom:** `mds_load.load_product` und `mds_load.product` existieren beide
+
+**Ursache:** API-Route `ensureLoadTable()` erstellte Tabelle mit `load_` Prefix, aber dbt-Model nutzt nur Entity-Code als Alias
+
+**Lösung:**
+```typescript
+// VORHER (falsch):
+const tableName = `load_${entity.code.toLowerCase()}`
+
+// NACHHER (korrekt):
+const tableName = entity.code.toLowerCase()
+```
+
+**Wichtig:** dbt Models haben `alias='product'` (ohne Prefix), daher muss die API konsistent sein!
+
 ---
 
 ## Best Practices (gelernt)
@@ -309,7 +337,13 @@ sudo systemctl restart actions.runner.fellnerd-datavault-dbt.dbt-runner-vm
 journalctl -u actions.runner.fellnerd-datavault-dbt.dbt-runner-vm -f
 ```
 
-### Aktueller Stand (2025-12-27)
+### Aktueller Stand (2026-01-11)
+
+**MDS Deployment-Updates (2026-01-11):**
+- ✅ Deploy-Dialog auf Commits-Seite mit Modus-Auswahl (Load + Master / Nur Load)
+- ✅ SSE-Streaming für Live-Logs während Deploy
+- ✅ Korrektur: mds_load Tabellen heißen `<entity>` (nicht `load_<entity>`)
+- ✅ API-Route korrigiert für konsistente Tabellennamen
 
 **Data Vault Objekte:**
 | Objekt | Records | Status |
