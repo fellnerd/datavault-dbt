@@ -20,14 +20,6 @@ profiles.yml
 
 # Agent session files
 agent/.agent-session.json
-# Masterdata (Next.js)
-masterdata/node_modules/
-masterdata/.next/
-masterdata/out/
-masterdata/build/
-masterdata/dist/
-masterdata/.env*.local
-masterdata/.vercel
 masterdata/*.tsbuildinfo
 masterdata/next-env.d.ts
 masterdata/npm-debug.log*
