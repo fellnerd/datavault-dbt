@@ -498,5 +498,64 @@ sources:
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
 
-      
-
+      # ===========================================
+      # Tempo Worklog (Jira Time Tracking)
+      # ===========================================
+      - name: ext_tempo_worklog
+        description: "Tempo Worklog - External Table (Jira Time Tracking)"
+        external:
+          location: "tempo/api/tempo_worklog.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: id
+            data_type: BIGINT
+            description: "Primary key - Tempo Worklog ID"
+            tests:
+              - not_null
+          - name: issueKey
+            data_type: NVARCHAR(4000)
+            description: "Jira Issue Key (z.B. PROJ-123)"
+          - name: issueId
+            data_type: BIGINT
+            description: "Jira Issue ID"
+          - name: issueSummary
+            data_type: NVARCHAR(4000)
+            description: "Jira Issue Summary"
+          - name: date
+            data_type: NVARCHAR(4000)
+            description: "Worklog Datum"
+          - name: startTime
+            data_type: NVARCHAR(4000)
+            description: "Startzeit"
+          - name: timeSpentSeconds
+            data_type: BIGINT
+            description: "Gebuchte Zeit in Sekunden"
+          - name: timeSpentHours
+            data_type: NVARCHAR(4000)
+            description: "Gebuchte Zeit in Stunden"
+          - name: description
+            data_type: NVARCHAR(4000)
+            description: "Worklog Beschreibung"
+          - name: accountId
+            data_type: NVARCHAR(4000)
+            description: "Atlassian Account ID"
+          - name: displayName
+            data_type: NVARCHAR(4000)
+            description: "Benutzer Anzeigename"
+          - name: createdAt
+            data_type: NVARCHAR(4000)
+            description: "Erstellungsdatum"
+          - name: updatedAt
+            data_type: NVARCHAR(4000)
+            description: "Aktualisierungsdatum"
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
