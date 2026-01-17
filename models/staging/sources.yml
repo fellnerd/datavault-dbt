@@ -500,3 +500,70 @@ sources:
 
 
 
+
+      # ===========================================
+      # Tempo Worklogs (Jira Zeitbuchungen)
+      # ===========================================
+      - name: ext_tempo_worklog
+        description: "Tempo Worklogs aus Jira - External Table"
+        external:
+          location: "jira/http/tempoLog.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: id
+            data_type: BIGINT
+            description: "Business Key - Tempo Worklog ID"
+            tests:
+              - not_null
+          - name: issueKey
+            data_type: NVARCHAR(4000)
+            description: "Jira Issue Key (z.B. PAA-67)"
+          - name: issueId
+            data_type: BIGINT
+            description: "Jira Issue ID"
+          - name: issueSummary
+            data_type: NVARCHAR(4000)
+            description: "Jira Issue Titel"
+          - name: date
+            data_type: NVARCHAR(4000)
+            description: "Datum der Zeitbuchung (YYYY-MM-DD)"
+          - name: startTime
+            data_type: NVARCHAR(4000)
+            description: "Startzeit (HH:MM:SS)"
+          - name: timeSpentSeconds
+            data_type: BIGINT
+            description: "Gebuchte Zeit in Sekunden"
+          - name: timeSpentHours
+            data_type: NVARCHAR(4000)
+            description: "Gebuchte Zeit in Stunden"
+          - name: description
+            data_type: NVARCHAR(4000)
+            description: "Beschreibung der Arbeit"
+          - name: accountId
+            data_type: NVARCHAR(4000)
+            description: "Jira Account ID des Autors"
+          - name: displayName
+            data_type: NVARCHAR(4000)
+            description: "Anzeigename des Autors"
+          - name: createdAt
+            data_type: NVARCHAR(4000)
+            description: "Erstellungszeitpunkt"
+          - name: updatedAt
+            data_type: NVARCHAR(4000)
+            description: "Letztes Update"
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+            description: "Datenquelle"
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+            description: "Ladedatum"
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+            description: "Pipeline Run ID"
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+            description: "Stage Zeitstempel"
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+            description: "Quelldatei"
