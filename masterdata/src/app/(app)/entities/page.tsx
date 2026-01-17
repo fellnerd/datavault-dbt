@@ -673,15 +673,15 @@ export default function EntitiesPage() {
                   options={[
                     { value: '', label: '-- Select Object --' },
                     ...(dvObjects ? [
-                      { value: '', label: '─── Hubs ───', disabled: true },
+                      { value: '__sep_hubs__', label: '─── Hubs ───', disabled: true },
                       ...dvObjects.hubs.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
-                      { value: '', label: '─── Satellites ───', disabled: true },
+                      { value: '__sep_satellites__', label: '─── Satellites ───', disabled: true },
                       ...dvObjects.satellites.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
-                      { value: '', label: '─── Links ───', disabled: true },
+                      { value: '__sep_links__', label: '─── Links ───', disabled: true },
                       ...dvObjects.links.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
-                      { value: '', label: '─── Staging ───', disabled: true },
+                      { value: '__sep_staging__', label: '─── Staging ───', disabled: true },
                       ...dvObjects.staging.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
-                      { value: '', label: '─── Marts ───', disabled: true },
+                      { value: '__sep_marts__', label: '─── Marts ───', disabled: true },
                       ...dvObjects.marts.map(o => ({ value: `${o.schema}.${o.name}`, label: `${o.schema}.${o.name}` })),
                     ] : [])
                   ]}
