@@ -559,3 +559,401 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
+      # ===========================================
+      # Jira Platform API - Projects
+      # ===========================================
+      - name: ext_jira_project
+        description: "Auto-generated from Platform.Api_Project.parquet"
+        external:
+          location: "jira/sql/Platform.Api_Project.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Project_Key
+            data_type: NVARCHAR(4000)
+            description: "Business Key - Jira Project Key"
+            tests:
+              - not_null
+              - unique
+          - name: Id
+            data_type: NVARCHAR(4000)
+            description: "Project ID"
+          - name: Lead_Display_Name
+            data_type: NVARCHAR(4000)
+          - name: Email
+            data_type: NVARCHAR(4000)
+          - name: Assignee_Type
+            data_type: NVARCHAR(4000)
+          - name: Lead_AccountId
+            data_type: NVARCHAR(4000)
+          - name: Lead_Avatar_Urls_16x16
+            data_type: NVARCHAR(4000)
+          - name: Lead_Avatar_Urls_24x24
+            data_type: NVARCHAR(4000)
+          - name: Lead_Avatar_Urls_32x32
+            data_type: NVARCHAR(4000)
+          - name: Lead_Avatar_Urls_48x48
+            data_type: NVARCHAR(4000)
+          - name: Lead_Self
+            data_type: NVARCHAR(4000)
+          - name: Lead_Active
+            data_type: BIT
+          - name: Name
+            data_type: NVARCHAR(4000)
+          - name: Url
+            data_type: NVARCHAR(4000)
+          - name: Avatar_Urls_48x48
+            data_type: NVARCHAR(4000)
+          - name: Avatar_Urls_24x24
+            data_type: NVARCHAR(4000)
+          - name: Avatar_Urls_16x16
+            data_type: NVARCHAR(4000)
+          - name: Avatar_Urls_32x32
+            data_type: NVARCHAR(4000)
+          - name: Description
+            data_type: NVARCHAR(4000)
+          - name: Self
+            data_type: NVARCHAR(4000)
+          - name: Project_Category_Self
+            data_type: NVARCHAR(4000)
+          - name: Project_Category_Id
+            data_type: NVARCHAR(4000)
+          - name: Project_Category_Name
+            data_type: NVARCHAR(4000)
+          - name: Project_Category_Description
+            data_type: NVARCHAR(4000)
+          - name: Expand
+            data_type: NVARCHAR(4000)
+          - name: Project_Type_Key
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # Jira Agile - Issues
+      # ===========================================
+      - name: ext_jira_issue
+        description: "Auto-generated from Agile.Agile_Board_Issue.parquet"
+        external:
+          location: "jira/sql/Agile.Agile_Board_Issue.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Issues_key
+            data_type: NVARCHAR(4000)
+            description: "Business Key - Jira Issue Key (z.B. DIM-123)"
+            tests:
+              - not_null
+              - unique
+          - name: Board_Id
+            data_type: NVARCHAR(4000)
+          - name: Issues_id
+            data_type: NVARCHAR(4000)
+            description: "Jira Issue ID"
+          - name: Issues_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_expand
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_key
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_summary
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_statusCategory_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_statusCategory_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_statusCategory_key
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_statusCategory_id
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_parent_fields_status_statusCategory_colorName
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_description
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_status_iconUrl
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_priority_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_priority_iconUrl
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_priority_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_priority_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_issuetype_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_issuetype_description
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_issuetype_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_issuetype_subtask
+            data_type: BIT
+          - name: Issues_fields_parent_fields_issuetype_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_parent_fields_issuetype_iconUrl
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_priority_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_priority_iconUrl
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_priority_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_priority_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_assignee_displayName
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_assignee_accountId
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_assignee_emailAddress
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_assignee_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_assignee_timeZone
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_assignee_active
+            data_type: BIT
+          - name: Issues_fields_votes_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_votes_votes
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_votes_hasVoted
+            data_type: BIT
+          - name: Issues_fields_lastViewed
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_reporter_displayName
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_reporter_accountId
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_reporter_emailAddress
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_reporter_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_reporter_timeZone
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_reporter_active
+            data_type: BIT
+          - name: Issues_fields_project_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_project_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_project_projectCategory_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_project_projectCategory_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_project_projectCategory_description
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_project_projectCategory_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_project_key
+            data_type: NVARCHAR(4000)
+            description: "FK zu hub_jira_project"
+          - name: Issues_fields_project_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_description
+            data_type: NVARCHAR(MAX)
+          - name: Issues_fields_duedate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_aggregateprogress_progress
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_aggregateprogress_total
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_aggregateprogress_percent
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_creator_displayName
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_creator_accountId
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_creator_emailAddress
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_creator_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_creator_timeZone
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_creator_active
+            data_type: BIT
+          - name: Issues_fields_resolutiondate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_sprint_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_sprint_endDate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_sprint_state
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_sprint_originBoardId
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_sprint_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_sprint_id
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_sprint_startDate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_flagged
+            data_type: BIT
+          - name: Issues_fields_watches_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_watches_watchCount
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_watches_isWatching
+            data_type: BIT
+          - name: Issues_fields_timeestimate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_epic_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_epic_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_epic_color_key
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_epic_key
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_epic_id
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_epic_done
+            data_type: BIT
+          - name: Issues_fields_epic_summary
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_updated
+            data_type: DATETIME2
+          - name: Issues_fields_progress_progress
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_progress_total
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_progress_percent
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_resolution_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_resolution_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_resolution_description
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_resolution_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_aggregatetimeestimate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_timetracking_originalEstimate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_timetracking_timeSpentSeconds
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_timetracking_timeSpent
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_timetracking_originalEstimateSeconds
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_timetracking_remainingEstimate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_timetracking_remainingEstimateSeconds
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_status_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_statusCategory_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_statusCategory_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_statusCategory_key
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_statusCategory_id
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_status_statusCategory_colorName
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_description
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_status_iconUrl
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_environment
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_timespent
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_aggregatetimeoriginalestimate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_aggregatetimespent
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_issuetype_name
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_issuetype_description
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_issuetype_self
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_issuetype_subtask
+            data_type: BIT
+          - name: Issues_fields_issuetype_id
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_issuetype_avatarId
+            data_type: DECIMAL(38,10)
+          - name: Issues_fields_issuetype_iconUrl
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_timeoriginalestimate
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_summary
+            data_type: NVARCHAR(4000)
+          - name: Issues_fields_created
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # Jira Platform API - Users
+      # ===========================================
+      - name: ext_jira_user
+        description: "Auto-generated from Platform.Api_Group_Users.parquet"
+        external:
+          location: "jira/sql/Platform.Api_Group_Users.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Group_Name
+            data_type: NVARCHAR(4000)
+          - name: Self
+            data_type: NVARCHAR(4000)
+          - name: Users_displayName
+            data_type: NVARCHAR(4000)
+          - name: Users_AccountId
+            data_type: NVARCHAR(4000)
+            description: "Business Key - Jira Account ID"
+            tests:
+              - not_null
+          - name: Users_emailAddress
+            data_type: NVARCHAR(4000)
+          - name: Users_timeZone
+            data_type: NVARCHAR(4000)
+          - name: Users_active
+            data_type: BIT
+          - name: Users_Account_Type
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)

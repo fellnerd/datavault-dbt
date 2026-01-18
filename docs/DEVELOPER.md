@@ -267,16 +267,18 @@ dbt run --select hub_company         # Einzelnes Model
 dbt run --select +sat_company+       # Model mit Abhängigkeiten
 dbt run --full-refresh               # Alles neu bauen
 
-# External Tables aktualisieren
-dbt run-operation stage_external_sources
-# oder einzelne Tabelle
-dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
-# Full Refresh (DROP + CREATE, bei Schema-Änderungen)
-dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true}'
-# Full Refresh für einzelne Tabelle
-dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true, "external_table_name": "ext_aw_customer"}'
+# External Tables erstellen / aktualisieren
 
-# Parquet-Dateien in ADLS erkunden (ohne sources.yml anzulegen)
+## Option 1: ALLE External Tables (Standard)
+dbt run-operation stage_external_sources
+
+## Option 2: EINZELNE neue Tabelle (optimiert)
+# Nur die neue ext_jira_project erstellen (schneller)
+dbt run-operation create_external_table \
+  --args '{"table_name": "ext_jira_project"}'
+
+## Option 3: Explorieren (ohne zu erstellen)
+# Parquet-Dateien in ADLS erkunden
 dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'
 dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet"}'
 dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'
@@ -316,6 +318,20 @@ Für die Analyse von Parquet-Dateien in ADLS Gen2 stehen drei Macros zur Verfüg
 | `list_parquet_files` | Alle Dateien in einem ADLS-Ordner auflisten | `dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'` |
 | `get_parquet_schema` | Schema einer Datei als YAML für sources.yml ausgeben | `dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet"}'` |
 | `get_parquet_data` | Beispieldaten einer Datei anzeigen | `dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'` |
+
+### External Table Macros (Optimiert)
+
+Neue Macros für **selektive** External Table Erstellung (nicht alle auf einmal):
+
+| Macro | Zweck | Befehl |
+|-------|-------|--------|
+| `create_external_table` | Erstellt nur EINE neue Tabelle basierend auf sources.yml | `dbt run-operation create_external_table --args '{"table_name": "ext_jira_project"}'` |
+| `stage_external_sources` | Standard dbt-external-tables: Erstellt ALLE Tabellen (idempotent) | `dbt run-operation stage_external_sources` |
+
+**Best Practice:**
+- **Neue Tabelle?** → `create_external_table` (schneller, nur eine)
+- **Alle Tabellen?** → `stage_external_sources` (vollständig, sicher)
+
 
 **Typischer Workflow für neue Datenquelle:**
 ```bash
