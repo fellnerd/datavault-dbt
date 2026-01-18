@@ -9,22 +9,242 @@
 
 ## 📑 Inhaltsverzeichnis
 
-1. [Quick Reference](#-quick-reference)
-2. [Projektstruktur](#-projektstruktur)
-3. [Neues Attribut hinzufügen](#-neues-attribut-hinzufügen)
-4. [Neue Entity erstellen (Komplett)](#-neue-entity-erstellen-komplett)
-5. [Einzelne Objekte erstellen](#-einzelne-objekte-erstellen)
-   - [Hub erstellen](#51-hub-erstellen)
-   - [Satellite erstellen](#52-satellite-erstellen)
-   - [Link erstellen](#53-link-erstellen)
-   - [Reference Table erstellen](#54-reference-table-erstellen)
-   - [Effectivity Satellite erstellen](#55-effectivity-satellite-erstellen)
-   - [PIT Table erstellen](#56-pit-table-erstellen)
-6. [Mart View erstellen](#-mart-view-erstellen)
-7. [Tests hinzufügen](#-tests-hinzufügen)
-8. [Deployment Workflow](#-deployment-workflow)
-9. [Troubleshooting](#-troubleshooting)
-10. [Checklisten](#-checklisten)
+1. [Data Vault 2.0 Leitfaden](#-data-vault-20-leitfaden)
+2. [Quick Reference](#-quick-reference)
+3. [Projektstruktur](#-projektstruktur)
+4. [Neues Attribut hinzufügen](#-neues-attribut-hinzufügen)
+5. [Neue Entity erstellen (Komplett)](#-neue-entity-erstellen-komplett)
+6. [Einzelne Objekte erstellen](#-einzelne-objekte-erstellen)
+   - [Hub erstellen](#61-hub-erstellen)
+   - [Satellite erstellen](#62-satellite-erstellen)
+   - [Link erstellen](#63-link-erstellen)
+   - [Reference Table erstellen](#64-reference-table-erstellen)
+   - [Effectivity Satellite erstellen](#65-effectivity-satellite-erstellen)
+   - [PIT Table erstellen](#66-pit-table-erstellen)
+7. [Mart View erstellen](#-mart-view-erstellen)
+8. [Tests hinzufügen](#-tests-hinzufügen)
+9. [Deployment Workflow](#-deployment-workflow)
+10. [Troubleshooting](#-troubleshooting)
+11. [Checklisten](#-checklisten)
+
+---
+
+## 📖 Data Vault 2.0 Leitfaden
+
+> **Wann**, **Warum** und **Wie** werden Data Vault Objekte verwendet?
+
+### Grundprinzip
+
+Data Vault trennt strikt zwischen:
+
+| Aspekt | Frage | Objekt |
+|--------|-------|--------|
+| **Identität** | Was existiert? | Hub |
+| **Beziehung** | Wie hängt etwas zusammen? | Link |
+| **Historie** | Wie hat es sich über Zeit verändert? | Satellite |
+
+**Ziele:** Auditierbarkeit, Historisierung, Skalierbarkeit, Entkopplung von Quelle & Reporting
+
+---
+
+### Entscheidungslogik
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Gibt es einen stabilen Business Key?                          │
+│  └─ JA → HUB                                                    │
+│                                                                 │
+│  Ändern sich Attribute über Zeit?                               │
+│  └─ JA → SATELLITE                                              │
+│                                                                 │
+│  Beschreibt es eine Beziehung zwischen Objekten?                │
+│  └─ JA → LINK                                                   │
+│  └─ Hat die Beziehung eigene Attribute? → LINK SATELLITE        │
+│                                                                 │
+│  Mehrere Werte ohne eigene Identität (z.B. Telefonnummern)?     │
+│  └─ JA → DEPENDENT CHILD SATELLITE                              │
+│                                                                 │
+│  Mehrere Werte gleichzeitig gültig (z.B. mehrere Rollen)?       │
+│  └─ JA → MULTI-ACTIVE SATELLITE                                 │
+│                                                                 │
+│  Stabile Lookup-Werte (Länder, Status)?                         │
+│  └─ JA → REFERENCE TABLE (kein Hub!)                            │
+│                                                                 │
+│  Performance-Problem bei Zeitabfragen?                          │
+│  └─ JA → PIT TABLE                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Hub
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Repräsentiert **Business Keys**, identifiziert fachliche Objekte eindeutig |
+| **Wann?** | Es gibt einen stabilen, fachlichen Schlüssel |
+| **Beispiele** | MitarbeiterNr, KundenNr, VertragsNr, Projekt-ID |
+| **Eigenschaften** | Keine fachlichen Attribute, keine Historie, ein Eintrag pro BK |
+| **Schlüssel** | Hash Key (technisch), Business Key bleibt erhalten |
+
+```sql
+-- Struktur
+hk_<entity>         -- Hash Key (PK)
+<business_key>      -- Business Key (z.B. object_id)
+dss_load_date       -- Ladezeitpunkt
+dss_record_source   -- Quelle
+```
+
+---
+
+### Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Trägt **Attribute und Historie** |
+| **Wann?** | Attribute ändern sich über Zeit, Historisierung ist relevant |
+| **Best Practice** | 1 Thema = 1 Satellite, nach Änderungsfrequenz schneiden |
+| **Historisierung** | Jede fachliche Änderung = neuer Datensatz |
+
+```sql
+-- Struktur
+hk_<entity>         -- Hash Key (FK zum Hub)
+dss_load_date       -- Ladezeitpunkt (Teil des PK)
+hd_<entity>         -- Hash Diff (Änderungserkennung)
+<attribute_1>       -- Fachliche Attribute
+<attribute_n>       
+dss_is_current      -- 'Y' = aktuell, 'N' = historisch
+dss_end_date        -- Gültigkeitsende (NULL = aktuell)
+```
+
+**Varianten:**
+
+| Typ | Wann verwenden? | Beispiel |
+|-----|-----------------|----------|
+| **Standard Satellite** | Normale Attribute | `sat_company` |
+| **Dependent Child** | Mehrere Werte ohne eigene Identität | Telefonnummern, E-Mails |
+| **Multi-Active** | Mehrere gleichzeitig gültige Werte | Mitarbeiter mit mehreren Rollen |
+| **Extension Satellite** | Zusätzliche Attribute für Teilmenge | `sat_company_client_ext` (nur für Clients) |
+
+---
+
+### Link
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Modelliert **Beziehungen zwischen Hubs** |
+| **Wann?** | n:m- oder 1:n-Beziehungen, Beziehung ist fachlich relevant |
+| **Beispiele** | Mitarbeiter ↔ Projekt, Kunde ↔ Vertrag, Company ↔ Country |
+| **Eigenschaften** | Enthält nur Schlüssel der beteiligten Hubs, keine Attribute |
+
+```sql
+-- Struktur
+hk_link_<e1>_<e2>   -- Link Hash Key (PK)
+hk_<entity_1>       -- FK zu Hub 1
+hk_<entity_2>       -- FK zu Hub 2
+dss_load_date       -- Ladezeitpunkt
+dss_record_source   -- Quelle
+```
+
+---
+
+### Link Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Attribute, die **die Beziehung** beschreiben |
+| **Wann?** | Attribute gelten für die Beziehung, nicht für das Objekt |
+| **Beispiele** | Rolle eines Mitarbeiters im Projekt, Vertragsstatus |
+
+---
+
+### Effectivity Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Trackt **Gültigkeitszeiträume** von Beziehungen |
+| **Wann?** | Beziehungen können enden und wieder beginnen |
+| **Beispiele** | Company-Country Zuordnung über Zeit |
+
+```sql
+-- Struktur
+hk_link_<e1>_<e2>   -- FK zum Link (PK)
+dss_start_date      -- Beginn der Gültigkeit (PK)
+dss_end_date        -- Ende (NULL = aktiv)
+dss_is_active       -- 'Y' = aktiv, 'N' = beendet
+```
+
+---
+
+### Reference Table
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Stabile, kleine **Lookup-Tabellen** |
+| **Wann?** | Kaum Änderungen, keine Historisierung nötig |
+| **Beispiele** | Länder, Währungen, Statuscodes, Rollen |
+| **Regeln** | Nicht historisieren, nicht als Satellite, nicht übermodellieren |
+
+```sql
+-- Beispiel: ref_role (als dbt Seed)
+role_code           -- PK (CLIENT, CONTRACTOR, SUPPLIER)
+role_name           -- Anzeigename
+role_description    -- Beschreibung
+```
+
+---
+
+### PIT Table (Point-in-Time)
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | **Performance-Optimierung** für "As-of"-Abfragen |
+| **Wann?** | Viele Satellites, komplexe zeitbezogene Joins, BI-Performance kritisch |
+| **Eigenschaften** | Rein technisch, keine fachlichen Attribute |
+| **Wichtig** | **Kein Pflichtbestandteil** – nur bei Bedarf einsetzen! |
+
+```sql
+-- Struktur
+hk_<entity>         -- FK zum Hub
+snapshot_date       -- Zeitpunkt
+hk_sat_<name>       -- Verweis auf gültigen Satellite-Zustand
+dss_load_date_sat   -- Load Date des referenzierten Satellites
+```
+
+---
+
+### Information Mart
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Konsum-Schicht für **BI & Analytics** |
+| **Eigenschaften** | Dimensions- und Faktenmodelle, abgeleitet aus Raw/Business Vault |
+| **Inhalte** | `dim_date`, `dim_company`, `fact_invoice` |
+| **Wichtig** | Keine unabhängige Modellierung, keine zusätzliche Historisierung |
+
+---
+
+### ❌ Häufige Fehlannahmen
+
+| Falsch | Richtig |
+|--------|---------|
+| Hubs sind historisiert | Hubs haben nur Ladezeitpunkt, keine fachliche Historie |
+| Alles braucht einen Hub | Lookup-Werte → Reference Table |
+| PIT ist Pflicht | PIT nur bei Performance-Bedarf |
+| Referenztabellen in Satellites | Reference Tables sind eigenständig |
+| Information Mart ist eigenes DWH | Mart ist nur View-Schicht auf Vault |
+
+---
+
+### 📌 Merksatz
+
+> **Hubs identifizieren.**  
+> **Satellites historisieren.**  
+> **Links verbinden.**  
+> **Dependent Children ergänzen.**  
+> **Multi-Active gilt parallel.**  
+> **PIT beschleunigt.**  
+> **Information Marts erklären.**
 
 ---
 
