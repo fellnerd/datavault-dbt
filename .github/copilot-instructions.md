@@ -5,8 +5,21 @@ Multi-tenant Data Vault 2.1 on Azure SQL using dbt Core with `automate_dv` packa
 
 ## Architecture Flow
 ```
-PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table (stg.ext_*) → Staging View (stg.stg_*) → Hub/Sat/Link (vault.*)
+PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table (stg.ext_*) → Staging View (stg.stg_*) → Hub/Sat/Link
 ```
+
+## Schema Naming Convention
+
+| Layer | Folder | Schema | Usage |
+|-------|--------|--------|-------|
+| Staging | `staging/` | `stg` | All sources |
+| Raw Vault (common) | `raw_vault/_common/` | `vault` | Cross-source objects |
+| Raw Vault (source) | `raw_vault/<concept>/` | `vault_<concept>` | Source-specific objects |
+| Business Vault | `business_vault/` | `vault` | PITs, Bridges |
+| Mart (common) | `mart/_common/` | `mart` | Shared dimensions |
+| Mart (domain) | `mart/<concept>/` | `mart_<concept>` | Domain-specific views |
+
+**Pattern:** `_common` → base schema, `<concept>` → `<base>_<concept>`
 
 ## Critical Constraints (Azure SQL Basic Tier)
 - **Always set** `as_columnstore: false` in incremental models
@@ -25,12 +38,13 @@ dbt run-operation stage_external_sources  # Create/update external tables
 | Object | Pattern | Example |
 |--------|---------|---------|
 | External Table | `stg.ext_<entity>` | `ext_company_client` |
-| Staging View | `stg.stg_<entity>` | `stg_company_client` |
-| Hub | `vault.hub_<entity>` | `hub_company_client` |
-| Satellite | `vault.sat_<entity>` | `sat_company_client` |
-| Link | `vault.link_<e1>_<e2>` | `link_company_country` |
-| Hash Key | `hk_<entity>` | `hk_company_client` |
-| Hash Diff | `hd_<entity>` | `hd_company_client` |
+| Staging View | `stg.stg_<entity>` | `stg_company` |
+| Hub | `vault_<concept>.hub_<entity>` | `vault_werkportal.hub_company` |
+| Satellite | `vault_<concept>.sat_<entity>` | `vault_werkportal.sat_company` |
+| Link | `vault_<concept>.link_<e1>_<e2>` | `vault_werkportal.link_company_country` |
+| Common Hub | `vault.hub_<entity>` | `vault.hub_company` (merged) |
+| Hash Key | `hk_<entity>` | `hk_company` |
+| Hash Diff | `hd_<entity>` | `hd_company` |
 | Metadata | `dss_*` prefix | `dss_load_date`, `dss_record_source` |
 
 ## Hash Calculation (SQL Server Native)
@@ -38,21 +52,56 @@ Do NOT use automate_dv hash macros - they're incompatible with SQL Server. Use:
 ```sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(CAST(column AS NVARCHAR(MAX)), '')), 2)
 ```
-See [stg_company_client.sql](models/staging/stg_company_client.sql) for the pattern.
+See [stg_company.sql](models/staging/stg_company.sql) for the pattern.
 
-## Adding a New Entity
+## Adding a New Source System (Concept)
+1. **Create folder:** `models/raw_vault/<concept>/hubs/`, `satellites/`, `links/`
+2. **Add config to dbt_project.yml:**
+   ```yaml
+   raw_vault:
+     <concept>:
+       +schema: vault_<concept>
+       +materialized: incremental
+       +incremental_strategy: append
+       +as_columnstore: false
+   ```
+3. **Create staging:** Add external table to `sources.yml`, create `stg_<entity>.sql`
+4. **Create vault objects:** Hub, Satellite, Link in the new folder
+5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select raw_vault.<concept>`
+
+## Adding a New Entity (to existing concept)
 1. **External Table:** Add to [sources.yml](models/staging/sources.yml) with full column definitions
 2. **Staging View:** Create `models/staging/stg_<entity>.sql` with hash calculations
-3. **Hub:** Create `models/raw_vault/hubs/hub_<entity>.sql` 
-4. **Satellite:** Create `models/raw_vault/satellites/sat_<entity>.sql`
-5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select stg_* hub_* sat_*`
+3. **Hub:** Create `models/raw_vault/<concept>/hubs/hub_<entity>.sql`
+4. **Satellite:** Create `models/raw_vault/<concept>/satellites/sat_<entity>.sql`
+5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select stg_<entity> hub_<entity> sat_<entity>`
+
+## Project Structure
+```
+models/
+├── staging/                    → stg
+├── raw_vault/
+│   ├── _common/                → vault (cross-source)
+│   │   ├── hubs/
+│   │   ├── satellites/
+│   │   └── links/
+│   ├── werkportal/             → vault_werkportal
+│   │   ├── hubs/
+│   │   ├── satellites/
+│   │   └── links/
+│   └── adventureworks/         → vault_adventureworks
+├── business_vault/             → vault
+└── mart/
+    ├── _common/                → mart (shared dims)
+    └── project/                → mart_project
+```
 
 ## Key Files
 - [dbt_project.yml](dbt_project.yml) - Model configs, schema assignments
 - [models/staging/sources.yml](models/staging/sources.yml) - External table definitions (dbt-external-tables)
 - [macros/generate_schema_name.sql](macros/generate_schema_name.sql) - Strips default schema prefix
-- [LESSONS_LEARNED.md](LESSONS_LEARNED.md) - Troubleshooting & decisions
-- [docs/](docs/) - System & user documentation
+- [docs/DEVELOPER.md](docs/DEVELOPER.md) - Full developer guide
+- [docs/MODEL_ARCHITECTURE.md](docs/MODEL_ARCHITECTURE.md) - Data model documentation
 
 ## Multi-Tenant Targets
 | Target | Database | Usage |
@@ -65,6 +114,7 @@ See [stg_company_client.sql](models/staging/stg_company_client.sql) for the patt
 - Schema creates as `dv_stg` instead of `stg` → Check `generate_schema_name` macro
 - External table errors → Run `dbt run-operation stage_external_sources` first
 - Cross-database error → Replace hardcoded DB with `{{ target.database }}`
+- Object in wrong schema → Check folder structure matches dbt_project.yml config
 
 ## Testing & Development Tools
 

@@ -1,5 +1,18 @@
 # Data Vault 2.1 - Model Architecture
 
+## Schema-Naming-Konvention
+
+| Layer | Ordner | Schema | Verwendung |
+|-------|--------|--------|------------|
+| Staging | `staging/` | `stg` | Alle Quellen |
+| Raw Vault (common) | `raw_vault/_common/` | `vault` | Quell-übergreifende Objekte |
+| Raw Vault (source) | `raw_vault/<concept>/` | `vault_<concept>` | Quellsystem-spezifische Objekte |
+| Business Vault | `business_vault/` | `vault` | PITs, Bridges |
+| Mart (common) | `mart/_common/` | `mart` | Geteilte Dimensionen |
+| Mart (domain) | `mart/<concept>/` | `mart_<concept>` | Domain-spezifische Views |
+
+**Pattern:** `_common` → Basis-Schema, `<concept>` → `<basis>_<concept>`
+
 ## Übersicht
 
 ```mermaid
@@ -9,27 +22,28 @@ flowchart TB
         ext_contractor[ext_company_contractor]
         ext_supplier[ext_company_supplier]
         ext_countries[ext_countries]
+        ext_aw_customer[ext_aw_customer]
     end
 
     subgraph Staging["📋 Staging Views (stg.*)"]
         stg_company[stg_company<br/>UNION ALL + Hash Keys]
         stg_country[stg_country<br/>Hash Keys]
+        stg_aw_customer[stg_aw_customer<br/>Hash Keys]
     end
 
-    subgraph Hubs["🔑 Hubs (vault.hub_*)"]
+    subgraph Werkportal["🔑 Raw Vault: Werkportal (vault_werkportal.*)"]
         hub_company[hub_company<br/>22.457 Records]
         hub_country[hub_country<br/>242 Records]
-    end
-
-    subgraph Satellites["📊 Satellites (vault.sat_*)"]
-        sat_company[sat_company<br/>Gemeinsame Attribute]
-        sat_country[sat_country<br/>name]
-        sat_client_ext[sat_company_client_ext<br/>freistellungsbescheinigung]
-    end
-
-    subgraph Links["🔗 Links (vault.link_*)"]
-        link_role[link_company_role<br/>22.457 Records]
+        sat_company[sat_company]
+        sat_country[sat_country]
+        sat_client_ext[sat_company_client_ext]
+        link_role[link_company_role]
         link_country[link_company_country]
+    end
+
+    subgraph AdventureWorks["🔑 Raw Vault: AdventureWorks (vault_adventureworks.*)"]
+        hub_customer[hub_customer]
+        sat_customer[sat_customer]
     end
 
     subgraph Reference["📚 Reference Data"]
@@ -41,21 +55,22 @@ flowchart TB
     ext_contractor --> stg_company
     ext_supplier --> stg_company
     ext_countries --> stg_country
+    ext_aw_customer --> stg_aw_customer
 
-    %% Staging to Hubs
+    %% Staging to Werkportal
     stg_company --> hub_company
     stg_country --> hub_country
-
-    %% Staging to Satellites
     stg_company --> sat_company
     stg_company --> sat_client_ext
     stg_country --> sat_country
-
-    %% Staging to Links
     stg_company --> link_role
     stg_company --> link_country
 
-    %% Hub relationships
+    %% Staging to AdventureWorks
+    stg_aw_customer --> hub_customer
+    stg_aw_customer --> sat_customer
+
+    %% Relationships
     hub_company -.->|FK| sat_company
     hub_company -.->|FK| sat_client_ext
     hub_company -.->|FK| link_role
@@ -63,12 +78,14 @@ flowchart TB
     hub_country -.->|FK| sat_country
     hub_country -.->|FK| link_country
     ref_role -.->|FK| link_role
+    hub_customer -.->|FK| sat_customer
 ```
 
 ## Entity Relationship Diagram
 
 ```mermaid
 erDiagram
+    %% Werkportal Entities
     hub_company ||--o{ sat_company : "has attributes"
     hub_company ||--o| sat_company_client_ext : "has client attributes"
     hub_company ||--o{ link_company_role : "has roles"
@@ -79,12 +96,16 @@ erDiagram
     
     ref_role ||--o{ link_company_role : "defines"
 
+    %% AdventureWorks Entities
+    hub_customer ||--o{ sat_customer : "has attributes"
+
     hub_company {
         char64 hk_company PK "SHA256(object_id + source_table)"
         bigint object_id "Business Key"
         varchar source_table "wp_company_client/contractor/supplier"
         datetime2 dss_load_date
         varchar dss_record_source
+        ___ ___ "Schema: vault_werkportal"
     }
 
     hub_country {
@@ -92,6 +113,15 @@ erDiagram
         bigint object_id "Business Key"
         datetime2 dss_load_date
         varchar dss_record_source
+        ___ ___ "Schema: vault_werkportal"
+    }
+
+    hub_customer {
+        char64 hk_customer PK "SHA256(CustomerID)"
+        int CustomerID "Business Key"
+        datetime2 dss_load_date
+        varchar dss_record_source
+        ___ ___ "Schema: vault_adventureworks"
     }
 
     sat_company {

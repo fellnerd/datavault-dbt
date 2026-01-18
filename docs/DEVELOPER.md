@@ -101,29 +101,40 @@ datavault-dbt/
 ├── models/
 │   ├── schema.yml              # 📋 Tests & Dokumentation
 │   │
-│   ├── staging/                # 📥 Staging Layer
+│   ├── staging/                # 📥 Schema: stg
 │   │   ├── sources.yml         #    External Table Definitionen
-│   │   ├── stg_company.sql     #    Staging View
+│   │   ├── stg_company.sql     #    Staging Views
 │   │   └── stg_country.sql
 │   │
 │   ├── raw_vault/              # 🏛️ Raw Vault Layer
-│   │   ├── hubs/
-│   │   │   ├── hub_company.sql
-│   │   │   └── hub_country.sql
-│   │   ├── satellites/
-│   │   │   ├── sat_company.sql
-│   │   │   ├── sat_country.sql
-│   │   │   ├── sat_company_client_ext.sql
-│   │   │   └── eff_sat_company_country.sql
-│   │   └── links/
-│   │       ├── link_company_role.sql
-│   │       └── link_company_country.sql
+│   │   ├── _common/            # Schema: vault (source-übergreifend)
+│   │   │   ├── hubs/
+│   │   │   ├── satellites/
+│   │   │   └── links/
+│   │   ├── werkportal/         # Schema: vault_werkportal
+│   │   │   ├── hubs/
+│   │   │   │   ├── hub_company.sql
+│   │   │   │   └── hub_country.sql
+│   │   │   ├── satellites/
+│   │   │   │   ├── sat_company.sql
+│   │   │   │   └── eff_sat_company_country.sql
+│   │   │   └── links/
+│   │   │       └── link_company_country.sql
+│   │   └── adventureworks/     # Schema: vault_adventureworks
+│   │       ├── hubs/
+│   │       │   └── hub_customer.sql
+│   │       ├── satellites/
+│   │       │   └── sat_customer.sql
+│   │       └── links/
 │   │
-│   ├── business_vault/         # 📊 Business Vault Layer
+│   ├── business_vault/         # 📊 Schema: vault (PITs, Bridges)
 │   │   └── pit_company.sql
 │   │
 │   └── mart/                   # 📈 Mart Layer (für BI)
-│       └── (Views für Reporting)
+│       ├── _common/            # Schema: mart (geteilte Dimensionen)
+│       │   └── dim_date.sql
+│       └── project/            # Schema: mart_project
+│           └── company_current_v.sql
 │
 ├── docs/                       # 📚 Dokumentation
 │   ├── SYSTEM.md
