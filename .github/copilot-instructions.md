@@ -116,6 +116,38 @@ models/
 - Cross-database error → Replace hardcoded DB with `{{ target.database }}`
 - Object in wrong schema → Check folder structure matches dbt_project.yml config
 
+## Mermaid ER-Diagramme
+
+**⚠️ Nach jeder Model-Änderung müssen die ER-Diagramme aktualisiert werden!**
+
+| Modell-Ordner | Diagramm |
+|---------------|----------|
+| `models/raw_vault/werkportal/` | `design/raw-vault/werkportal/er-diagram.mmd` |
+| `models/raw_vault/adventureworks/` | `design/raw-vault/adventureworks/er-diagram.mmd` |
+| `models/raw_vault/_common/` | `design/raw-vault/_common/er-diagram.mmd` |
+
+### Format
+```mermaid
+erDiagram
+    %%{init: {'theme': 'base'}}%%
+    %% Schema: vault_<concept>
+    
+    HUB_ENTITY {
+        char64 hk_entity PK
+        bigint object_id
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_ENTITY ||--o{ SAT_ENTITY : has
+```
+
+### Regeln
+- **Theme:** `base` (neutral, keine bunten Farben)
+- **Dateiendung:** `.mmd`
+- **Attribute:** `type name [PK|FK]` (keine Kommentare nach PK/FK)
+- **Relationships:** Einfache Labels ohne Anführungszeichen
+
 ## Testing & Development Tools
 
 ### Database Access

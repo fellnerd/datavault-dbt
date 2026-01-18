@@ -1,0 +1,181 @@
+erDiagram
+    %%{init: {'theme': 'base'}}%%
+    %% ============================================
+    %% WERKPORTAL RAW VAULT - ER DIAGRAM
+    %% Schema: vault_werkportal
+    %% ============================================
+
+    %% ============================================
+    %% HUBS - Business Keys
+    %% ============================================
+    
+    HUB_COMPANY {
+        char64 hk_company PK
+        bigint object_id
+        varchar source_table
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_COUNTRY {
+        char64 hk_country PK
+        bigint object_id
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_PROJECT {
+        char64 hk_project PK
+        bigint object_id
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_INVOICE {
+        char64 hk_invoice PK
+        bigint object_id
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+
+    %% ============================================
+    %% SATELLITES - Descriptive Attributes
+    %% ============================================
+    
+    SAT_COMPANY {
+        char64 hk_company FK
+        datetime2 dss_load_date
+        char64 hd_company
+        varchar name
+        varchar subscription
+        varchar org_type
+        varchar uid
+        varchar description
+        varchar street
+        varchar citycode
+        varchar city
+        varchar province
+        varchar state
+        varchar country
+        varchar website
+        varchar email
+        varchar phone
+        char1 dss_is_current
+        datetime2 dss_end_date
+    }
+    
+    SAT_COMPANY_CLIENT_EXT {
+        char64 hk_company FK
+        datetime2 dss_load_date
+        char64 hd_company_client_ext
+        datetime2 freistellungsbescheinigung
+        char1 dss_is_current
+        datetime2 dss_end_date
+    }
+    
+    SAT_COUNTRY {
+        char64 hk_country FK
+        datetime2 dss_load_date
+        char64 hd_country
+        varchar name
+        char1 dss_is_current
+        datetime2 dss_end_date
+    }
+    
+    SAT_PROJECT {
+        char64 hk_project FK
+        datetime2 dss_load_date
+        char64 hd_project
+        varchar name
+        varchar state
+        datetime2 begin
+        varchar location
+        decimal price
+        decimal commission
+        datetime2 end_date
+        datetime2 work_begin
+        varchar author_email
+        text description
+        char1 dss_is_current
+        datetime2 dss_end_date
+    }
+    
+    SAT_INVOICE {
+        char64 hk_invoice FK
+        datetime2 dss_load_date
+        char64 hd_invoice
+        varchar name
+        varchar state
+        decimal gross
+        int invoicing_period_year
+        datetime2 invoice_date
+        datetime2 date_payed
+        decimal advance_payment
+        decimal sum_goal
+        decimal sum_payed
+        decimal hours_worked
+        char1 dss_is_current
+        datetime2 dss_end_date
+    }
+
+    %% ============================================
+    %% LINKS - Relationships
+    %% ============================================
+    
+    LINK_COMPANY_COUNTRY {
+        char64 hk_link_company_country PK
+        char64 hk_company FK
+        char64 hk_country FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_COMPANY_ROLE {
+        char64 hk_link_company_role PK
+        char64 hk_company FK
+        char64 hk_role FK
+        varchar role_code
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+
+    %% ============================================
+    %% EFFECTIVITY SATELLITE - Relationship History
+    %% ============================================
+    
+    EFF_SAT_COMPANY_COUNTRY {
+        char64 hk_link_company_country FK
+        datetime2 dss_start_date
+        char64 hk_company
+        char64 hk_country
+        datetime2 dss_end_date
+        char1 dss_is_active
+        varchar dss_record_source
+    }
+
+    %% ============================================
+    %% REFERENCE DATA
+    %% ============================================
+    
+    REF_ROLE {
+        varchar role_code PK
+        varchar role_name
+        varchar role_description
+    }
+
+    %% ============================================
+    %% RELATIONSHIPS
+    %% ============================================
+    
+    HUB_COMPANY ||--o{ SAT_COMPANY : has
+    HUB_COMPANY ||--o| SAT_COMPANY_CLIENT_EXT : has
+    HUB_COUNTRY ||--o{ SAT_COUNTRY : has
+    HUB_PROJECT ||--o{ SAT_PROJECT : has
+    HUB_INVOICE ||--o{ SAT_INVOICE : has
+    
+    HUB_COMPANY ||--o{ LINK_COMPANY_COUNTRY : in
+    HUB_COUNTRY ||--o{ LINK_COMPANY_COUNTRY : contains
+    HUB_COMPANY ||--o{ LINK_COMPANY_ROLE : has
+    REF_ROLE ||--o{ LINK_COMPANY_ROLE : defines
+    
+    LINK_COMPANY_COUNTRY ||--o{ EFF_SAT_COMPANY_COUNTRY : tracks
