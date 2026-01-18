@@ -95,18 +95,6 @@ datavault:
       encrypt: true
       trust_cert: false
     
-    werkportal:
-      type: sqlserver
-      driver: 'ODBC Driver 18 for SQL Server'
-      server: sql-datavault-weu-001.database.windows.net
-      port: 1433
-      database: Vault_Werkportal
-      schema: dv
-      authentication: sql
-      user: <SQL_USER>
-      password: "<SQL_PASSWORD>"
-      encrypt: true
-      trust_cert: false
 ```
 
 ### Alternative: Azure CLI-Authentifizierung (empfohlen)
