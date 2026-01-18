@@ -276,6 +276,11 @@ dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true}'
 # Full Refresh für einzelne Tabelle
 dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true, "external_table_name": "ext_aw_customer"}'
 
+# Parquet-Dateien in ADLS erkunden (ohne sources.yml anzulegen)
+dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'
+dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet"}'
+dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'
+
 # Source view erstellen
 dbt run --select stg_aw_customer
 
@@ -301,6 +306,32 @@ cat target/compiled/datavault/models/path/to/model.sql
 | `macros/generate_schema_name.sql` | Schema-Naming | [öffnen](../macros/generate_schema_name.sql) |
 | `macros/satellite_current_flag.sql` | Current Flag Macro | [öffnen](../macros/satellite_current_flag.sql) |
 | `macros/ghost_records.sql` | Ghost Records | [öffnen](../macros/ghost_records.sql) |
+
+### Parquet-Exploration Macros
+
+Für die Analyse von Parquet-Dateien in ADLS Gen2 stehen drei Macros zur Verfügung:
+
+| Macro | Zweck | Befehl |
+|-------|-------|--------|
+| `list_parquet_files` | Alle Dateien in einem ADLS-Ordner auflisten | `dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'` |
+| `get_parquet_schema` | Schema einer Datei als YAML für sources.yml ausgeben | `dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet"}'` |
+| `get_parquet_data` | Beispieldaten einer Datei anzeigen | `dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'` |
+
+**Typischer Workflow für neue Datenquelle:**
+```bash
+# 1. Verfügbare Dateien anzeigen
+dbt run-operation list_parquet_files --args '{"folder_path": "neue_quelle/ordner"}'
+
+# 2. Schema einer Datei als YAML generieren (direkt in sources.yml kopierbar)
+dbt run-operation get_parquet_schema --args '{"folder_path": "neue_quelle/ordner", "file_name": "Datei.parquet"}'
+
+# 3. Optional: Beispieldaten prüfen
+dbt run-operation get_parquet_data --args '{"folder_path": "neue_quelle/ordner", "file_name": "Datei.parquet", "limit": 3}'
+```
+
+**Voraussetzungen:**
+- External Data Source `StageFileSystem` muss in der Datenbank existieren
+- ADLS Gen2 Container muss über PolyBase/OPENROWSET erreichbar sein
 
 ---
 
