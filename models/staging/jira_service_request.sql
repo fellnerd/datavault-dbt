@@ -16,7 +16,7 @@
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_servicedesk_sd_customer_request') }}
+    SELECT * FROM {{ source('staging', 'ext_jira_service_request') }}
 ),
 
 staged AS (

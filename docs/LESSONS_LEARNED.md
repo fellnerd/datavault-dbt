@@ -215,7 +215,7 @@ models/
 ```
 
 ### Staging Pattern
-1. External Table als Source (`stg.ext_*`)
+1. External Table als Source (`stg.ext_<concept>_<entity>`)
 2. Staging View berechnet alle Hash Keys (`stg.<concept>_<entity>`)
 3. Hash Key = Business Key Hash
 4. Hash Diff = Alle Attribute Hash (für Change Detection)

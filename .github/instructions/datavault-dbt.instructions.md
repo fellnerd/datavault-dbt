@@ -39,7 +39,7 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View
 - Link: `vault_<concept>.link_<entity1>_<entity2>` (z.B. `vault_werkportal.link_company_country`)
 - Common Hub: `vault.hub_<entity>` (quell-übergreifend integriert)
 - Staging View: `stg.<concept>_<entity>` (z.B. `stg.werkportal_company`)
-- External Table: `stg.ext_<entity>`
+- External Table: `stg.ext_<concept>_<entity>` (z.B. `stg.ext_werkportal_company`)
 
 ### Spalten
 - Hash Key: `hk_<entity>` (SHA2_256, CHAR(64))

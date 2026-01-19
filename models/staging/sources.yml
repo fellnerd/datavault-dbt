@@ -959,9 +959,9 @@ sources:
             data_type: NVARCHAR(4000)
 
       # ===========================================
-      # SERVICEDESK: Customer Requests
+      # JIRA: Service Requests
       # ===========================================
-      - name: ext_servicedesk_sd_customer_request
+      - name: ext_jira_service_request
         description: "Auto-generated from ServiceDesk.Sd_Customer_Request.parquet"
         external:
           location: "jira/sql/ServiceDesk.Sd_Customer_Request.parquet"
@@ -993,9 +993,9 @@ sources:
             data_type: NVARCHAR(4000)
 
       # ===========================================
-      # AGILE: Issue Links
+      # JIRA: Issue Links
       # ===========================================
-      - name: ext_agile_fields_issue_links
+      - name: ext_jira_issue_link
         description: "Auto-generated from Agile.Fields_Issue_Links.parquet"
         external:
           location: "jira/sql/Agile.Fields_Issue_Links.parquet"
@@ -1023,9 +1023,9 @@ sources:
             data_type: NVARCHAR(4000)
 
       # ===========================================
-      # AGILE: Work Log Worklogs
+      # JIRA: Work Log Worklogs
       # ===========================================
-      - name: ext_agile_fields_work_log_worklogs
+      - name: ext_jira_worklog
         description: "Auto-generated from Agile.Fields_Work_Log_Worklogs.parquet"
         external:
           location: "jira/sql/Agile.Fields_Work_Log_Worklogs.parquet"
@@ -1055,9 +1055,9 @@ sources:
             data_type: NVARCHAR(4000)
 
       # ===========================================
-      # SERVICEDESK: Organizations
+      # JIRA: Organizations
       # ===========================================
-      - name: ext_servicedesk_organizations
+      - name: ext_jira_organization
         description: "Auto-generated from ServiceDesk.Organizations.parquet"
         external:
           location: "jira/sql/ServiceDesk.Organizations.parquet"

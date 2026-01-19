@@ -37,8 +37,8 @@ dbt run-operation stage_external_sources  # Create/update external tables
 ## Naming Conventions
 | Object | Pattern | Example |
 |--------|---------|---------|
-| External Table | `stg.ext_<entity>` | `ext_company_client` |
-| Staging View | `stg.<concept>_<entity>` | `werkportal_company` |
+| External Table | `stg.ext_<concept>_<entity>` | `stg.ext_werkportal_company` |
+| Staging View | `stg.<concept>_<entity>` | `stg.werkportal_company` |
 | Hub | `vault_<concept>.hub_<entity>` | `vault_werkportal.hub_company` |
 | Satellite | `vault_<concept>.sat_<entity>` | `vault_werkportal.sat_company` |
 | Link | `vault_<concept>.link_<e1>_<e2>` | `vault_werkportal.link_company_country` |

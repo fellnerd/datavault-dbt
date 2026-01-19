@@ -303,7 +303,7 @@ cat target/compiled/datavault/models/path/to/model.sql
 | Datei | Zweck | Link |
 |-------|-------|------|
 | `dbt_project.yml` | Projektkonfiguration | [öffnen](../dbt_project.yml) |
-| `models/staging/sources.yml` | External Tables Definition | [öffnen](../models/staging/sources.yml) |
+| `models/staging/sources.yml` | External Tables Definition (`ext_<concept>_<entity>`) | [öffnen](../models/staging/sources.yml) |
 | `models/schema.yml` | Tests & Dokumentation | [öffnen](../models/schema.yml) |
 | `macros/generate_schema_name.sql` | Schema-Naming | [öffnen](../macros/generate_schema_name.sql) |
 | `macros/satellite_current_flag.sql` | Current Flag Macro | [öffnen](../macros/satellite_current_flag.sql) |
@@ -430,7 +430,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 ```yaml
 # Finde die External Table und füge die Spalte hinzu
-- name: ext_company_client
+- name: ext_werkportal_company
   columns:
     # ... bestehende Spalten ...
     - name: tax_number          # ← NEU
@@ -449,7 +449,7 @@ client_source AS (
         -- ... bestehende Spalten ...
         tax_number,              -- ← NEU
         -- ...
-    FROM {{ source('staging', 'ext_company_client') }}
+    FROM {{ source('staging', 'ext_werkportal_company') }}
 ),
 
 -- 2. Falls im Hash Diff: Füge zur hashdiff_columns Liste hinzu
@@ -535,7 +535,7 @@ sources:
       # ═══════════════════════════════════════════
       # NEU: Product
       # ═══════════════════════════════════════════
-      - name: ext_product
+      - name: ext_werkportal_product
         external:
           location: "werkportal/postgres/public.wp_product.parquet"
           file_format: ParquetFormat
@@ -580,7 +580,7 @@ sources:
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_product') }}
+    SELECT * FROM {{ source('staging', 'ext_werkportal_product') }}
 ),
 
 staged AS (

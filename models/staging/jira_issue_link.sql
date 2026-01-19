@@ -14,7 +14,7 @@
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_agile_fields_issue_links') }}
+    SELECT * FROM {{ source('staging', 'ext_jira_issue_link') }}
 ),
 
 staged AS (
