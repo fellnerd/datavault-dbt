@@ -1,21 +1,21 @@
 /*
- * Staging Model: jira_user
+ * Staging Model: jira_epic
  * 
- * Bereitet jira_user-Daten für das Data Vault vor.
+ * Bereitet jira_epic-Daten für das Data Vault vor.
  * Hash Key Separator: '^^' (DV 2.1 Standard)
- * Business Key: Users_AccountId
+ * Business Key: Values_id
  */
 
 {%- set hashdiff_columns = [
-    'Users_displayName',
-    'Users_emailAddress',
-    'Users_timeZone',
-    'Users_active',
-    'Users_Account_Type'
+    'Values_name',
+    'Values_key',
+    'Values_color_key',
+    'Values_done',
+    'Values_summary'
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_jira_user') }}
+    SELECT * FROM {{ source('staging', 'ext_jira_epic') }}
 ),
 
 staged AS (
@@ -24,35 +24,35 @@ staged AS (
         -- HASH KEYS
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(Users_AccountId AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_jira_user,
+            ISNULL(CAST(Values_id AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_jira_epic,
 
         -- ===========================================
         -- HASH DIFF (Change Detection)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
-                ISNULL(CAST(Users_displayName AS NVARCHAR(MAX)), ''),
-                ISNULL(CAST(Users_emailAddress AS NVARCHAR(MAX)), ''),
-                ISNULL(CAST(Users_timeZone AS NVARCHAR(MAX)), ''),
-                ISNULL(CAST(Users_active AS NVARCHAR(MAX)), ''),
-                ISNULL(CAST(Users_Account_Type AS NVARCHAR(MAX)), '')
+                ISNULL(CAST(Values_name AS NVARCHAR(MAX)), ''),
+                ISNULL(CAST(Values_key AS NVARCHAR(MAX)), ''),
+                ISNULL(CAST(Values_color_key AS NVARCHAR(MAX)), ''),
+                ISNULL(CAST(Values_done AS NVARCHAR(MAX)), ''),
+                ISNULL(CAST(Values_summary AS NVARCHAR(MAX)), '')
             )
-        ), 2) AS hd_jira_user,
+        ), 2) AS hd_jira_epic,
         
         -- ===========================================
         -- BUSINESS KEY
         -- ===========================================
-        Users_AccountId,
+        Values_id,
         
         -- ===========================================
         -- PAYLOAD
         -- ===========================================
-        Users_displayName,
-        Users_emailAddress,
-        Users_timeZone,
-        Users_active,
-        Users_Account_Type,
+        Values_name,
+        Values_key,
+        Values_color_key,
+        Values_done,
+        Values_summary,
         
         -- ===========================================
         -- METADATA

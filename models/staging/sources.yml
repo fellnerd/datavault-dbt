@@ -919,46 +919,6 @@ sources:
             data_type: NVARCHAR(4000)
 
       # ===========================================
-      # Jira Platform API - Users
-      # ===========================================
-      - name: ext_jira_user
-        description: "Auto-generated from Platform.Api_Group_Users.parquet"
-        external:
-          location: "jira/sql/Platform.Api_Group_Users.parquet"
-          file_format: ParquetFormat
-          data_source: StageFileSystem
-        columns:
-          - name: Group_Name
-            data_type: NVARCHAR(4000)
-          - name: Self
-            data_type: NVARCHAR(4000)
-          - name: Users_displayName
-            data_type: NVARCHAR(4000)
-          - name: Users_AccountId
-            data_type: NVARCHAR(4000)
-            description: "Business Key - Jira Account ID"
-            tests:
-              - not_null
-          - name: Users_emailAddress
-            data_type: NVARCHAR(4000)
-          - name: Users_timeZone
-            data_type: NVARCHAR(4000)
-          - name: Users_active
-            data_type: BIT
-          - name: Users_Account_Type
-            data_type: NVARCHAR(4000)
-          - name: dss_record_source
-            data_type: NVARCHAR(4000)
-          - name: dss_load_date
-            data_type: NVARCHAR(4000)
-          - name: dss_run_id
-            data_type: NVARCHAR(4000)
-          - name: dss_stage_timestamp
-            data_type: NVARCHAR(4000)
-          - name: dss_source_file_name
-            data_type: NVARCHAR(4000)
-
-      # ===========================================
       # JIRA: Service Requests
       # ===========================================
       - name: ext_jira_service_request
@@ -1077,3 +1037,132 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_run_id
             data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # JIRA: Platform API Group Users
+      # ===========================================
+      - name: ext_jira_user
+        description: "Auto-generated from Platform.Api_Group_Users.parquet"
+        external:
+          location: "jira/sql/Platform.Api_Group_Users.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Group_Name
+            data_type: NVARCHAR(4000)
+          - name: Self
+            data_type: NVARCHAR(4000)
+          - name: Users_displayName
+            data_type: NVARCHAR(4000)
+          - name: Users_AccountId
+            data_type: NVARCHAR(4000)
+            tests:
+              - not_null
+              - unique
+          - name: Users_avatarUrls_48x48
+            data_type: NVARCHAR(4000)
+          - name: Users_avatarUrls_24x24
+            data_type: NVARCHAR(4000)
+          - name: Users_avatarUrls_16x16
+            data_type: NVARCHAR(4000)
+          - name: Users_avatarUrls_32x32
+            data_type: NVARCHAR(4000)
+          - name: Users_emailAddress
+            data_type: NVARCHAR(4000)
+          - name: Users_timeZone
+            data_type: NVARCHAR(4000)
+          - name: Users_active
+            data_type: BIT
+          - name: Users_Account_Type
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # JIRA: Agile Board Epic
+      # ===========================================
+      - name: ext_jira_epic
+        description: "Auto-generated from Agile.Agile_Board_Epic.parquet"
+        external:
+          location: "jira/sql/Agile.Agile_Board_Epic.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Board_Id
+            data_type: NVARCHAR(4000)
+          - name: Values_name
+            data_type: NVARCHAR(4000)
+          - name: Values_self
+            data_type: NVARCHAR(4000)
+          - name: Values_color_key
+            data_type: NVARCHAR(4000)
+          - name: Values_key
+            data_type: NVARCHAR(4000)
+          - name: Values_id
+            data_type: DECIMAL(38,10)
+            tests:
+              - not_null
+              - unique
+          - name: Values_done
+            data_type: BIT
+          - name: Values_summary
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # JIRA: Agile Fields Components
+      # ===========================================
+      - name: ext_jira_component
+        description: "Auto-generated from Agile.Fields_Components.parquet"
+        external:
+          location: "jira/sql/Agile.Fields_Components.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Issues_key
+            data_type: NVARCHAR(4000)
+          - name: Board_Id
+            data_type: NVARCHAR(4000)
+          - name: Epic_Id
+            data_type: NVARCHAR(4000)
+          - name: Fields_Components_self
+            data_type: NVARCHAR(4000)
+          - name: Fields_Components_id
+            data_type: NVARCHAR(4000)
+            tests:
+              - not_null
+              - unique
+          - name: Fields_Components_name
+            data_type: NVARCHAR(4000)
+          - name: Fields_Components_description
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+
+
