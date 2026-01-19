@@ -7,7 +7,6 @@
 
 ---
 
-TEST RUN INDEX: 1
 
 ## 📑 Inhaltsverzeichnis
 
