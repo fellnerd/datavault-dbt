@@ -22,7 +22,7 @@ WITH source_data AS (
         role_code,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_company') }}
+    FROM {{ ref('werkportal_company') }}
     WHERE hk_company IS NOT NULL
       AND hk_role IS NOT NULL
 ),

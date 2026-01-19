@@ -38,7 +38,7 @@ dbt run-operation stage_external_sources  # Create/update external tables
 | Object | Pattern | Example |
 |--------|---------|---------|
 | External Table | `stg.ext_<entity>` | `ext_company_client` |
-| Staging View | `stg.stg_<entity>` | `stg_company` |
+| Staging View | `stg.<concept>_<entity>` | `werkportal_company` |
 | Hub | `vault_<concept>.hub_<entity>` | `vault_werkportal.hub_company` |
 | Satellite | `vault_<concept>.sat_<entity>` | `vault_werkportal.sat_company` |
 | Link | `vault_<concept>.link_<e1>_<e2>` | `vault_werkportal.link_company_country` |
@@ -52,7 +52,7 @@ Do NOT use automate_dv hash macros - they're incompatible with SQL Server. Use:
 ```sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(CAST(column AS NVARCHAR(MAX)), '')), 2)
 ```
-See [stg_company.sql](models/staging/stg_company.sql) for the pattern.
+See [werkportal_company.sql](models/staging/werkportal_company.sql) for the pattern.
 
 ## Adding a New Source System (Concept)
 1. **Create folder:** `models/raw_vault/<concept>/hubs/`, `satellites/`, `links/`
@@ -65,16 +65,16 @@ See [stg_company.sql](models/staging/stg_company.sql) for the pattern.
        +incremental_strategy: append
        +as_columnstore: false
    ```
-3. **Create staging:** Add external table to `sources.yml`, create `stg_<entity>.sql`
+3. **Create staging:** Add external table to `sources.yml`, create `<concept>_<entity>.sql`
 4. **Create vault objects:** Hub, Satellite, Link in the new folder
 5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select raw_vault.<concept>`
 
 ## Adding a New Entity (to existing concept)
 1. **External Table:** Add to [sources.yml](models/staging/sources.yml) with full column definitions
-2. **Staging View:** Create `models/staging/stg_<entity>.sql` with hash calculations
+2. **Staging View:** Create `models/staging/<concept>_<entity>.sql` with hash calculations
 3. **Hub:** Create `models/raw_vault/<concept>/hubs/hub_<entity>.sql`
 4. **Satellite:** Create `models/raw_vault/<concept>/satellites/sat_<entity>.sql`
-5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select stg_<entity> hub_<entity> sat_<entity>`
+5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select <concept>_<entity> hub_<entity> sat_<entity>`
 
 ## Project Structure
 ```

@@ -48,7 +48,7 @@ WITH source_data AS (
         employeecount,
         date_created,
         date_updated
-    FROM {{ ref('stg_company') }}
+    FROM {{ ref('werkportal_company') }}
     WHERE hk_company IS NOT NULL
 ),
 

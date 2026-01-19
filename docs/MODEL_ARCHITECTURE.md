@@ -25,10 +25,10 @@ flowchart TB
         ext_aw_customer[ext_aw_customer]
     end
 
-    subgraph Staging["📋 Staging Views (stg.*)"]
-        stg_company[stg_company<br/>UNION ALL + Hash Keys]
-        stg_country[stg_country<br/>Hash Keys]
-        stg_aw_customer[stg_aw_customer<br/>Hash Keys]
+    subgraph Staging["📋 Staging Views (stg.<concept>_<entity>)"]
+        werkportal_company[werkportal_company<br/>UNION ALL + Hash Keys]
+        werkportal_country[werkportal_country<br/>Hash Keys]
+        adventureworks_customer[adventureworks_customer<br/>Hash Keys]
     end
 
     subgraph Werkportal["🔑 Raw Vault: Werkportal (vault_werkportal.*)"]
@@ -51,24 +51,24 @@ flowchart TB
     end
 
     %% Source to Staging
-    ext_client --> stg_company
-    ext_contractor --> stg_company
-    ext_supplier --> stg_company
-    ext_countries --> stg_country
-    ext_aw_customer --> stg_aw_customer
+    ext_client --> werkportal_company
+    ext_contractor --> werkportal_company
+    ext_supplier --> werkportal_company
+    ext_countries --> werkportal_country
+    ext_aw_customer --> adventureworks_customer
 
     %% Staging to Werkportal
-    stg_company --> hub_company
-    stg_country --> hub_country
-    stg_company --> sat_company
-    stg_company --> sat_client_ext
-    stg_country --> sat_country
-    stg_company --> link_role
-    stg_company --> link_country
+    werkportal_company --> hub_company
+    werkportal_country --> hub_country
+    werkportal_company --> sat_company
+    werkportal_company --> sat_client_ext
+    werkportal_country --> sat_country
+    werkportal_company --> link_role
+    werkportal_company --> link_country
 
     %% Staging to AdventureWorks
-    stg_aw_customer --> hub_customer
-    stg_aw_customer --> sat_customer
+    adventureworks_customer --> hub_customer
+    adventureworks_customer --> sat_customer
 
     %% Relationships
     hub_company -.->|FK| sat_company

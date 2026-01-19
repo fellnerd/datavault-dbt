@@ -28,7 +28,7 @@ WITH source_data AS (
         dss_record_source,
         -- Payload (nur client-spezifisch)
         freistellungsbescheinigung
-    FROM {{ ref('stg_company') }}
+    FROM {{ ref('werkportal_company') }}
     WHERE hk_company IS NOT NULL
       AND role_code = 'CLIENT'
       AND freistellungsbescheinigung IS NOT NULL

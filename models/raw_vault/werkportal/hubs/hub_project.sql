@@ -16,7 +16,7 @@ WITH source_data AS (
         object_id,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_project') }}
+    FROM {{ ref('werkportal_project') }}
     WHERE hk_project IS NOT NULL
 ),
 

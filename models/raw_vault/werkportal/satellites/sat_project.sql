@@ -41,7 +41,7 @@ WITH source_data AS (
         contractor_count,
         hidden,
         is_contracting
-    FROM {{ ref('stg_project') }}
+    FROM {{ ref('werkportal_project') }}
     WHERE hk_project IS NOT NULL
 ),
 

@@ -504,7 +504,7 @@ sources:
       - name: ext_tempo_worklog
         description: "Tempo Worklog - External Table (Jira Time Tracking)"
         external:
-          location: "tempo/api/tempo_worklog.parquet"
+          location: "jira/http/tempoLog.parquet"
           file_format: ParquetFormat
           data_source: StageFileSystem
         columns:
@@ -956,4 +956,124 @@ sources:
           - name: dss_stage_timestamp
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # SERVICEDESK: Customer Requests
+      # ===========================================
+      - name: ext_servicedesk_sd_customer_request
+        description: "Auto-generated from ServiceDesk.Sd_Customer_Request.parquet"
+        external:
+          location: "jira/sql/ServiceDesk.Sd_Customer_Request.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Issue_Key
+            data_type: NVARCHAR(4000)
+            tests:
+              - not_null
+              - unique
+          - name: Issue_Id
+            data_type: DECIMAL(38,10)
+          - name: Request_Type_Name
+            data_type: NVARCHAR(4000)
+          - name: Service_Desk_Project_Name
+            data_type: NVARCHAR(4000)
+          - name: Created_Date_Iso8601
+            data_type: DATETIME2
+          - name: Current_Status_Status
+            data_type: NVARCHAR(4000)
+          - name: Reporter_AccountId
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # AGILE: Issue Links
+      # ===========================================
+      - name: ext_agile_fields_issue_links
+        description: "Auto-generated from Agile.Fields_Issue_Links.parquet"
+        external:
+          location: "jira/sql/Agile.Fields_Issue_Links.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Fields_Issue_Links_id
+            data_type: NVARCHAR(4000)
+            tests:
+              - not_null
+              - unique
+          - name: Issues_key
+            data_type: NVARCHAR(4000)
+          - name: Fields_Issue_Links_outwardIssue_key
+            data_type: NVARCHAR(4000)
+          - name: Fields_Issue_Links_inwardIssue_key
+            data_type: NVARCHAR(4000)
+          - name: Fields_Issue_Links_type_name
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # AGILE: Work Log Worklogs
+      # ===========================================
+      - name: ext_agile_fields_work_log_worklogs
+        description: "Auto-generated from Agile.Fields_Work_Log_Worklogs.parquet"
+        external:
+          location: "jira/sql/Agile.Fields_Work_Log_Worklogs.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Fields_Work_Log_Worklogs_id
+            data_type: NVARCHAR(4000)
+            tests:
+              - not_null
+              - unique
+          - name: Issues_key
+            data_type: NVARCHAR(4000)
+          - name: Fields_Work_Log_Worklogs_author_accountId
+            data_type: NVARCHAR(4000)
+          - name: Fields_Work_Log_Worklogs_timeSpentSeconds
+            data_type: DECIMAL(38,10)
+          - name: Fields_Work_Log_Worklogs_created
+            data_type: DATETIME2
+          - name: Fields_Work_Log_Worklogs_comment
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+
+      # ===========================================
+      # SERVICEDESK: Organizations
+      # ===========================================
+      - name: ext_servicedesk_organizations
+        description: "Auto-generated from ServiceDesk.Organizations.parquet"
+        external:
+          location: "jira/sql/ServiceDesk.Organizations.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: Organization_ID
+            data_type: DECIMAL(38,10)
+            tests:
+              - not_null
+              - unique
+          - name: Name
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
             data_type: NVARCHAR(4000)

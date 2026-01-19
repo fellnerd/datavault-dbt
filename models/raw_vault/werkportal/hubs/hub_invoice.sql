@@ -16,7 +16,7 @@ WITH source_data AS (
         object_id,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_invoice') }}
+    FROM {{ ref('werkportal_invoice') }}
     WHERE hk_invoice IS NOT NULL
 ),
 

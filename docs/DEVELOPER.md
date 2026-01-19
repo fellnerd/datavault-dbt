@@ -284,7 +284,7 @@ dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_n
 dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'
 
 # Source view erstellen
-dbt run --select stg_aw_customer
+dbt run --select adventureworks_customer
 
 # Tests
 dbt test                             # Alle Tests
@@ -372,8 +372,8 @@ datavault-dbt/
 │   │
 │   ├── staging/                # 📥 Schema: stg
 │   │   ├── sources.yml         #    External Table Definitionen
-│   │   ├── stg_company.sql     #    Staging Views
-│   │   └── stg_country.sql
+│   │   ├── werkportal_company.sql     #    Staging Views
+│   │   └── werkportal_country.sql
 │   │
 │   ├── raw_vault/              # 🏛️ Raw Vault Layer
 │   │   ├── _common/            # Schema: vault (source-übergreifend)
@@ -439,7 +439,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 #### Schritt 2: Staging View erweitern
 
-📄 **Datei:** [models/staging/stg_company.sql](../models/staging/stg_company.sql)
+📄 **Datei:** [models/staging/werkportal_company.sql](../models/staging/werkportal_company.sql)
 
 ```sql
 -- 1. Füge Spalte zur SELECT-Liste hinzu
@@ -474,7 +474,7 @@ WITH source_data AS (
         tax_number,              -- ← NEU
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_company') }}
+    FROM {{ ref('werkportal_company') }}
     WHERE hk_company IS NOT NULL
 ),
 -- ... Rest bleibt gleich ...
@@ -487,7 +487,7 @@ WITH source_data AS (
 dbt run-operation stage_external_sources
 
 # Satellite neu bauen (full-refresh wegen Schemaänderung!)
-dbt run --full-refresh --select stg_company sat_company
+dbt run --full-refresh --select werkportal_company sat_company
 
 # Tests ausführen
 dbt test --select sat_company
@@ -511,7 +511,7 @@ Eine komplett neue Entity soll ins Data Vault (z.B. `product` aus einer neuen Qu
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. External Table    →  2. Staging View  →  3. Hub             │
 │        ↓                                          ↓              │
-│  sources.yml               stg_product.sql      hub_product.sql │
+│  sources.yml               werkportal_product.sql      hub_product.sql │
 │                                   ↓                    ↓         │
 │                            4. Satellite         5. Link          │
 │                            sat_product.sql      link_*.sql       │
@@ -562,11 +562,11 @@ sources:
 
 ### Schritt 2: Staging View erstellen
 
-📄 **Neue Datei:** `models/staging/stg_product.sql`
+📄 **Neue Datei:** `models/staging/werkportal_product.sql`
 
 ```sql
 /*
- * Staging Model: stg_product
+ * Staging Model: werkportal_product
  * 
  * Bereitet Product-Daten für das Data Vault vor.
  * Hash Key Separator: '^^' (DV 2.1 Standard)
@@ -659,14 +659,14 @@ WITH source_data AS (
         object_id,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_product') }}
+    FROM {{ ref('werkportal_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
 {% if is_incremental() %}
-existing_hubs AS (
+existing_hubs AS {
     SELECT hk_product FROM {{ this }}
-),
+},
 {% endif %}
 
 new_records AS (
@@ -721,7 +721,7 @@ WITH source_data AS (
         description,
         price,
         category_id
-    FROM {{ ref('stg_product') }}
+    FROM {{ ref('werkportal_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
@@ -819,10 +819,10 @@ dbt run-operation stage_external_sources
 dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
 
 # 2. Alle neuen Models bauen
-dbt run --select stg_product hub_product sat_product
+dbt run --select werkportal_product hub_product sat_product
 
 # 3. Tests ausführen
-dbt test --select stg_product hub_product sat_product
+dbt test --select werkportal_product hub_product sat_product
 
 # 4. Ghost Records hinzufügen (optional)
 # → Macro in ghost_records.sql erweitern
@@ -851,7 +851,7 @@ WITH source_data AS (
         <business_key_columns>,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_<entity>') }}
+    FROM {{ ref('<concept>_<entity>') }}
     WHERE hk_<entity> IS NOT NULL
 ),
 
@@ -905,7 +905,7 @@ WITH source_data AS (
         dss_record_source,
         -- Payload Spalten hier
         <payload_columns>
-    FROM {{ ref('stg_<entity>') }}
+    FROM {{ ref('<concept>_<entity>') }}
     WHERE hk_<entity> IS NOT NULL
 ),
 
@@ -956,7 +956,7 @@ WITH source_data AS (
         hk_<entity2>,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_<source>') }}
+    FROM {{ ref('<concept>_<source>') }}
     WHERE hk_<entity1> IS NOT NULL
       AND hk_<entity2> IS NOT NULL
 ),
@@ -984,7 +984,7 @@ SELECT * FROM new_records
 **Wichtig:** Der Link Hash Key muss im Staging berechnet werden:
 
 ```sql
--- In stg_<source>.sql
+-- In <concept>_<source>.sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
     CONCAT(
         ISNULL(CAST(<entity1_bk> AS NVARCHAR(MAX)), ''),
@@ -1055,7 +1055,7 @@ WITH source_data AS (
         hk_link_<entity1>_<entity2>,
         dss_load_date AS dss_start_date,
         dss_record_source
-    FROM {{ ref('stg_<source>') }}
+    FROM {{ ref('<concept>_<source>') }}
 ),
 
 {% if is_incremental() %}
@@ -1598,7 +1598,7 @@ dbt debug
 
 ```
 □ External Table in sources.yml definiert
-□ Staging View erstellt (stg_<entity>.sql)
+□ Staging View erstellt (<concept>_<entity>.sql)
   □ Hash Key berechnet
   □ Hash Diff berechnet (falls Satellite)
   □ Metadata-Spalten gemappt
@@ -1608,7 +1608,7 @@ dbt debug
 □ Link erstellt (falls Beziehung)
 □ Tests in schema.yml hinzugefügt
 □ dbt run-operation stage_external_sources
-□ dbt run --select stg_* hub_* sat_*
+□ dbt run --select <concept>_* hub_* sat_*
 □ dbt test
 □ Ghost Records erweitert (optional)
 □ Dokumentation aktualisiert
@@ -1622,7 +1622,7 @@ dbt debug
 □ Spalte in Hash Diff (falls getrackt)
 □ Spalte in Satellite hinzugefügt
 □ dbt run-operation stage_external_sources
-□ dbt run --full-refresh --select stg_* sat_*
+□ dbt run --full-refresh --select <concept>_* sat_*
 □ dbt test
 ```
 

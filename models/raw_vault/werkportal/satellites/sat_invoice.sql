@@ -48,7 +48,7 @@ WITH source_data AS (
         u_amount,
         comission_amount,
         subscription
-    FROM {{ ref('stg_invoice') }}
+    FROM {{ ref('werkportal_invoice') }}
     WHERE hk_invoice IS NOT NULL
 ),
 

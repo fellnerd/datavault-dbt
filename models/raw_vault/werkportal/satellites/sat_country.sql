@@ -24,7 +24,7 @@ WITH source_data AS (
         dss_record_source,
         -- Payload
         name
-    FROM {{ ref('stg_country') }}
+    FROM {{ ref('werkportal_country') }}
     WHERE hk_country IS NOT NULL
 ),
 

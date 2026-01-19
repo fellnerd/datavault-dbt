@@ -262,7 +262,7 @@ Bearbeite `models/staging/sources.yml`:
 
 ### Schritt 2: Staging View erstellen
 
-Erstelle `models/staging/stg_neue_entity.sql`:
+Erstelle `models/staging/werkportal_neue_entity.sql`:
 
 ```sql
 {{- config(
@@ -305,7 +305,7 @@ Erstelle `models/raw_vault/hubs/hub_neue_entity.sql`:
     as_columnstore=false
 ) -}}
 
-{%- set source_model = "stg_neue_entity" -%}
+{%- set source_model = "werkportal_neue_entity" -%}
 {%- set src_pk = "hk_neue_entity" -%}
 {%- set src_nk = "id" -%}
 {%- set src_ldts = "dss_load_date" -%}
@@ -331,7 +331,7 @@ Erstelle `models/raw_vault/satellites/sat_neue_entity.sql`:
     as_columnstore=false
 ) -}}
 
-{%- set source_model = "stg_neue_entity" -%}
+{%- set source_model = "werkportal_neue_entity" -%}
 {%- set src_pk = "hk_neue_entity" -%}
 {%- set src_hashdiff = "hd_neue_entity" -%}
 {%- set src_ldts = "dss_load_date" -%}
@@ -355,11 +355,11 @@ Erstelle `models/raw_vault/satellites/sat_neue_entity.sql`:
 dbt run-operation stage_external_sources
 
 # Models bauen (Development)
-dbt run --select stg_neue_entity hub_neue_entity sat_neue_entity
+dbt run --select werkportal_neue_entity hub_neue_entity sat_neue_entity
 
 # Produktion
 dbt run-operation stage_external_sources --target werkportal
-dbt run --select stg_neue_entity hub_neue_entity sat_neue_entity --target werkportal
+dbt run --select werkportal_neue_entity hub_neue_entity sat_neue_entity --target werkportal
 ```
 
 ---
@@ -505,12 +505,12 @@ SELECT COUNT(*) FROM vault.sat_company_client;
 | Objekt | Pattern | Beispiel |
 |--------|---------|----------|
 | External Table | `ext_<entity>` | `ext_company_client` |
-| Staging View | `stg_<entity>` | `stg_company_client` |
-| Hub | `hub_<entity>` | `hub_company_client` |
-| Satellite | `sat_<entity>` | `sat_company_client` |
+| Staging View | `<concept>_<entity>` | `werkportal_company` |
+| Hub | `hub_<entity>` | `hub_company` |
+| Satellite | `sat_<entity>` | `sat_company` |
 | Link | `link_<e1>_<e2>` | `link_company_country` |
-| Hash Key | `hk_<entity>` | `hk_company_client` |
-| Hash Diff | `hd_<entity>` | `hd_company_client` |
+| Hash Key | `hk_<entity>` | `hk_company` |
+| Hash Diff | `hd_<entity>` | `hd_company` |
 
 ### 8.3 Änderungen nachvollziehen
 

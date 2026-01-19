@@ -26,7 +26,7 @@ WITH source_data AS (
         LastName,
         Suffix,
         CompanyName
-    FROM {{ ref('stg_aw_customer') }}
+    FROM {{ ref('adventureworks_customer') }}
     WHERE hk_customer IS NOT NULL
 ),
 

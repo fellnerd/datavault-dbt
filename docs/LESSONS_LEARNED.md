@@ -216,7 +216,7 @@ models/
 
 ### Staging Pattern
 1. External Table als Source (`stg.ext_*`)
-2. Staging View berechnet alle Hash Keys (`stg.stg_*`)
+2. Staging View berechnet alle Hash Keys (`stg.<concept>_<entity>`)
 3. Hash Key = Business Key Hash
 4. Hash Diff = Alle Attribute Hash (für Change Detection)
 
@@ -232,7 +232,7 @@ Statt: Timestamp-basierter Vergleich
 |---------|--------|----------------|
 | Hash Keys (SHA2_256) | ✅ | `HASHBYTES()` mit CHAR(64) |
 | Hash Diff für Change Detection | ✅ | `hd_*` Spalten in Satellites |
-| Hash Separator '^^' | ✅ | Composite Keys in stg_company |
+| Hash Separator '^^' | ✅ | Composite Keys in werkportal_company |
 | dss_load_date Metadata | ✅ | Alle Vault-Objekte |
 | dss_record_source | ✅ | Quellsystem-Tracking |
 | dss_is_current Flag | ✅ | Satellites mit Post-Hook |

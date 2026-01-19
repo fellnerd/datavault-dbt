@@ -16,7 +16,7 @@ WITH source_data AS (
         CustomerID,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_aw_customer') }}
+    FROM {{ ref('adventureworks_customer') }}
     WHERE hk_customer IS NOT NULL
 ),
 

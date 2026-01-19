@@ -24,7 +24,7 @@ WITH source_data AS (
         hk_country,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_company') }}
+    FROM {{ ref('werkportal_company') }}
     WHERE hk_link_company_country IS NOT NULL
       AND hk_country IS NOT NULL
 ),
