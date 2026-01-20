@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment
+.env
+.env.local
+
+# Session
+.agent-session.json
+
+# Data
+data/
+memory/*.db
+
+# Logs
+*.log

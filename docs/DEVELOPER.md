@@ -271,6 +271,15 @@ dbt run --full-refresh               # Alles neu bauen
 
 ## Option 1: ALLE External Tables (Standard)
 dbt run-operation stage_external_sources
+# oder einzelne Tabelle
+dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
+# Full Refresh (DROP + CREATE, bei Schema-Änderungen)
+dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true}'
+# Full Refresh für einzelne Tabelle
+dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true, "external_table_name": "ext_aw_customer"}'
+
+# Source view erstellen
+dbt run --select stg_aw_customer
 
 ## Option 2: EINZELNE neue Tabelle (optimiert)
 # Nur die neue ext_jira_project erstellen (schneller)

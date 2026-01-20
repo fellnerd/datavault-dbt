@@ -1,0 +1,104 @@
+#!/bin/bash
+# =============================================================================
+# Post-Merge Git Hook - Automatic RAG Index Update
+# =============================================================================
+# This hook runs after `git pull` or `git merge` to automatically
+# re-index documents for RAG when relevant files have changed.
+#
+# Installation:
+#   cp scripts/git-hooks/post-merge .git/hooks/post-merge
+#   chmod +x .git/hooks/post-merge
+# =============================================================================
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BLUE}  Post-Merge Hook: Checking for RAG index updates...${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+# Patterns for files that should trigger re-indexing
+RAG_PATTERNS=(
+    "*.md"
+    "*.sql"
+    "*.yml"
+    "*.yaml"
+)
+
+# Directories to watch
+RAG_DIRS=(
+    "docs/"
+    "models/"
+    "macros/"
+    "seeds/"
+    ".github/"
+    "scripts/"
+)
+
+# Check if any RAG-relevant files changed
+CHANGED_FILES=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD 2>/dev/null || echo "")
+
+if [ -z "$CHANGED_FILES" ]; then
+    echo -e "${YELLOW}  No files changed, skipping RAG index update.${NC}"
+    exit 0
+fi
+
+# Check if any of the changed files match our patterns
+NEEDS_REINDEX=false
+
+for file in $CHANGED_FILES; do
+    # Check file extension
+    for pattern in "${RAG_PATTERNS[@]}"; do
+        if [[ "$file" == $pattern ]]; then
+            NEEDS_REINDEX=true
+            break 2
+        fi
+    done
+    
+    # Check directory
+    for dir in "${RAG_DIRS[@]}"; do
+        if [[ "$file" == $dir* ]]; then
+            NEEDS_REINDEX=true
+            break 2
+        fi
+    done
+done
+
+if [ "$NEEDS_REINDEX" = true ]; then
+    echo -e "${GREEN}  RAG-relevant files changed. Starting re-indexing...${NC}"
+    echo ""
+    
+    # Change to agent directory and run indexing
+    cd "$(dirname "$0")/../../agent" 2>/dev/null || cd "$(git rev-parse --show-toplevel)/agent"
+    
+    # Check if node_modules exists
+    if [ ! -d "node_modules" ]; then
+        echo -e "${YELLOW}  Installing dependencies first...${NC}"
+        npm install --silent
+    fi
+    
+    # Check if dist exists (needs build)
+    if [ ! -d "dist" ]; then
+        echo -e "${YELLOW}  Building TypeScript...${NC}"
+        npm run build --silent
+    fi
+    
+    # Run indexing
+    npm run index --silent 2>&1 || {
+        echo -e "${RED}  ⚠ RAG indexing failed, but continuing...${NC}"
+        exit 0  # Don't block the merge
+    }
+    
+    echo ""
+    echo -e "${GREEN}  ✓ RAG index updated successfully!${NC}"
+else
+    echo -e "${YELLOW}  No RAG-relevant files changed, skipping.${NC}"
+fi
+
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
