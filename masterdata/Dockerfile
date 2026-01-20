@@ -51,7 +51,7 @@ COPY --chown=nextjs:nodejs ./dbt ./dbt
 # Environment variables
 ENV NODE_ENV=production
 ENV HOSTNAME="0.0.0.0"
-ENV PORT=3000
+ENV PORT=80
 
 # dbt environment variables (override at runtime)
 ENV DBT_PROFILES_DIR=/app/dbt
@@ -60,10 +60,12 @@ ENV MDS_DB_DATABASE=""
 ENV MDS_DB_USER=""
 ENV MDS_DB_PASSWORD=""
 
-# Switch to non-root user
+# Note: Running on port 80 requires root or capabilities
+# For simplicity, we keep nextjs user and use port 80
+# (works in Docker containers)
 USER nextjs
 
-EXPOSE 3000
+EXPOSE 80
 
 # Bootstrap dbt schemas at startup, then run Next.js
 CMD ["sh", "-c", "cd /app/dbt && dbt run-operation bootstrap_mds --target prod 2>/dev/null || true && cd /app && node server.js"]

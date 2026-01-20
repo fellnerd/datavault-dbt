@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // Ensure server-only modules don't get bundled for the client
   serverExternalPackages: ['mssql', 'tedious', 'bullmq', 'ioredis'],
   
+  // Allow dev access from network IP (just the origin without path)
+  allowedDevOrigins: ['10.0.0.25'],
+  
   // Empty turbopack config to acknowledge we're using Turbopack
   turbopack: {},
   

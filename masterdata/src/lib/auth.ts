@@ -43,6 +43,9 @@ async function getUserRoles(email: string): Promise<UserRole[]> {
   return ['viewer'];
 }
 
+// Check if dev mode is enabled (via env var, not just NODE_ENV)
+const isDevModeEnabled = process.env.NEXT_PUBLIC_DEV_MODE === 'true' || process.env.NODE_ENV === 'development';
+
 // Dev credentials provider for local testing
 const devCredentialsProvider = Credentials({
   name: 'Development',
@@ -51,8 +54,8 @@ const devCredentialsProvider = Credentials({
     password: { label: 'Password', type: 'password' },
   },
   async authorize(credentials) {
-    // Only allow in development mode
-    if (process.env.NODE_ENV !== 'development') {
+    // Only allow if dev mode is explicitly enabled
+    if (!isDevModeEnabled) {
       return null;
     }
     
@@ -71,8 +74,8 @@ const devCredentialsProvider = Credentials({
 
 // Build providers based on environment
 const providers = [
-  // Development credentials
-  ...(process.env.NODE_ENV === 'development' ? [devCredentialsProvider] : []),
+  // Development credentials (when NEXT_PUBLIC_DEV_MODE=true)
+  ...(isDevModeEnabled ? [devCredentialsProvider] : []),
   // Microsoft Entra ID (production)
   ...(process.env.AUTH_MICROSOFT_ENTRA_ID_ID
     ? [
@@ -152,6 +155,28 @@ export const authConfig: NextAuthConfig = {
       }
       
       return true;
+    },
+    
+    // Fix redirect URLs - replace internal 0.0.0.0 with actual request host
+    async redirect({ url, baseUrl }) {
+      // If URL contains 0.0.0.0, it's the internal container hostname - fix it
+      if (url.includes('0.0.0.0')) {
+        // Just redirect to root path on same origin
+        return '/';
+      }
+      
+      // Handle relative URLs
+      if (url.startsWith('/')) {
+        return url;
+      }
+      
+      // Allow redirects to same origin
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      
+      // Default to home
+      return '/';
     },
   },
   

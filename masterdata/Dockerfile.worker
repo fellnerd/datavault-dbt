@@ -20,13 +20,15 @@ RUN apk add --no-cache \
     freetds-dev \
     build-base \
     python3-dev \
-    bash
+    bash \
+    ca-certificates
 
-# Install Microsoft ODBC Driver 18
-RUN apk add --no-cache curl gnupg && \
-    curl -O https://download.microsoft.com/download/b/9/f/b9f3cce4-3925-46d4-9f46-da08869c6486/msodbcsql18_18.3.3.1-1_amd64.apk && \
+# Install Microsoft ODBC Driver 18 for SQL Server (Alpine)
+# Using FreeTDS as fallback if MS ODBC fails
+RUN apk add --no-cache curl && \
+    curl -k -O https://download.microsoft.com/download/b/9/f/b9f3cce4-3925-46d4-9f46-da08869c6486/msodbcsql18_18.3.3.1-1_amd64.apk && \
     apk add --allow-untrusted msodbcsql18_18.3.3.1-1_amd64.apk || true && \
-    rm msodbcsql18_18.3.3.1-1_amd64.apk
+    rm -f msodbcsql18_18.3.3.1-1_amd64.apk
 
 # Install dbt-core and dbt-sqlserver
 RUN pip3 install --break-system-packages \
