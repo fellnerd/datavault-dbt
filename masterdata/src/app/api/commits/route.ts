@@ -219,12 +219,12 @@ export async function POST(request: NextRequest) {
       }, { status: 201 })
     }
     
-    // Option 2: Commit ALL pending records for this entity (no commit_id yet)
-    // Check if there are pending staged_records without a commit
+    // Option 2: Commit ALL uncommitted records for this entity (no commit_id yet)
+    // Check if there are uncommitted staged_records (draft or pending) without a commit
     const pendingRecords = await dbQuery<{ count: number }>(
       `SELECT COUNT(*) as count 
        FROM [mds_stage].[staged_record] 
-       WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL`,
+       WHERE entity_id = @entityId AND status IN ('draft', 'pending') AND commit_id IS NULL`,
       { entityId: entity_id }
     )
     
@@ -292,8 +292,8 @@ export async function POST(request: NextRequest) {
     // For small commits, do it synchronously
     await dbExecute(
       `UPDATE [mds_stage].[staged_record] 
-       SET commit_id = @commitId, status = 'COMMITTED'
-       WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL`,
+       SET commit_id = @commitId, status = 'committed'
+       WHERE entity_id = @entityId AND status IN ('draft', 'pending') AND commit_id IS NULL`,
       { commitId, entityId: entity_id }
     )
     

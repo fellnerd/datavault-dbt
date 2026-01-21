@@ -64,11 +64,12 @@ export async function GET(request: NextRequest) {
     const total = countResult[0]?.total || 0
     
     // Get summary counts by status
+    // Note: 'draft' = new records, 'pending' = ready to commit, both are uncommitted
     const summarySql = `
       SELECT 
-        SUM(CASE WHEN r.status = 'PENDING' THEN 1 ELSE 0 END) AS draft,
-        SUM(CASE WHEN r.status = 'VALIDATED' THEN 1 ELSE 0 END) AS validated,
-        SUM(CASE WHEN r.status = 'INVALID' THEN 1 ELSE 0 END) AS invalid
+        SUM(CASE WHEN r.status IN ('draft', 'pending') THEN 1 ELSE 0 END) AS draft,
+        SUM(CASE WHEN r.status = 'validated' THEN 1 ELSE 0 END) AS validated,
+        SUM(CASE WHEN r.status = 'invalid' THEN 1 ELSE 0 END) AS invalid
       FROM [mds_stage].[staged_record] r
       ${whereClause}
     `

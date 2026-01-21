@@ -104,6 +104,14 @@ services:
       - MDS_DB_PASSWORD=${DB_PASSWORD}
       - MDS_DBT_TARGET=${DBT_TARGET:-prod}
       - DBT_PROFILES_DIR=/app/dbt
+      # dbt Paths (Container-spezifisch)
+      - MDS_DBT_PATH=/app/dbt
+      - DBT_CMD=dbt
+      - DBT_IMPORT_SOURCE_PATH=/tmp/mds-dbt-source
+      - GENERATE_MODELS_PATH=/app/dbt/scripts/generate_models.py
+      # API für Status-Updates (Worker → App)
+      - API_BASE_URL=http://mds-app:80
+      - INTERNAL_API_SECRET=${INTERNAL_API_SECRET:-mds-worker-secret}
       # Redis (lokaler Container)
       - REDIS_HOST=redis
       - REDIS_PORT=6379

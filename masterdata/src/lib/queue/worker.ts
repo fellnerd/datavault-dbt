@@ -522,13 +522,13 @@ async function handleBulkCommit(job: Job<MdsJobData>): Promise<{ committed: numb
 
   const pool = await getDbPool();
   
-  // Step 1: Count pending records
+  // Step 1: Count uncommitted records (draft or pending)
   const countResult = await pool.request()
     .input('entityId', entityId)
     .query(`
       SELECT COUNT(*) as total 
       FROM [mds_stage].[staged_record] 
-      WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL
+      WHERE entity_id = @entityId AND status IN ('draft', 'pending') AND commit_id IS NULL
     `);
   
   const totalRecords = countResult.recordset[0]?.total || 0;
@@ -556,8 +556,8 @@ async function handleBulkCommit(job: Job<MdsJobData>): Promise<{ committed: numb
       .input('batchSize', BATCH_SIZE)
       .query(`
         UPDATE TOP (@batchSize) [mds_stage].[staged_record]
-        SET commit_id = @commitId, status = 'COMMITTED'
-        WHERE entity_id = @entityId AND status = 'PENDING' AND commit_id IS NULL
+        SET commit_id = @commitId, status = 'committed'
+        WHERE entity_id = @entityId AND status IN ('draft', 'pending') AND commit_id IS NULL
       `);
     
     const rowsAffected = updateResult.rowsAffected[0] || 0;
@@ -782,11 +782,11 @@ async function runCommandWithStreaming(
 async function executeDbtCommand(job: Job<MdsJobData>, args: string[]): Promise<string[]> {
   return new Promise((resolve, reject) => {
     // Ensure dbt project path is set
-    const dbtProjectPath = process.env.DBT_PROJECT_PATH || 
+    const dbtProjectPath = process.env.MDS_DBT_PATH || 
       '/home/user/projects/datavault-dbt/masterdata/dbt';
     
-    // Use dbt from the project's virtual environment
-    const dbtCommand = process.env.DBT_COMMAND || 
+    // Use dbt command (in Docker: 'dbt', locally: full path)
+    const dbtCommand = process.env.DBT_CMD || 
       '/home/user/projects/datavault-dbt/.venv/bin/dbt';
     
     // Get credentials from environment

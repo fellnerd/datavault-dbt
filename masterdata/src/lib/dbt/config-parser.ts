@@ -88,17 +88,19 @@ function getSchemaFromConfig(
 
 /**
  * Determine model type from path and name
+ * Note: Paths can be relative (staging/file.sql) or absolute (/staging/file.sql)
  */
 function inferModelType(filePath: string, fileName: string): DbtModel['type'] {
   const pathLower = filePath.toLowerCase()
   const nameLower = fileName.toLowerCase()
   
-  if (pathLower.includes('/hubs/') || nameLower.startsWith('hub_')) return 'hub'
-  if (pathLower.includes('/satellites/') || nameLower.startsWith('sat_')) return 'satellite'
-  if (pathLower.includes('/links/') || nameLower.startsWith('link_')) return 'link'
-  if (pathLower.includes('/staging/') || nameLower.startsWith('stg_')) return 'staging'
-  if (pathLower.includes('/mart/') || pathLower.includes('/marts/')) return 'mart'
-  if (pathLower.includes('/business_vault/')) {
+  // Check both /folder/ and folder/ patterns to handle relative paths
+  if (pathLower.includes('/hubs/') || pathLower.startsWith('hubs/') || nameLower.startsWith('hub_')) return 'hub'
+  if (pathLower.includes('/satellites/') || pathLower.startsWith('satellites/') || nameLower.startsWith('sat_')) return 'satellite'
+  if (pathLower.includes('/links/') || pathLower.startsWith('links/') || nameLower.startsWith('link_')) return 'link'
+  if (pathLower.includes('/staging/') || pathLower.startsWith('staging/') || nameLower.startsWith('stg_')) return 'staging'
+  if (pathLower.includes('/mart/') || pathLower.includes('/marts/') || pathLower.startsWith('mart/') || pathLower.startsWith('marts/')) return 'mart'
+  if (pathLower.includes('/business_vault/') || pathLower.startsWith('business_vault/')) {
     if (nameLower.startsWith('pit_')) return 'pit'
     if (nameLower.startsWith('bridge_')) return 'bridge'
     return 'table'
@@ -109,39 +111,75 @@ function inferModelType(filePath: string, fileName: string): DbtModel['type'] {
 
 /**
  * Extract column names from SQL file
- * Simple regex-based extraction from SELECT statements
+ * Handles dbt CTE patterns (WITH source AS (...), staged AS (...) SELECT * FROM staged)
+ * and SQL Server bracket syntax [ColumnName]
  */
 function extractColumnsFromSql(sqlContent: string): string[] {
   const columns: string[] = []
   
-  // Try to find columns in the final SELECT statement or CTE
-  // Pattern: looks for column names in SELECT ... FROM patterns
+  // Remove single-line comments
+  let cleanSql = sqlContent.replace(/--.*$/gm, '')
+  // Remove multi-line comments
+  cleanSql = cleanSql.replace(/\/\*[\s\S]*?\*\//g, '')
+  
+  // Find the final SELECT * FROM staged pattern (common in dbt)
+  if (cleanSql.match(/SELECT\s+\*\s+FROM\s+staged/i)) {
+    // Look for the staged CTE
+    const stagedMatch = cleanSql.match(/staged\s+AS\s*\(\s*SELECT\s+([\s\S]*?)\s+FROM\s+source/i)
+    if (stagedMatch) {
+      cleanSql = 'SELECT ' + stagedMatch[1] + ' FROM dummy'
+    }
+  }
+  
+  // Find all SELECT ... FROM blocks
   const selectPattern = /SELECT\s+([\s\S]*?)\s+FROM/gi
-  const matches = sqlContent.matchAll(selectPattern)
+  const matches = [...cleanSql.matchAll(selectPattern)]
   
   for (const match of matches) {
     const selectClause = match[1]
-    // Extract column names (simplified - handles common patterns)
-    const columnMatches = selectClause.matchAll(/(?:^|,)\s*(?:[\w.]+\s+AS\s+)?(\w+)\s*(?:,|$)/gi)
-    for (const colMatch of columnMatches) {
-      const colName = colMatch[1]
-      if (colName && !columns.includes(colName) && !colName.match(/^(SELECT|FROM|WHERE|AND|OR)$/i)) {
-        columns.push(colName)
+    
+    // Skip SELECT *
+    if (selectClause.trim() === '*') continue
+    
+    // Split by comma (but not inside parentheses)
+    let depth = 0
+    let current = ''
+    const parts: string[] = []
+    
+    for (const char of selectClause) {
+      if (char === '(') depth++
+      else if (char === ')') depth--
+      else if (char === ',' && depth === 0) {
+        parts.push(current.trim())
+        current = ''
+        continue
+      }
+      current += char
+    }
+    if (current.trim()) parts.push(current.trim())
+    
+    for (const part of parts) {
+      // Skip empty parts, section headers (=====)
+      if (!part || part.includes('=====')) continue
+      
+      // Pattern 1: expression AS alias (with or without brackets)
+      let m = part.match(/\sAS\s+\[?(\w+)\]?\s*$/i)
+      if (m) {
+        columns.push(m[1])
+        continue
+      }
+      
+      // Pattern 2: simple [ColumnName] or ColumnName
+      m = part.match(/^\s*\[?(\w+)\]?\s*$/)
+      if (m && !m[1].match(/^(SELECT|FROM|WHERE|AND|OR|CONVERT|HASHBYTES|CONCAT|ISNULL|CAST|COALESCE|TRY_CAST|GETDATE)$/i)) {
+        columns.push(m[1])
+        continue
       }
     }
   }
   
-  // Also look for explicit column definitions in Jinja macros
-  const jinjaColPattern = /['"](\w+)['"]\s*:/g
-  const jinjaMatches = sqlContent.matchAll(jinjaColPattern)
-  for (const match of jinjaMatches) {
-    const colName = match[1]
-    if (colName && !columns.includes(colName)) {
-      columns.push(colName)
-    }
-  }
-  
-  return columns
+  // Deduplicate
+  return [...new Set(columns)]
 }
 
 /**
