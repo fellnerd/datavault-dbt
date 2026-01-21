@@ -164,7 +164,7 @@ export class ModelDetailsPanel {
     }
     .columns-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 8px;
     }
     .column-item {
@@ -173,6 +173,17 @@ export class ModelDetailsPanel {
       border-radius: 4px;
       font-family: monospace;
       font-size: 0.9em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .column-name {
+      color: var(--vscode-foreground);
+    }
+    .column-type {
+      color: var(--vscode-descriptionForeground);
+      font-size: 0.85em;
+      margin-left: 8px;
     }
     .empty {
       color: var(--vscode-descriptionForeground);
@@ -245,7 +256,12 @@ export class ModelDetailsPanel {
   <h2>📊 Columns (${model.columns.length})</h2>
   ${model.columns.length > 0 ? `
   <div class="columns-grid">
-    ${model.columns.map(col => `<div class="column-item">${col}</div>`).join('')}
+    ${model.columns.map(col => `
+      <div class="column-item">
+        <span class="column-name">${col.name}</span>
+        ${col.dataType ? `<span class="column-type">${col.dataType}</span>` : ''}
+      </div>
+    `).join('')}
   </div>
   ` : '<p class="empty">No columns detected</p>'}
 

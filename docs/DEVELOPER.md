@@ -268,23 +268,24 @@ dbt run --select +sat_company+       # Model mit Abhängigkeiten
 dbt run --full-refresh               # Alles neu bauen
 
 # External Tables erstellen / aktualisieren
+# Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_werkportal_company)
 
 ## Option 1: ALLE External Tables (Standard)
 dbt run-operation stage_external_sources
-# oder einzelne Tabelle
-dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
+# oder einzelne Tabelle (Format: staging.<table_name>)
+dbt run-operation stage_external_sources --args 'select: staging.ext_jira_project'
 # Full Refresh (DROP + CREATE, bei Schema-Änderungen)
-dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true}'
+dbt run-operation stage_external_sources --vars 'ext_full_refresh: true'
 # Full Refresh für einzelne Tabelle
-dbt run-operation stage_external_sources --vars '{"ext_full_refresh": true, "external_table_name": "ext_aw_customer"}'
+dbt run-operation stage_external_sources --args 'select: staging.ext_jira_project' --vars 'ext_full_refresh: true'
 
 # Source view erstellen
-dbt run --select stg_aw_customer
+dbt run --select jira_project
 
 ## Option 2: EINZELNE neue Tabelle (optimiert)
 # Nur die neue ext_jira_project erstellen (schneller)
 dbt run-operation create_external_table \
-  --args '{"table_name": "ext_jira_project"}'
+  --args 'table_name: ext_jira_project'
 
 ## Option 3: Explorieren (ohne zu erstellen)
 # Parquet-Dateien in ADLS erkunden
@@ -899,8 +900,8 @@ ORDER BY c.column_id;
 ```bash
 # 1. External Table erstellen
 dbt run-operation stage_external_sources
-# or
-dbt run-operation stage_external_sources --vars '{"external_table_name": "ext_aw_customer"}'
+# oder einzelne Tabelle
+dbt run-operation stage_external_sources --args 'select: staging.ext_werkportal_product'
 
 # 2. Alle neuen Models bauen
 dbt run --select werkportal_product hub_product sat_product

@@ -7,15 +7,34 @@
     
     Output:
         YAML-Format für dbt-external-tables sources.yml
+    
+    Namenskonvention:
+        ext_<concept>_<entity>
+        - concept: Erster Ordner im Pfad (z.B. "jira" aus "jira/sql")
+        - entity: Bereinigter Dateiname ohne Extension
 #}
 
 {% set file_path = folder_path ~ '/' ~ file_name %}
 
-{# Generiere External Table Name aus Dateiname #}
-{% set table_name = 'ext_' ~ file_name 
+{# Extrahiere Concept aus dem Ordnerpfad (erster Ordner) #}
+{% set path_parts = folder_path.split('/') %}
+{% set concept = path_parts[0] | lower | replace('-', '_') | replace(' ', '_') %}
+
+{# Bereinige Dateiname für Entity-Teil #}
+{% set entity_raw = file_name 
     | replace('.parquet', '') 
     | replace('.', '_') 
+    | replace('-', '_')
     | lower %}
+
+{# Entferne bekannte Präfixe wie "platform_api_" #}
+{% set entity = entity_raw 
+    | replace('platform_api_', '')
+    | replace('platform_', '')
+    | replace('api_', '') %}
+
+{# Generiere External Table Name: ext_<concept>_<entity> #}
+{% set table_name = 'ext_' ~ concept ~ '_' ~ entity %}
 
 {# Query um Schema zu lesen - sp_describe_first_result_set gibt Metadaten zurück #}
 {% set schema_query %}

@@ -504,7 +504,7 @@ SELECT COUNT(*) FROM vault.sat_company_client;
 
 | Objekt | Pattern | Beispiel |
 |--------|---------|----------|
-| External Table | `ext_<entity>` | `ext_company_client` |
+| External Table | `ext_<concept>_<entity>` | `ext_werkportal_company_client` |
 | Staging View | `<concept>_<entity>` | `werkportal_company` |
 | Hub | `hub_<entity>` | `hub_company` |
 | Satellite | `sat_<entity>` | `sat_company` |

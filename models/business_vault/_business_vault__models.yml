@@ -1,27 +1,7 @@
 version: 2
 
-models:
+models: []
   # =============================================================================
   # POINT-IN-TIME TABLES
   # =============================================================================
-  - name: pit_company
-    description: |
-      Point-In-Time Table für Company.
-      Ermöglicht effiziente Abfragen zu beliebigen Zeitpunkten.
-    columns:
-      - name: pit_load_date
-        description: Abfrage-Zeitpunkt
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: hk_company
-        description: Hash Key (FK zu hub_company)
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: sat_company_load_date
-        description: Load Date des sat_company zum Zeitpunkt
-        data_type: datetime2(7)
-      - name: sat_company_client_ext_load_date
-        description: Load Date des sat_company_client_ext zum Zeitpunkt
-        data_type: datetime2(7)
+  # (keine PITs definiert - Werkportal wurde entfernt)

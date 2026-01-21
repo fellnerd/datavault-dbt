@@ -16,7 +16,8 @@ import {
   MaterializedType,
   YamlModelDefinition,
   YamlColumnDefinition,
-  ColumnInfo
+  ColumnInfo,
+  ExternalTable
 } from './types';
 
 /**
@@ -102,6 +103,10 @@ export class DbtProjectParser {
     const marts = models.filter(m => m.layer === 'mart');
     const staging = models.filter(m => m.layer === 'staging');
 
+    // Step 4: Parse sources.yml for external tables
+    const externalTables = await this.parseSourcesYaml(modelPaths);
+    console.log(`[DataVault] Loaded ${externalTables.length} external tables from sources.yml`);
+
     // Extract unique concepts and schemas
     const concepts = [...new Set(models.map(m => m.concept).filter(c => c))];
     const schemas = [...new Set(models.map(m => m.schema).filter(s => s))];
@@ -119,6 +124,7 @@ export class DbtProjectParser {
       bridges,
       marts,
       staging,
+      externalTables,
       concepts,
       schemas,
       lastScanned: new Date()
@@ -257,7 +263,8 @@ export class DbtProjectParser {
       sources,
       concept,
       layer,
-      description: yamlDef.description
+      description: yamlDef.description,
+      _yamlPath: yamlDef._yamlPath
     };
   }
 
@@ -581,6 +588,115 @@ export class DbtProjectParser {
       baseLink,
       includedSatellites
     };
+  }
+
+  /**
+   * Parse sources.yml files to extract external table definitions
+   */
+  private async parseSourcesYaml(modelPaths: string[]): Promise<ExternalTable[]> {
+    const externalTables: ExternalTable[] = [];
+
+    for (const modelPath of modelPaths) {
+      const fullPath = path.join(this.projectPath, modelPath);
+      if (!fs.existsSync(fullPath)) continue;
+
+      // Find all sources.yml files
+      const sourcesFiles = await this.findSourcesYamlFiles(fullPath);
+      
+      for (const sourcesFile of sourcesFiles) {
+        try {
+          const content = await fs.promises.readFile(sourcesFile, 'utf-8');
+          const parsed = yaml.parse(content);
+          
+          if (!parsed || !parsed.sources || !Array.isArray(parsed.sources)) {
+            continue;
+          }
+
+          for (const source of parsed.sources) {
+            const sourceName = source.name || 'unknown';
+            const sourceSchema = source.schema || 'stg';
+            
+            if (!source.tables || !Array.isArray(source.tables)) continue;
+
+            for (const table of source.tables) {
+              if (!table.name) continue;
+
+              // Extract columns
+              const columns: ColumnInfo[] = (table.columns || []).map((col: YamlColumnDefinition) => ({
+                name: col.name,
+                dataType: col.data_type,
+                description: col.description
+              }));
+
+              // Extract concept from location or name
+              let concept = '_common';
+              if (table.external?.location) {
+                // Parse location like "werkportal/postgres/public.wp_company_client.parquet"
+                const locationParts = table.external.location.split('/');
+                if (locationParts.length > 0) {
+                  concept = locationParts[0].toLowerCase();
+                }
+              } else if (table.name.startsWith('ext_')) {
+                // Extract from name like "ext_werkportal_company"
+                const nameParts = table.name.substring(4).split('_');
+                if (nameParts.length > 1) {
+                  concept = nameParts[0].toLowerCase();
+                }
+              }
+
+              externalTables.push({
+                name: table.name,
+                description: table.description,
+                sourceName,
+                schema: sourceSchema,
+                columns,
+                location: table.external?.location,
+                fileFormat: table.external?.file_format,
+                dataSource: table.external?.data_source,
+                concept,
+                _yamlPath: sourcesFile
+              });
+            }
+          }
+        } catch (error) {
+          console.error(`[DataVault] Error parsing sources.yml ${sourcesFile}:`, error);
+        }
+      }
+    }
+
+    return externalTables;
+  }
+
+  /**
+   * Find all sources.yml files recursively
+   */
+  private async findSourcesYamlFiles(dir: string): Promise<string[]> {
+    const files: string[] = [];
+    
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        
+        if (entry.isDirectory()) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          const subFiles = await this.findSourcesYamlFiles(fullPath);
+          files.push(...subFiles);
+        } else if (entry.isFile()) {
+          const lower = entry.name.toLowerCase();
+          if (lower === 'sources.yml' || lower === 'sources.yaml' || lower.includes('sources')) {
+            if (lower.endsWith('.yml') || lower.endsWith('.yaml')) {
+              files.push(fullPath);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[DataVault] Error finding sources files in ${dir}:`, error);
+    }
+    
+    return files;
   }
 }
 

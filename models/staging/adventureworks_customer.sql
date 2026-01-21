@@ -1,23 +1,25 @@
 /*
- * Staging Model: stg_aw_customer
+ * Staging Model: adventureworks_customer
  * 
- * Bereitet Product-Daten für das Data Vault vor.
+ * Bereitet AdventureWorks Customer-Daten für das Data Vault vor.
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  */
 
 {%- set hashdiff_columns = [
-    'CustomerId',
     'NameStyle',
     'Title',
     'FirstName',
     'MiddleName',
     'LastName',
     'Suffix',
-    'CompanyName'
+    'CompanyName',
+    'SalesPerson',
+    'EmailAddress',
+    'Phone'
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_aw_customer') }}
+    SELECT * FROM {{ source('staging', 'ext_adventureworks_customer') }}
 ),
 
 staged AS (
@@ -56,11 +58,14 @@ staged AS (
         LastName,
         Suffix,
         CompanyName,
+        SalesPerson,
+        EmailAddress,
+        Phone,
         
         -- ===========================================
         -- METADATA
         -- ===========================================
-        COALESCE(dss_record_source, 'adventureWorksLT2025') AS dss_record_source,
+        COALESCE(dss_record_source, 'adventureworks') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
         dss_run_id
         

@@ -40,6 +40,12 @@
     "views": {
       "datavault-explorer": [
         {
+          "id": "datavault-sources",
+          "name": "Sources",
+          "icon": "$(cloud-download)",
+          "contextualTitle": "Sources - External Tables"
+        },
+        {
           "id": "datavault-staging",
           "name": "Staging",
           "icon": "$(database)",
@@ -95,31 +101,108 @@
         "title": "Select dbt Project",
         "icon": "$(folder-opened)",
         "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openYamlDefinition",
+        "title": "Open YAML Definition",
+        "icon": "$(symbol-file)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.copyModelName",
+        "title": "Copy Model Name",
+        "icon": "$(copy)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.copyRefSyntax",
+        "title": "Copy as ref() Syntax",
+        "icon": "$(code)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.discoverSources",
+        "title": "Discover External Sources",
+        "icon": "$(search)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createExternalTable",
+        "title": "Create External Table",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createAllExternalTables",
+        "title": "Create External Tables for Source",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.stageAllExternalSources",
+        "title": "Stage All External Sources",
+        "icon": "$(run-all)",
+        "category": "Data Vault"
       }
     ],
     "menus": {
       "view/title": [
         {
+          "command": "datavault.stageAllExternalSources",
+          "when": "view == datavault-sources",
+          "group": "navigation@0"
+        },
+        {
+          "command": "datavault.discoverSources",
+          "when": "view == datavault-sources",
+          "group": "navigation@1"
+        },
+        {
           "command": "datavault.refresh",
           "when": "view =~ /^datavault-/",
-          "group": "navigation"
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
         {
           "command": "datavault.openModel",
           "when": "view =~ /^datavault-/ && viewItem == model",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "datavault.openYamlDefinition",
+          "when": "view =~ /^datavault-/ && viewItem == model",
+          "group": "navigation@2"
         },
         {
           "command": "datavault.showLineage",
           "when": "view =~ /^datavault-/ && viewItem == model",
-          "group": "navigation"
+          "group": "navigation@3"
         },
         {
           "command": "datavault.showModelDetails",
           "when": "view =~ /^datavault-/ && viewItem == model",
-          "group": "navigation"
+          "group": "navigation@4"
+        },
+        {
+          "command": "datavault.copyModelName",
+          "when": "view =~ /^datavault-/ && viewItem == model",
+          "group": "copy@1"
+        },
+        {
+          "command": "datavault.copyRefSyntax",
+          "when": "view =~ /^datavault-/ && viewItem == model",
+          "group": "copy@2"
+        },
+        {
+          "command": "datavault.createExternalTable",
+          "when": "view == datavault-sources && viewItem == external_table",
+          "group": "database@1"
+        },
+        {
+          "command": "datavault.createAllExternalTables",
+          "when": "view == datavault-sources && viewItem == concept",
+          "group": "database@1"
         }
       ]
     },
@@ -140,6 +223,16 @@
           "type": "number",
           "default": 1000,
           "description": "Debounce time in milliseconds for auto-refresh"
+        },
+        "datavault.dbtPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to dbt executable (auto-detected in .venv if empty)"
+        },
+        "datavault.lastDiscoverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Last used folder path for Discover (saved automatically)"
         }
       }
     }

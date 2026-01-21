@@ -2,9 +2,9 @@
  * Data Vault dbt Model Types
  */
 
-export type ModelType = 'hub' | 'satellite' | 'link' | 'staging' | 'mart' | 'pit' | 'bridge' | 'view' | 'table' | 'effectivity_satellite' | 'ref';
+export type ModelType = 'hub' | 'satellite' | 'link' | 'staging' | 'mart' | 'pit' | 'bridge' | 'view' | 'table' | 'effectivity_satellite' | 'ref' | 'external_table';
 
-export type MaterializedType = 'view' | 'table' | 'incremental' | 'ephemeral';
+export type MaterializedType = 'view' | 'table' | 'incremental' | 'ephemeral' | 'external';
 
 /**
  * YAML column definition from schema files
@@ -14,6 +14,22 @@ export interface YamlColumnDefinition {
   description?: string;
   data_type?: string;
   tests?: unknown[];
+}
+
+/**
+ * External Table definition from sources.yml
+ */
+export interface ExternalTable {
+  name: string;
+  description?: string;
+  sourceName: string;      // Parent source name (e.g., 'staging')
+  schema: string;          // Schema from source definition
+  columns: ColumnInfo[];
+  location?: string;       // Parquet file location
+  fileFormat?: string;
+  dataSource?: string;
+  concept: string;         // Extracted from location or name
+  _yamlPath: string;       // Path to sources.yml
 }
 
 /**
@@ -56,6 +72,7 @@ export interface DbtModel {
   concept: string;       // Business concept (e.g., 'werkportal', '_common')
   layer: 'staging' | 'raw_vault' | 'business_vault' | 'mart';
   description?: string;
+  _yamlPath?: string;    // Path to the YAML schema file
 }
 
 /**
@@ -86,6 +103,18 @@ export interface LinkInfo extends DbtModel {
 }
 
 /**
+ * dbt_project.yml configuration
+ */
+export interface DbtProjectConfig {
+  name: string;
+  version?: string;
+  profile?: string;
+  'model-paths'?: string[];
+  models?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
  * PIT (Point-in-Time) table metadata
  */
 export interface PitInfo extends DbtModel {
@@ -109,8 +138,8 @@ export interface BridgeInfo extends DbtModel {
 export interface ProjectMetadata {
   projectName: string;
   projectPath: string;
-  version: string;
-  profile: string;
+  version?: string;
+  profile?: string;
   models: DbtModel[];
   hubs: HubInfo[];
   satellites: SatelliteInfo[];
@@ -119,22 +148,10 @@ export interface ProjectMetadata {
   bridges: BridgeInfo[];
   marts: DbtModel[];
   staging: DbtModel[];
+  externalTables: ExternalTable[];  // External tables from sources.yml
   concepts: string[];    // Unique business concepts
   schemas: string[];     // Unique schemas
   lastScanned: Date;
-}
-
-/**
- * dbt_project.yml structure
- */
-export interface DbtProjectConfig {
-  name: string;
-  version: string;
-  'config-version': number;
-  profile: string;
-  'model-paths': string[];
-  vars?: Record<string, unknown>;
-  models?: Record<string, unknown>;
 }
 
 /**
@@ -143,11 +160,12 @@ export interface DbtProjectConfig {
 export interface TreeItemData {
   id: string;
   label: string;
-  type: 'layer' | 'concept' | 'category' | 'model' | 'column';
+  type: 'layer' | 'concept' | 'category' | 'model' | 'column' | 'external_table';
   modelType?: ModelType;
   filePath?: string;
   children?: TreeItemData[];
   model?: DbtModel;
+  externalTable?: ExternalTable;
   collapsibleState: 'none' | 'collapsed' | 'expanded';
   icon?: string;
   description?: string;
