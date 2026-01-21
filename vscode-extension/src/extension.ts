@@ -73,11 +73,15 @@ export function activate(context: vscode.ExtensionContext) {
     await refreshProject();
   });
 
-  const openModelCommand = vscode.commands.registerCommand('datavault.openModel', async (filePath: string) => {
+  const openModelCommand = vscode.commands.registerCommand('datavault.openModel', async (arg: string | { filePath?: string }) => {
+    // Handle both direct filePath string and TreeItemData object from context menu
+    const filePath = typeof arg === 'string' ? arg : arg?.filePath;
     if (filePath) {
       log(`Opening model: ${filePath}`);
       const document = await vscode.workspace.openTextDocument(filePath);
       await vscode.window.showTextDocument(document);
+    } else {
+      vscode.window.showWarningMessage('No file path available for this item');
     }
   });
 
@@ -86,7 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showWarningMessage('No model selected');
       return;
     }
-    showModelDetails(context, item.model);
+    showLineage(context, item.model);
   });
 
   const showModelDetailsCommand = vscode.commands.registerCommand('datavault.showModelDetails', async (item: any) => {
@@ -127,10 +131,37 @@ export function activate(context: vscode.ExtensionContext) {
     selectProjectCommand
   );
 
-  // Auto-detect and load project with a small delay to ensure workspace is ready
-  setTimeout(() => {
-    autoDetectProject();
-  }, 500);
+  // Auto-detect and load project - retry multiple times as workspace might not be ready
+  let retryCount = 0;
+  const maxRetries = 5;
+  const retryInterval = 1000;
+
+  const tryAutoDetect = async () => {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders && workspaceFolders.length > 0) {
+      log(`Workspace ready after ${retryCount} retries`);
+      await autoDetectProject();
+    } else if (retryCount < maxRetries) {
+      retryCount++;
+      log(`Workspace not ready, retry ${retryCount}/${maxRetries}...`);
+      setTimeout(tryAutoDetect, retryInterval);
+    } else {
+      log('Max retries reached, workspace still not available');
+      await autoDetectProject(); // Will show warning message
+    }
+  };
+
+  setTimeout(tryAutoDetect, 500);
+
+  // Also listen for workspace folder changes (important for Extension Host)
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      log('Workspace folders changed, re-detecting...');
+      if (!currentProjectPath) {
+        autoDetectProject();
+      }
+    })
+  );
 
   // Setup configuration change listener
   vscode.workspace.onDidChangeConfiguration(e => {
@@ -148,6 +179,11 @@ export function activate(context: vscode.ExtensionContext) {
 async function autoDetectProject(): Promise<void> {
   log('Starting auto-detect...');
   
+  // Debug: Log all workspace info
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  log(`workspaceFolders: ${JSON.stringify(workspaceFolders?.map(f => f.uri.fsPath))}`);
+  log(`workspaceFile: ${vscode.workspace.workspaceFile?.fsPath}`);
+  
   const config = vscode.workspace.getConfiguration('datavault');
   const configuredPath = config.get<string>('projectPath');
 
@@ -158,8 +194,7 @@ async function autoDetectProject(): Promise<void> {
     return;
   }
 
-  // Auto-detect
-  const workspaceFolders = vscode.workspace.workspaceFolders;
+  // Auto-detect - workspaceFolders already declared above
   if (!workspaceFolders || workspaceFolders.length === 0) {
     log('No workspace folders found');
     vscode.window.showWarningMessage('Data Vault: No workspace folder open');
@@ -193,15 +228,7 @@ async function autoDetectProject(): Promise<void> {
   log(`Total dbt projects found: ${projects.length}`);
   
   if (projects.length === 0) {
-    log('No dbt project found');
-    vscode.window.showInformationMessage(
-      'No dbt project found. Use "Data Vault: Select dbt Project" to choose manually.',
-      'Select Project'
-    ).then(selection => {
-      if (selection === 'Select Project') {
-        selectProject();
-      }
-    });
+    log('No dbt project found - use Command Palette to select manually');
     return;
   }
 
@@ -210,20 +237,10 @@ async function autoDetectProject(): Promise<void> {
     log(`Loading single project: ${projects[0]}`);
     await loadProject(projects[0]);
   } else {
-    // Multiple projects - let user choose
-    const selected = await vscode.window.showQuickPick(
-      projects.map(p => ({
-        label: path.basename(p),
-        description: p,
-        path: p
-      })),
-      { placeHolder: 'Select a dbt project' }
-    );
-
-    if (selected) {
-      currentProjectPath = selected.path;
-      await loadProject(selected.path);
-    }
+    // Multiple projects - load first one automatically
+    currentProjectPath = projects[0];
+    log(`Multiple projects found, loading first: ${projects[0]}`);
+    await loadProject(projects[0]);
   }
 }
 
@@ -361,7 +378,7 @@ function showModelDetails(context: vscode.ExtensionContext, model: DbtModel): vo
     return;
   }
 
-  const panel = ModelDetailsPanel.createOrShow(context.extensionUri, model, currentMetadata);
+  const panel = ModelDetailsPanel.createOrShow(context.extensionUri, model, currentMetadata, 'details');
 
   // Handle messages from webview
   panel['_panel'].webview.onDidReceiveMessage(
@@ -370,6 +387,32 @@ function showModelDetails(context: vscode.ExtensionContext, model: DbtModel): vo
         const targetModel = currentMetadata.models.find(m => m.name === message.model);
         if (targetModel) {
           showModelDetails(context, targetModel);
+        }
+      }
+    },
+    undefined,
+    context.subscriptions
+  );
+}
+
+/**
+ * Show model lineage in webview
+ */
+function showLineage(context: vscode.ExtensionContext, model: DbtModel): void {
+  if (!currentMetadata) {
+    vscode.window.showWarningMessage('No dbt project loaded');
+    return;
+  }
+
+  const panel = ModelDetailsPanel.createOrShow(context.extensionUri, model, currentMetadata, 'lineage');
+
+  // Handle messages from webview
+  panel['_panel'].webview.onDidReceiveMessage(
+    async (message: { command: string; model?: string }) => {
+      if (message.command === 'openModel' && message.model && currentMetadata) {
+        const targetModel = currentMetadata.models.find(m => m.name === message.model);
+        if (targetModel) {
+          showLineage(context, targetModel);
         }
       }
     },

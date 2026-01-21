@@ -3,7 +3,8 @@ import {
   DbtModel,
   ProjectMetadata,
   TreeItemData,
-  ModelType
+  ModelType,
+  ColumnInfo
 } from './types';
 
 /**
@@ -81,27 +82,29 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
   protected getIconForType(type: string | undefined): vscode.ThemeIcon {
     switch (type) {
       case 'hub':
-        return new vscode.ThemeIcon('key', new vscode.ThemeColor('charts.yellow'));
+        return new vscode.ThemeIcon('key');
       case 'satellite':
-        return new vscode.ThemeIcon('note', new vscode.ThemeColor('charts.blue'));
+        return new vscode.ThemeIcon('note');
       case 'effectivity_satellite':
-        return new vscode.ThemeIcon('history', new vscode.ThemeColor('charts.purple'));
+        return new vscode.ThemeIcon('history');
       case 'link':
-        return new vscode.ThemeIcon('link', new vscode.ThemeColor('charts.green'));
+        return new vscode.ThemeIcon('link');
       case 'staging':
-        return new vscode.ThemeIcon('database', new vscode.ThemeColor('charts.orange'));
+        return new vscode.ThemeIcon('database');
       case 'mart':
-        return new vscode.ThemeIcon('pie-chart', new vscode.ThemeColor('charts.red'));
+        return new vscode.ThemeIcon('pie-chart');
       case 'pit':
-        return new vscode.ThemeIcon('timeline-pin', new vscode.ThemeColor('charts.purple'));
+        return new vscode.ThemeIcon('timeline-pin');
       case 'bridge':
-        return new vscode.ThemeIcon('git-merge', new vscode.ThemeColor('charts.green'));
+        return new vscode.ThemeIcon('git-merge');
       case 'concept':
         return new vscode.ThemeIcon('folder');
       case 'category':
         return new vscode.ThemeIcon('symbol-folder');
       case 'ref':
         return new vscode.ThemeIcon('references');
+      case 'column':
+        return new vscode.ThemeIcon('symbol-field');
       default:
         return new vscode.ThemeIcon('file-code');
     }
@@ -141,21 +144,29 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
       return a.localeCompare(b);
     });
 
-    // Create tree structure
+    // Create tree structure - use unique IDs per layer
+    const layerPrefix = filterTypes?.join('-') || 'all';
     return sortedConcepts.map(concept => ({
-      id: `concept-${concept}`,
+      id: `${layerPrefix}-concept-${concept}`,
       label: concept === '_common' ? 'Common' : this.formatConceptName(concept),
       type: 'concept' as const,
       collapsibleState: 'collapsed' as const,
       description: `${byConceptMap.get(concept)!.length} models`,
-      children: this.createModelItems(byConceptMap.get(concept)!)
+      children: this.createModelItems(byConceptMap.get(concept)!, this.shouldGroupByType(), `${layerPrefix}-${concept}`)
     }));
+  }
+
+  /**
+   * Override in subclasses to control grouping behavior
+   */
+  protected shouldGroupByType(): boolean {
+    return true;
   }
 
   /**
    * Create tree items for models (optionally grouped by type)
    */
-  protected createModelItems(models: DbtModel[], groupByType = true): TreeItemData[] {
+  protected createModelItems(models: DbtModel[], groupByType = true, idPrefix = ''): TreeItemData[] {
     if (!groupByType) {
       return models.map(m => this.modelToTreeItem(m));
     }
@@ -172,12 +183,13 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
     // Create category items
     const typeOrder: ModelType[] = ['hub', 'satellite', 'effectivity_satellite', 'link', 'pit', 'bridge', 'staging', 'mart', 'view', 'table', 'ref'];
     const result: TreeItemData[] = [];
+    const prefix = idPrefix ? `${idPrefix}-` : '';
 
     for (const type of typeOrder) {
       const typeModels = byType.get(type);
       if (typeModels && typeModels.length > 0) {
         result.push({
-          id: `category-${type}`,
+          id: `${prefix}category-${type}`,
           label: this.formatTypeName(type),
           type: 'category',
           modelType: type,
@@ -195,6 +207,7 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
    * Convert a model to a tree item
    */
   protected modelToTreeItem(model: DbtModel): TreeItemData {
+    const hasColumns = model.columns && model.columns.length > 0;
     return {
       id: `model-${model.name}`,
       label: model.name,
@@ -202,10 +215,49 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
       modelType: model.type,
       filePath: model.filePath,
       model,
-      collapsibleState: 'none',
+      collapsibleState: hasColumns ? 'collapsed' : 'none',
       description: model.schema,
-      tooltip: this.createModelTooltip(model)
+      tooltip: this.createModelTooltip(model),
+      children: hasColumns ? this.createColumnItems(model) : undefined
     };
+  }
+
+  /**
+   * Create tree items for model columns
+   */
+  protected createColumnItems(model: DbtModel): TreeItemData[] {
+    return model.columns.map(col => ({
+      id: `model-${model.name}-col-${col.name}`,
+      label: col.name,
+      type: 'column' as const,
+      collapsibleState: 'none' as const,
+      description: col.dataType || this.getColumnCategory(col.name),
+      tooltip: col.description || `${col.name}${col.dataType ? ': ' + col.dataType : ''}`,
+      icon: this.getColumnIcon(col.name)
+    }));
+  }
+
+  /**
+   * Get column category for description (fallback when no data type)
+   */
+  protected getColumnCategory(colName: string): string {
+    const colLower = colName.toLowerCase();
+    if (colLower.startsWith('hk_')) return 'Hash Key';
+    if (colLower.startsWith('hd_')) return 'Hash Diff';
+    if (colLower.startsWith('dss_')) return 'Metadata';
+    if (colLower === 'load_date' || colLower === 'record_source') return 'Metadata';
+    return 'Attribute';
+  }
+
+  /**
+   * Get icon for column based on naming convention
+   */
+  protected getColumnIcon(colName: string): string {
+    const colLower = colName.toLowerCase();
+    if (colLower.startsWith('hk_')) return 'key';
+    if (colLower.startsWith('hd_')) return 'diff';
+    if (colLower.startsWith('dss_') || colLower === 'load_date' || colLower === 'record_source') return 'info';
+    return 'symbol-field';
   }
 
   /**
@@ -245,17 +297,17 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
    */
   protected formatTypeName(type: ModelType): string {
     const names: Record<ModelType, string> = {
-      hub: '🔑 Hubs',
-      satellite: '📋 Satellites',
-      effectivity_satellite: '⏱️ Effectivity Satellites',
-      link: '🔗 Links',
-      staging: '📥 Staging',
-      mart: '📊 Marts',
-      pit: '📍 PITs',
-      bridge: '🌉 Bridges',
-      view: '👁️ Views',
-      table: '📄 Tables',
-      ref: '📚 References'
+      hub: 'Hubs',
+      satellite: 'Satellites',
+      effectivity_satellite: 'Effectivity Satellites',
+      link: 'Links',
+      staging: 'Staging',
+      mart: 'Marts',
+      pit: 'PITs',
+      bridge: 'Bridges',
+      view: 'Views',
+      table: 'Tables',
+      ref: 'References'
     };
     return names[type] || type;
   }
@@ -265,6 +317,13 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
  * Staging Layer TreeDataProvider
  */
 export class StagingTreeProvider extends DataVaultTreeProvider {
+  /**
+   * Don't group by type - all staging models are type "staging"
+   */
+  protected shouldGroupByType(): boolean {
+    return false;
+  }
+
   async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
     if (!this.metadata) {
       return [{
@@ -377,6 +436,13 @@ export class BusinessVaultTreeProvider extends DataVaultTreeProvider {
  * Mart Layer TreeDataProvider
  */
 export class MartTreeProvider extends DataVaultTreeProvider {
+  /**
+   * Don't group by type - most mart models are type "mart"
+   */
+  protected shouldGroupByType(): boolean {
+    return false;
+  }
+
   async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
     if (!this.metadata) {
       return [{

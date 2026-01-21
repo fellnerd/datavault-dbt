@@ -1,0 +1,775 @@
+version: 2
+
+models:
+  # =============================================================================
+  # ADVENTUREWORKS STAGING VIEWS
+  # =============================================================================
+  - name: adventureworks_customer
+    description: Staging View für AdventureWorks Customer mit Hash-Berechnung
+    columns:
+      - name: hk_customer
+        description: Hash Key (SHA256 von CustomerID)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_customer
+        description: Hash Diff für Change Detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: CustomerID
+        description: Business Key
+        data_type: int
+        tests:
+          - not_null
+      - name: NameStyle
+        description: Name Style Flag
+        data_type: bit
+      - name: Title
+        description: Anrede
+        data_type: nvarchar(4000)
+      - name: FirstName
+        description: Vorname
+        data_type: nvarchar(4000)
+      - name: MiddleName
+        description: Mittelname
+        data_type: nvarchar(4000)
+      - name: LastName
+        description: Nachname
+        data_type: nvarchar(4000)
+      - name: Suffix
+        description: Namenszusatz
+        data_type: nvarchar(4000)
+      - name: CompanyName
+        description: Firmenname
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  # =============================================================================
+  # WERKPORTAL STAGING VIEWS
+  # =============================================================================
+  - name: werkportal_company
+    description: |
+      Unified Staging View für alle Company-Typen (Client, Contractor).
+      Kombiniert ext_company_client und ext_company_contractor mit role_code.
+    columns:
+      - name: hk_company
+        description: Hash Key (SHA256 von object_id + source_table)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_country
+        description: Hash Key für Länder-Referenz
+        data_type: char(64)
+      - name: hk_role
+        description: Hash Key für Rollen-Referenz
+        data_type: char(64)
+      - name: hk_link_company_role
+        description: Hash Key für Link Company-Role
+        data_type: char(64)
+      - name: hk_link_company_country
+        description: Hash Key für Link Company-Country
+        data_type: char(64)
+      - name: hd_company
+        description: Hash Diff für Change Detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key aus Quellsystem
+        data_type: bigint
+        tests:
+          - not_null
+      - name: source_table
+        description: Quelltabelle (ext_company_client/ext_company_contractor)
+        data_type: varchar(21)
+        tests:
+          - not_null
+      - name: role_code
+        description: Rolle (CLIENT, CONTRACTOR)
+        data_type: varchar(10)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['CLIENT', 'CONTRACTOR']
+      - name: name
+        description: Firmenname
+        data_type: nvarchar(4000)
+      - name: street
+        description: Straße
+        data_type: nvarchar(4000)
+      - name: citycode
+        description: Postleitzahl
+        data_type: nvarchar(4000)
+      - name: city
+        description: Stadt
+        data_type: nvarchar(4000)
+      - name: province
+        description: Bundesland/Provinz
+        data_type: nvarchar(4000)
+      - name: state
+        description: Status
+        data_type: nvarchar(4000)
+      - name: country
+        description: Land (FK zu wp_country)
+        data_type: bigint
+      - name: website
+        description: Website URL
+        data_type: nvarchar(4000)
+      - name: email
+        description: E-Mail Adresse
+        data_type: nvarchar(4000)
+      - name: phone
+        description: Telefonnummer
+        data_type: nvarchar(4000)
+      - name: mobile
+        description: Mobilnummer
+        data_type: nvarchar(4000)
+      - name: mobile2
+        description: Zweite Mobilnummer
+        data_type: nvarchar(4000)
+      - name: fax
+        description: Faxnummer
+        data_type: nvarchar(4000)
+      - name: bic
+        description: BIC Code
+        data_type: nvarchar(4000)
+      - name: iban
+        description: IBAN
+        data_type: nvarchar(4000)
+      - name: credit_rating
+        description: Kreditwürdigkeit
+        data_type: nvarchar(4000)
+      - name: commission_fee
+        description: Provisionsgebühr
+        data_type: nvarchar(4000)
+      - name: employeecount
+        description: Mitarbeiteranzahl
+        data_type: numeric(38,0)
+      - name: org_type
+        description: Organisationstyp
+        data_type: bigint
+      - name: uid
+        description: Umsatzsteuer-ID
+        data_type: nvarchar(4000)
+      - name: subscription
+        description: Subscription
+        data_type: nvarchar(4000)
+      - name: description
+        description: Beschreibung
+        data_type: nvarchar(4000)
+      - name: freistellungsbescheinigung
+        description: Datum Freistellungsbescheinigung
+        data_type: datetime2(7)
+      - name: date_created
+        description: Erstellungsdatum
+        data_type: datetime2(7)
+      - name: date_updated
+        description: Aktualisierungsdatum
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: werkportal_country
+    description: Staging View für Werkportal Länder
+    columns:
+      - name: hk_country
+        description: Hash Key (SHA256 von object_id)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_country
+        description: Hash Diff für Change Detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        data_type: bigint
+        tests:
+          - not_null
+      - name: name
+        description: Ländername
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: werkportal_invoice
+    description: Staging View für Werkportal Rechnungen
+    columns:
+      - name: hk_invoice
+        description: Hash Key (SHA256 von object_id)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_invoice
+        description: Hash Diff für Change Detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        data_type: bigint
+        tests:
+          - not_null
+      - name: name
+        description: Rechnungsnummer
+        data_type: nvarchar(4000)
+      - name: state
+        description: Status
+        data_type: nvarchar(4000)
+      - name: deductions_description
+        description: Abzugsbeschreibung
+        data_type: nvarchar(4000)
+      - name: gross
+        description: Brutto Flag
+        data_type: bit
+      - name: invoicing_period_year
+        description: Abrechnungsjahr
+        data_type: numeric(38,18)
+      - name: project
+        description: Projekt FK
+        data_type: bigint
+      - name: invoice_date
+        description: Rechnungsdatum
+        data_type: datetime2(7)
+      - name: date_payed
+        description: Zahlungsdatum
+        data_type: datetime2(7)
+      - name: description
+        description: Beschreibung
+        data_type: nvarchar(4000)
+      - name: advance_payment
+        description: Vorauszahlung Flag
+        data_type: bit
+      - name: date_payed_internally
+        description: Internes Zahlungsdatum
+        data_type: datetime2(7)
+      - name: payed
+        description: Bezahlt Status
+        data_type: nvarchar(4000)
+      - name: contractor
+        description: Auftragnehmer FK
+        data_type: bigint
+      - name: client
+        description: Auftraggeber FK
+        data_type: bigint
+      - name: sum_goal
+        description: Zielbetrag
+        data_type: numeric(38,18)
+      - name: credit_period
+        description: Zahlungsziel
+        data_type: numeric(38,18)
+      - name: deductions
+        description: Abzüge
+        data_type: numeric(38,18)
+      - name: sum_payed
+        description: Gezahlter Betrag
+        data_type: numeric(38,18)
+      - name: hours_worked
+        description: Geleistete Stunden
+        data_type: numeric(38,18)
+      - name: subtractions
+        description: Subtraktionen
+        data_type: numeric(38,18)
+      - name: credit_rating_check
+        description: Kreditprüfung
+        data_type: numeric(38,18)
+      - name: discount
+        description: Rabatt
+        data_type: numeric(38,18)
+      - name: ordering
+        description: Sortierung
+        data_type: numeric(38,18)
+      - name: createdby
+        description: Ersteller
+        data_type: nvarchar(4000)
+      - name: member
+        description: Mitglied
+        data_type: nvarchar(4000)
+      - name: pay_target_date
+        description: Zahlungszieldatum
+        data_type: datetime2(7)
+      - name: u_amount
+        description: USt Betrag
+        data_type: numeric(38,18)
+      - name: comission_amount
+        description: Provisionsbetrag
+        data_type: numeric(38,18)
+      - name: subscription
+        description: Subscription
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: werkportal_project
+    description: Staging View für Werkportal Projekte
+    columns:
+      - name: hk_project
+        description: Hash Key (SHA256 von object_id)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_project
+        description: Hash Diff für Change Detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        data_type: bigint
+        tests:
+          - not_null
+      - name: name
+        description: Projektname
+        data_type: nvarchar(4000)
+      - name: state
+        description: Status
+        data_type: nvarchar(4000)
+      - name: begin
+        description: Startdatum
+        data_type: datetime2(7)
+      - name: location
+        description: Standort
+        data_type: nvarchar(4000)
+      - name: price
+        description: Preis
+        data_type: numeric(38,18)
+      - name: commission
+        description: Provision
+        data_type: numeric(38,18)
+      - name: end
+        description: Enddatum
+        data_type: datetime2(7)
+      - name: work_begin
+        description: Arbeitsbeginn
+        data_type: nvarchar(4000)
+      - name: author_email
+        description: Autor E-Mail
+        data_type: nvarchar(4000)
+      - name: description
+        description: Beschreibung
+        data_type: nvarchar(4000)
+      - name: price_units_value
+        description: Preiseinheiten
+        data_type: nvarchar(4000)
+      - name: commission_units_value
+        description: Provisionseinheiten
+        data_type: nvarchar(4000)
+      - name: details
+        description: Details
+        data_type: nvarchar(4000)
+      - name: client
+        description: Auftraggeber FK
+        data_type: bigint
+      - name: contractor
+        description: Auftragnehmer FK
+        data_type: bigint
+      - name: member
+        description: Mitglied
+        data_type: nvarchar(4000)
+      - name: subscription
+        description: Subscription
+        data_type: nvarchar(4000)
+      - name: user
+        description: Benutzer FK
+        data_type: bigint
+      - name: provision_charged_state
+        description: Provision abgerechnet Status
+        data_type: nvarchar(4000)
+      - name: contractor_count
+        description: Anzahl Auftragnehmer
+        data_type: int
+      - name: hidden
+        description: Versteckt Flag
+        data_type: bit
+      - name: is_contracting
+        description: Contracting Flag
+        data_type: bit
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  # =============================================================================
+  # JIRA STAGING VIEWS
+  # =============================================================================
+  - name: jira_component
+    description: Staging View für Jira Components
+    columns:
+      - name: hk_jira_component
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_component
+        description: Hash Diff
+        data_type: char(64)
+      - name: Fields_Components_id
+        description: Component ID
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Fields_Components_name
+        description: Component Name
+        data_type: nvarchar(4000)
+      - name: Fields_Components_description
+        description: Description
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: jira_epic
+    description: Staging View für Jira Epics
+    columns:
+      - name: hk_jira_epic
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_epic
+        description: Hash Diff
+        data_type: char(64)
+      - name: Values_id
+        description: Epic ID
+        data_type: decimal(38,10)
+        tests:
+          - not_null
+      - name: Values_name
+        description: Epic Name
+        data_type: nvarchar(4000)
+      - name: Values_key
+        description: Epic Key
+        data_type: nvarchar(4000)
+      - name: Values_color_key
+        description: Color Key
+        data_type: nvarchar(4000)
+      - name: Values_done
+        description: Done Flag
+        data_type: bit
+      - name: Values_summary
+        description: Summary
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: jira_issue
+    description: Staging View für Jira Issues
+    columns:
+      - name: hk_jira_issue
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_issue
+        description: Hash Diff
+        data_type: char(64)
+      - name: Issues_key
+        description: Issue Key (z.B. PROJ-123)
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Issues_id
+        description: Issue ID
+        data_type: nvarchar(4000)
+      - name: Board_Id
+        description: Board ID
+        data_type: nvarchar(4000)
+      - name: Issues_fields_priority_name
+        description: Priority Name
+        data_type: nvarchar(4000)
+      - name: Issues_fields_assignee_accountId
+        description: Assignee Account ID
+        data_type: nvarchar(4000)
+      - name: Issues_fields_reporter_accountId
+        description: Reporter Account ID
+        data_type: nvarchar(4000)
+      - name: Issues_fields_summary
+        description: Summary
+        data_type: nvarchar(4000)
+      - name: Issues_fields_description
+        description: Description
+        data_type: nvarchar(max)
+      - name: Issues_fields_created
+        description: Created Date
+        data_type: datetime2(7)
+      - name: Issues_fields_updated
+        description: Updated Date
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: jira_issue_link
+    description: Staging View für Jira Issue Links
+    columns:
+      - name: hk_jira_issue_link
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_issue_link
+        description: Hash Diff
+        data_type: char(64)
+      - name: Fields_Issue_Links_id
+        description: Link ID
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Issues_key
+        description: Source Issue Key
+        data_type: nvarchar(4000)
+      - name: Fields_Issue_Links_outwardIssue_key
+        description: Outward Issue Key
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: jira_service_request
+    description: Staging View für Jira Service Requests
+    columns:
+      - name: hk_jira_service_request
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_service_request
+        description: Hash Diff
+        data_type: char(64)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: jira_user
+    description: Staging View für Jira Users
+    columns:
+      - name: hk_jira_user
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_user
+        description: Hash Diff
+        data_type: char(64)
+      - name: Users_AccountId
+        description: Account ID (Business Key)
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Users_displayName
+        description: Display Name
+        data_type: nvarchar(4000)
+      - name: Users_emailAddress
+        description: Email Address
+        data_type: nvarchar(4000)
+      - name: Users_timeZone
+        description: Time Zone
+        data_type: nvarchar(4000)
+      - name: Users_active
+        description: Active Flag
+        data_type: bit
+      - name: Users_Account_Type
+        description: Account Type
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  - name: jira_worklog
+    description: Staging View für Jira Worklogs
+    columns:
+      - name: hk_jira_worklog
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_jira_worklog
+        description: Hash Diff
+        data_type: char(64)
+      - name: Fields_Work_Log_Worklogs_id
+        description: Worklog ID
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Issues_key
+        description: Issue Key
+        data_type: nvarchar(4000)
+      - name: Fields_Work_Log_Worklogs_author_accountId
+        description: Author Account ID
+        data_type: nvarchar(4000)
+      - name: Fields_Work_Log_Worklogs_timeSpentSeconds
+        description: Time Spent in Seconds
+        data_type: decimal(38,10)
+      - name: Fields_Work_Log_Worklogs_created
+        description: Created Date
+        data_type: datetime2(7)
+      - name: Fields_Work_Log_Worklogs_comment
+        description: Comment
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)
+
+  # =============================================================================
+  # TEMPO STAGING VIEWS
+  # =============================================================================
+  - name: tempo_worklog
+    description: Staging View für Tempo Worklogs
+    columns:
+      - name: hk_tempo_worklog
+        description: Hash Key
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_tempo_worklog
+        description: Hash Diff
+        data_type: char(64)
+      - name: id
+        description: Worklog ID (Business Key)
+        data_type: bigint
+        tests:
+          - not_null
+      - name: issueKey
+        description: Issue Key
+        data_type: nvarchar(4000)
+      - name: issueId
+        description: Issue ID
+        data_type: bigint
+      - name: issueSummary
+        description: Issue Summary
+        data_type: nvarchar(4000)
+      - name: date
+        description: Date
+        data_type: nvarchar(4000)
+      - name: startTime
+        description: Start Time
+        data_type: nvarchar(4000)
+      - name: timeSpentSeconds
+        description: Time Spent in Seconds
+        data_type: bigint
+      - name: timeSpentHours
+        description: Time Spent in Hours
+        data_type: nvarchar(4000)
+      - name: description
+        description: Description
+        data_type: nvarchar(4000)
+      - name: accountId
+        description: Author Account ID
+        data_type: nvarchar(4000)
+      - name: displayName
+        description: Author Display Name
+        data_type: nvarchar(4000)
+      - name: createdAt
+        description: Created At
+        data_type: nvarchar(4000)
+      - name: updatedAt
+        description: Updated At
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+      - name: dss_run_id
+        description: Run ID
+        data_type: nvarchar(4000)

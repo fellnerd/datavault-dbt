@@ -7,6 +7,40 @@ export type ModelType = 'hub' | 'satellite' | 'link' | 'staging' | 'mart' | 'pit
 export type MaterializedType = 'view' | 'table' | 'incremental' | 'ephemeral';
 
 /**
+ * YAML column definition from schema files
+ */
+export interface YamlColumnDefinition {
+  name: string;
+  description?: string;
+  data_type?: string;
+  tests?: unknown[];
+}
+
+/**
+ * YAML model definition from _*__models.yml files
+ */
+export interface YamlModelDefinition {
+  name: string;
+  description?: string;
+  columns?: YamlColumnDefinition[];
+  config?: Record<string, unknown>;
+  tests?: unknown[];
+  // Internal metadata added during parsing
+  _yamlPath?: string;
+  _layer?: 'staging' | 'raw_vault' | 'business_vault' | 'mart';
+  _concept?: string;
+}
+
+/**
+ * Column information with data type
+ */
+export interface ColumnInfo {
+  name: string;
+  dataType?: string;
+  description?: string;
+}
+
+/**
  * Represents a dbt model
  */
 export interface DbtModel {
@@ -16,7 +50,7 @@ export interface DbtModel {
   materialized: MaterializedType;
   filePath: string;
   relativePath: string;
-  columns: string[];
+  columns: ColumnInfo[];
   refs: string[];        // Referenced models (from ref())
   sources: string[];     // Referenced sources (from source())
   concept: string;       // Business concept (e.g., 'werkportal', '_common')
@@ -109,7 +143,7 @@ export interface DbtProjectConfig {
 export interface TreeItemData {
   id: string;
   label: string;
-  type: 'layer' | 'concept' | 'category' | 'model';
+  type: 'layer' | 'concept' | 'category' | 'model' | 'column';
   modelType?: ModelType;
   filePath?: string;
   children?: TreeItemData[];

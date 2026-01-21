@@ -1,0 +1,112 @@
+version: 2
+
+models:
+  # =============================================================================
+  # GEMEINSAME DIMENSIONEN
+  # =============================================================================
+  - name: dim_date
+    description: |
+      Date Dimension für Reporting und Analyse.
+      Enthält alle Datumswerte mit diversen Aggregationsebenen.
+    columns:
+      - name: date_key
+        description: Surrogate Key (YYYYMMDD Format)
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: full_date
+        description: Vollständiges Datum
+        data_type: date
+        tests:
+          - not_null
+      - name: year
+        description: Jahr (YYYY)
+        data_type: int
+      - name: year_name
+        description: Jahr als Text
+        data_type: char(4)
+      - name: quarter
+        description: Quartal (1-4)
+        data_type: int
+      - name: quarter_name
+        description: Quartal als Text (Q1, Q2, etc.)
+        data_type: char(2)
+      - name: year_quarter
+        description: Jahr-Quartal (2024Q1)
+        data_type: char(7)
+      - name: month
+        description: Monat (1-12)
+        data_type: int
+      - name: month_name
+        description: Monatsname
+        data_type: varchar(10)
+      - name: month_name_short
+        description: Monatsname kurz (Jan, Feb, etc.)
+        data_type: char(3)
+      - name: year_month
+        description: Jahr-Monat (2024-01)
+        data_type: char(7)
+      - name: iso_week
+        description: ISO Kalenderwoche
+        data_type: int
+      - name: year_week
+        description: Jahr-Woche (2024W01)
+        data_type: char(7)
+      - name: day_of_month
+        description: Tag im Monat (1-31)
+        data_type: int
+      - name: day_of_year
+        description: Tag im Jahr (1-366)
+        data_type: int
+      - name: day_of_week
+        description: Wochentag (1=Montag, 7=Sonntag)
+        data_type: int
+      - name: day_name
+        description: Wochentagsname
+        data_type: varchar(10)
+      - name: day_name_short
+        description: Wochentagsname kurz (Mon, Tue, etc.)
+        data_type: char(3)
+      - name: is_weekend
+        description: Wochenende Flag
+        data_type: int
+      - name: is_weekday
+        description: Arbeitstag Flag
+        data_type: int
+      - name: is_first_day_of_month
+        description: Erster Tag im Monat
+        data_type: int
+      - name: is_last_day_of_month
+        description: Letzter Tag im Monat
+        data_type: int
+      - name: is_first_day_of_year
+        description: Erster Tag im Jahr
+        data_type: int
+      - name: is_last_day_of_year
+        description: Letzter Tag im Jahr
+        data_type: int
+      - name: is_today
+        description: Heute Flag (dynamisch)
+        data_type: int
+      - name: is_yesterday
+        description: Gestern Flag (dynamisch)
+        data_type: int
+      - name: last_day_of_month
+        description: Letzter Tag des Monats
+        data_type: date
+      - name: first_day_of_month
+        description: Erster Tag des Monats
+        data_type: date
+      - name: first_day_of_year
+        description: Erster Tag des Jahres
+        data_type: date
+      - name: last_day_of_year
+        description: Letzter Tag des Jahres
+        data_type: date
+      - name: same_day_last_year
+        description: Gleicher Tag im Vorjahr
+        data_type: date
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)

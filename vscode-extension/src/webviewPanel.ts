@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { DbtModel, ProjectMetadata } from './types';
 
+export type ViewType = 'details' | 'lineage';
+
 /**
  * Webview panel for displaying model details and lineage
  */
@@ -9,6 +11,7 @@ export class ModelDetailsPanel {
   private readonly _panel: vscode.WebviewPanel;
   private readonly _extensionUri: vscode.Uri;
   private _disposables: vscode.Disposable[] = [];
+  private _currentViewType: ViewType = 'details';
 
   private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
     this._panel = panel;
@@ -23,12 +26,14 @@ export class ModelDetailsPanel {
   public static createOrShow(
     extensionUri: vscode.Uri,
     model: DbtModel,
-    metadata: ProjectMetadata
+    metadata: ProjectMetadata,
+    viewType: ViewType = 'details'
   ): ModelDetailsPanel {
     const column = vscode.ViewColumn.Beside;
 
     if (ModelDetailsPanel.currentPanel) {
       ModelDetailsPanel.currentPanel._panel.reveal(column);
+      ModelDetailsPanel.currentPanel._currentViewType = viewType;
       ModelDetailsPanel.currentPanel.updateContent(model, metadata);
       return ModelDetailsPanel.currentPanel;
     }
@@ -44,6 +49,7 @@ export class ModelDetailsPanel {
     );
 
     ModelDetailsPanel.currentPanel = new ModelDetailsPanel(panel, extensionUri);
+    ModelDetailsPanel.currentPanel._currentViewType = viewType;
     ModelDetailsPanel.currentPanel.updateContent(model, metadata);
     return ModelDetailsPanel.currentPanel;
   }
@@ -52,8 +58,11 @@ export class ModelDetailsPanel {
    * Update the panel content
    */
   public updateContent(model: DbtModel, metadata: ProjectMetadata): void {
-    this._panel.title = `Model: ${model.name}`;
-    this._panel.webview.html = this.getHtmlForWebview(model, metadata);
+    const titlePrefix = this._currentViewType === 'lineage' ? 'Lineage' : 'Model';
+    this._panel.title = `${titlePrefix}: ${model.name}`;
+    this._panel.webview.html = this._currentViewType === 'lineage' 
+      ? this.getLineageHtml(model, metadata)
+      : this.getHtmlForWebview(model, metadata);
   }
 
   /**
@@ -252,6 +261,234 @@ export class ModelDetailsPanel {
   </script>
 </body>
 </html>`;
+  }
+
+  /**
+   * Generate lineage-focused HTML content
+   */
+  private getLineageHtml(model: DbtModel, metadata: ProjectMetadata): string {
+    const lineage = this.calculateLineage(model, metadata);
+    const deepUpstream = this.getDeepLineage(model, metadata, 'upstream', 3);
+    const deepDownstream = this.getDeepLineage(model, metadata, 'downstream', 3);
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lineage: ${model.name}</title>
+  <style>
+    :root {
+      --vscode-font-family: var(--vscode-editor-font-family, 'Segoe UI', sans-serif);
+    }
+    body {
+      font-family: var(--vscode-font-family);
+      padding: 20px;
+      color: var(--vscode-foreground);
+      background-color: var(--vscode-editor-background);
+    }
+    h1, h2, h3 {
+      color: var(--vscode-foreground);
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+    }
+    h1 { font-size: 1.5em; margin-top: 0; }
+    h2 { font-size: 1.2em; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 0.3em; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      margin-right: 8px;
+    }
+    .badge-hub { background-color: #d4a017; color: #000; }
+    .badge-satellite { background-color: #3498db; color: #fff; }
+    .badge-link { background-color: #2ecc71; color: #fff; }
+    .badge-staging { background-color: #e67e22; color: #fff; }
+    .badge-mart { background-color: #e74c3c; color: #fff; }
+    .badge-pit { background-color: #9b59b6; color: #fff; }
+    .badge-bridge { background-color: #1abc9c; color: #fff; }
+    .badge-effectivity_satellite { background-color: #8e44ad; color: #fff; }
+    .lineage-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .lineage-section {
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .lineage-section h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1em;
+      color: var(--vscode-descriptionForeground);
+    }
+    .current-model {
+      background-color: var(--vscode-editor-selectionBackground);
+      border: 2px solid var(--vscode-focusBorder);
+      text-align: center;
+      padding: 20px;
+    }
+    .current-model .model-name {
+      font-size: 1.3em;
+      font-weight: bold;
+    }
+    .lineage-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      margin: 4px 0;
+      background-color: var(--vscode-list-hoverBackground);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .lineage-item:hover {
+      background-color: var(--vscode-list-activeSelectionBackground);
+    }
+    .depth-indicator {
+      color: var(--vscode-descriptionForeground);
+      min-width: 60px;
+      font-size: 0.8em;
+    }
+    .arrow {
+      color: var(--vscode-descriptionForeground);
+      font-size: 1.5em;
+      text-align: center;
+      padding: 8px;
+    }
+    .empty {
+      color: var(--vscode-descriptionForeground);
+      font-style: italic;
+      padding: 8px;
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      background-color: var(--vscode-list-hoverBackground);
+      padding: 12px 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+    .stat-label {
+      font-size: 0.85em;
+      color: var(--vscode-descriptionForeground);
+    }
+  </style>
+</head>
+<body>
+  <h1>Lineage: ${model.name}</h1>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">${lineage.upstream.length}</div>
+      <div class="stat-label">Direct Upstream</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${lineage.downstream.length}</div>
+      <div class="stat-label">Direct Downstream</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${deepUpstream.length}</div>
+      <div class="stat-label">Total Upstream (3 levels)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">${deepDownstream.length}</div>
+      <div class="stat-label">Total Downstream (3 levels)</div>
+    </div>
+  </div>
+
+  <div class="lineage-flow">
+    <div class="lineage-section">
+      <h3>⬆️ Upstream Dependencies</h3>
+      ${deepUpstream.length > 0 ? deepUpstream.map(item => `
+        <div class="lineage-item" data-model="${item.model.name}">
+          <span class="depth-indicator">Level ${item.depth}</span>
+          <span class="badge badge-${item.model.type}">${this.formatType(item.model.type)}</span>
+          <span>${item.model.name}</span>
+        </div>
+      `).join('') : '<p class="empty">No upstream dependencies</p>'}
+    </div>
+
+    <div class="arrow">⬇️</div>
+
+    <div class="lineage-section current-model">
+      <span class="badge badge-${model.type}">${this.formatType(model.type)}</span>
+      <span class="model-name">${model.name}</span>
+    </div>
+
+    <div class="arrow">⬇️</div>
+
+    <div class="lineage-section">
+      <h3>⬇️ Downstream Dependents</h3>
+      ${deepDownstream.length > 0 ? deepDownstream.map(item => `
+        <div class="lineage-item" data-model="${item.model.name}">
+          <span class="depth-indicator">Level ${item.depth}</span>
+          <span class="badge badge-${item.model.type}">${this.formatType(item.model.type)}</span>
+          <span>${item.model.name}</span>
+        </div>
+      `).join('') : '<p class="empty">No downstream dependents</p>'}
+    </div>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+    
+    document.querySelectorAll('.lineage-item[data-model]').forEach(item => {
+      item.addEventListener('click', () => {
+        const modelName = item.getAttribute('data-model');
+        vscode.postMessage({ command: 'openModel', model: modelName });
+      });
+    });
+  </script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Get deep lineage (multi-level)
+   */
+  private getDeepLineage(
+    model: DbtModel,
+    metadata: ProjectMetadata,
+    direction: 'upstream' | 'downstream',
+    maxDepth: number
+  ): Array<{ model: DbtModel; depth: number }> {
+    const result: Array<{ model: DbtModel; depth: number }> = [];
+    const visited = new Set<string>([model.name]);
+
+    const traverse = (currentModel: DbtModel, depth: number) => {
+      if (depth > maxDepth) return;
+
+      const related = direction === 'upstream'
+        ? metadata.models.filter(m => currentModel.refs.includes(m.name))
+        : metadata.models.filter(m => m.refs.includes(currentModel.name));
+
+      for (const relatedModel of related) {
+        if (!visited.has(relatedModel.name)) {
+          visited.add(relatedModel.name);
+          result.push({ model: relatedModel, depth });
+          traverse(relatedModel, depth + 1);
+        }
+      }
+    };
+
+    traverse(model, 1);
+    
+    // Sort by depth, then by name
+    result.sort((a, b) => a.depth - b.depth || a.model.name.localeCompare(b.model.name));
+    
+    return result;
   }
 
   /**

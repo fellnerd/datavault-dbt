@@ -19,6 +19,7 @@
     "sql"
   ],
   "activationEvents": [
+    "workspaceContains:**/dbt_project.yml",
     "onView:datavault-staging",
     "onView:datavault-rawvault",
     "onView:datavault-businessvault",
@@ -100,11 +101,6 @@
       "view/title": [
         {
           "command": "datavault.refresh",
-          "when": "view =~ /^datavault-/",
-          "group": "navigation"
-        },
-        {
-          "command": "datavault.selectProject",
           "when": "view =~ /^datavault-/",
           "group": "navigation"
         }

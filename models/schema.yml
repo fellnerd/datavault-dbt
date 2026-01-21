@@ -1,265 +1,38 @@
 version: 2
-models:
-  - name: stg_company
-    description: Unified Staging Model für alle Companies (Client, Contractor, Supplier)
+
+# =============================================================================
+# ROOT SCHEMA.YML
+# =============================================================================
+# Diese Datei enthält nur noch Seeds und projekt-übergreifende Definitionen.
+# Model-Definitionen sind in den jeweiligen Layer-Ordnern:
+#
+#   - models/staging/_staging__models.yml
+#   - models/raw_vault/werkportal/_werkportal__models.yml
+#   - models/raw_vault/adventureworks/_adventureworks__models.yml
+#   - models/business_vault/_business_vault__models.yml
+#   - models/mart/_common/_common__models.yml
+#   - models/mart/project/_project__models.yml
+#
+# =============================================================================
+
+seeds:
+  - name: ref_role
+    description: |
+      Referenztabelle für Company-Rollen (CLIENT, CONTRACTOR, SUPPLIER).
+      Wird als statische Lookup-Tabelle im Data Vault verwendet.
     columns:
-      - name: hk_company
-        description: Hash Key (SHA256 von object_id + source_table)
-        tests:
-          - not_null
-      - name: hd_company
-        description: Hash Diff für Change Detection
-        tests:
-          - not_null
-      - name: object_id
-        description: Business Key aus Quellsystem
-        tests:
-          - not_null
-      - name: source_table
-        description: Quelltabelle (wp_company_client/contractor/supplier)
-        tests:
-          - not_null
       - name: role_code
-        description: Rolle (CLIENT, CONTRACTOR, SUPPLIER)
-        tests:
-          - not_null
-          - accepted_values:
-              values:
-                - CLIENT
-                - CONTRACTOR
-                - SUPPLIER
-  - name: stg_country
-    description: Staging Model für Länder
-    columns:
-      - name: hk_country
-        description: Hash Key (SHA256 von object_id)
-        tests:
-          - not_null
-      - name: object_id
-        description: Business Key
-        tests:
-          - not_null
-  - name: hub_company
-    description: Unified Hub für alle Unternehmen aus allen 3 Quellen
-    columns:
-      - name: hk_company
-        description: Hash Key (Primary Key)
+        description: Rolle Code (Primary Key)
+        data_type: varchar(20)
         tests:
           - not_null
           - unique
-      - name: object_id
-        description: Business Key aus Quellsystem
-        tests:
-          - not_null
-      - name: source_table
-        description: Quelltabelle
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Erstes Ladedatum
-        tests:
-          - not_null
-      - name: dss_record_source
-        description: Datenquelle
-        tests:
-          - not_null
-  - name: hub_country
-    description: Hub für Länder
-    columns:
-      - name: hk_country
-        description: Hash Key (Primary Key)
-        tests:
-          - not_null
-          - unique
-      - name: object_id
-        description: Business Key
-        tests:
-          - not_null
-  - name: sat_company
-    description: Satellite mit gemeinsamen Attributen aller Unternehmen
-    columns:
-      - name: hk_company
-        description: Hash Key (FK zu hub_company)
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_company')
-              field: hk_company
-      - name: hd_company
-        description: Hash Diff für Change Detection
-        tests:
-          - not_null
-  - name: sat_country
-    description: Satellite mit Länder-Attributen
-    columns:
-      - name: hk_country
-        description: Hash Key (FK zu hub_country)
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_country')
-              field: hk_country
-  - name: sat_company_client_ext
-    description: Erweiterter Satellite nur für Clients (freistellungsbescheinigung)
-    columns:
-      - name: hk_company
-        description: Hash Key (FK zu hub_company)
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_company')
-              field: hk_company
-  - name: link_company_role
-    description: Link zwischen Company und Rolle
-    columns:
-      - name: hk_link_company_role
-        description: Hash Key (Primary Key)
-        tests:
-          - not_null
-          - unique
-      - name: hk_company
-        description: FK zu hub_company
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_company')
-              field: hk_company
+      - name: role_name
+        description: Anzeigename der Rolle
+        data_type: varchar(50)
+      - name: role_description
+        description: Beschreibung der Rolle
+        data_type: varchar(200)
       - name: hk_role
-        description: FK zu ref_role (via role_code Hash)
-        tests:
-          - not_null
-      - name: role_code
-        description: Rolle (CLIENT, CONTRACTOR, SUPPLIER)
-        tests:
-          - not_null
-  - name: link_company_country
-    description: Link zwischen Company und Land
-    columns:
-      - name: hk_link_company_country
-        description: Hash Key (Primary Key)
-        tests:
-          - not_null
-          - unique
-      - name: hk_company
-        description: FK zu hub_company
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_company')
-              field: hk_company
-      - name: hk_country
-        description: FK zu hub_country
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_country')
-              field: hk_country
-  - name: stg_project
-    description: Staging Model für Projekte
-    columns:
-      - name: hk_project
-        description: Hash Key (SHA256 von object_id)
-        tests:
-          - not_null
-      - name: hd_project
-        description: Hash Diff für Change Detection
-        tests:
-          - not_null
-      - name: object_id
-        description: Business Key
-        tests:
-          - not_null
-  - name: hub_project
-    description: Hub für Projekte
-    columns:
-      - name: hk_project
-        description: Hash Key (Primary Key)
-        tests:
-          - not_null
-          - unique
-      - name: object_id
-        description: Business Key
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Erstes Ladedatum
-        tests:
-          - not_null
-      - name: dss_record_source
-        description: Datenquelle
-        tests:
-          - not_null
-  - name: sat_project
-    description: Satellite mit Projekt-Attributen
-    columns:
-      - name: hk_project
-        description: Hash Key (FK zu hub_project)
-        tests:
-          - not_null
-          - relationships:
-              to: ref('hub_project')
-              field: hk_project
-      - name: hd_project
-        description: Hash Diff für Change Detection
-        tests:
-          - not_null
-      - name: name
-        description: Projektname
-      - name: state
-        description: Projektstatus
-      - name: begin
-        description: Projektstart (geplant)
-      - name: location
-        description: Standort
-      - name: price
-        description: Preis
-      - name: commission
-        description: Provision
-      - name: end
-        description: Projektende (geplant)
-      - name: work_begin
-        description: Arbeitsbeginn (tatsächlich)
-      - name: author_email
-        description: E-Mail des Erstellers
-      - name: description
-        description: Projektbeschreibung
-      - name: price_units_value
-        description: Preis-Einheiten
-      - name: commission_units_value
-        description: Provisions-Einheiten
-      - name: details
-        description: Zusätzliche Details
-      - name: client
-        description: Zugeordneter Client
-      - name: contractor
-        description: Zugeordneter Contractor
-      - name: member
-        description: Zugeordnetes Mitglied
-      - name: dss_load_date
-        description: Ladedatum
-        tests:
-          - not_null
-      - name: dss_record_source
-        description: Datenquelle
-        tests:
-          - not_null
-      - name: dss_is_current
-        description: Aktueller Datensatz (Y/N)
-        tests:
-          - not_null
-          - accepted_values:
-              values:
-                - Y
-                - N
-      - name: subscription
-        tests: []
-      - name: user
-        tests: []
-      - name: provision_charged_state
-        tests: []
-      - name: contractor_count
-        tests: []
-      - name: hidden
-        tests: []
-      - name: is_contracting
-        tests: []
+        description: Hash Key für Data Vault Integration
+        data_type: char(64)

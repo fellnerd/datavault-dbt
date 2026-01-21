@@ -74,7 +74,67 @@ See [werkportal_company.sql](models/staging/werkportal_company.sql) for the patt
 2. **Staging View:** Create `models/staging/<concept>_<entity>.sql` with hash calculations
 3. **Hub:** Create `models/raw_vault/<concept>/hubs/hub_<entity>.sql`
 4. **Satellite:** Create `models/raw_vault/<concept>/satellites/sat_<entity>.sql`
-5. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select <concept>_<entity> hub_<entity> sat_<entity>`
+5. **Schema YAML:** Document model in corresponding `_<layer>__models.yml` file (see below)
+6. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select <concept>_<entity> hub_<entity> sat_<entity>`
+
+## Schema YAML Documentation (REQUIRED)
+
+**⚠️ Every model MUST be documented in a schema YAML file!**
+
+The VS Code Extension and dbt documentation rely on these files for column information.
+
+### File Naming Convention
+| Layer | File | Location |
+|-------|------|----------|
+| Staging | `_staging__models.yml` | `models/staging/` |
+| Raw Vault | `_<concept>__models.yml` | `models/raw_vault/<concept>/` |
+| Business Vault | `_business_vault__models.yml` | `models/business_vault/` |
+| Mart | `_<concept>__models.yml` | `models/mart/<concept>/` |
+
+### Template
+```yaml
+version: 2
+
+models:
+  - name: <model_name>
+    description: Description of the model
+    columns:
+      - name: hk_<entity>
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: object_id
+        description: Business Key
+        data_type: bigint
+        tests:
+          - not_null
+      - name: <attribute>
+        description: Attribute description
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_record_source
+        description: Data source
+        data_type: varchar(100)
+        tests:
+          - not_null
+```
+
+### Generate from Database
+Use `mssql_connect` + `mssql_run_query` to get column definitions:
+```sql
+SELECT c.name, t.name AS data_type, c.max_length, c.precision, c.scale, c.is_nullable
+FROM sys.views v
+JOIN sys.columns c ON v.object_id = c.object_id
+JOIN sys.types t ON c.user_type_id = t.user_type_id
+WHERE SCHEMA_NAME(v.schema_id) = 'stg' AND v.name = '<view_name>'
+ORDER BY c.column_id;
+```
 
 ## Project Structure
 ```
@@ -99,6 +159,8 @@ models/
 ## Key Files
 - [dbt_project.yml](dbt_project.yml) - Model configs, schema assignments
 - [models/staging/sources.yml](models/staging/sources.yml) - External table definitions (dbt-external-tables)
+- [models/staging/_staging__models.yml](models/staging/_staging__models.yml) - Staging model documentation with columns
+- [models/raw_vault/werkportal/_werkportal__models.yml](models/raw_vault/werkportal/_werkportal__models.yml) - Werkportal vault documentation
 - [macros/generate_schema_name.sql](macros/generate_schema_name.sql) - Strips default schema prefix
 - [docs/DEVELOPER.md](docs/DEVELOPER.md) - Full developer guide
 - [docs/MODEL_ARCHITECTURE.md](docs/MODEL_ARCHITECTURE.md) - Data model documentation

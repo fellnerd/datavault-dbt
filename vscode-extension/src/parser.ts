@@ -13,15 +13,21 @@ import {
   BridgeInfo,
   ProjectMetadata,
   ModelType,
-  MaterializedType
+  MaterializedType,
+  YamlModelDefinition,
+  YamlColumnDefinition,
+  ColumnInfo
 } from './types';
 
 /**
- * Parser for dbt projects - extracts model metadata for Data Vault visualization
+ * Parser for dbt projects - extracts model metadata from YAML schema files
+ * Primary source: _*__models.yml files (dbt schema documentation)
+ * Fallback: SQL file analysis for refs/sources only
  */
 export class DbtProjectParser {
   private projectPath: string;
   private projectConfig: DbtProjectConfig | null = null;
+  private yamlModels: Map<string, YamlModelDefinition> = new Map();
 
   constructor(projectPath: string) {
     this.projectPath = projectPath;
@@ -37,34 +43,52 @@ export class DbtProjectParser {
     this.projectConfig = await this.loadProjectConfig();
     console.log(`[DataVault] Loaded config for project: ${this.projectConfig.name}`);
     
-    // Find all model files
+    // Find all model paths
     const modelPaths = this.projectConfig['model-paths'] || ['models'];
-    const modelFiles: string[] = [];
     
+    // Step 1: Load all YAML schema files first (primary source)
     for (const modelPath of modelPaths) {
       const fullPath = path.join(this.projectPath, modelPath);
-      console.log(`[DataVault] Searching for SQL files in: ${fullPath}`);
-      
-      if (!fs.existsSync(fullPath)) {
-        console.log(`[DataVault] Path does not exist: ${fullPath}`);
-        continue;
+      if (fs.existsSync(fullPath)) {
+        await this.loadYamlSchemaFiles(fullPath);
       }
-      
-      const files = this.findSqlFilesSync(fullPath);
-      console.log(`[DataVault] Found ${files.length} SQL files in ${modelPath}`);
-      modelFiles.push(...files);
+    }
+    console.log(`[DataVault] Loaded ${this.yamlModels.size} models from YAML schema files`);
+
+    // Step 2: Find SQL files to get refs/sources and file paths
+    const sqlFiles: string[] = [];
+    for (const modelPath of modelPaths) {
+      const fullPath = path.join(this.projectPath, modelPath);
+      if (fs.existsSync(fullPath)) {
+        const files = this.findSqlFilesSync(fullPath);
+        sqlFiles.push(...files);
+      }
+    }
+    console.log(`[DataVault] Found ${sqlFiles.length} SQL files`);
+
+    // Step 3: Build model list - YAML as primary source, SQL for refs/sources
+    const models: DbtModel[] = [];
+    const processedModels = new Set<string>();
+
+    // First: Process all models defined in YAML
+    for (const [modelName, yamlDef] of this.yamlModels) {
+      const sqlFile = sqlFiles.find(f => path.basename(f, '.sql') === modelName);
+      const model = await this.buildModelFromYaml(modelName, yamlDef, sqlFile);
+      if (model) {
+        models.push(model);
+        processedModels.add(modelName);
+      }
     }
 
-    // Parse each model
-    const models: DbtModel[] = [];
-    for (const filePath of modelFiles) {
-      try {
-        const model = await this.parseModel(filePath);
+    // Second: Process SQL files not in YAML (legacy/undocumented models)
+    for (const sqlFile of sqlFiles) {
+      const modelName = path.basename(sqlFile, '.sql');
+      if (!processedModels.has(modelName)) {
+        console.log(`[DataVault] Warning: Model '${modelName}' has no YAML documentation`);
+        const model = await this.parseModelFromSql(sqlFile);
         if (model) {
           models.push(model);
         }
-      } catch (error) {
-        console.error(`Failed to parse model ${filePath}:`, error);
       }
     }
 
@@ -102,6 +126,174 @@ export class DbtProjectParser {
   }
 
   /**
+   * Load all YAML schema files (*__models.yml, schema.yml) recursively
+   */
+  private async loadYamlSchemaFiles(dir: string): Promise<void> {
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        
+        if (entry.isDirectory()) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+            continue;
+          }
+          await this.loadYamlSchemaFiles(fullPath);
+        } else if (entry.isFile() && this.isSchemaYamlFile(entry.name)) {
+          await this.parseYamlSchemaFile(fullPath);
+        }
+      }
+    } catch (error) {
+      console.error(`[DataVault] Error reading directory ${dir}:`, error);
+    }
+  }
+
+  /**
+   * Check if file is a schema YAML file (not sources.yml)
+   */
+  private isSchemaYamlFile(fileName: string): boolean {
+    const lower = fileName.toLowerCase();
+    // Match: _*__models.yml, schema.yml, *_schema.yml but NOT sources.yml
+    return (lower.endsWith('.yml') || lower.endsWith('.yaml')) && 
+           !lower.includes('sources') &&
+           !lower.includes('packages') &&
+           (lower.includes('models') || lower.includes('schema'));
+  }
+
+  /**
+   * Parse a single YAML schema file and extract model definitions
+   */
+  private async parseYamlSchemaFile(filePath: string): Promise<void> {
+    try {
+      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const parsed = yaml.parse(content);
+      
+      if (!parsed || !parsed.models || !Array.isArray(parsed.models)) {
+        return;
+      }
+
+      const relativePath = path.relative(this.projectPath, filePath);
+      const { layer, concept } = this.parsePathInfo(relativePath);
+      
+      console.log(`[DataVault] Parsing YAML: ${relativePath} (layer: ${layer}, concept: ${concept})`);
+
+      for (const modelDef of parsed.models) {
+        if (modelDef.name) {
+          this.yamlModels.set(modelDef.name, {
+            ...modelDef,
+            _yamlPath: filePath,
+            _layer: layer,
+            _concept: concept
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`[DataVault] Error parsing YAML ${filePath}:`, error);
+    }
+  }
+
+  /**
+   * Build a DbtModel from YAML definition + optional SQL file for refs/sources
+   */
+  private async buildModelFromYaml(
+    modelName: string, 
+    yamlDef: YamlModelDefinition, 
+    sqlFilePath?: string
+  ): Promise<DbtModel | null> {
+    const layer = yamlDef._layer || 'staging';
+    
+    // For staging models, extract concept from model name (e.g., werkportal_company -> werkportal)
+    // For other layers, use the concept from the YAML path
+    let concept = yamlDef._concept || '_common';
+    if (layer === 'staging') {
+      // Handle stg_<concept>_<entity> pattern (e.g., stg_tempo_worklog -> tempo)
+      let nameToMatch = modelName;
+      if (modelName.toLowerCase().startsWith('stg_')) {
+        nameToMatch = modelName.substring(4); // Remove 'stg_' prefix
+      }
+      const match = nameToMatch.match(/^([a-z]+)_/i);
+      if (match && !['ext'].includes(match[1].toLowerCase())) {
+        concept = match[1].toLowerCase();
+      }
+    }
+    
+    const type = this.inferModelType('', modelName);
+    const schema = this.determineSchema(layer, concept);
+    
+    // Extract columns from YAML with data types
+    const columns: ColumnInfo[] = (yamlDef.columns || []).map((col: YamlColumnDefinition) => ({
+      name: col.name,
+      dataType: col.data_type,
+      description: col.description
+    }));
+    
+    // Get refs and sources from SQL file if available
+    let refs: string[] = [];
+    let sources: string[] = [];
+    let filePath = '';
+    let relativePath = '';
+    
+    if (sqlFilePath && fs.existsSync(sqlFilePath)) {
+      const sqlContent = await fs.promises.readFile(sqlFilePath, 'utf-8');
+      refs = this.extractRefs(sqlContent);
+      sources = this.extractSources(sqlContent);
+      filePath = sqlFilePath;
+      relativePath = path.relative(this.projectPath, sqlFilePath);
+    }
+
+    // Determine materialization from dbt_project.yml config
+    const materialized = this.determineMaterializedFromConfig(layer, type);
+
+    return {
+      name: modelName,
+      schema,
+      type,
+      materialized,
+      filePath,
+      relativePath,
+      columns,
+      refs,
+      sources,
+      concept,
+      layer,
+      description: yamlDef.description
+    };
+  }
+
+  /**
+   * Fallback: Parse model from SQL file only (for undocumented models)
+   */
+  private async parseModelFromSql(filePath: string): Promise<DbtModel | null> {
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    const fileName = path.basename(filePath, '.sql');
+    const relativePath = path.relative(this.projectPath, filePath);
+    
+    const { layer, concept } = this.parsePathInfo(relativePath);
+    const type = this.inferModelType(relativePath, fileName);
+    const refs = this.extractRefs(content);
+    const sources = this.extractSources(content);
+    const schema = this.determineSchema(layer, concept);
+    const materialized = this.determineMaterializedFromConfig(layer, type);
+
+    // No columns - YAML is missing!
+    return {
+      name: fileName,
+      schema,
+      type,
+      materialized,
+      filePath,
+      relativePath,
+      columns: [], // Empty - model needs YAML documentation
+      refs,
+      sources,
+      concept,
+      layer,
+      description: '⚠️ No YAML documentation'
+    };
+  }
+
+  /**
    * Recursively find all .sql files in a directory (synchronous)
    */
   private findSqlFilesSync(dir: string): string[] {
@@ -114,7 +306,6 @@ export class DbtProjectParser {
         const fullPath = path.join(dir, entry.name);
         
         if (entry.isDirectory()) {
-          // Skip special directories
           if (entry.name.startsWith('.') || entry.name === 'node_modules') {
             continue;
           }
@@ -141,67 +332,28 @@ export class DbtProjectParser {
   }
 
   /**
-   * Parse a single model file
-   */
-  private async parseModel(filePath: string): Promise<DbtModel | null> {
-    const content = await fs.promises.readFile(filePath, 'utf-8');
-    const fileName = path.basename(filePath, '.sql');
-    const relativePath = path.relative(this.projectPath, filePath);
-    
-    // Determine layer and concept from path
-    const { layer, concept } = this.parsePathInfo(relativePath);
-    
-    // Infer model type
-    const type = this.inferModelType(relativePath, fileName);
-    
-    // Extract references
-    const refs = this.extractRefs(content);
-    const sources = this.extractSources(content);
-    
-    // Extract columns (best effort)
-    const columns = this.extractColumns(content);
-    
-    // Determine schema
-    const schema = this.determineSchema(layer, concept);
-    
-    // Determine materialization
-    const materialized = this.determineMaterialized(content, layer, type);
-
-    return {
-      name: fileName,
-      schema,
-      type,
-      materialized,
-      filePath,
-      relativePath,
-      columns,
-      refs,
-      sources,
-      concept,
-      layer
-    };
-  }
-
-  /**
    * Parse layer and concept from file path
    */
   private parsePathInfo(relativePath: string): { layer: DbtModel['layer']; concept: string } {
-    const parts = relativePath.toLowerCase().split(path.sep);
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    const parts = normalizedPath.toLowerCase().split('/');
     
     let layer: DbtModel['layer'] = 'staging';
     let concept = '_common';
     
     if (parts.includes('staging')) {
       layer = 'staging';
-      // For staging, extract concept from filename pattern: <concept>_<entity>.sql
-      const fileName = path.basename(relativePath, '.sql');
+      let fileName = path.basename(relativePath, '.sql').replace('.yml', '').replace('.yaml', '');
+      // Handle stg_<concept>_<entity> pattern
+      if (fileName.toLowerCase().startsWith('stg_')) {
+        fileName = fileName.substring(4);
+      }
       const match = fileName.match(/^([a-z]+)_/);
-      if (match && !['stg', 'ext'].includes(match[1])) {
+      if (match && !['ext'].includes(match[1])) {
         concept = match[1];
       }
     } else if (parts.includes('raw_vault')) {
       layer = 'raw_vault';
-      // Find concept folder after raw_vault
       const rawVaultIdx = parts.indexOf('raw_vault');
       if (rawVaultIdx < parts.length - 1) {
         const nextPart = parts[rawVaultIdx + 1];
@@ -213,7 +365,6 @@ export class DbtProjectParser {
       layer = 'business_vault';
     } else if (parts.includes('mart')) {
       layer = 'mart';
-      // Find concept folder after mart
       const martIdx = parts.indexOf('mart');
       if (martIdx < parts.length - 1) {
         const nextPart = parts[martIdx + 1];
@@ -289,16 +440,10 @@ export class DbtProjectParser {
   }
 
   /**
-   * Determine materialization strategy
+   * Determine materialization from dbt_project.yml config (not from SQL content)
    */
-  private determineMaterialized(content: string, layer: DbtModel['layer'], type: ModelType): MaterializedType {
-    // Check for explicit config in file
-    const configMatch = content.match(/materialized\s*[=:]\s*['"]?(\w+)['"]?/);
-    if (configMatch) {
-      return configMatch[1] as MaterializedType;
-    }
-
-    // Default based on layer/type
+  private determineMaterializedFromConfig(layer: DbtModel['layer'], type: ModelType): MaterializedType {
+    // Default based on layer/type (matches dbt_project.yml)
     if (layer === 'staging') return 'view';
     if (layer === 'mart') return 'view';
     if (layer === 'raw_vault') return 'incremental';
@@ -339,72 +484,6 @@ export class DbtProjectParser {
   }
 
   /**
-   * Extract column names from SQL (best effort)
-   */
-  private extractColumns(content: string): string[] {
-    const columns: string[] = [];
-    
-    // Pattern 1: SELECT column AS alias or SELECT column
-    const selectPattern = /SELECT\s+([\s\S]*?)(?:FROM|$)/i;
-    const selectMatch = content.match(selectPattern);
-    
-    if (selectMatch) {
-      const selectClause = selectMatch[1];
-      // Split by comma, handling nested parentheses
-      const parts = this.splitSelectClause(selectClause);
-      
-      for (const part of parts) {
-        const trimmed = part.trim();
-        if (!trimmed || trimmed === '*') continue;
-        
-        // Extract alias or column name
-        const asMatch = trimmed.match(/\bAS\s+\[?([^\]\s,]+)\]?\s*$/i);
-        if (asMatch) {
-          columns.push(asMatch[1]);
-        } else {
-          // Try to get the last identifier
-          const lastIdMatch = trimmed.match(/\[?([a-zA-Z_][a-zA-Z0-9_]*)\]?\s*$/);
-          if (lastIdMatch) {
-            columns.push(lastIdMatch[1]);
-          }
-        }
-      }
-    }
-    
-    return columns;
-  }
-
-  /**
-   * Split SELECT clause by commas, respecting parentheses
-   */
-  private splitSelectClause(clause: string): string[] {
-    const parts: string[] = [];
-    let current = '';
-    let depth = 0;
-    
-    for (const char of clause) {
-      if (char === '(' || char === '{') {
-        depth++;
-        current += char;
-      } else if (char === ')' || char === '}') {
-        depth--;
-        current += char;
-      } else if (char === ',' && depth === 0) {
-        parts.push(current);
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    if (current.trim()) {
-      parts.push(current);
-    }
-    
-    return parts;
-  }
-
-  /**
    * Enrich hub with related satellites
    */
   private enrichHub(model: DbtModel, allModels: DbtModel[]): HubInfo {
@@ -416,8 +495,15 @@ export class DbtProjectParser {
       .filter(m => m.refs.includes(model.name) || m.name.includes(hubName))
       .map(m => m.name);
 
-    // Try to extract business key from SQL
-    const businessKey = this.extractBusinessKey(model.filePath);
+    // Try to find business key from columns (first column after hk_*)
+    let businessKey: string | null = null;
+    const nonMetaCols = model.columns.filter(c => 
+      !c.name.toLowerCase().startsWith('hk_') && 
+      !c.name.toLowerCase().startsWith('dss_')
+    );
+    if (nonMetaCols.length > 0) {
+      businessKey = nonMetaCols[0].name;
+    }
 
     return {
       ...model,
@@ -436,9 +522,9 @@ export class DbtProjectParser {
     
     // Filter out metadata columns
     const metadataColumns = ['hk_', 'hd_', 'dss_', 'load_date', 'record_source'];
-    const attributes = model.columns.filter(
-      col => !metadataColumns.some(prefix => col.toLowerCase().startsWith(prefix))
-    );
+    const attributes = model.columns
+      .filter(col => !metadataColumns.some(prefix => col.name.toLowerCase().startsWith(prefix)))
+      .map(col => col.name);
 
     return {
       ...model,
@@ -495,31 +581,6 @@ export class DbtProjectParser {
       baseLink,
       includedSatellites
     };
-  }
-
-  /**
-   * Try to extract business key from hub SQL file
-   */
-  private extractBusinessKey(filePath: string): string | null {
-    try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      // Look for business key patterns
-      const patterns = [
-        /src_bk\s*[=:]\s*['"]([^'"]+)['"]/i,
-        /business_key\s*[=:]\s*['"]([^'"]+)['"]/i,
-        /bk_\w+/i
-      ];
-      
-      for (const pattern of patterns) {
-        const match = content.match(pattern);
-        if (match) {
-          return match[1] || match[0];
-        }
-      }
-    } catch {
-      // Ignore errors
-    }
-    return null;
   }
 }
 

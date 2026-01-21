@@ -770,53 +770,128 @@ SELECT
 FROM new_records
 ```
 
-### Schritt 5: Tests hinzufügen
+### Schritt 5: Schema YAML erstellen (WICHTIG!)
 
-📄 **Datei:** [models/schema.yml](../models/schema.yml)
+⚠️ **Jedes Model MUSS in einer Schema YAML-Datei dokumentiert werden!**
+
+Die VS Code Extension und dbt-Dokumentation verwenden diese Dateien für Spalten-Metadaten.
+
+#### Datei-Namenskonvention
+
+| Layer | Datei | Speicherort |
+|-------|------|-------------|
+| Staging | `_staging__models.yml` | `models/staging/` |
+| Raw Vault | `_<concept>__models.yml` | `models/raw_vault/<concept>/` |
+| Business Vault | `_business_vault__models.yml` | `models/business_vault/` |
+| Mart | `_<concept>__models.yml` | `models/mart/<concept>/` |
+
+#### Vorlage
+
+📄 **Datei:** `models/raw_vault/<concept>/_<concept>__models.yml`
 
 ```yaml
+version: 2
+
 models:
-  # ... bestehende Models ...
-  
   # ═══════════════════════════════════════════
-  # Product
+  # Staging: Product
   # ═══════════════════════════════════════════
-  - name: stg_product
+  - name: <concept>_product
+    description: Staging view for product with hash calculations
     columns:
       - name: hk_product
+        description: Hash Key (Primary Key)
+        data_type: char(64)
         tests:
           - not_null
       - name: object_id
+        description: Business Key from source
+        data_type: bigint
+        tests:
+          - not_null
+      - name: name
+        description: Product name
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
         tests:
           - not_null
 
+  # ═══════════════════════════════════════════
+  # Hub: Product
+  # ═══════════════════════════════════════════
   - name: hub_product
+    description: Hub containing unique product business keys
     columns:
       - name: hk_product
+        description: Hash Key (Primary Key)
+        data_type: char(64)
         tests:
           - unique
           - not_null
       - name: object_id
+        description: Business Key
+        data_type: bigint
         tests:
           - not_null
       - name: dss_load_date
+        description: First load timestamp
+        data_type: datetime2(7)
         tests:
           - not_null
       - name: dss_record_source
+        description: Data source
+        data_type: varchar(100)
         tests:
           - not_null
 
+  # ═══════════════════════════════════════════
+  # Satellite: Product
+  # ═══════════════════════════════════════════
   - name: sat_product
+    description: Satellite with product descriptive attributes
     columns:
       - name: hk_product
+        description: Hash Key (Foreign Key to Hub)
+        data_type: char(64)
         tests:
           - not_null
           - relationships:
               to: ref('hub_product')
               field: hk_product
       - name: hd_product
+        description: Hash Diff for change detection
+        data_type: char(64)
         tests:
           - not_null
+      - name: name
+        description: Product name
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Data source
+        data_type: varchar(100)
+```
+
+#### Spalten aus Datenbank generieren
+
+Mit VS Code Copilot und MSSQL MCP können Spaltendefinitionen aus bestehenden Views generiert werden:
+
+```sql
+SELECT c.name, t.name AS data_type, c.max_length, c.precision, c.scale, c.is_nullable
+FROM sys.views v
+JOIN sys.columns c ON v.object_id = c.object_id
+JOIN sys.types t ON c.user_type_id = t.user_type_id
+WHERE SCHEMA_NAME(v.schema_id) = 'stg' AND v.name = '<view_name>'
+ORDER BY c.column_id;
 ```
 
 ### Schritt 6: Deployment
