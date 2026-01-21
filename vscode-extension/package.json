@@ -1,0 +1,172 @@
+{
+  "name": "datavault-dbt",
+  "displayName": "Data Vault dbt Explorer",
+  "description": "Visualize and navigate dbt Data Vault 2.1 projects with hierarchical tree views",
+  "version": "0.1.1",
+  "publisher": "datavault",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "extensionKind": ["workspace"],
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "dbt",
+    "data-vault",
+    "data-warehouse",
+    "sql"
+  ],
+  "activationEvents": [
+    "onView:datavault-staging",
+    "onView:datavault-rawvault",
+    "onView:datavault-businessvault",
+    "onView:datavault-mart",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "datavault-explorer",
+          "title": "Data Vault",
+          "icon": "resources/datavault.svg"
+        }
+      ]
+    },
+    "views": {
+      "datavault-explorer": [
+        {
+          "id": "datavault-staging",
+          "name": "Staging",
+          "icon": "$(database)",
+          "contextualTitle": "Staging Layer"
+        },
+        {
+          "id": "datavault-rawvault",
+          "name": "Raw Vault",
+          "icon": "$(symbol-structure)",
+          "contextualTitle": "Raw Vault Layer"
+        },
+        {
+          "id": "datavault-businessvault",
+          "name": "Business Vault",
+          "icon": "$(graph)",
+          "contextualTitle": "Business Vault Layer"
+        },
+        {
+          "id": "datavault-mart",
+          "name": "Marts",
+          "icon": "$(pie-chart)",
+          "contextualTitle": "Mart Layer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "datavault.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openModel",
+        "title": "Open Model File",
+        "icon": "$(go-to-file)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.showLineage",
+        "title": "Show Lineage",
+        "icon": "$(git-merge)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.showModelDetails",
+        "title": "Show Model Details",
+        "icon": "$(info)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.selectProject",
+        "title": "Select dbt Project",
+        "icon": "$(folder-opened)",
+        "category": "Data Vault"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "datavault.refresh",
+          "when": "view =~ /^datavault-/",
+          "group": "navigation"
+        },
+        {
+          "command": "datavault.selectProject",
+          "when": "view =~ /^datavault-/",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "datavault.openModel",
+          "when": "view =~ /^datavault-/ && viewItem == model",
+          "group": "navigation"
+        },
+        {
+          "command": "datavault.showLineage",
+          "when": "view =~ /^datavault-/ && viewItem == model",
+          "group": "navigation"
+        },
+        {
+          "command": "datavault.showModelDetails",
+          "when": "view =~ /^datavault-/ && viewItem == model",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Data Vault dbt Explorer",
+      "properties": {
+        "datavault.projectPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to dbt_project.yml (auto-detected if empty)"
+        },
+        "datavault.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh when files change"
+        },
+        "datavault.refreshDebounceMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Debounce time in milliseconds for auto-refresh"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "yaml": "^2.3.4",
+    "glob": "^10.3.10"
+  }
+}
