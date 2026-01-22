@@ -1228,7 +1228,232 @@ FROM new_records
 
 ---
 
-### 5.6 PIT Table erstellen
+### 5.6 Dependent Child Satellite (DC Sat) erstellen
+
+Ein **Dependent Child Satellite** wird verwendet, wenn ein Link zusätzliche Schlüsselspalten (DCK - Dependent Child Keys) benötigt, um Zeilen auf einer feineren Granularität zu unterscheiden.
+
+**Anwendungsfälle:**
+- Bestellpositionen (Order → Product + Positionsnummer)
+- Kontaktadressen (Person → AddressType + Adresse)
+- Telefonnummern (Company → PhoneType + Nummer)
+
+#### Staging-View Anforderungen
+
+Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten:
+
+```sql
+-- Beispiel: werkportal_order_item.sql (mit DCK: line_item_no)
+
+{%- set hashdiff_columns = ['quantity', 'unit_price', 'discount'] -%}
+{%- set hashdiff_dc_columns = ['line_item_no', 'quantity', 'unit_price', 'discount'] -%}
+
+WITH source AS (
+    SELECT * FROM {{ source('staging', 'ext_werkportal_order_item') }}
+),
+
+staged AS (
+    SELECT
+        -- HASH KEY (Entity)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(order_id AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_order_item,
+        
+        -- LINK HASH KEY (Order → Product + DCK)
+        -- Enthält DCK für DC Sat Eindeutigkeit
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ISNULL(CAST(order_id AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(product_id AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(line_item_no AS NVARCHAR(MAX)), '')  -- DCK
+            )
+        ), 2) AS hk_link_order_product,
+        
+        -- HASH DIFF (Standard Satellite)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_order_item,
+        
+        -- HASH DIFF (DC Satellite - inkl. DCK)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_dc_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_order_product_dc,
+        
+        -- Business Keys + Payload + Metadata
+        order_id,
+        product_id,
+        line_item_no,  -- DCK
+        quantity,
+        unit_price,
+        discount,
+        dss_record_source,
+        dss_load_date
+    FROM source
+)
+
+SELECT * FROM staged
+```
+
+#### DC Satellite Model
+
+```sql
+-- sat_order_product_dc.sql
+{{ config(
+    materialized='incremental',
+    as_columnstore=false
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "werkportal_order_item"
+src_pk: "hk_link_order_product"
+src_hashdiff: 
+  source_column: "hd_order_product_dc"
+  alias: "hashdiff"
+src_payload:
+    - "line_item_no"
+    - "quantity"
+    - "unit_price"
+    - "discount"
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.sat(
+    src_pk=metadata_dict["src_pk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+```
+
+---
+
+### 5.7 Multi-Active Satellite (MA Sat) erstellen
+
+Ein **Multi-Active Satellite** erlaubt **mehrere gleichzeitig gültige Werte** für denselben Business Key.
+
+**Anwendungsfälle:**
+- Mehrere Telefonnummern pro Kunde (phone_type unterscheidet)
+- Mehrere Rollen pro Mitarbeiter (role unterscheidet)
+- Mehrere Adressen pro Person (address_type unterscheidet)
+
+#### Staging-View Anforderungen
+
+```sql
+-- Beispiel: werkportal_employee_phone.sql (mit CDK: phone_type)
+
+{%- set hashdiff_columns = ['phone_number', 'is_primary'] -%}
+{%- set hashdiff_ma_columns = ['phone_type', 'phone_number', 'is_primary'] -%}
+
+WITH source AS (
+    SELECT * FROM {{ source('staging', 'ext_werkportal_employee_phone') }}
+),
+
+staged AS (
+    SELECT
+        -- HASH KEY (Entity)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(employee_id AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_employee,
+        
+        -- HASH DIFF (für regulären Satellite)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_employee,
+        
+        -- HASH DIFF (MA Satellite - inkl. CDK)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_ma_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_employee_ma,
+        
+        -- Business Key + CDK + Payload + Metadata
+        employee_id,
+        phone_type,      -- CDK (Child Dependent Key)
+        phone_number,
+        is_primary,
+        dss_record_source,
+        dss_load_date
+    FROM source
+)
+
+SELECT * FROM staged
+```
+
+#### MA Satellite Model
+
+```sql
+-- sat_employee_ma.sql
+{{ config(
+    materialized='incremental',
+    as_columnstore=false
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "werkportal_employee_phone"
+src_pk: "hk_employee"
+src_cdk:
+    - "phone_type"
+src_hashdiff: 
+  source_column: "hd_employee_ma"
+  alias: "hashdiff"
+src_payload:
+    - "phone_number"
+    - "is_primary"
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.ma_sat(
+    src_pk=metadata_dict["src_pk"],
+    src_cdk=metadata_dict["src_cdk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+```
+
+#### Unterschied DC Sat vs MA Sat
+
+| Aspekt | DC Sat | MA Sat |
+|--------|--------|--------|
+| **Parent** | Link | Hub |
+| **Hash Key** | Link Hash + DCK | Hub Hash |
+| **Uniqueness** | Link + DCK + Zeit | Hub + CDK + Zeit |
+| **automate_dv Macro** | `sat` | `ma_sat` |
+| **Anwendung** | Zeilen auf Link-Ebene | Mehrere Werte pro Entity |
+
+---
+
+### 5.8 PIT Table erstellen
 
 📄 **Vorlage:** [models/business_vault/pit_company.sql](../models/business_vault/pit_company.sql)
 

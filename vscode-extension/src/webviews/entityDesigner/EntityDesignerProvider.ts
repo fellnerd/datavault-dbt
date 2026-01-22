@@ -223,7 +223,7 @@ export class EntityDesignerProvider {
   /**
    * Handle generate request - reads config from JSON file (Config-First)
    */
-  private async handleGenerate(target: 'all' | 'hub' | 'satellite' | 'links'): Promise<void> {
+  private async handleGenerate(target: 'all' | 'hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite'): Promise<void> {
     try {
       if (!this._projectPath || !this._currentEntity) {
         throw new Error('Project path or entity context not set');
@@ -238,14 +238,6 @@ export class EntityDesignerProvider {
       }
 
       vscode.window.showInformationMessage(`Generating ${target} from config...`);
-      
-      // Determine which targets to generate
-      let targets: ('hub' | 'satellite' | 'links')[];
-      if (target === 'all') {
-        targets = ['hub', 'satellite', 'links'];
-      } else {
-        targets = [target];
-      }
 
       // Build EntityDesignConfig from saved JSON config
       const config: EntityDesignConfig = {
@@ -256,13 +248,37 @@ export class EntityDesignerProvider {
           name: c.name,
           sourceName: c.sourceName || c.name,
           dataType: c.dataType || 'NVARCHAR(MAX)',
-          columnType: c.columnType as 'hub' | 'satellite' | 'link' | 'metadata' | 'ignore',
+          columnType: c.columnType as 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore',
           includeInHashDiff: c.columnType === 'satellite',
           foreignKeyTarget: c.foreignKeyTarget,
+          dependentChildForLink: c.dependentChildForLink,
+          multiActiveSequence: c.multiActiveSequence,
           nullable: c.nullable ?? true
         })),
         ghostRecordValue: '-1'
       };
+
+      // Determine which targets to generate (including DC/MA satellites if configured)
+      let targets: ('hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite')[];
+      if (target === 'all') {
+        targets = ['hub', 'satellite', 'links'];
+        // Auto-add DC Satellite if dependent_child columns exist
+        if (savedConfig.columns.some(c => c.columnType === 'dependent_child')) {
+          targets.push('dc_satellite');
+        }
+        // Auto-add MA Satellite if multi_active columns exist
+        if (savedConfig.columns.some(c => c.columnType === 'multi_active')) {
+          targets.push('ma_satellite');
+        }
+      } else if (target === 'links') {
+        targets = ['links'];
+        // Auto-add DC Satellite with links if dependent_child columns exist
+        if (savedConfig.columns.some(c => c.columnType === 'dependent_child')) {
+          targets.push('dc_satellite');
+        }
+      } else {
+        targets = [target];
+      }
 
       // Generate Data Vault objects
       const result = await generateDataVaultObjects(config, this._projectPath, targets);

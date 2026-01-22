@@ -214,6 +214,14 @@ export interface StagingConfig {
   // Metadata
   recordSourceDefault: string;
   includeRunId: boolean;
+  
+  // Dependent Child Satellites (DC Sat)
+  // DCK columns grouped by target link (e.g., { 'hub_product': ['line_item_no'] })
+  dependentChildKeys?: Record<string, string[]>;
+  
+  // Multi-Active Satellites (MA Sat)
+  // CDK columns that distinguish concurrent records (e.g., ['phone_type'])
+  multiActiveKeys?: string[];
 }
 
 /**
@@ -247,6 +255,8 @@ export type DesignerColumnType =
   | 'business_key' | 'hub'        // Business Key → Hub
   | 'attribute' | 'satellite'     // Attribute → Satellite
   | 'foreign_key' | 'link'        // Foreign Key → Link
+  | 'dependent_child'             // Dependent Child Key → DC Sat (on Link)
+  | 'multi_active'                // Multi-Active Key → MA Sat
   | 'metadata' 
   | 'ignore';
 
@@ -259,8 +269,12 @@ export interface DesignerColumnDefinition {
   dataType: string;
   columnType: DesignerColumnType;
   includeInHashDiff: boolean;
-  foreignKeyTarget?: string;  // e.g., 'hub_company'
+  foreignKeyTarget?: string;  // e.g., 'hub_company' for links
   nullable?: boolean;
+  /** For dependent_child: which link this DCK belongs to */
+  dependentChildForLink?: string;
+  /** For multi_active: sequence/identifier column name */
+  multiActiveSequence?: boolean;
 }
 
 /**
@@ -280,7 +294,7 @@ export interface EntityDesignConfig {
 export interface GeneratedFile {
   path: string;
   content: string;
-  type: 'hub' | 'satellite' | 'link' | 'ghost_seed' | 'yaml' | 'schema';
+  type: 'hub' | 'satellite' | 'link' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging';
 }
 
 /**
@@ -322,6 +336,10 @@ export interface SavedColumnConfig {
   columnType: string;
   foreignKeyTarget?: string;
   nullable?: boolean;
+  /** For dependent_child: which link this DCK belongs to */
+  dependentChildForLink?: string;
+  /** For multi_active: is this a sequence/identifier column */
+  multiActiveSequence?: boolean;
 }
 
 /**
@@ -329,7 +347,7 @@ export interface SavedColumnConfig {
  */
 export interface WebviewGenerateMessage {
   type: 'generate';
-  target: 'all' | 'hub' | 'satellite' | 'links';
+  target: 'all' | 'hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite';
   // Config is now read from JSON file, not from UI
 }
 

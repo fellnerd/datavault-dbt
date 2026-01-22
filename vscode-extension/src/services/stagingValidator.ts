@@ -27,8 +27,11 @@ export function validateStagingConfig(config: StagingConfig): StagingValidationR
   }
 
   // Business Key validation
+  // Note: Business keys CAN be empty for Pure Dependent Child entities
+  // These entities are identified only by their relationship (FK + DCK) to a parent hub
   if (!config.businessKeyColumns || config.businessKeyColumns.length === 0) {
-    errors.push('At least one business key column is required');
+    // This is now a warning, not an error - Pure DC entities don't have BKs
+    warnings.push('No business key columns - entity will be a Pure Dependent Child (requires Link + DCK in Entity Designer)');
   } else {
     // Check for duplicates
     const uniqueBk = new Set(config.businessKeyColumns.map(c => c.toLowerCase()));

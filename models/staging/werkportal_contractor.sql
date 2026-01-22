@@ -1,9 +1,12 @@
 /*
- * Staging Model: werkportal_company_client
+ * Staging Model: werkportal_contractor
  *
- * Source: ext_werkportal_public_wp_company_client
+ * Source: ext_werkportal_public_wp_company_contractor
  * Business Key: object_id
  * Hash Key Separator: '^^' (DV 2.1 Standard)
+ *
+ * Hash Keys calculated here (automate_dv pattern):
+ *   - hk_contractor (Entity Hash Key)
  */
 
 {%- set hashdiff_columns = [
@@ -13,13 +16,10 @@
     'commission_fee',
     'country',
     'credit_rating',
-    'date_created',
-    'date_updated',
     'description',
     'email',
     'employeecount',
     'fax',
-    'freistellungsbescheinigung',
     'iban',
     'mobile',
     'mobile2',
@@ -29,13 +29,12 @@
     'province',
     'state',
     'street',
-    'subscription',
     'uid',
     'website'
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_public_wp_company_client') }}
+    SELECT * FROM {{ source('staging', 'ext_werkportal_public_wp_company_contractor') }}
 ),
 
 staged AS (
@@ -43,13 +42,12 @@ staged AS (
         -- ===========================================
         -- HASH KEY (Entity)
         -- ===========================================
-        -- Note: FK hash keys are calculated in Link models, not in staging
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(object_id AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_company_client,
+        ), 2) AS hk_contractor,
 
         -- ===========================================
-        -- HASH DIFF (Change Detection)
+        -- HASH DIFF (Change Detection - Satellite)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
@@ -57,7 +55,7 @@ staged AS (
                 ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
                 {%- endfor %}
             )
-        ), 2) AS hd_company_client,
+        ), 2) AS hd_contractor,
 
         -- ===========================================
         -- BUSINESS KEY(S)
@@ -91,7 +89,6 @@ staged AS (
         description,
         org_type,
         uid,
-        freistellungsbescheinigung,
 
         -- ===========================================
         -- METADATA

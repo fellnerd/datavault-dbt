@@ -21,7 +21,7 @@ export interface DesignerConfig {
   /** When the config was last saved */
   savedAt: string;
   /** Which objects were generated */
-  generatedObjects?: ('hub' | 'satellite' | 'links')[];
+  generatedObjects?: ('hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite')[];
 }
 
 const CONFIG_FOLDER = '.vscode/entity-designer';

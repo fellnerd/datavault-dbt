@@ -130,29 +130,39 @@ export async function createStaging(
   }
 
   // Step 2: Select business key columns
+  // Note: Business keys can be empty for Pure Dependent Child entities
+  // that are identified only by their relationship to a parent hub
   const bkItems: vscode.QuickPickItem[] = columns.map(col => ({
     label: col,
-    picked: col.toLowerCase().endsWith('id') && col.toLowerCase().includes(entityName.toLowerCase())
+    picked: false  // No auto-detect - let user explicitly select
   }));
 
   const selectedBks = await vscode.window.showQuickPick(bkItems, {
-    title: 'Select Business Key Column(s)',
-    placeHolder: 'Select one or more columns that uniquely identify records',
+    title: 'Step 2: Select Business Key Column(s)',
+    placeHolder: 'Select columns that uniquely identify records (leave empty for Pure Dependent Child)',
     canPickMany: true
   });
 
-  if (!selectedBks || selectedBks.length === 0) {
-    vscode.window.showErrorMessage('At least one business key column is required');
-    return;
+  if (!selectedBks) {
+    return; // Cancelled (ESC pressed)
   }
 
+  // Allow empty business keys for Pure Dependent Child entities
   const businessKeyColumns = selectedBks.map(item => item.label);
+  // Note: Empty BK is valid for Pure DC entities - no warning needed, 
+  // user will configure Link relationship in Entity Designer
 
   // Step 3: Select payload columns (which columns to include in the view)
   // Filter out ALL dss_* metadata columns
   const availablePayloadColumns = columns
     .filter(col => !col.toLowerCase().startsWith('dss_')) // Exclude ALL dss_* columns
     .filter(col => !businessKeyColumns.includes(col)); // Exclude BK columns
+
+  // Debug: Check if we have payload columns
+  if (availablePayloadColumns.length === 0) {
+    vscode.window.showErrorMessage(`No payload columns available! Total columns: ${columns.length}, dss columns filtered out.`);
+    return;
+  }
 
   const payloadItems: vscode.QuickPickItem[] = availablePayloadColumns.map(col => ({
     label: col,
@@ -189,9 +199,15 @@ export async function createStaging(
 
   const hashDiffColumns = selectedHashDiff.map(item => item.label);
 
-  // Build final config
-  // Note: foreignKeys are no longer used for hash key generation (DV 2.0 standard)
-  // FK hash keys are calculated in Link models, not in staging views
+  // Note: DC Satellite and Multi-Active Satellite configuration is handled in the Entity Designer,
+  // not in the staging workflow. The staging view only provides:
+  // - hk_<entity> (hash key for the entity's own business key)
+  // - hd_<entity> (hash diff for change detection)
+  // - Payload columns
+  // 
+  // Link models calculate their own hk_link_* hashes, including any DCK columns.
+  // DC Satellites reference the Link hash, not a staging hash.
+  
   const stagingConfig: StagingConfig = {
     concept,
     entityName,
@@ -204,6 +220,7 @@ export async function createStaging(
     foreignKeys: [], // Empty - FK relationships defined in Link models
     recordSourceDefault: concept,
     includeRunId: columns.some(c => c.toLowerCase() === 'dss_run_id')
+    // Note: dependentChildKeys and multiActiveKeys are configured in Entity Designer
   };
 
   // Validate config

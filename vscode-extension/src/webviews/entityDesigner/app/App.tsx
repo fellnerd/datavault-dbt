@@ -8,10 +8,12 @@ import type { ColumnInfo, DesignerColumnDefinition } from '../../../types';
  * - hub: Business Key column → goes into Hub (used for Hash Key calculation)
  * - satellite: Descriptive attribute → goes into Satellite (used for Hash Diff)
  * - link: Foreign Key reference → creates a Link to another Hub
+ * - dependent_child: Dependent Child Key → goes into DC Sat (for multi-row Link relationships)
+ * - multi_active: Multi-Active attribute → goes into MA Sat (multiple valid values per entity)
  * - metadata: System columns (dss_*) → auto-generated, not user-selectable
  * - ignore: Column will not be used in any Data Vault object
  */
-type DataVaultTarget = 'hub' | 'satellite' | 'link' | 'metadata' | 'ignore';
+type DataVaultTarget = 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore';
 
 // Common SQL Server data types for dropdown
 const SQL_DATA_TYPES = [
@@ -51,6 +53,10 @@ interface ColumnConfig extends DesignerColumnDefinition {
   nullable: boolean;
   /** Position in list */
   position: number;
+  /** For dependent_child: which link this DCK belongs to */
+  dependentChildForLink?: string;
+  /** For multi_active: is this a sequence column */
+  multiActiveSequence?: boolean;
 }
 
 interface InitData {
@@ -397,6 +403,8 @@ const targetColors: Record<DataVaultTarget, { bg: string; text: string; icon: st
   hub: { bg: '#2d5a27', text: '#90EE90', icon: '🏛️', label: 'HUB' },
   satellite: { bg: '#1e4a6e', text: '#87CEEB', icon: '📦', label: 'SAT' },
   link: { bg: '#5a4a27', text: '#F0E68C', icon: '🔗', label: 'LINK' },
+  dependent_child: { bg: '#5a2a5a', text: '#DDA0DD', icon: '📎', label: 'DC' },
+  multi_active: { bg: '#2a5a5a', text: '#20B2AA', icon: '📚', label: 'MA' },
   metadata: { bg: '#444', text: '#aaa', icon: '⚙️', label: 'META' },
   ignore: { bg: '#333', text: '#666', icon: '🚫', label: 'IGN' },
 };
@@ -410,9 +418,15 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
   const hubCols = columns.filter(c => c.columnType === 'hub');
   const satCols = columns.filter(c => c.columnType === 'satellite');
   const linkCols = columns.filter(c => c.columnType === 'link');
+  const dcCols = columns.filter(c => c.columnType === 'dependent_child');
+  const maCols = columns.filter(c => c.columnType === 'multi_active');
+  
+  // Check if this is a pure Dependent Child entity (no own Hub, only DC Sat)
+  const isPureDependentChild = dcCols.length > 0 && hubCols.length === 0 && linkCols.length > 0;
   
   // DV Rule 1: At least one Business Key required (affects Hub + Satellite)
-  if (hubCols.length === 0) {
+  // Exception: Pure Dependent Child entities don't need a BK (they have no Hub)
+  if (hubCols.length === 0 && !isPureDependentChild) {
     errors.push({
       type: 'error',
       message: 'At least one Business Key (Hub) column is required',
@@ -480,6 +494,36 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
     });
   }
   
+  // DV Rule 7: Dependent Child columns must have a target Link
+  dcCols.forEach(col => {
+    if (!col.dependentChildForLink) {
+      errors.push({
+        type: 'error',
+        message: `Dependent Child Key "${col.alias || col.name}" requires a target Link`,
+        column: col.name,
+        affectsObject: 'link', // DC Sats belong to Links
+      });
+    }
+  });
+  
+  // DV Rule 8: DC columns require at least one Link column
+  if (dcCols.length > 0 && linkCols.length === 0) {
+    errors.push({
+      type: 'error',
+      message: 'Dependent Child Keys require at least one Link column',
+      affectsObject: 'link',
+    });
+  }
+  
+  // DV Rule 9: MA columns require at least one satellite attribute (MA Sat context)
+  if (maCols.length > 0 && satCols.length === 0) {
+    errors.push({
+      type: 'warning',
+      message: 'Multi-Active Keys typically have Satellite attributes for payload',
+      affectsObject: 'satellite',
+    });
+  }
+  
   return errors;
 }
 
@@ -513,6 +557,8 @@ export const App: React.FC = () => {
           columnType: string;
           includeInHashDiff?: boolean;
           foreignKeyTarget?: string;
+          dependentChildForLink?: string;
+          multiActiveSequence?: boolean;
           nullable?: boolean;
         }> };
         setInitData(data);
@@ -552,6 +598,10 @@ export const App: React.FC = () => {
               target = 'satellite';
             } else if (saved.columnType === 'foreign_key' || saved.columnType === 'link') {
               target = 'link';
+            } else if (saved.columnType === 'dependent_child') {
+              target = 'dependent_child';
+            } else if (saved.columnType === 'multi_active') {
+              target = 'multi_active';
             } else if (saved.columnType === 'metadata') {
               target = 'metadata';
             } else if (saved.columnType === 'ignore') {
@@ -566,6 +616,8 @@ export const App: React.FC = () => {
               columnType: target,
               includeInHashDiff: target === 'satellite',
               foreignKeyTarget: saved.foreignKeyTarget,
+              dependentChildForLink: saved.dependentChildForLink,
+              multiActiveSequence: saved.multiActiveSequence,
               nullable: saved.nullable ?? true,
               position: index,
             };
@@ -629,6 +681,8 @@ export const App: React.FC = () => {
         dataType: c.dataType,
         columnType: c.columnType,
         ...(c.foreignKeyTarget && { foreignKeyTarget: c.foreignKeyTarget }),
+        ...(c.dependentChildForLink && { dependentChildForLink: c.dependentChildForLink }),
+        ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
         nullable: c.nullable,
       }));
 
@@ -720,7 +774,9 @@ export const App: React.FC = () => {
     const hubCols = columns.filter(c => c.columnType === 'hub');
     const satCols = columns.filter(c => c.columnType === 'satellite');
     const linkCols = columns.filter(c => c.columnType === 'link');
-    return { hubCols, satCols, linkCols };
+    const dcCols = columns.filter(c => c.columnType === 'dependent_child');
+    const maCols = columns.filter(c => c.columnType === 'multi_active');
+    return { hubCols, satCols, linkCols, dcCols, maCols };
   }, [columns]);
 
   // ============================================================================
@@ -791,6 +847,8 @@ export const App: React.FC = () => {
           <span>Columns ({columns.length})</span>
           <span style={{ fontSize: '10px', color: colors.textMuted }}>
             {stats.hubCols.length}H / {stats.satCols.length}S / {stats.linkCols.length}L
+            {stats.dcCols.length > 0 && ` / ${stats.dcCols.length}DC`}
+            {stats.maCols.length > 0 && ` / ${stats.maCols.length}MA`}
           </span>
         </div>
         <div style={styles.columnList}>
@@ -953,6 +1011,8 @@ export const App: React.FC = () => {
                       columnType: newTarget,
                       includeInHashDiff: newTarget === 'satellite',
                       foreignKeyTarget: newTarget === 'link' ? selectedColumn.foreignKeyTarget : undefined,
+                      dependentChildForLink: newTarget === 'dependent_child' ? selectedColumn.dependentChildForLink : undefined,
+                      multiActiveSequence: newTarget === 'multi_active' ? selectedColumn.multiActiveSequence : undefined,
                     });
                   }}
                   style={styles.select}
@@ -961,6 +1021,8 @@ export const App: React.FC = () => {
                   <option value="hub">🏛️ Hub (Business Key)</option>
                   <option value="satellite">📦 Satellite (Attribute)</option>
                   <option value="link">🔗 Link (Foreign Key)</option>
+                  <option value="dependent_child">📎 Dependent Child Key</option>
+                  <option value="multi_active">📚 Multi-Active Key</option>
                   <option value="metadata" disabled>⚙️ Metadata (system)</option>
                   <option value="ignore">🚫 Ignore</option>
                 </select>
@@ -983,6 +1045,49 @@ export const App: React.FC = () => {
                       <option key={hub} value={hub}>{hub}</option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {/* Dependent Child: Target Link */}
+              {selectedColumn.columnType === 'dependent_child' && (
+                <div style={styles.propertyRow}>
+                  <span style={styles.propertyLabel}>For Link:</span>
+                  <select
+                    value={selectedColumn.dependentChildForLink || ''}
+                    onChange={(e) => updateColumn(selectedIndex!, { dependentChildForLink: e.target.value || undefined })}
+                    style={{
+                      ...styles.select,
+                      borderColor: !selectedColumn.dependentChildForLink ? colors.error : colors.inputBorder,
+                    }}
+                  >
+                    <option value="">-- Select Link --</option>
+                    {columns
+                      .filter(c => c.columnType === 'link' && c.foreignKeyTarget)
+                      .map(c => c.foreignKeyTarget!)
+                      .filter((v, i, a) => a.indexOf(v) === i) // unique
+                      .map(linkHub => (
+                        <option key={linkHub} value={linkHub}>link_{entityName}_{linkHub}</option>
+                      ))}
+                  </select>
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    DCK will be part of Link hash + DC Satellite payload
+                  </div>
+                </div>
+              )}
+
+              {/* Multi-Active: Sequence indicator */}
+              {selectedColumn.columnType === 'multi_active' && (
+                <div style={styles.propertyRow}>
+                  <span style={styles.propertyLabel}>Use as sequence:</span>
+                  <input
+                    type="checkbox"
+                    checked={selectedColumn.multiActiveSequence || false}
+                    onChange={(e) => updateColumn(selectedIndex!, { multiActiveSequence: e.target.checked })}
+                    style={styles.checkbox}
+                  />
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    MA columns are child dependent keys in ma_sat (automate_dv)
+                  </div>
                 </div>
               )}
             </div>

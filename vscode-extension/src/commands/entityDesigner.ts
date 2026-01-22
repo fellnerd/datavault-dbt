@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { EntityDesignerProvider } from '../webviews/entityDesigner/EntityDesignerProvider';
 import { ExternalTable, DbtModel, TreeItemData } from '../types';
 import { scanForExistingHubs } from '../services/hubScanner';
@@ -41,9 +43,22 @@ export function registerEntityDesignerCommands(
           concept = model.concept;
           entityName = extractEntityName(model.name, concept);
           
+          // Try to get the real external table name from the staging SQL file
+          const stagingFilePath = path.join(projectPath, 'models', 'staging', `${model.name}.sql`);
+          let realExtTableName = `ext_${concept}_${entityName}`; // fallback
+          
+          if (fs.existsSync(stagingFilePath)) {
+            const sqlContent = fs.readFileSync(stagingFilePath, 'utf-8');
+            // Parse: {{ source('staging', 'ext_werkportal_public_wp_contacts') }}
+            const sourceMatch = sqlContent.match(/source\s*\(\s*['"]staging['"]\s*,\s*['"]([^'"]+)['"]\s*\)/);
+            if (sourceMatch) {
+              realExtTableName = sourceMatch[1];
+            }
+          }
+          
           // Create a mock external table from the staging model
           externalTable = {
-            name: `ext_${concept}_${entityName}`,
+            name: realExtTableName,
             sourceName: 'staging',
             schema: 'stg',
             columns: model.columns,

@@ -3,16 +3,25 @@
  * 
  * Generates dbt staging SQL files with Data Vault 2.0 hash calculations.
  * 
- * Key principle: Staging views contain ONLY the entity's own hash key (hk_<entity>).
- * Foreign key hash keys are calculated in Link models, not here.
+ * Key principles (aligned with automate_dv best practices):
+ * - ALL hash calculations happen in staging, NOT in downstream models
+ * - Hash Keys: hk_<entity> for the main entity
+ * - FK Hash Keys: hk_<target_entity> for each foreign key relationship
+ * - Link Hash Keys: hk_link_<source>_<target> for each link
+ * - Hash Diffs: hd_<entity> for regular satellite, hd_<entity>_<target>_dc for DC satellites
  * 
- * Pattern based on models/staging/adventureworks_customer.sql
+ * This ensures Link and Satellite models only reference pre-calculated hashes
+ * from the staging layer - no hash computation in those models.
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_staging/
  */
 
-import { StagingConfig } from '../types';
+import { StagingConfig, ForeignKeyMapping } from '../types';
 
 /**
  * Generate a complete staging SQL file
+ * 
+ * ALL hash calculations happen here - Link and Satellite models only reference these hashes
  */
 export function generateStagingSql(config: StagingConfig): string {
   const {
@@ -26,10 +35,12 @@ export function generateStagingSql(config: StagingConfig): string {
     hashDiffSeparator,
     foreignKeys,
     recordSourceDefault,
-    includeRunId
+    includeRunId,
+    dependentChildKeys,
+    multiActiveKeys
   } = config;
 
-  // Sort hash diff columns alphabetically for consistent hashing
+  // Sort hash diff columns alphabetically for consistent hashing (automate_dv convention)
   const sortedHashDiffColumns = [...hashDiffColumns].sort((a, b) => 
     a.toLowerCase().localeCompare(b.toLowerCase())
   );
@@ -41,19 +52,70 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push(` * Staging Model: ${concept}_${entityName}`);
   lines.push(' *');
   lines.push(` * Source: ${externalTable}`);
-  lines.push(` * Business Key: ${businessKeyColumns.join(', ')}`);
+  if (businessKeyColumns.length > 0) {
+    lines.push(` * Business Key: ${businessKeyColumns.join(', ')}`);
+  }
   lines.push(` * Hash Key Separator: '${businessKeySeparator}' (DV 2.1 Standard)`);
+  
+  // Document Links/FKs
+  if (foreignKeys && foreignKeys.length > 0) {
+    lines.push(' *');
+    lines.push(' * Links (Foreign Keys):');
+    for (const fk of foreignKeys) {
+      lines.push(` *   - ${fk.targetHub} via ${fk.sourceColumn}`);
+    }
+  }
+  
+  // Document DC if present
+  if (dependentChildKeys && Object.keys(dependentChildKeys).length > 0) {
+    lines.push(' *');
+    lines.push(' * Dependent Child Keys (for DC Satellites):');
+    for (const [targetHub, dcks] of Object.entries(dependentChildKeys)) {
+      lines.push(` *   - ${targetHub}: ${dcks.join(', ')}`);
+    }
+  }
+  
+  // Document MA if present
+  if (multiActiveKeys && multiActiveKeys.length > 0) {
+    lines.push(' *');
+    lines.push(` * Multi-Active Keys (CDK): ${multiActiveKeys.join(', ')}`);
+  }
+  
+  lines.push(' *');
+  lines.push(' * Hash Keys calculated here (automate_dv pattern):');
+  lines.push(` *   - hk_${entityName} (Entity Hash Key)`);
+  for (const fk of foreignKeys || []) {
+    const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+    lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
+    lines.push(` *   - hk_link_${entityName}_${targetEntity} (Link Hash Key)`);
+  }
   lines.push(' */');
   lines.push('');
 
-  // Hash diff columns macro
-  lines.push('{%- set hashdiff_columns = [');
-  sortedHashDiffColumns.forEach((col, idx) => {
-    const comma = idx < sortedHashDiffColumns.length - 1 ? ',' : '';
-    lines.push(`    '${col}'${comma}`);
-  });
-  lines.push('] -%}');
-  lines.push('');
+  // Hash diff columns macro (for regular satellite)
+  if (sortedHashDiffColumns.length > 0) {
+    lines.push('{%- set hashdiff_columns = [');
+    sortedHashDiffColumns.forEach((col, idx) => {
+      const comma = idx < sortedHashDiffColumns.length - 1 ? ',' : '';
+      lines.push(`    '${col}'${comma}`);
+    });
+    lines.push('] -%}');
+    lines.push('');
+  }
+
+  // MA Sat Hash Diff columns (CDK + attributes)
+  if (multiActiveKeys && multiActiveKeys.length > 0) {
+    const maHashDiffColumns = [...multiActiveKeys, ...sortedHashDiffColumns].sort((a, b) => 
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
+    lines.push('{%- set hashdiff_ma_columns = [');
+    maHashDiffColumns.forEach((col, idx) => {
+      const comma = idx < maHashDiffColumns.length - 1 ? ',' : '';
+      lines.push(`    '${col}'${comma}`);
+    });
+    lines.push('] -%}');
+    lines.push('');
+  }
 
   // Source CTE
   lines.push('WITH source AS (');
@@ -65,42 +127,142 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push('staged AS (');
   lines.push('    SELECT');
   
-  // Hash Keys section
-  lines.push('        -- ===========================================');
-  lines.push('        -- HASH KEY (Entity)');
-  lines.push('        -- ===========================================');
-  lines.push('        -- Note: FK hash keys are calculated in Link models, not in staging');
-  lines.push(generateHashKey(entityName, businessKeyColumns, businessKeySeparator));
-  lines.push('');
+  // ============================================
+  // HASH KEY (Entity) - only if BK exists
+  // ============================================
+  if (businessKeyColumns.length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- HASH KEY (Entity)');
+    lines.push('        -- ===========================================');
+    lines.push(generateHashKey(entityName, businessKeyColumns, businessKeySeparator));
+    lines.push('');
+  }
   
-  // Hash Diff section
-  lines.push('        -- ===========================================');
-  lines.push('        -- HASH DIFF (Change Detection)');
-  lines.push('        -- ===========================================');
-  lines.push(generateHashDiff(entityName, hashDiffSeparator));
-  lines.push('');
+  // ============================================
+  // FK HASH KEYS (for each foreign key relationship)
+  // ============================================
+  if (foreignKeys && foreignKeys.length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- FK HASH KEYS (for Links)');
+    lines.push('        -- ===========================================');
+    
+    for (const fk of foreignKeys) {
+      const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+      // FK Hash Key = hash of the FK source column(s)
+      lines.push(generateHashKey(targetEntity, [fk.sourceColumn], businessKeySeparator));
+    }
+    lines.push('');
+  }
   
-  // Business Key section
-  lines.push('        -- ===========================================');
-  lines.push('        -- BUSINESS KEY(S)');
-  lines.push('        -- ===========================================');
-  businessKeyColumns.forEach((col, idx) => {
-    // Always end with comma (payload follows)
-    lines.push(`        ${col},`);
-  });
-  lines.push('');
+  // ============================================
+  // LINK HASH KEYS (hk_source + hk_target [+ DCK if present])
+  // ============================================
+  if (foreignKeys && foreignKeys.length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- LINK HASH KEYS');
+    lines.push('        -- ===========================================');
+    
+    for (const fk of foreignKeys) {
+      const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+      const linkName = `link_${entityName}_${targetEntity}`;
+      
+      // Check if this link has DCKs
+      const linkDCKs = dependentChildKeys?.[fk.targetHub] || [];
+      
+      if (linkDCKs.length > 0) {
+        // Link with DCK: hash = source BK + target FK + DCK columns
+        lines.push(`        -- Link with DCK: ${linkDCKs.join(', ')}`);
+        lines.push(generateLinkHashKeyWithDCK(
+          linkName, 
+          entityName, 
+          targetEntity, 
+          businessKeyColumns,
+          fk.sourceColumn,
+          linkDCKs, 
+          businessKeySeparator
+        ));
+      } else {
+        // Standard Link: hash = source BK + target FK
+        lines.push(generateLinkHashKey(
+          linkName, 
+          businessKeyColumns, 
+          fk.sourceColumn, 
+          businessKeySeparator
+        ));
+      }
+    }
+    lines.push('');
+  }
   
-  // Payload section
+  // ============================================
+  // HASH DIFF (regular satellite) - only if we have attributes
+  // ============================================
+  if (sortedHashDiffColumns.length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- HASH DIFF (Change Detection - Satellite)');
+    lines.push('        -- ===========================================');
+    lines.push(generateHashDiff(entityName, hashDiffSeparator));
+    lines.push('');
+  }
+  
+  // ============================================
+  // DC SATELLITE HASH DIFFS (DCK + attributes)
+  // ============================================
+  if (dependentChildKeys && Object.keys(dependentChildKeys).length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- HASH DIFF (DC Satellites)');
+    lines.push('        -- ===========================================');
+    
+    for (const [targetHub, dcks] of Object.entries(dependentChildKeys)) {
+      const targetEntity = targetHub.replace('hub_', '').replace(/^.*\./, '');
+      const dcSatName = `${entityName}_${targetEntity}_dc`;
+      // DC Sat hash diff = DCK + regular attributes (alphabetically sorted)
+      const dcHashDiffColumns = [...dcks, ...sortedHashDiffColumns].sort((a, b) => 
+        a.toLowerCase().localeCompare(b.toLowerCase())
+      );
+      lines.push(generateHashDiffForDC(dcSatName, dcHashDiffColumns, hashDiffSeparator));
+    }
+    lines.push('');
+  }
+  
+  // ============================================
+  // MA SATELLITE HASH DIFF
+  // ============================================
+  if (multiActiveKeys && multiActiveKeys.length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- HASH DIFF (MA Satellite)');
+    lines.push('        -- ===========================================');
+    lines.push(generateHashDiffMA(entityName, hashDiffSeparator));
+    lines.push('');
+  }
+  
+  // ============================================
+  // BUSINESS KEY(S)
+  // ============================================
+  if (businessKeyColumns.length > 0) {
+    lines.push('        -- ===========================================');
+    lines.push('        -- BUSINESS KEY(S)');
+    lines.push('        -- ===========================================');
+    businessKeyColumns.forEach((col) => {
+      lines.push(`        ${col},`);
+    });
+    lines.push('');
+  }
+  
+  // ============================================
+  // PAYLOAD
+  // ============================================
   lines.push('        -- ===========================================');
   lines.push('        -- PAYLOAD');
   lines.push('        -- ===========================================');
   payloadColumns.forEach((col) => {
-    // Always end with comma (metadata follows)
     lines.push(`        ${col},`);
   });
   lines.push('');
   
-  // Metadata section
+  // ============================================
+  // METADATA
+  // ============================================
   lines.push('        -- ===========================================');
   lines.push('        -- METADATA');
   lines.push('        -- ===========================================');
@@ -156,6 +318,90 @@ function generateHashDiff(entityName: string, separator: string): string {
                 {%- endfor %}
             )
         ), 2) AS hd_${entityName},`;
+}
+
+/**
+ * Generate Link Hash Key (standard link without DCK)
+ * 
+ * Link Hash = HASH(source BK columns + target FK column)
+ */
+function generateLinkHashKey(
+  linkName: string,
+  sourceBKColumns: string[],
+  targetFKColumn: string,
+  separator: string
+): string {
+  // Combine source BK + target FK for link hash
+  const allColumns = [...sourceBKColumns, targetFKColumn];
+  const concatParts = allColumns.map(col => 
+    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+  ).join(`,\n                '${separator}',\n                `);
+  
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ${concatParts}
+            )
+        ), 2) AS hk_${linkName},`;
+}
+
+/**
+ * Generate Link Hash Key WITH DCK columns for DC Satellites
+ * 
+ * Link Hash = HASH(source BK columns + target FK column + DCK columns)
+ * This ensures uniqueness at the line-item level for dependent children
+ */
+function generateLinkHashKeyWithDCK(
+  linkName: string,
+  sourceEntity: string,
+  targetEntity: string,
+  sourceBKColumns: string[],
+  targetFKColumn: string,
+  dckColumns: string[],
+  separator: string
+): string {
+  // Combine source BK + target FK + DCK for DC link hash
+  const allColumns = [...sourceBKColumns, targetFKColumn, ...dckColumns];
+  const concatParts = allColumns.map(col => 
+    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+  ).join(`,\n                '${separator}',\n                `);
+  
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ${concatParts}
+            )
+        ), 2) AS hk_${linkName},`;
+}
+
+/**
+ * Generate Hash Diff for DC Satellite (DCK + attributes)
+ */
+function generateHashDiffForDC(
+  dcSatName: string,
+  columns: string[],
+  separator: string
+): string {
+  const concatParts = columns.map(col => 
+    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+  ).join(`,\n                '${separator}',\n                `);
+  
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ${concatParts}
+            )
+        ), 2) AS hd_${dcSatName},`;
+}
+
+/**
+ * Generate Hash Diff for MA Satellite using Jinja loop
+ */
+function generateHashDiffMA(entityName: string, separator: string): string {
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_ma_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_${entityName}_ma,`;
 }
 
 /**
