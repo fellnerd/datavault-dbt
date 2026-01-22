@@ -1,9 +1,5 @@
 version: 2
-
 models:
-  # =============================================================================
-  # ADVENTUREWORKS STAGING VIEWS
-  # =============================================================================
   - name: adventureworks_customer
     description: Staging View für AdventureWorks Customer mit Hash-Berechnung
     columns:
@@ -56,3 +52,69 @@ models:
       - name: dss_run_id
         description: Run ID
         data_type: nvarchar(4000)
+  - name: werkportal_contacts
+    description: Staging view for contacts from werkportal
+    columns:
+      - name: hk_contacts
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_contacts
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        tests:
+          - not_null
+      - name: subscription
+        description: Business Key
+        tests:
+          - not_null
+      - name: date_created
+        description: Payload attribute
+      - name: date_updated
+        description: Payload attribute
+      - name: name
+        description: Payload attribute
+      - name: state
+        description: Payload attribute
+      - name: title
+        description: Payload attribute
+      - name: email1
+        description: Payload attribute
+      - name: email2
+        description: Payload attribute
+      - name: mobile1
+        description: Payload attribute
+      - name: mobile2
+        description: Payload attribute
+      - name: phone
+        description: Payload attribute
+      - name: fax
+        description: Payload attribute
+      - name: contact_function_name
+        description: Payload attribute
+      - name: company_supplier
+        description: Payload attribute
+      - name: company_client
+        description: Payload attribute
+      - name: company_contractor
+        description: Payload attribute
+      - name: contact_function_id
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier

@@ -171,3 +171,66 @@ export interface TreeItemData {
   description?: string;
   tooltip?: string;
 }
+
+// ============================================
+// STAGING CONFIGURATION TYPES
+// ============================================
+
+/**
+ * Foreign Key mapping for staging views
+ */
+export interface ForeignKeyMapping {
+  sourceColumn: string;    // e.g., 'country_id'
+  targetEntity: string;    // e.g., 'country'
+  targetHub: string;       // e.g., 'hub_country'
+  autoDetected: boolean;   // true if from pattern match
+}
+
+/**
+ * Configuration for generating a staging view
+ */
+export interface StagingConfig {
+  // Entity identification
+  concept: string;              // 'adventureworks', 'werkportal'
+  entityName: string;           // 'customer', 'company'
+  
+  // Source
+  externalTable: string;        // 'ext_adventureworks_customer'
+  
+  // Business Key
+  businessKeyColumns: string[];
+  businessKeySeparator: string; // Default: '^^'
+  
+  // Payload (columns included in the view)
+  payloadColumns: string[];
+  
+  // Hash Diff (columns for change detection, subset of payload)
+  hashDiffColumns: string[];
+  hashDiffSeparator: string;    // Default: '||'
+  
+  // Foreign Keys (auto-detected + manual)
+  foreignKeys: ForeignKeyMapping[];
+  
+  // Metadata
+  recordSourceDefault: string;
+  includeRunId: boolean;
+}
+
+/**
+ * Options for updating an existing staging model
+ */
+export interface StagingUpdateOptions {
+  addNewColumns: boolean;
+  regenerateHashDiff: boolean;
+  updateForeignKeys: boolean;
+}
+
+/**
+ * Validation result for staging models
+ */
+export interface StagingValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+

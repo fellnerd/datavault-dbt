@@ -143,6 +143,18 @@
         "title": "Stage All External Sources",
         "icon": "$(run-all)",
         "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createStaging",
+        "title": "Create Staging View",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.validateStaging",
+        "title": "Validate Staging Model",
+        "icon": "$(check)",
+        "category": "Data Vault"
       }
     ],
     "menus": {
@@ -200,9 +212,19 @@
           "group": "database@1"
         },
         {
+          "command": "datavault.createStaging",
+          "when": "view == datavault-sources && viewItem == external_table",
+          "group": "staging@1"
+        },
+        {
           "command": "datavault.createAllExternalTables",
           "when": "view == datavault-sources && viewItem == concept",
           "group": "database@1"
+        },
+        {
+          "command": "datavault.validateStaging",
+          "when": "view == datavault-staging && viewItem == model",
+          "group": "staging@1"
         }
       ]
     },
@@ -233,6 +255,21 @@
           "type": "string",
           "default": "",
           "description": "Last used folder path for Discover (saved automatically)"
+        },
+        "datavault.staging.businessKeySeparator": {
+          "type": "string",
+          "default": "^^",
+          "description": "Separator for composite business keys (DV 2.1 standard: ^^)"
+        },
+        "datavault.staging.hashDiffSeparator": {
+          "type": "string",
+          "default": "||",
+          "description": "Separator for hash diff columns"
+        },
+        "datavault.staging.nullPlaceholder": {
+          "type": "string",
+          "default": "",
+          "description": "Placeholder for NULL values in hash calculations"
         }
       }
     }

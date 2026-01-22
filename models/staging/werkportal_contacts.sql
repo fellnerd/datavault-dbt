@@ -1,0 +1,93 @@
+/*
+ * Staging Model: werkportal_contacts
+ *
+ * Source: ext_werkportal_public_wp_contacts
+ * Business Key: object_id, subscription
+ * Hash Key Separator: '^^' (DV 2.1 Standard)
+ */
+
+{%- set hashdiff_columns = [
+    'company_client',
+    'company_contractor',
+    'company_supplier',
+    'contact_function_id',
+    'contact_function_name',
+    'date_created',
+    'date_updated',
+    'email1',
+    'email2',
+    'fax',
+    'mobile1',
+    'mobile2',
+    'name',
+    'phone',
+    'state',
+    'title'
+] -%}
+
+WITH source AS (
+    SELECT * FROM {{ source('staging', 'ext_werkportal_public_wp_contacts') }}
+),
+
+staged AS (
+    SELECT
+        -- ===========================================
+        -- HASH KEY (Entity)
+        -- ===========================================
+        -- Note: FK hash keys are calculated in Link models, not in staging
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ISNULL(CAST(object_id AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(subscription AS NVARCHAR(MAX)), '')
+            )
+        ), 2) AS hk_contacts,
+
+        -- ===========================================
+        -- HASH DIFF (Change Detection)
+        -- ===========================================
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_contacts,
+
+        -- ===========================================
+        -- BUSINESS KEY(S)
+        -- ===========================================
+        object_id,
+        subscription,
+
+        -- ===========================================
+        -- PAYLOAD
+        -- ===========================================
+        date_created,
+        date_updated,
+        name,
+        state,
+        title,
+        email1,
+        email2,
+        mobile1,
+        mobile2,
+        phone,
+        fax,
+        contact_function_name,
+        company_supplier,
+        company_client,
+        company_contractor,
+        contact_function_id,
+
+        -- ===========================================
+        -- METADATA
+        -- ===========================================
+        COALESCE(dss_record_source, 'werkportal') AS dss_record_source,
+        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
+        dss_run_id
+
+    FROM source
+)
+
+SELECT * FROM staged
