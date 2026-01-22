@@ -234,3 +234,147 @@ export interface StagingValidationResult {
   warnings: string[];
 }
 
+// ============================================
+// ENTITY DESIGNER TYPES
+// ============================================
+
+/**
+ * Column type classification for Entity Designer
+ * Supports both legacy names (business_key, attribute, foreign_key) 
+ * and new DV-aligned names (hub, satellite, link)
+ */
+export type DesignerColumnType = 
+  | 'business_key' | 'hub'        // Business Key → Hub
+  | 'attribute' | 'satellite'     // Attribute → Satellite
+  | 'foreign_key' | 'link'        // Foreign Key → Link
+  | 'metadata' 
+  | 'ignore';
+
+/**
+ * Column definition in Entity Designer
+ */
+export interface DesignerColumnDefinition {
+  name: string;
+  sourceName?: string;
+  dataType: string;
+  columnType: DesignerColumnType;
+  includeInHashDiff: boolean;
+  foreignKeyTarget?: string;  // e.g., 'hub_company'
+  nullable?: boolean;
+}
+
+/**
+ * Configuration for Entity Designer
+ */
+export interface EntityDesignConfig {
+  concept: string;              // e.g., 'werkportal'
+  entityName: string;           // e.g., 'contacts'
+  sourceTable: string;          // External Table or Staging view name
+  columns: DesignerColumnDefinition[];
+  ghostRecordValue: string;     // Default: '-1'
+}
+
+/**
+ * Generated file result
+ */
+export interface GeneratedFile {
+  path: string;
+  content: string;
+  type: 'hub' | 'satellite' | 'link' | 'ghost_seed' | 'yaml' | 'schema';
+}
+
+/**
+ * Result of generation process
+ */
+export interface GenerationResult {
+  success: boolean;
+  files: GeneratedFile[];
+  errors: string[];
+}
+
+// ============================================
+// WEBVIEW MESSAGE TYPES
+// ============================================
+
+/**
+ * Message from Extension to Webview
+ */
+export interface WebviewInitMessage {
+  type: 'init';
+  data: {
+    columns: ColumnInfo[];
+    existingHubs: string[];
+    concept: string;
+    entityName: string;
+    sourceTable: string;
+    /** Saved column configurations (if previously configured) */
+    savedColumns?: SavedColumnConfig[];
+  };
+}
+
+/**
+ * Saved column config for persistence
+ */
+export interface SavedColumnConfig {
+  name: string;
+  sourceName?: string;
+  dataType?: string;
+  columnType: string;
+  foreignKeyTarget?: string;
+  nullable?: boolean;
+}
+
+/**
+ * Message from Webview to Extension
+ */
+export interface WebviewGenerateMessage {
+  type: 'generate';
+  target: 'all' | 'hub' | 'satellite' | 'links';
+  // Config is now read from JSON file, not from UI
+}
+
+/**
+ * Save config message - saves current UI state to JSON
+ */
+export interface WebviewSaveConfigMessage {
+  type: 'saveConfig';
+  columns: SavedColumnConfig[];
+}
+
+/**
+ * Update column type message
+ */
+export interface WebviewUpdateMessage {
+  type: 'update';
+  columnName: string;
+  field: 'columnType' | 'includeInHashDiff' | 'foreignKeyTarget';
+  value: string | boolean;
+}
+
+/**
+ * Generation complete message
+ */
+export interface WebviewGenerationCompleteMessage {
+  type: 'generationComplete';
+  success: boolean;
+  files: string[];
+  errors: string[];
+}
+
+/**
+ * Ready message from webview
+ */
+export interface WebviewReadyMessage {
+  type: 'ready';
+}
+
+/**
+ * Union type for all webview messages
+ */
+export type WebviewMessage = 
+  | WebviewInitMessage 
+  | WebviewGenerateMessage 
+  | WebviewSaveConfigMessage
+  | WebviewUpdateMessage
+  | WebviewGenerationCompleteMessage
+  | WebviewReadyMessage;

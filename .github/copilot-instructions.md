@@ -75,7 +75,25 @@ See [werkportal_company.sql](models/staging/werkportal_company.sql) for the patt
 3. **Hub:** Create `models/raw_vault/<concept>/hubs/hub_<entity>.sql`
 4. **Satellite:** Create `models/raw_vault/<concept>/satellites/sat_<entity>.sql`
 5. **Schema YAML:** Document model in corresponding `_<layer>__models.yml` file (see below)
-6. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select <concept>_<entity> hub_<entity> sat_<entity>`
+6. **Deploy:** `dbt run-operation stage_external_sources && dbt run --select +raw_vault.<concept>.hub_<entity> +raw_vault.<concept>.sat_<entity>`
+
+## dbt Model Selection (IMPORTANT)
+
+> **Verwende immer vollständige Pfade!** Model-Namen wie `hub_company` können in mehreren Concepts existieren.
+
+```bash
+# ❌ Vermeiden - wählt ALLE hub_company
+dbt run --select hub_company
+
+# ✅ Empfohlen - spezifischer Pfad
+dbt run --select raw_vault.werkportal.hub_company
+
+# ✅ Mit Upstream-Dependencies (baut Staging automatisch)
+dbt run --select +raw_vault.werkportal.hub_company
+
+# ✅ Alle Models eines Concepts
+dbt run --select raw_vault.werkportal
+```
 
 ## Schema YAML Documentation (REQUIRED)
 

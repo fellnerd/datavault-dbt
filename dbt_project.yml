@@ -62,6 +62,13 @@ models:
           +materialized: incremental
           +incremental_strategy: append
           +on_schema_change: append_new_columns
+      # ===== WERKPORTAL (Schema: vault_werkportal) =====
+      werkportal:
+        +schema: vault_werkportal
+        +materialized: incremental
+        +incremental_strategy: append
+        +as_columnstore: false
+        +on_schema_change: append_new_columns
       # ===== ADVENTUREWORKS (Schema: vault_adventureworks) =====
       adventureworks:
         +schema: vault_adventureworks

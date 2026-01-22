@@ -52,6 +52,86 @@ models:
       - name: dss_run_id
         description: Run ID
         data_type: nvarchar(4000)
+  - name: werkportal_company_client
+    description: Staging view for company_client from werkportal
+    columns:
+      - name: hk_company_client
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_company_client
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        tests:
+          - not_null
+      - name: date_created
+        description: Payload attribute
+      - name: date_updated
+        description: Payload attribute
+      - name: subscription
+        description: Payload attribute
+      - name: name
+        description: Payload attribute
+      - name: state
+        description: Payload attribute
+      - name: citycode
+        description: Payload attribute
+      - name: city
+        description: Payload attribute
+      - name: website
+        description: Payload attribute
+      - name: street
+        description: Payload attribute
+      - name: province
+        description: Payload attribute
+      - name: credit_rating
+        description: Payload attribute
+      - name: country
+        description: Payload attribute
+      - name: employeecount
+        description: Payload attribute
+      - name: email
+        description: Payload attribute
+      - name: commission_fee
+        description: Payload attribute
+      - name: phone
+        description: Payload attribute
+      - name: mobile
+        description: Payload attribute
+      - name: mobile2
+        description: Payload attribute
+      - name: bic
+        description: Payload attribute
+      - name: fax
+        description: Payload attribute
+      - name: iban
+        description: Payload attribute
+      - name: description
+        description: Payload attribute
+      - name: org_type
+        description: Payload attribute
+      - name: uid
+        description: Payload attribute
+      - name: freistellungsbescheinigung
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: werkportal_contacts
     description: Staging view for contacts from werkportal
     columns:
@@ -105,6 +185,56 @@ models:
       - name: company_contractor
         description: Payload attribute
       - name: contact_function_id
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: werkportal_employees
+    description: Staging view for employees from werkportal
+    columns:
+      - name: hk_employees
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_employees
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        tests:
+          - not_null
+      - name: date_created
+        description: Payload attribute
+      - name: date_updated
+        description: Payload attribute
+      - name: subscription
+        description: Payload attribute
+      - name: name
+        description: Payload attribute
+      - name: state
+        description: Payload attribute
+      - name: subprofession_id
+        description: Payload attribute
+      - name: profession_id
+        description: Payload attribute
+      - name: company_client
+        description: Payload attribute
+      - name: available_from
+        description: Payload attribute
+      - name: description
         description: Payload attribute
       - name: dss_record_source
         description: Data source identifier

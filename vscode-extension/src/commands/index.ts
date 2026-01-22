@@ -11,11 +11,15 @@ import { ModelDetailsPanel } from '../webviewPanel';
 import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 import { createStaging, validateStaging } from './staging';
+import { registerEntityDesignerCommands } from './entityDesigner';
+import { registerDbtCommands } from './dbtCommands';
 
 // Re-export command implementations for use elsewhere
 export { discoverExternalSources } from './discover';
 export { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 export { createStaging, validateStaging } from './staging';
+export { registerEntityDesignerCommands } from './entityDesigner';
+export { registerDbtCommands } from './dbtCommands';
 
 /**
  * Logger function type
@@ -216,6 +220,16 @@ export function registerCommands(
       }
     )
   );
+
+  // Entity Designer Commands (Hub/Satellite/Link Generator)
+  const entityDesignerDisposables = registerEntityDesignerCommands(
+    context,
+    () => getCurrentProjectPath() ?? undefined
+  );
+  disposables.push(...entityDesignerDisposables);
+
+  // dbt Commands (Run, Test, Compile with model picker)
+  registerDbtCommands(context);
 
   return disposables;
 }

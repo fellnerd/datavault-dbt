@@ -7,7 +7,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "extensionKind": ["workspace"],
+  "extensionKind": [
+    "workspace"
+  ],
   "categories": [
     "Other",
     "Visualization"
@@ -155,6 +157,36 @@
         "title": "Validate Staging Model",
         "icon": "$(check)",
         "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openEntityDesigner",
+        "title": "Design Entity (Hub/Satellite/Link)",
+        "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtRunFullRefresh",
+        "title": "dbt: Full Refresh (Recreate)",
+        "icon": "$(refresh)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtRun",
+        "title": "dbt: Run Models",
+        "icon": "$(play)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtTest",
+        "title": "dbt: Test Models",
+        "icon": "$(beaker)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtCompile",
+        "title": "dbt: Compile (Preview SQL)",
+        "icon": "$(file-code)",
+        "category": "Data Vault"
       }
     ],
     "menus": {
@@ -225,6 +257,11 @@
           "command": "datavault.validateStaging",
           "when": "view == datavault-staging && viewItem == model",
           "group": "staging@1"
+        },
+        {
+          "command": "datavault.openEntityDesigner",
+          "when": "view == datavault-staging && viewItem == model",
+          "group": "staging@2"
         }
       ]
     },
@@ -275,24 +312,33 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run build:webview",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "build:webview": "node esbuild.webview.mjs --production",
+    "watch:webview": "node esbuild.webview.mjs --watch",
+    "build:all": "npm run compile && npm run build:webview",
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.27.2",
     "eslint": "^8.54.0",
-    "typescript": "^5.3.0",
-    "@vscode/vsce": "^2.22.0"
+    "typescript": "^5.3.0"
   },
   "dependencies": {
-    "yaml": "^2.3.4",
-    "glob": "^10.3.10"
+    "glob": "^10.3.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "vscrui": "^0.3.0",
+    "yaml": "^2.3.4"
   }
 }

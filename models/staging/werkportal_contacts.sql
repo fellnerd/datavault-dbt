@@ -26,7 +26,7 @@
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_public_wp_contacts') }}
+    SELECT TOP 10 * FROM {{ source('staging', 'ext_werkportal_public_wp_contacts') }}
 ),
 
 staged AS (
@@ -34,7 +34,6 @@ staged AS (
         -- ===========================================
         -- HASH KEY (Entity)
         -- ===========================================
-        -- Note: FK hash keys are calculated in Link models, not in staging
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 ISNULL(CAST(object_id AS NVARCHAR(MAX)), ''),
@@ -42,6 +41,25 @@ staged AS (
                 ISNULL(CAST(subscription AS NVARCHAR(MAX)), '')
             )
         ), 2) AS hk_contacts,
+
+        -- ===========================================
+        -- FK HASH KEYS (for Links)
+        -- ===========================================
+        -- FK to company_client (same hash logic as hub_company_client)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(company_client AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_company_client,
+
+        -- Link Hash Key (contacts + company_client)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ISNULL(CAST(object_id AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(subscription AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(company_client AS NVARCHAR(MAX)), '')
+            )
+        ), 2) AS hk_link_contacts_company_client,
 
         -- ===========================================
         -- HASH DIFF (Change Detection)

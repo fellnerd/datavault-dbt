@@ -262,10 +262,10 @@ cd ~/projects/datavault-dbt && source .venv/bin/activate
 dbt debug
 
 # Models bauen
-dbt run                              # Alle Models
-dbt run --select hub_company         # Einzelnes Model
-dbt run --select +sat_company+       # Model mit Abhängigkeiten
-dbt run --full-refresh               # Alles neu bauen
+dbt run                                              # Alle Models
+dbt run --select raw_vault.werkportal.hub_company    # Einzelnes Model (empfohlen)
+dbt run --select +raw_vault.werkportal.sat_company+  # Model mit Abhängigkeiten
+dbt run --full-refresh                               # Alles neu bauen
 
 # External Tables erstellen / aktualisieren
 # Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_werkportal_company)
@@ -306,6 +306,64 @@ dbt seed                             # Alle Seeds laden
 # Kompilieren (SQL anzeigen ohne Ausführung)
 dbt compile --select model_name
 cat target/compiled/datavault/models/path/to/model.sql
+```
+
+### dbt Selektoren (Model Selection)
+
+> **Wichtig:** Verwende immer den **vollständigen Pfad**, da Model-Namen (z.B. `hub_contacts`) in mehreren Concepts existieren können!
+
+```bash
+# ❌ Vermeiden - wählt ALLE hub_company in allen Concepts
+dbt run --select hub_company
+
+# ✅ Empfohlen - spezifischer Pfad
+dbt run --select raw_vault.werkportal.hub_company
+
+# ✅ Pfad-Pattern für einzelne Datei
+dbt run --select path:models/raw_vault/werkportal/hubs/hub_company.sql
+```
+
+**Selektor-Syntax:**
+
+| Selektor | Beschreibung | Beispiel |
+|----------|--------------|----------|
+| `raw_vault.werkportal.hub_company` | Pfad-basiert (Ordnerstruktur) | Empfohlen für einzelne Models |
+| `raw_vault.werkportal` | Alle Models eines Concepts | Für Concept-Deployment |
+| `staging.werkportal_*` | Wildcard-Pattern | Alle Werkportal-Staging Views |
+| `+model_name` | Model inkl. Upstream-Dependencies | `+hub_company` baut erst Staging |
+| `model_name+` | Model inkl. Downstream-Dependents | `hub_company+` baut auch Satellites |
+| `+model_name+` | Beides | Vollständige Dependency-Chain |
+| `tag:static` | Nach Tag | Alle statischen Tabellen |
+
+**Pfad-Mapping:**
+
+```
+models/
+├── staging/                    → staging.*
+├── raw_vault/
+│   ├── werkportal/            → raw_vault.werkportal.*
+│   │   ├── hubs/              → raw_vault.werkportal.hub_*
+│   │   └── satellites/        → raw_vault.werkportal.sat_*
+│   └── adventureworks/        → raw_vault.adventureworks.*
+├── business_vault/            → business_vault.*
+└── mart/
+    └── project/               → mart.project.*
+```
+
+**Kombinierte Selektoren:**
+
+```bash
+# Staging + Hub + Satellite für eine Entity
+dbt run --select raw_vault.werkportal.hub_company raw_vault.werkportal.sat_company
+
+# Oder mit Upstream-Dependencies (baut auch Staging automatisch)
+dbt run --select +raw_vault.werkportal.hub_company +raw_vault.werkportal.sat_company
+
+# Alle Werkportal Raw Vault Models
+dbt run --select raw_vault.werkportal
+
+# Nur Hubs eines Concepts
+dbt run --select raw_vault.werkportal.hub_*
 ```
 
 ### Wichtige Dateien
@@ -903,11 +961,11 @@ dbt run-operation stage_external_sources
 # oder einzelne Tabelle
 dbt run-operation stage_external_sources --args 'select: staging.ext_werkportal_product'
 
-# 2. Alle neuen Models bauen
-dbt run --select werkportal_product hub_product sat_product
+# 2. Alle neuen Models bauen (mit Upstream-Dependencies)
+dbt run --select +raw_vault.werkportal.hub_product +raw_vault.werkportal.sat_product
 
 # 3. Tests ausführen
-dbt test --select werkportal_product hub_product sat_product
+dbt test --select raw_vault.werkportal.hub_product raw_vault.werkportal.sat_product
 
 # 4. Ghost Records hinzufügen (optional)
 # → Macro in ghost_records.sql erweitern
@@ -1693,8 +1751,8 @@ dbt debug
 □ Link erstellt (falls Beziehung)
 □ Tests in schema.yml hinzugefügt
 □ dbt run-operation stage_external_sources
-□ dbt run --select <concept>_* hub_* sat_*
-□ dbt test
+□ dbt run --select +raw_vault.<concept>.hub_<entity> +raw_vault.<concept>.sat_<entity>
+□ dbt test --select raw_vault.<concept>
 □ Ghost Records erweitert (optional)
 □ Dokumentation aktualisiert
 ```
