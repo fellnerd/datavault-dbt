@@ -38,6 +38,13 @@ erDiagram
         varchar dss_record_source
     }
 
+    HUB_CONTRACTOR {
+        char64 hk_contractor PK
+        bigint company_contractor
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+
     %% ============================================
     %% SATELLITES - Descriptive Attributes
     %% ============================================
@@ -118,6 +125,20 @@ erDiagram
         datetime2 dss_end_date
     }
 
+    SAT_CONTRACTOR {
+        char64 hk_contractor FK
+        datetime2 dss_load_date
+        char64 hd_contractor
+        varchar name
+        varchar short_name
+        varchar subscription
+        varchar email
+        varchar phone
+        varchar city
+        char1 dss_is_current
+        datetime2 dss_end_date
+    }
+
     %% ============================================
     %% LINKS - Relationships
     %% ============================================
@@ -137,6 +158,34 @@ erDiagram
         varchar role_code
         datetime2 dss_load_date
         varchar dss_record_source
+    }
+
+    %% ============================================
+    %% DC LINK - Dependent Child Pattern
+    %% ============================================
+    
+    LINK_CONTACT_CONTRACTOR {
+        char64 hk_link_contact_contractor PK
+        char64 hk_contractor FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+
+    %% ============================================
+    %% DC SATELLITE - Dependent Child Attributes
+    %% ============================================
+    
+    SAT_CONTACT_CONTRACTOR_DC {
+        char64 hk_link_contact_contractor FK
+        datetime2 dss_load_date
+        char64 hd_contact_contractor_dc
+        varchar name
+        varchar email1
+        varchar phone
+        varchar function
+        varchar department
+        char1 dss_is_current
+        datetime2 dss_end_date
     }
 
     %% ============================================
@@ -179,3 +228,8 @@ erDiagram
     REF_ROLE ||--o{ LINK_COMPANY_ROLE : defines
     
     LINK_COMPANY_COUNTRY ||--o{ EFF_SAT_COMPANY_COUNTRY : tracks
+    
+    %% Dependent Child Pattern: Contractor → Contact
+    HUB_CONTRACTOR ||--o{ SAT_CONTRACTOR : has
+    HUB_CONTRACTOR ||--o{ LINK_CONTACT_CONTRACTOR : has
+    LINK_CONTACT_CONTRACTOR ||--o{ SAT_CONTACT_CONTRACTOR_DC : describes

@@ -357,6 +357,7 @@ export interface WebviewGenerateMessage {
 export interface WebviewSaveConfigMessage {
   type: 'saveConfig';
   columns: SavedColumnConfig[];
+  entityName?: string;  // Optional: set when user renames the entity
 }
 
 /**

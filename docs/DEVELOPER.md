@@ -124,9 +124,75 @@ dss_end_date        -- Gültigkeitsende (NULL = aktuell)
 | Typ | Wann verwenden? | Beispiel |
 |-----|-----------------|----------|
 | **Standard Satellite** | Normale Attribute | `sat_company` |
-| **Dependent Child** | Mehrere Werte ohne eigene Identität | Telefonnummern, E-Mails |
-| **Multi-Active** | Mehrere gleichzeitig gültige Werte | Mitarbeiter mit mehreren Rollen |
+| **Dependent Child (DC)** | Entity ohne eigene Identität, identifiziert über Parent-Beziehung + DCK | `sat_contact_contractor_dc` |
+| **Multi-Active (MA)** | Mehrere gleichzeitig gültige Werte | Mitarbeiter mit mehreren Rollen |
 | **Extension Satellite** | Zusätzliche Attribute für Teilmenge | `sat_company_client_ext` (nur für Clients) |
+
+---
+
+### Dependent Child (DC) Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Erfasst Entities **ohne eigenen stabilen Business Key** |
+| **Wann?** | Entity existiert nur im Kontext eines Parent (z.B. Ansprechpartner zu Firma) |
+| **Identifikation** | Parent-FK + Dependent Child Keys (DCK) bilden zusammen den logischen Schlüssel |
+| **Struktur** | DC Satellite hängt am **Link**, nicht am Hub |
+
+**Beispiel: Contact als Dependent Child von Contractor**
+
+```
+                hub_contractor
+                      │
+                      │ hk_contractor
+                      │
+              link_contact_contractor
+              (hk_link = HASH(FK + DCK))
+                      │
+                      │ hk_link_contact_contractor
+                      │
+            sat_contact_contractor_dc
+            (DCK: name, email1 im Payload)
+```
+
+**Staging für DC Pattern:**
+```sql
+-- Alle Hashes werden im Staging berechnet (automate_dv Best Practice)
+hk_contractor                -- FK Hash zum Parent Hub
+hk_link_contact_contractor   -- Link Hash = HASH(company_contractor ^^ name ^^ email1)
+hd_contact_contractor_dc     -- Hashdiff für Änderungserkennung
+```
+
+**Link Model (nur 1 FK für Pure DC):**
+```yaml
+src_pk: "hk_link_contact_contractor"
+src_fk: "hk_contractor"  # Nur Parent-FK, kein zweiter Hub
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+```
+
+**DC Satellite Model:**
+```yaml
+src_pk: "hk_link_contact_contractor"  # Referenziert Link, nicht Hub
+src_hashdiff: 
+  source_column: "hd_contact_contractor_dc"
+  alias: "HASHDIFF"
+src_payload:
+  - "name"       # DCK Column
+  - "email1"     # DCK Column
+  - "phone"      # Weitere Attribute
+  - "..."
+```
+
+---
+
+### Multi-Active (MA) Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Erfasst **mehrere gleichzeitig gültige Werte** |
+| **Wann?** | Entity hat multiple aktive Zustände (z.B. mehrere Rollen) |
+| **Eigenschaften** | Zusätzliches Attribut als Teil des PK zur Unterscheidung |
 
 ---
 
@@ -140,13 +206,21 @@ dss_end_date        -- Gültigkeitsende (NULL = aktuell)
 | **Eigenschaften** | Enthält nur Schlüssel der beteiligten Hubs, keine Attribute |
 
 ```sql
--- Struktur
+-- Struktur (Standard Link)
 hk_link_<e1>_<e2>   -- Link Hash Key (PK)
 hk_<entity_1>       -- FK zu Hub 1
 hk_<entity_2>       -- FK zu Hub 2
 dss_load_date       -- Ladezeitpunkt
 dss_record_source   -- Quelle
 ```
+
+**Link-Varianten:**
+
+| Typ | FKs | Hash-Berechnung | Beispiel |
+|-----|-----|-----------------|----------|
+| **Standard Link** | 2+ Hub-FKs | `HASH(FK1 ^^ FK2)` | `link_company_country` |
+| **DC Link (Pure)** | 1 Hub-FK | `HASH(FK ^^ DCK1 ^^ DCK2)` | `link_contact_contractor` |
+| **DC Link (Hybrid)** | 2 Hub-FKs + DC | `HASH(FK1 ^^ FK2 ^^ DCK)` | Contact mit eigenem Hub + Parent |
 
 ---
 

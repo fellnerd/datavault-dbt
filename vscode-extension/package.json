@@ -160,7 +160,7 @@
       },
       {
         "command": "datavault.openEntityDesigner",
-        "title": "Design Entity (Hub/Satellite/Link)",
+        "title": "Design Entity",
         "icon": "$(symbol-structure)",
         "category": "Data Vault"
       },

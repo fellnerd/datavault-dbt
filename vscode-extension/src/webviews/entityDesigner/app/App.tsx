@@ -15,34 +15,46 @@ import type { ColumnInfo, DesignerColumnDefinition } from '../../../types';
  */
 type DataVaultTarget = 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore';
 
-// Common SQL Server data types for dropdown
-const SQL_DATA_TYPES = [
-  'BIGINT',
-  'INT',
-  'SMALLINT',
-  'TINYINT',
-  'BIT',
-  'DECIMAL(18,2)',
-  'NUMERIC(18,2)',
-  'FLOAT',
-  'REAL',
-  'MONEY',
-  'CHAR(64)',
-  'VARCHAR(50)',
-  'VARCHAR(100)',
-  'VARCHAR(255)',
-  'VARCHAR(MAX)',
-  'NVARCHAR(50)',
-  'NVARCHAR(100)',
-  'NVARCHAR(255)',
-  'NVARCHAR(MAX)',
-  'DATE',
-  'TIME',
-  'DATETIME',
-  'DATETIME2',
-  'DATETIMEOFFSET',
-  'UNIQUEIDENTIFIER',
+// Base SQL Server data types (without size) for dropdown
+const SQL_BASE_TYPES = [
+  { type: 'BIGINT', hasSize: false },
+  { type: 'INT', hasSize: false },
+  { type: 'SMALLINT', hasSize: false },
+  { type: 'TINYINT', hasSize: false },
+  { type: 'BIT', hasSize: false },
+  { type: 'DECIMAL', hasSize: true, defaultSize: '18,2' },
+  { type: 'NUMERIC', hasSize: true, defaultSize: '18,2' },
+  { type: 'FLOAT', hasSize: false },
+  { type: 'REAL', hasSize: false },
+  { type: 'MONEY', hasSize: false },
+  { type: 'CHAR', hasSize: true, defaultSize: '64' },
+  { type: 'VARCHAR', hasSize: true, defaultSize: 'MAX' },
+  { type: 'NVARCHAR', hasSize: true, defaultSize: 'MAX' },
+  { type: 'DATE', hasSize: false },
+  { type: 'TIME', hasSize: false },
+  { type: 'DATETIME', hasSize: false },
+  { type: 'DATETIME2', hasSize: false },
+  { type: 'DATETIMEOFFSET', hasSize: false },
+  { type: 'UNIQUEIDENTIFIER', hasSize: false },
 ];
+
+// Helper to parse data type into base and size
+function parseDataType(dataType: string): { base: string; size: string | null } {
+  const match = dataType.match(/^(\w+)(?:\((.+)\))?$/);
+  if (match) {
+    return { base: match[1].toUpperCase(), size: match[2] || null };
+  }
+  return { base: dataType.toUpperCase(), size: null };
+}
+
+// Helper to format data type from base and size
+function formatDataType(base: string, size: string | null): string {
+  const typeInfo = SQL_BASE_TYPES.find(t => t.type === base);
+  if (typeInfo?.hasSize && size) {
+    return `${base}(${size})`;
+  }
+  return base;
+}
 
 interface ColumnConfig extends DesignerColumnDefinition {
   /** Original column name from source */
@@ -539,7 +551,6 @@ export const App: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [entityName, setEntityName] = useState('');
   const [existingHubs, setExistingHubs] = useState<string[]>([]);
-  const [customDataType, setCustomDataType] = useState('');
 
   // ============================================================================
   // MESSAGE HANDLING
@@ -688,13 +699,14 @@ export const App: React.FC = () => {
 
       vscode.postMessage({
         type: 'saveConfig',
-        columns: savedColumns
+        columns: savedColumns,
+        entityName: entityName  // Include entityName for renaming support
       });
       console.log('[Entity Designer] Config auto-saved');
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [columns, isLoading, vscode]);
+  }, [columns, entityName, isLoading, vscode]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -957,32 +969,62 @@ export const App: React.FC = () => {
               
               <div style={styles.propertyRow}>
                 <span style={styles.propertyLabel}>Data type:</span>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <select
-                    value={SQL_DATA_TYPES.includes(selectedColumn.dataType) ? selectedColumn.dataType : '__custom__'}
-                    onChange={(e) => {
-                      if (e.target.value === '__custom__') {
-                        setCustomDataType(selectedColumn.dataType);
-                      } else {
-                        updateColumn(selectedIndex!, { dataType: e.target.value });
-                      }
-                    }}
-                    style={{ ...styles.select, flex: 1 }}
-                  >
-                    {SQL_DATA_TYPES.map(dt => (
-                      <option key={dt} value={dt}>{dt}</option>
-                    ))}
-                    <option value="__custom__">Custom...</option>
-                  </select>
-                  {!SQL_DATA_TYPES.includes(selectedColumn.dataType) && (
-                    <input
-                      type="text"
-                      value={selectedColumn.dataType}
-                      onChange={(e) => updateColumn(selectedIndex!, { dataType: e.target.value })}
-                      style={{ ...styles.input, width: '120px' }}
-                      placeholder="Custom type"
-                    />
-                  )}
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {(() => {
+                    const { base, size } = parseDataType(selectedColumn.dataType);
+                    const typeInfo = SQL_BASE_TYPES.find(t => t.type === base);
+                    const isKnownType = !!typeInfo;
+                    
+                    return (
+                      <>
+                        <select
+                          value={isKnownType ? base : '__custom__'}
+                          onChange={(e) => {
+                            const newBase = e.target.value;
+                            if (newBase === '__custom__') {
+                              updateColumn(selectedIndex!, { dataType: selectedColumn.dataType });
+                            } else {
+                              const newTypeInfo = SQL_BASE_TYPES.find(t => t.type === newBase);
+                              const newSize = newTypeInfo?.hasSize ? (newTypeInfo.defaultSize || '') : null;
+                              updateColumn(selectedIndex!, { dataType: formatDataType(newBase, newSize) });
+                            }
+                          }}
+                          style={{ ...styles.select, flex: 1 }}
+                        >
+                          {SQL_BASE_TYPES.map(dt => (
+                            <option key={dt.type} value={dt.type}>{dt.type}</option>
+                          ))}
+                          <option value="__custom__">Custom...</option>
+                        </select>
+                        
+                        {/* Size input - shown when type has size parameter */}
+                        {(typeInfo?.hasSize || !isKnownType) && (
+                          <input
+                            type="text"
+                            value={size || ''}
+                            onChange={(e) => {
+                              const newSize = e.target.value || null;
+                              updateColumn(selectedIndex!, { dataType: formatDataType(base, newSize) });
+                            }}
+                            style={{ ...styles.input, width: '80px' }}
+                            placeholder={typeInfo?.defaultSize || 'Size'}
+                            title="Size (e.g., 255, MAX, 18,2)"
+                          />
+                        )}
+                        
+                        {/* Custom type input - only when not a known type */}
+                        {!isKnownType && (
+                          <input
+                            type="text"
+                            value={selectedColumn.dataType}
+                            onChange={(e) => updateColumn(selectedIndex!, { dataType: e.target.value })}
+                            style={{ ...styles.input, width: '120px' }}
+                            placeholder="Custom type"
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
               

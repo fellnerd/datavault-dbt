@@ -42,10 +42,52 @@ dbt run-operation stage_external_sources  # Create/update external tables
 | Hub | `vault_<concept>.hub_<entity>` | `vault_werkportal.hub_company` |
 | Satellite | `vault_<concept>.sat_<entity>` | `vault_werkportal.sat_company` |
 | Link | `vault_<concept>.link_<e1>_<e2>` | `vault_werkportal.link_company_country` |
+| DC Link | `vault_<concept>.link_<dc>_<parent>` | `vault_werkportal.link_contact_contractor` |
+| DC Satellite | `vault_<concept>.sat_<dc>_<parent>_dc` | `vault_werkportal.sat_contact_contractor_dc` |
 | Common Hub | `vault.hub_<entity>` | `vault.hub_company` (merged) |
 | Hash Key | `hk_<entity>` | `hk_company` |
+| Link Hash Key | `hk_link_<dc>_<parent>` | `hk_link_contact_contractor` |
 | Hash Diff | `hd_<entity>` | `hd_company` |
+| DC Hash Diff | `hd_<dc>_<parent>_dc` | `hd_contact_contractor_dc` |
 | Metadata | `dss_*` prefix | `dss_load_date`, `dss_record_source` |
+
+## Dependent Child (DC) Pattern
+Use DC when an entity has **no own stable Business Key** and is identified by parent relationship + DCK columns.
+
+**Example: Contact as Dependent Child of Contractor**
+```
+hub_contractor → link_contact_contractor → sat_contact_contractor_dc
+                 (HASH = FK + DCK)         (DCK: name, email1 in payload)
+```
+
+**Staging Requirements for DC:**
+```sql
+-- All hashes calculated in staging (automate_dv best practice)
+hk_contractor                -- FK Hash to Parent Hub
+hk_link_contact_contractor   -- Link Hash = HASH(company_contractor ^^ name ^^ email1)
+hd_contact_contractor_dc     -- Hashdiff for change detection
+```
+
+**DC Link Model (Pure - only 1 FK):**
+```yaml
+src_pk: "hk_link_contact_contractor"
+src_fk: "hk_contractor"  # Only parent FK, no second Hub
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+# NO src_payload for DC Links!
+```
+
+**DC Satellite Model:**
+```yaml
+src_pk: "hk_link_contact_contractor"  # References Link, not Hub
+src_hashdiff: 
+  source_column: "hd_contact_contractor_dc"
+  alias: "HASHDIFF"
+src_payload:
+  - "name"       # DCK Column
+  - "email1"     # DCK Column
+  - "phone"      # Additional attributes
+```
 
 ## Hash Calculation (SQL Server Native)
 Do NOT use automate_dv hash macros - they're incompatible with SQL Server. Use:

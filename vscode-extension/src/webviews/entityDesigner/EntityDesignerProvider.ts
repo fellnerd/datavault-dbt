@@ -191,7 +191,7 @@ export class EntityDesignerProvider {
         await this.handleGenerate(message.target);
         break;
       case 'saveConfig':
-        await this.handleSaveConfig(message.columns);
+        await this.handleSaveConfig(message.columns, message.entityName);
         break;
       case 'update':
         // Legacy - column updates now handled via saveConfig
@@ -202,10 +202,21 @@ export class EntityDesignerProvider {
   /**
    * Save config to JSON file (Config-First: JSON is Single Source of Truth)
    */
-  private async handleSaveConfig(columns: SavedColumnConfig[]): Promise<void> {
+  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string): Promise<void> {
     if (!this._projectPath || !this._currentEntity) {
       console.error('[Entity Designer] Cannot save config: missing project path or entity context');
       return;
+    }
+
+    // Update entity name if provided (user renamed the entity)
+    if (entityName && entityName !== this._currentEntity.entityName) {
+      console.log(`[Entity Designer] Entity renamed: ${this._currentEntity.entityName} -> ${entityName}`);
+      this._currentEntity.entityName = entityName;
+      
+      // Update panel title
+      if (this._panel) {
+        this._panel.title = `Entity Designer: ${entityName}`;
+      }
     }
 
     const config: DesignerConfig = {

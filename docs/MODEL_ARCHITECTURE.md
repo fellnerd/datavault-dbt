@@ -99,10 +99,23 @@ erDiagram
     %% AdventureWorks Entities
     hub_customer ||--o{ sat_customer : "has attributes"
 
+    %% Dependent Child Pattern (Contractor → Contact)
+    hub_contractor ||--o{ sat_contractor : "has attributes"
+    hub_contractor ||--o{ link_contact_contractor : "has contacts"
+    link_contact_contractor ||--o{ sat_contact_contractor_dc : "has DC attributes"
+
     hub_company {
         char64 hk_company PK "SHA256(object_id + source_table)"
         bigint object_id "Business Key"
         varchar source_table "wp_company_client/contractor/supplier"
+        datetime2 dss_load_date
+        varchar dss_record_source
+        ___ ___ "Schema: vault_werkportal"
+    }
+
+    hub_contractor {
+        char64 hk_contractor PK "SHA256(company_contractor)"
+        bigint company_contractor "Business Key"
         datetime2 dss_load_date
         varchar dss_record_source
         ___ ___ "Schema: vault_werkportal"
@@ -170,6 +183,64 @@ erDiagram
         varchar role_name
         varchar role_description
     }
+
+    sat_contractor {
+        char64 hk_contractor FK
+        char64 hd_contractor "Hash Diff"
+        varchar name
+        varchar short_name
+        varchar email
+        varchar phone
+        varchar city
+        datetime2 dss_load_date
+        ___ ___ "Schema: vault_werkportal"
+    }
+
+    link_contact_contractor {
+        char64 hk_link_contact_contractor PK "HASH(company_contractor + name + email1)"
+        char64 hk_contractor FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+        ___ ___ "Pure DC Link - nur 1 FK"
+    }
+
+    sat_contact_contractor_dc {
+        char64 hk_link_contact_contractor FK "Referenziert Link, nicht Hub"
+        char64 hd_contact_contractor_dc "Hash Diff"
+        varchar name "DCK"
+        varchar email1 "DCK"
+        varchar phone
+        varchar function
+        datetime2 dss_load_date
+        ___ ___ "DC Satellite - DCK im Payload"
+    }
+```
+
+## Dependent Child Pattern
+
+Das **Dependent Child (DC)** Pattern wird verwendet für Entities ohne eigenen stabilen Business Key:
+
+```mermaid
+flowchart LR
+    subgraph "Standard Pattern"
+        H1[Hub A] --> L1[Link] --> H2[Hub B]
+        L1 --> S1[Link Sat]
+    end
+    
+    subgraph "DC Pattern (Pure)"
+        H3[Hub Parent] --> L2[DC Link<br/>HASH = FK + DCK]
+        L2 --> S2[DC Satellite<br/>DCK im Payload]
+    end
+```
+
+**Beispiel: Contact als Dependent Child von Contractor**
+
+| Objekt | PK | FK | Beschreibung |
+|--------|----|----|--------------|
+| `hub_contractor` | `hk_contractor` | - | Parent Hub |
+| `link_contact_contractor` | `hk_link = HASH(company_contractor ^^ name ^^ email1)` | `hk_contractor` | Pure DC Link (nur 1 FK) |
+| `sat_contact_contractor_dc` | - | `hk_link_contact_contractor` | DCK (name, email1) im Payload |
+
 ```
 
 ## Datenfluss

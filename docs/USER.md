@@ -101,6 +101,28 @@ Ein Link verbindet Hubs miteinander - wie ein **Organisationsdiagramm**.
 **Wichtige Links:**
 - `link_company_role` - Welche Rolle hat ein Unternehmen? (Kunde/Lieferant/Auftragnehmer)
 - `link_company_country` - In welchem Land sitzt das Unternehmen?
+- `link_contact_contractor` - Welche Ansprechpartner hat ein Auftragnehmer?
+
+#### 👶 **Dependent Child Satellites** - "Die Abhängigen"
+
+Manchmal existiert ein Objekt nur im Kontext eines anderen - wie ein **Ansprechpartner** der nur durch seine Firma identifiziert werden kann:
+
+```
+        hub_contractor                    
+             │                             
+             └───── link_contact_contractor 
+                           │
+                    sat_contact_contractor_dc
+                    (Name, E-Mail, Telefon des Ansprechpartners)
+```
+
+**Wann wird das verwendet?**
+- Der Ansprechpartner hat keine eigene ID im Quellsystem
+- Er wird durch Name + E-Mail identifiziert (= Dependent Child Keys)
+- Die Attribute hängen am Link, nicht an einem eigenen Hub
+
+**Wichtige DC Satellites:**
+- `sat_contact_contractor_dc` - Ansprechpartner-Details für Auftragnehmer
 
 #### ⏱️ **PIT-Tabellen** - "Der Zeitnavigator"
 
