@@ -287,6 +287,16 @@ export class EntityDesignerProvider {
         if (savedConfig.columns.some(c => c.columnType === 'dependent_child')) {
           targets.push('dc_satellite');
         }
+      } else if (target === 'satellite') {
+        targets = ['satellite'];
+        // Auto-add DC Satellite if dependent_child columns exist
+        if (savedConfig.columns.some(c => c.columnType === 'dependent_child')) {
+          targets.push('dc_satellite');
+        }
+        // Auto-add MA Satellite if multi_active columns exist
+        if (savedConfig.columns.some(c => c.columnType === 'multi_active')) {
+          targets.push('ma_satellite');
+        }
       } else {
         targets = [target];
       }

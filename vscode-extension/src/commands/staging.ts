@@ -20,7 +20,7 @@ import {
   getDefaultStagingConfig
 } from '../services/stagingGenerator';
 import { validateStagingConfig, validateStagingSql } from '../services/stagingValidator';
-import { updateStagingSchemaYaml, stagingModelExists } from '../services/schemaGenerator';
+import { updateStagingSchemaYaml, stagingModelExists, removeFromStagingSchemaYaml } from '../services/schemaGenerator';
 
 const execAsync = promisify(exec);
 
@@ -416,4 +416,85 @@ function showValidationOutput(modelName: string, output: string, type: 'error' |
   outputChannel.appendLine('');
   outputChannel.appendLine(output);
   outputChannel.show();
+}
+
+/**
+ * Delete a staging model (SQL file + YAML entry)
+ */
+export async function deleteStaging(
+  treeItem: TreeItemData | undefined,
+  context: StagingCommandContext
+): Promise<void> {
+  const { projectPath, refreshProject, log } = context;
+
+  const model: DbtModel | undefined = treeItem?.model;
+  if (!model || model.layer !== 'staging') {
+    vscode.window.showErrorMessage('Please select a staging model to delete');
+    return;
+  }
+
+  if (!projectPath) {
+    vscode.window.showErrorMessage('No dbt project found');
+    return;
+  }
+
+  // Confirm deletion
+  const confirmation = await vscode.window.showWarningMessage(
+    `Are you sure you want to delete the staging model "${model.name}"?\n\nThis will delete:\n• ${path.basename(model.filePath)}\n• Entry in _staging__models.yml`,
+    { modal: true },
+    'Delete',
+    'Cancel'
+  );
+
+  if (confirmation !== 'Delete') {
+    return;
+  }
+
+  log(`Deleting staging model: ${model.name}`);
+
+  try {
+    // 1. Delete SQL file
+    if (fs.existsSync(model.filePath)) {
+      fs.unlinkSync(model.filePath);
+      log(`Deleted SQL file: ${model.filePath}`);
+    }
+
+    // 2. Remove from _staging__models.yml
+    const schemaResult = await removeFromStagingSchemaYaml(projectPath, model.name);
+    if (schemaResult.success) {
+      log(`Removed from schema YAML: ${model.name}`);
+    } else {
+      log(`Warning: Could not update schema YAML: ${schemaResult.error}`);
+    }
+
+    // 3. Delete designer config JSON if it exists
+    const configDir = path.join(projectPath, '.datavault', 'entity-configs');
+    // Model name is usually concept_entity, try to find matching config
+    const possibleConfigFiles = fs.existsSync(configDir)
+      ? fs.readdirSync(configDir).filter(f => f.endsWith('.json'))
+      : [];
+    
+    for (const configFile of possibleConfigFiles) {
+      const configPath = path.join(configDir, configFile);
+      try {
+        const configContent = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        const configModelName = `${configContent.concept}_${configContent.entityName}`;
+        if (configModelName === model.name) {
+          fs.unlinkSync(configPath);
+          log(`Deleted designer config: ${configFile}`);
+          break;
+        }
+      } catch {
+        // Skip if can't parse
+      }
+    }
+
+    vscode.window.showInformationMessage(`Deleted staging model: ${model.name}`);
+    await refreshProject();
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`Error deleting staging model: ${errorMessage}`);
+    vscode.window.showErrorMessage(`Failed to delete staging model: ${errorMessage}`);
+  }
 }

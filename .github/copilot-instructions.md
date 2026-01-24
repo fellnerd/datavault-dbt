@@ -89,6 +89,46 @@ src_payload:
   - "phone"      # Additional attributes
 ```
 
+## Multi-Active (MA) Satellite Pattern
+Use MA Sat when an entity has **multiple concurrent valid values** (e.g., phone numbers, addresses, roles).
+
+**Key Difference from DC Sat:** MA Sat hangs on **Hub** (not Link), uses `automate_dv.ma_sat` with `src_cdk`.
+
+**Example: Employee with multiple phone numbers**
+```
+hub_employee → sat_employee_ma
+               (CDK: phone_type distinguishes records)
+```
+
+**Staging Requirements for MA:**
+```sql
+-- Hub hash key (same as standard)
+hk_employee                  -- Hub Hash
+-- MA-specific hashdiff (CDK + attributes)
+hd_employee_ma               -- Hashdiff = HASH(phone_type || phone_number || is_primary)
+```
+
+**MA Satellite Model:**
+```yaml
+src_pk: "hk_employee"               # References Hub, not Link
+src_cdk:                            # Child Dependent Keys (distinguishes records)
+  - "phone_type"
+src_hashdiff: 
+  source_column: "hd_employee_ma"
+  alias: "HASHDIFF"
+src_payload:
+  - "phone_number"
+  - "is_primary"
+```
+
+**DC vs MA Comparison:**
+| Aspect | DC Satellite | MA Satellite |
+|--------|--------------|--------------|
+| Parent | Link | Hub |
+| Macro | `automate_dv.sat` | `automate_dv.ma_sat` |
+| Key Parameter | - | `src_cdk` |
+| Use Case | Entity without own BK | Multiple values per entity |
+
 ## Hash Calculation (SQL Server Native)
 Do NOT use automate_dv hash macros - they're incompatible with SQL Server. Use:
 ```sql

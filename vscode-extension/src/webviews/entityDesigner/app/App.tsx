@@ -536,6 +536,15 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
     });
   }
   
+  // DV Rule 10: MA Satellite requires Hub (MA Sat hangs on Hub, not Link)
+  if (maCols.length > 0 && hubCols.length === 0) {
+    errors.push({
+      type: 'error',
+      message: 'Multi-Active Satellite requires at least one Business Key (Hub). MA Sat hangs on Hub, not Link.',
+      affectsObject: 'satellite',
+    });
+  }
+  
   return errors;
 }
 
@@ -1120,7 +1129,7 @@ export const App: React.FC = () => {
               {/* Multi-Active: Sequence indicator */}
               {selectedColumn.columnType === 'multi_active' && (
                 <div style={styles.propertyRow}>
-                  <span style={styles.propertyLabel}>Use as sequence:</span>
+                  <span style={styles.propertyLabel}>Primary CDK:</span>
                   <input
                     type="checkbox"
                     checked={selectedColumn.multiActiveSequence || false}
@@ -1128,7 +1137,7 @@ export const App: React.FC = () => {
                     style={styles.checkbox}
                   />
                   <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
-                    MA columns are child dependent keys in ma_sat (automate_dv)
+                    CDK (Child Dependent Key) distinguishes concurrent records in MA Satellite. Mark primary CDK for documentation.
                   </div>
                 </div>
               )}
@@ -1183,6 +1192,30 @@ export const App: React.FC = () => {
                     </div>
                     <div style={{ color: colors.textMuted }}>
                       Driving key: {selectedColumn.alias || selectedColumn.sourceName}
+                    </div>
+                  </>
+                )}
+                {selectedColumn.columnType === 'dependent_child' && (
+                  <>
+                    <div><strong>DC Satellite:</strong> sat_{entityName}_{selectedColumn.dependentChildForLink?.replace('hub_', '') || '???'}_dc</div>
+                    <div style={{ marginTop: '8px' }}><strong>Staging:</strong></div>
+                    <code style={{ color: '#9cdcfe' }}>
+                      hk_link_{entityName}_{selectedColumn.dependentChildForLink?.replace('hub_', '') || '???'} = SHA256(...{selectedColumn.alias || selectedColumn.sourceName}...)
+                    </code>
+                    <div style={{ color: colors.textMuted, marginTop: '4px' }}>
+                      DCK included in Link hash + DC Satellite payload
+                    </div>
+                  </>
+                )}
+                {selectedColumn.columnType === 'multi_active' && (
+                  <>
+                    <div><strong>MA Satellite:</strong> sat_{entityName}_ma</div>
+                    <div style={{ marginTop: '8px' }}><strong>Staging:</strong></div>
+                    <code style={{ color: '#9cdcfe' }}>
+                      hd_{entityName}_ma = SHA256({stats.maCols.map(c => c.alias || c.name).join(' || ')} || attributes)
+                    </code>
+                    <div style={{ color: colors.textMuted, marginTop: '4px' }}>
+                      CDK (Child Dependent Key) - distinguishes concurrent records in MA Satellite
                     </div>
                   </>
                 )}

@@ -52,6 +52,60 @@ models:
       - name: dss_run_id
         description: Run ID
         data_type: nvarchar(4000)
+  - name: jira_tempolog
+    description: Staging view for tempolog from jira
+    columns:
+      - name: hk_tempolog
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_tempolog
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: id
+        description: Business Key
+        tests:
+          - not_null
+      - name: issueKey
+        description: Payload attribute
+      - name: issueId
+        description: Payload attribute
+      - name: issueSummary
+        description: Payload attribute
+      - name: date
+        description: Payload attribute
+      - name: startTime
+        description: Payload attribute
+      - name: timeSpentSeconds
+        description: Payload attribute
+      - name: timeSpentHours
+        description: Payload attribute
+      - name: description
+        description: Payload attribute
+      - name: accountId
+        description: Payload attribute
+      - name: displayName
+        description: Payload attribute
+      - name: createdAt
+        description: Payload attribute
+      - name: updatedAt
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: werkportal_contact
     description: Staging view for contact from werkportal
     columns:

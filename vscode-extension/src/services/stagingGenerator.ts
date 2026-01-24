@@ -309,6 +309,7 @@ function generateHashKey(
 
 /**
  * Generate hash diff calculation using Jinja loop
+ * Note: CONCAT() in SQL Server requires at least 2 arguments
  */
 function generateHashDiff(entityName: string, separator: string): string {
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
@@ -316,6 +317,7 @@ function generateHashDiff(entityName: string, separator: string): string {
                 {%- for col in hashdiff_columns %}
                 ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
                 {%- endfor %}
+                {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
             )
         ), 2) AS hd_${entityName},`;
 }
@@ -374,6 +376,7 @@ function generateLinkHashKeyWithDCK(
 
 /**
  * Generate Hash Diff for DC Satellite (DCK + attributes)
+ * Note: CONCAT() in SQL Server requires at least 2 arguments
  */
 function generateHashDiffForDC(
   dcSatName: string,
@@ -384,15 +387,19 @@ function generateHashDiffForDC(
     `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
   ).join(`,\n                '${separator}',\n                `);
   
+  // SQL Server CONCAT requires at least 2 args - add empty string if only 1 column
+  const fallback = columns.length === 1 ? `,\n                ''` : '';
+  
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
-                ${concatParts}
+                ${concatParts}${fallback}
             )
         ), 2) AS hd_${dcSatName},`;
 }
 
 /**
  * Generate Hash Diff for MA Satellite using Jinja loop
+ * Note: CONCAT() in SQL Server requires at least 2 arguments
  */
 function generateHashDiffMA(entityName: string, separator: string): string {
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
@@ -400,6 +407,7 @@ function generateHashDiffMA(entityName: string, separator: string): string {
                 {%- for col in hashdiff_ma_columns %}
                 ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
                 {%- endfor %}
+                {%- if hashdiff_ma_columns | length == 1 %}, ''{%- endif %}
             )
         ), 2) AS hd_${entityName}_ma,`;
 }

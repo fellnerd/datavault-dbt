@@ -159,6 +159,12 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.deleteStaging",
+        "title": "Delete Staging View",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.openEntityDesigner",
         "title": "Design Entity",
         "icon": "$(symbol-structure)",
@@ -190,6 +196,56 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "datavault.deleteStaging",
+          "when": "false"
+        },
+        {
+          "command": "datavault.openModel",
+          "when": "false"
+        },
+        {
+          "command": "datavault.showLineage",
+          "when": "false"
+        },
+        {
+          "command": "datavault.showModelDetails",
+          "when": "false"
+        },
+        {
+          "command": "datavault.openYamlDefinition",
+          "when": "false"
+        },
+        {
+          "command": "datavault.copyModelName",
+          "when": "false"
+        },
+        {
+          "command": "datavault.copyRefSyntax",
+          "when": "false"
+        },
+        {
+          "command": "datavault.createExternalTable",
+          "when": "false"
+        },
+        {
+          "command": "datavault.createAllExternalTables",
+          "when": "false"
+        },
+        {
+          "command": "datavault.createStaging",
+          "when": "false"
+        },
+        {
+          "command": "datavault.validateStaging",
+          "when": "false"
+        },
+        {
+          "command": "datavault.openEntityDesigner",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "datavault.stageAllExternalSources",
@@ -262,6 +318,11 @@
           "command": "datavault.openEntityDesigner",
           "when": "view == datavault-staging && viewItem == model",
           "group": "staging@2"
+        },
+        {
+          "command": "datavault.deleteStaging",
+          "when": "view == datavault-staging && viewItem == model",
+          "group": "delete@1"
         }
       ]
     },

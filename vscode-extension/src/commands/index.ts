@@ -10,14 +10,14 @@ import { DbtModel, ProjectMetadata, TreeItemData } from '../types';
 import { ModelDetailsPanel } from '../webviewPanel';
 import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
-import { createStaging, validateStaging } from './staging';
+import { createStaging, validateStaging, deleteStaging } from './staging';
 import { registerEntityDesignerCommands } from './entityDesigner';
 import { registerDbtCommands } from './dbtCommands';
 
 // Re-export command implementations for use elsewhere
 export { discoverExternalSources } from './discover';
 export { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
-export { createStaging, validateStaging } from './staging';
+export { createStaging, validateStaging, deleteStaging } from './staging';
 export { registerEntityDesignerCommands } from './entityDesigner';
 export { registerDbtCommands } from './dbtCommands';
 
@@ -213,6 +213,20 @@ export function registerCommands(
       'datavault.validateStaging',
       async (treeItem?: TreeItemData) => {
         await validateStaging(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Delete Staging Model Command
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.deleteStaging',
+      async (treeItem?: TreeItemData) => {
+        await deleteStaging(treeItem, {
           projectPath: getCurrentProjectPath(),
           refreshProject,
           log
