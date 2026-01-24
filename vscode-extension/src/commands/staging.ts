@@ -21,6 +21,7 @@ import {
 } from '../services/stagingGenerator';
 import { validateStagingConfig, validateStagingSql } from '../services/stagingValidator';
 import { updateStagingSchemaYaml, stagingModelExists, removeFromStagingSchemaYaml } from '../services/schemaGenerator';
+import { getDbtPath } from '../utils/dbt';
 
 const execAsync = promisify(exec);
 
@@ -303,23 +304,8 @@ export async function validateStaging(
     },
     async (progress) => {
       try {
-        // Get dbt path from settings or use default
-        const config = vscode.workspace.getConfiguration('datavault');
-        let dbtPath = config.get<string>('dbtPath', '');
-        
-        if (!dbtPath) {
-          // Try to find dbt in .venv
-          const venvDbt = path.join(projectPath, '.venv', 'Scripts', 'dbt.exe');
-          const venvDbtUnix = path.join(projectPath, '.venv', 'bin', 'dbt');
-          
-          if (fs.existsSync(venvDbt)) {
-            dbtPath = venvDbt;
-          } else if (fs.existsSync(venvDbtUnix)) {
-            dbtPath = venvDbtUnix;
-          } else {
-            dbtPath = 'dbt'; // Assume it's in PATH
-          }
-        }
+        // Get dbt path using shared utility
+        const dbtPath = getDbtPath(projectPath);
 
         progress.report({ message: 'Running dbt compile...' });
 

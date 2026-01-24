@@ -20,7 +20,7 @@ import {
   BusinessVaultTreeProvider,
   MartTreeProvider,
   LoadTreeProvider
-} from './treeProviders';
+} from './providers';
 import { ProjectMetadata } from './types';
 import { registerCommands } from './commands';
 

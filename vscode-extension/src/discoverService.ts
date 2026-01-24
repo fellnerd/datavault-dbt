@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
 import * as yaml from 'yaml';
+import { getDbtPath } from './utils/dbt';
 
 // ============================================================================
 // Types
@@ -43,44 +44,6 @@ export interface DiscoverResult {
 // ============================================================================
 // dbt Execution Helper
 // ============================================================================
-
-/**
- * Get the dbt executable path
- */
-export function getDbtPath(projectPath: string): string {
-  const config = vscode.workspace.getConfiguration('datavault');
-  const configuredPath = config.get<string>('dbtPath', '');
-  
-  if (configuredPath && fs.existsSync(configuredPath)) {
-    return configuredPath;
-  }
-  
-  // Auto-detect: Check .venv in project
-  const isWindows = process.platform === 'win32';
-  
-  // Try multiple possible names on Windows
-  if (isWindows) {
-    const possiblePaths = [
-      path.join(projectPath, '.venv', 'Scripts', 'dbt.exe'),
-      path.join(projectPath, '.venv', 'Scripts', 'dbt.cmd'),
-      path.join(projectPath, '.venv', 'Scripts', 'dbt.bat'),
-    ];
-    
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        return p;
-      }
-    }
-  } else {
-    const venvDbt = path.join(projectPath, '.venv', 'bin', 'dbt');
-    if (fs.existsSync(venvDbt)) {
-      return venvDbt;
-    }
-  }
-  
-  // Fallback to global dbt
-  return 'dbt';
-}
 
 /**
  * Execute a dbt run-operation and return the output

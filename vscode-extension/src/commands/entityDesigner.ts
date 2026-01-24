@@ -125,11 +125,3 @@ function extractEntityName(name: string, concept: string): string {
   
   return entityName;
 }
-
-/**
- * Dispose of the provider
- */
-export function disposeEntityDesigner(): void {
-  designerProvider?.dispose();
-  designerProvider = undefined;
-}

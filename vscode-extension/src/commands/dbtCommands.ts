@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { getDbtCommand, getDbtProfilesDir } from '../utils/dbt';
 
 const execAsync = promisify(exec);
 
@@ -19,24 +20,6 @@ interface ModelQuickPickItem extends vscode.QuickPickItem {
 }
 
 /**
- * Get the dbt executable path (handles .venv)
- */
-function getDbtCommand(projectPath: string): string {
-  // Check for .venv in project
-  const isWindows = process.platform === 'win32';
-  const venvDbt = isWindows
-    ? path.join(projectPath, '.venv', 'Scripts', 'dbt.exe')
-    : path.join(projectPath, '.venv', 'bin', 'dbt');
-  
-  if (fs.existsSync(venvDbt)) {
-    return `"${venvDbt}"`;
-  }
-  
-  // Fallback to global dbt
-  return 'dbt';
-}
-
-/**
  * Get all dbt models grouped by concept
  */
 async function getDbtModels(projectPath: string): Promise<DbtModel[]> {
@@ -46,7 +29,7 @@ async function getDbtModels(projectPath: string): Promise<DbtModel[]> {
     // Use dbt ls to get all models
     const { stdout } = await execAsync(`${dbtCmd} ls --resource-type model --output json`, {
       cwd: projectPath,
-      env: { ...process.env, DBT_PROFILES_DIR: path.join(process.env.USERPROFILE || '', '.dbt') }
+      env: { ...process.env, DBT_PROFILES_DIR: getDbtProfilesDir() }
     });
 
     const models: DbtModel[] = [];
@@ -108,7 +91,7 @@ async function getDbtModels(projectPath: string): Promise<DbtModel[]> {
     try {
       const { stdout } = await execAsync(`${dbtCmd} ls --resource-type model`, {
         cwd: projectPath,
-        env: { ...process.env, DBT_PROFILES_DIR: path.join(process.env.USERPROFILE || '', '.dbt') }
+        env: { ...process.env, DBT_PROFILES_DIR: getDbtProfilesDir() }
       });
 
       const models: DbtModel[] = [];

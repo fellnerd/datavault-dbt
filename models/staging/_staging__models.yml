@@ -52,16 +52,16 @@ models:
       - name: dss_run_id
         description: Run ID
         data_type: nvarchar(4000)
-  - name: jira_tempolog
-    description: Staging view for tempolog from jira
+  - name: jira_zeitbuchungen
+    description: Staging view for zeitbuchungen from jira
     columns:
-      - name: hk_tempolog
+      - name: hk_zeitbuchungen
         description: Hash Key (Primary Key)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_tempolog
+      - name: hd_zeitbuchungen
         description: Hash Diff for change detection
         data_type: char(64)
         tests:

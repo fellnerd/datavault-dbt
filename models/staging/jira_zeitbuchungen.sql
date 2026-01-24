@@ -1,12 +1,12 @@
 /*
- * Staging Model: jira_tempolog
+ * Staging Model: jira_zeitbuchungen
  *
  * Source: ext_jira_tempolog
  * Business Key: id
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
  * Hash Keys calculated here (automate_dv pattern):
- *   - hk_tempolog (Entity Hash Key)
+ *   - hk_zeitbuchungen (Entity Hash Key)
  */
 
 {%- set hashdiff_columns = [
@@ -24,7 +24,7 @@ staged AS (
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(id AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_tempolog,
+        ), 2) AS hk_zeitbuchungen,
 
         -- ===========================================
         -- HASH DIFF (Change Detection - Satellite)
@@ -36,7 +36,7 @@ staged AS (
                 {%- endfor %}
                 {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
             )
-        ), 2) AS hd_tempolog,
+        ), 2) AS hd_zeitbuchungen,
 
         -- ===========================================
         -- BUSINESS KEY(S)
