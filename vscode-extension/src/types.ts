@@ -155,12 +155,22 @@ export interface ProjectMetadata {
 }
 
 /**
+ * Group configuration for organizing models in tree views
+ */
+export interface GroupConfig {
+  name: string;           // Display name of the group
+  concept: string;        // Concept this group belongs to (e.g., 'werkportal')
+  layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart';  // Which tree view
+  models: string[];       // Model names in this group
+}
+
+/**
  * Tree item data for VS Code TreeView
  */
 export interface TreeItemData {
   id: string;
   label: string;
-  type: 'layer' | 'concept' | 'category' | 'model' | 'column' | 'external_table';
+  type: 'layer' | 'concept' | 'category' | 'model' | 'column' | 'external_table' | 'group' | 'groupAll';
   modelType?: ModelType;
   filePath?: string;
   children?: TreeItemData[];
@@ -170,6 +180,9 @@ export interface TreeItemData {
   icon?: string;
   description?: string;
   tooltip?: string;
+  concept?: string;       // For groups: which concept this belongs to
+  groupName?: string;     // For model-in-group: which group it's in
+  layer?: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart';  // Layer for group context
 }
 
 // ============================================

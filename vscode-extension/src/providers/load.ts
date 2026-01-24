@@ -2,16 +2,24 @@
  * Load Layer TreeDataProvider
  * 
  * Displays External Tables from sources.yml in the tree view.
- * Groups tables by concept (source system).
+ * Groups tables by concept (source system), with support for custom groups.
  */
 
-import { TreeItemData, ExternalTable } from '../types';
+import * as vscode from 'vscode';
+import { TreeItemData, ExternalTable, GroupConfig } from '../types';
 import { DataVaultTreeProvider } from './base';
 
 /**
  * Load Layer TreeDataProvider - External Tables from sources.yml
  */
 export class LoadTreeProvider extends DataVaultTreeProvider {
+  /**
+   * Return the layer name for group filtering
+   */
+  protected getLayerName(): 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' {
+    return 'sources';
+  }
+
   async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
     if (!this.metadata) {
       return [{
@@ -45,7 +53,16 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
   }
 
   /**
-   * Group external tables by concept (source system)
+   * Get groups for a specific concept (sources layer)
+   */
+  protected getGroupsForConceptLocal(concept: string): GroupConfig[] {
+    const config = vscode.workspace.getConfiguration('datavault');
+    const allGroups = config.get<GroupConfig[]>('groups') || [];
+    return allGroups.filter(g => g.layer === 'sources' && g.concept === concept);
+  }
+
+  /**
+   * Group external tables by concept (source system) with group support
    */
   private createExternalTableConceptTree(tables: ExternalTable[]): TreeItemData[] {
     // Group by concept
@@ -70,28 +87,80 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
       label: concept === '_other' ? 'Other' : this.formatConceptName(concept),
       type: 'concept' as const,
       collapsibleState: 'collapsed' as const,
+      concept,
+      layer: 'sources' as const,
       description: `${byConceptMap.get(concept)!.length} tables`,
-      children: byConceptMap.get(concept)!.map(t => this.externalTableToTreeItem(t))
+      children: this.createGroupedExternalTableItems(byConceptMap.get(concept)!, concept)
     }));
   }
 
   /**
-   * Convert an external table to a tree item
+   * Create tree items with groups (All + custom groups) for external tables
    */
-  private externalTableToTreeItem(table: ExternalTable): TreeItemData {
+  private createGroupedExternalTableItems(tables: ExternalTable[], concept: string): TreeItemData[] {
+    const groups = this.getGroupsForConceptLocal(concept);
+    const result: TreeItemData[] = [];
+
+    // Always create "All" group first
+    result.push({
+      id: `load-${concept}-group-all`,
+      label: 'All',
+      type: 'groupAll',
+      collapsibleState: 'collapsed',
+      concept,
+      layer: 'sources',
+      description: `${tables.length}`,
+      children: tables.map(t => this.externalTableToTreeItemWithGroup(t, 'All'))
+    });
+
+    // Add custom groups (only if they have tables)
+    for (const group of groups) {
+      const groupTables = tables.filter(t => group.models.includes(t.name));
+      if (groupTables.length > 0) {
+        result.push({
+          id: `load-${concept}-group-${group.name}`,
+          label: group.name,
+          type: 'group',
+          collapsibleState: 'collapsed',
+          concept,
+          layer: 'sources',
+          groupName: group.name,
+          description: `${groupTables.length}`,
+          children: groupTables.map(t => this.externalTableToTreeItemWithGroup(t, group.name))
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Convert an external table to a tree item with group context
+   */
+  private externalTableToTreeItemWithGroup(table: ExternalTable, groupName: string): TreeItemData {
     const hasColumns = table.columns && table.columns.length > 0;
     return {
-      id: `ext-${table.name}`,
+      id: `ext-${table.name}-${groupName}`,
       label: table.name,
       type: 'external_table',
       modelType: 'external_table',
       filePath: table._yamlPath,
       externalTable: table,
+      groupName,
+      concept: table.concept,
+      layer: 'sources',
       collapsibleState: hasColumns ? 'collapsed' : 'none',
       description: table.location ? `→ ${table.location.split('/').pop()}` : table.schema,
       tooltip: this.createExternalTableTooltip(table),
       children: hasColumns ? this.createExternalTableColumnItems(table) : undefined
     };
+  }
+
+  /**
+   * Convert an external table to a tree item (legacy - uses "All" group)
+   */
+  private externalTableToTreeItem(table: ExternalTable): TreeItemData {
+    return this.externalTableToTreeItemWithGroup(table, 'All');
   }
 
   /**

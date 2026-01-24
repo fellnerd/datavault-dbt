@@ -193,6 +193,24 @@
         "title": "dbt: Compile (Preview SQL)",
         "icon": "$(file-code)",
         "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createGroup",
+        "title": "Create Group",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addToGroup",
+        "title": "Add to Group",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.removeFromGroup",
+        "title": "Remove from Group",
+        "icon": "$(remove)",
+        "category": "Data Vault"
       }
     ],
     "menus": {
@@ -243,6 +261,14 @@
         },
         {
           "command": "datavault.openEntityDesigner",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addToGroup",
+          "when": "false"
+        },
+        {
+          "command": "datavault.removeFromGroup",
           "when": "false"
         }
       ],
@@ -310,6 +336,11 @@
           "group": "database@1"
         },
         {
+          "command": "datavault.createAllExternalTables",
+          "when": "view == datavault-sources && viewItem =~ /^(group|groupAll)$/",
+          "group": "database@1"
+        },
+        {
           "command": "datavault.validateStaging",
           "when": "view == datavault-staging && viewItem == model",
           "group": "staging@1"
@@ -323,6 +354,16 @@
           "command": "datavault.deleteStaging",
           "when": "view == datavault-staging && viewItem == model",
           "group": "delete@1"
+        },
+        {
+          "command": "datavault.addToGroup",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^(model|model-in-group|external_table|external_table-in-group)$/",
+          "group": "groups@1"
+        },
+        {
+          "command": "datavault.removeFromGroup",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^(model-in-group|external_table-in-group)$/",
+          "group": "groups@2"
         }
       ]
     },
@@ -368,6 +409,49 @@
           "type": "string",
           "default": "",
           "description": "Placeholder for NULL values in hash calculations"
+        },
+        "datavault.groups": {
+          "type": "array",
+          "scope": "resource",
+          "default": [],
+          "markdownDescription": "Custom groups for organizing models in tree views. Each group appears under its concept in the specified layer.",
+          "items": {
+            "type": "object",
+            "required": ["name", "concept", "layer", "models"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name of the group",
+                "order": 1
+              },
+              "concept": {
+                "type": "string",
+                "description": "Concept this group belongs to (e.g., 'werkportal', 'adventureworks')",
+                "order": 2
+              },
+              "layer": {
+                "type": "string",
+                "enum": ["sources", "staging", "raw_vault", "business_vault", "mart"],
+                "enumDescriptions": [
+                  "Sources/External Tables tree view",
+                  "Staging tree view",
+                  "Raw Vault tree view",
+                  "Business Vault tree view",
+                  "Mart tree view"
+                ],
+                "description": "Which tree view this group appears in",
+                "order": 3
+              },
+              "models": {
+                "type": "array",
+                "items": { "type": "string" },
+                "uniqueItems": true,
+                "description": "Model names in this group (e.g., 'hub_company', 'sat_contractor')",
+                "order": 4
+              }
+            }
+          }
         }
       }
     }

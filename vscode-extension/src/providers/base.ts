@@ -11,7 +11,8 @@ import {
   ProjectMetadata,
   TreeItemData,
   ModelType,
-  ColumnInfo
+  ColumnInfo,
+  GroupConfig
 } from '../types';
 
 /**
@@ -59,7 +60,15 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
     item.id = element.id;
     item.description = element.description;
     item.tooltip = element.tooltip || element.label;
-    item.contextValue = element.type;
+    
+    // Set contextValue for context menu - use special values for grouped items
+    if (element.type === 'model' && element.groupName && element.groupName !== 'All') {
+      item.contextValue = 'model-in-group';
+    } else if (element.type === 'external_table' && element.groupName && element.groupName !== 'All') {
+      item.contextValue = 'external_table-in-group';
+    } else {
+      item.contextValue = element.type;
+    }
 
     // Set icon based on type - with warning indicator for undocumented models
     if (element.icon) {
@@ -117,13 +126,40 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
         return new vscode.ThemeIcon('symbol-field');
       case 'external_table':
         return new vscode.ThemeIcon('cloud-download');
+      case 'group':
+        return new vscode.ThemeIcon('folder-library');
+      case 'groupAll':
+        return new vscode.ThemeIcon('list-tree');
       default:
         return new vscode.ThemeIcon('file-code');
     }
   }
 
   /**
-   * Create tree items for models grouped by concept
+   * Get the layer identifier for this provider (override in subclasses)
+   */
+  protected getLayerName(): 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' {
+    return 'raw_vault';  // Default, override in subclasses
+  }
+
+  /**
+   * Get configured groups from settings for the current layer
+   */
+  protected getGroupsForLayer(layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart'): GroupConfig[] {
+    const config = vscode.workspace.getConfiguration('datavault');
+    const allGroups = config.get<GroupConfig[]>('groups') || [];
+    return allGroups.filter(g => g.layer === layer);
+  }
+
+  /**
+   * Get groups for a specific concept and layer
+   */
+  protected getGroupsForConcept(concept: string, layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart'): GroupConfig[] {
+    return this.getGroupsForLayer(layer).filter(g => g.concept === concept);
+  }
+
+  /**
+   * Create tree items for models grouped by concept, with group support
    */
   protected createConceptTree(
     models: DbtModel[],
@@ -132,6 +168,8 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
     if (!models.length) {
       return [];
     }
+
+    const layer = this.getLayerName();
 
     // Filter by types if specified
     let filtered = models;
@@ -163,9 +201,127 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
       label: concept === '_common' ? 'Common' : this.formatConceptName(concept),
       type: 'concept' as const,
       collapsibleState: 'collapsed' as const,
+      concept,
+      layer,
       description: `${byConceptMap.get(concept)!.length} models`,
-      children: this.createModelItems(byConceptMap.get(concept)!, this.shouldGroupByType(), `${layerPrefix}-${concept}`)
+      children: this.createGroupedModelItems(
+        byConceptMap.get(concept)!,
+        concept,
+        layer,
+        `${layerPrefix}-${concept}`
+      )
     }));
+  }
+
+  /**
+   * Create tree items with groups (All + custom groups)
+   */
+  protected createGroupedModelItems(
+    models: DbtModel[],
+    concept: string,
+    layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart',
+    idPrefix: string
+  ): TreeItemData[] {
+    const groups = this.getGroupsForConcept(concept, layer);
+    const result: TreeItemData[] = [];
+
+    // Always create "All" group first
+    const allGroupChildren = this.shouldGroupByType()
+      ? this.createModelItems(models, true, `${idPrefix}-all`)
+      : models.map(m => this.modelToTreeItemWithGroup(m, 'All'));
+
+    result.push({
+      id: `${idPrefix}-group-all`,
+      label: 'All',
+      type: 'groupAll',
+      collapsibleState: 'collapsed',
+      concept,
+      layer,
+      description: `${models.length}`,
+      children: allGroupChildren
+    });
+
+    // Add custom groups (only if they have models)
+    for (const group of groups) {
+      const groupModels = models.filter(m => group.models.includes(m.name));
+      if (groupModels.length > 0) {
+        const groupChildren = this.shouldGroupByType()
+          ? this.createModelItemsForGroup(groupModels, group.name, `${idPrefix}-${group.name}`)
+          : groupModels.map(m => this.modelToTreeItemWithGroup(m, group.name));
+
+        result.push({
+          id: `${idPrefix}-group-${group.name}`,
+          label: group.name,
+          type: 'group',
+          collapsibleState: 'collapsed',
+          concept,
+          layer,
+          groupName: group.name,
+          description: `${groupModels.length}`,
+          children: groupChildren
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Create model items for a custom group (with type grouping)
+   */
+  protected createModelItemsForGroup(models: DbtModel[], groupName: string, idPrefix: string): TreeItemData[] {
+    // Group by type
+    const byType = new Map<ModelType, DbtModel[]>();
+    for (const model of models) {
+      if (!byType.has(model.type)) {
+        byType.set(model.type, []);
+      }
+      byType.get(model.type)!.push(model);
+    }
+
+    // Create category items
+    const typeOrder: ModelType[] = ['hub', 'satellite', 'effectivity_satellite', 'link', 'pit', 'bridge', 'staging', 'mart', 'view', 'table', 'ref'];
+    const result: TreeItemData[] = [];
+    const prefix = idPrefix ? `${idPrefix}-` : '';
+
+    for (const type of typeOrder) {
+      const typeModels = byType.get(type);
+      if (typeModels && typeModels.length > 0) {
+        result.push({
+          id: `${prefix}category-${type}`,
+          label: this.formatTypeName(type),
+          type: 'category',
+          modelType: type,
+          collapsibleState: 'collapsed',
+          description: `${typeModels.length}`,
+          children: typeModels.map(m => this.modelToTreeItemWithGroup(m, groupName))
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Convert a model to a tree item with group context
+   */
+  protected modelToTreeItemWithGroup(model: DbtModel, groupName: string): TreeItemData {
+    const hasColumns = model.columns && model.columns.length > 0;
+    return {
+      id: `model-${model.name}-${groupName}`,
+      label: model.name,
+      type: 'model',
+      modelType: model.type,
+      filePath: model.filePath,
+      model,
+      groupName,
+      concept: model.concept,
+      layer: model.layer,
+      collapsibleState: hasColumns ? 'collapsed' : 'none',
+      description: model.schema,
+      tooltip: this.createModelTooltip(model),
+      children: hasColumns ? this.createColumnItems(model) : undefined
+    };
   }
 
   /**
@@ -176,11 +332,11 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
   }
 
   /**
-   * Create tree items for models (optionally grouped by type)
+   * Create tree items for models (optionally grouped by type) - for "All" group
    */
   protected createModelItems(models: DbtModel[], groupByType = true, idPrefix = ''): TreeItemData[] {
     if (!groupByType) {
-      return models.map(m => this.modelToTreeItem(m));
+      return models.map(m => this.modelToTreeItemWithGroup(m, 'All'));
     }
 
     // Group by type
@@ -207,7 +363,7 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
           modelType: type,
           collapsibleState: 'collapsed',
           description: `${typeModels.length}`,
-          children: typeModels.map(m => this.modelToTreeItem(m))
+          children: typeModels.map(m => this.modelToTreeItemWithGroup(m, 'All'))
         });
       }
     }
@@ -216,22 +372,10 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
   }
 
   /**
-   * Convert a model to a tree item
+   * Convert a model to a tree item (legacy - uses "All" group)
    */
   protected modelToTreeItem(model: DbtModel): TreeItemData {
-    const hasColumns = model.columns && model.columns.length > 0;
-    return {
-      id: `model-${model.name}`,
-      label: model.name,
-      type: 'model',
-      modelType: model.type,
-      filePath: model.filePath,
-      model,
-      collapsibleState: hasColumns ? 'collapsed' : 'none',
-      description: model.schema,
-      tooltip: this.createModelTooltip(model),
-      children: hasColumns ? this.createColumnItems(model) : undefined
-    };
+    return this.modelToTreeItemWithGroup(model, 'All');
   }
 
   /**

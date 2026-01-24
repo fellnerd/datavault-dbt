@@ -6,7 +6,7 @@
  */
 
 import * as vscode from 'vscode';
-import { DbtModel, ProjectMetadata, TreeItemData } from '../types';
+import { DbtModel, ProjectMetadata, TreeItemData, GroupConfig } from '../types';
 import { ModelDetailsPanel } from '../webviewPanel';
 import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
@@ -245,7 +245,148 @@ export function registerCommands(
   // dbt Commands (Run, Test, Compile with model picker)
   registerDbtCommands(context);
 
+  // Group Management Commands
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.createGroup',
+      async () => {
+        await createGroup({ log, getCurrentMetadata });
+      }
+    )
+  );
+
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.addToGroup',
+      async (treeItem?: TreeItemData, selectedItems?: TreeItemData[]) => {
+        await addToGroup(treeItem, selectedItems, { log });
+      }
+    )
+  );
+
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.removeFromGroup',
+      async (treeItem?: TreeItemData, selectedItems?: TreeItemData[]) => {
+        await removeFromGroup(treeItem, selectedItems, { log });
+      }
+    )
+  );
+
   return disposables;
+}
+
+/**
+ * Create a new group with interactive UI
+ */
+async function createGroup(options: {
+  log: Logger;
+  getCurrentMetadata: () => ProjectMetadata | null;
+}): Promise<void> {
+  const { log, getCurrentMetadata } = options;
+
+  // Step 1: Select Layer
+  const layers = [
+    { label: 'Sources', value: 'sources', description: 'External Tables' },
+    { label: 'Staging', value: 'staging', description: 'Staging Views' },
+    { label: 'Raw Vault', value: 'raw_vault', description: 'Hubs, Satellites, Links' },
+    { label: 'Business Vault', value: 'business_vault', description: 'PITs, Bridges' },
+    { label: 'Mart', value: 'mart', description: 'Dimensions, Facts' }
+  ];
+
+  const selectedLayer = await vscode.window.showQuickPick(layers, {
+    placeHolder: 'Select the layer for this group',
+    title: 'Create Group - Step 1/3: Layer'
+  });
+
+  if (!selectedLayer) {
+    return;
+  }
+
+  // Step 2: Select Concept (from loaded metadata)
+  const metadata = getCurrentMetadata();
+  if (!metadata) {
+    vscode.window.showErrorMessage('No project loaded. Please load a dbt project first.');
+    return;
+  }
+
+  // Get available concepts based on layer
+  let concepts: string[] = [];
+  if (selectedLayer.value === 'sources') {
+    concepts = [...new Set((metadata.externalTables || []).map(t => t.concept || '_other'))];
+  } else {
+    const layerModels = metadata.models.filter(m => m.layer === selectedLayer.value);
+    concepts = [...new Set(layerModels.map(m => m.concept || '_other'))];
+  }
+
+  if (concepts.length === 0) {
+    vscode.window.showWarningMessage(`No concepts found for ${selectedLayer.label}`);
+    return;
+  }
+
+  const conceptItems = concepts.sort().map(c => ({
+    label: c === '_common' ? 'Common' : c === '_other' ? 'Other' : c,
+    value: c
+  }));
+
+  const selectedConcept = await vscode.window.showQuickPick(conceptItems, {
+    placeHolder: 'Select the concept for this group',
+    title: 'Create Group - Step 2/3: Concept'
+  });
+
+  if (!selectedConcept) {
+    return;
+  }
+
+  // Step 3: Enter Group Name
+  const groupName = await vscode.window.showInputBox({
+    prompt: 'Enter a name for the new group',
+    title: 'Create Group - Step 3/3: Name',
+    placeHolder: 'e.g., Core Entities, Master Data, Reports',
+    validateInput: (value) => {
+      if (!value || value.trim().length === 0) {
+        return 'Group name cannot be empty';
+      }
+      if (value.length > 50) {
+        return 'Group name too long (max 50 characters)';
+      }
+      // Check for duplicate
+      const config = vscode.workspace.getConfiguration('datavault');
+      const existingGroups = config.get<GroupConfig[]>('groups') || [];
+      const duplicate = existingGroups.find(
+        g => g.name.toLowerCase() === value.toLowerCase() &&
+             g.concept === selectedConcept.value &&
+             g.layer === selectedLayer.value
+      );
+      if (duplicate) {
+        return `A group named "${value}" already exists for ${selectedConcept.label} (${selectedLayer.label})`;
+      }
+      return undefined;
+    }
+  });
+
+  if (!groupName) {
+    return;
+  }
+
+  // Create the new group
+  const newGroup: GroupConfig = {
+    name: groupName.trim(),
+    concept: selectedConcept.value,
+    layer: selectedLayer.value as 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart',
+    models: []
+  };
+
+  // Save to settings
+  const config = vscode.workspace.getConfiguration('datavault');
+  const allGroups = config.get<GroupConfig[]>('groups') || [];
+  allGroups.push(newGroup);
+  await config.update('groups', allGroups, vscode.ConfigurationTarget.Workspace);
+
+  log(`Created new group: ${groupName} (${selectedConcept.value}/${selectedLayer.value})`);
+  vscode.window.showInformationMessage(
+    `Group "${groupName}" created! Use the context menu to add models.`
+  );
 }
 
 /**
@@ -294,4 +435,194 @@ function showLineage(
     undefined,
     context.subscriptions
   );
+}
+
+/**
+ * Add model(s) to a group
+ */
+async function addToGroup(
+  treeItem?: TreeItemData,
+  selectedItems?: TreeItemData[],
+  options?: { log: Logger }
+): Promise<void> {
+  const log = options?.log || console.log;
+
+  // Collect items to process (support multi-select)
+  const items: TreeItemData[] = [];
+  if (selectedItems && selectedItems.length > 0) {
+    items.push(...selectedItems);
+  } else if (treeItem) {
+    items.push(treeItem);
+  }
+
+  if (items.length === 0) {
+    vscode.window.showWarningMessage('No items selected');
+    return;
+  }
+
+  // Get model/table names and determine concept and layer
+  const modelNames: string[] = [];
+  let concept: string | undefined;
+  let layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' | undefined;
+
+  for (const item of items) {
+    if (item.type === 'model' && item.model) {
+      modelNames.push(item.model.name);
+      concept = concept || item.model.concept;
+      layer = layer || item.model.layer;
+    } else if (item.type === 'external_table' && item.externalTable) {
+      modelNames.push(item.externalTable.name);
+      concept = concept || item.externalTable.concept;
+      layer = layer || 'sources';
+    }
+  }
+
+  if (modelNames.length === 0 || !concept || !layer) {
+    vscode.window.showWarningMessage('Could not determine model information');
+    return;
+  }
+
+  log(`Adding ${modelNames.length} item(s) to group: concept=${concept}, layer=${layer}`);
+
+  // Get existing groups from settings
+  const config = vscode.workspace.getConfiguration('datavault');
+  const allGroups = config.get<GroupConfig[]>('groups') || [];
+
+  // Filter groups for the same concept and layer
+  const availableGroups = allGroups.filter(g => g.concept === concept && g.layer === layer);
+
+  if (availableGroups.length === 0) {
+    const createNew = await vscode.window.showInformationMessage(
+      `No groups found for ${concept} (${layer}). Create groups in .vscode/settings.json under "datavault.groups".`,
+      'Open Settings'
+    );
+    if (createNew === 'Open Settings') {
+      await vscode.commands.executeCommand('workbench.action.openWorkspaceSettingsFile');
+    }
+    return;
+  }
+
+  // Show QuickPick to select group
+  const groupNames = availableGroups.map(g => g.name);
+  const selectedGroup = await vscode.window.showQuickPick(groupNames, {
+    placeHolder: `Select group for ${modelNames.length} item(s)`,
+    title: 'Add to Group'
+  });
+
+  if (!selectedGroup) {
+    return;
+  }
+
+  // Update the group in settings
+  const groupIndex = allGroups.findIndex(g => g.name === selectedGroup && g.concept === concept && g.layer === layer);
+  if (groupIndex === -1) {
+    vscode.window.showErrorMessage(`Group "${selectedGroup}" not found`);
+    return;
+  }
+
+  // Add models that are not already in the group (silently ignore duplicates)
+  const group = allGroups[groupIndex];
+  let addedCount = 0;
+  for (const name of modelNames) {
+    if (!group.models.includes(name)) {
+      group.models.push(name);
+      addedCount++;
+    }
+  }
+
+  // Save updated settings
+  await config.update('groups', allGroups, vscode.ConfigurationTarget.Workspace);
+
+  if (addedCount > 0) {
+    vscode.window.showInformationMessage(`Added ${addedCount} item(s) to group "${selectedGroup}"`);
+  } else {
+    vscode.window.showInformationMessage(`All items already in group "${selectedGroup}"`);
+  }
+
+  log(`Added ${addedCount} item(s) to group "${selectedGroup}"`);
+}
+
+/**
+ * Remove model(s) from a group
+ */
+async function removeFromGroup(
+  treeItem?: TreeItemData,
+  selectedItems?: TreeItemData[],
+  options?: { log: Logger }
+): Promise<void> {
+  const log = options?.log || console.log;
+
+  // Collect items to process (support multi-select)
+  const items: TreeItemData[] = [];
+  if (selectedItems && selectedItems.length > 0) {
+    items.push(...selectedItems);
+  } else if (treeItem) {
+    items.push(treeItem);
+  }
+
+  if (items.length === 0) {
+    vscode.window.showWarningMessage('No items selected');
+    return;
+  }
+
+  // Get model/table names and group info
+  const toRemove: { name: string; groupName: string; concept: string; layer: string }[] = [];
+
+  for (const item of items) {
+    const groupName = item.groupName;
+    if (!groupName || groupName === 'All') {
+      continue; // Skip items in "All" group
+    }
+
+    if (item.type === 'model' && item.model) {
+      toRemove.push({
+        name: item.model.name,
+        groupName,
+        concept: item.model.concept,
+        layer: item.model.layer
+      });
+    } else if (item.type === 'external_table' && item.externalTable) {
+      toRemove.push({
+        name: item.externalTable.name,
+        groupName,
+        concept: item.externalTable.concept,
+        layer: 'sources'
+      });
+    }
+  }
+
+  if (toRemove.length === 0) {
+    vscode.window.showWarningMessage('No items to remove from groups');
+    return;
+  }
+
+  log(`Removing ${toRemove.length} item(s) from groups`);
+
+  // Get existing groups from settings
+  const config = vscode.workspace.getConfiguration('datavault');
+  const allGroups = config.get<GroupConfig[]>('groups') || [];
+
+  // Remove items from their groups
+  let removedCount = 0;
+  for (const item of toRemove) {
+    const groupIndex = allGroups.findIndex(
+      g => g.name === item.groupName && g.concept === item.concept && g.layer === item.layer
+    );
+    if (groupIndex !== -1) {
+      const modelIndex = allGroups[groupIndex].models.indexOf(item.name);
+      if (modelIndex !== -1) {
+        allGroups[groupIndex].models.splice(modelIndex, 1);
+        removedCount++;
+      }
+    }
+  }
+
+  // Save updated settings
+  await config.update('groups', allGroups, vscode.ConfigurationTarget.Workspace);
+
+  if (removedCount > 0) {
+    vscode.window.showInformationMessage(`Removed ${removedCount} item(s) from group(s)`);
+  }
+
+  log(`Removed ${removedCount} item(s) from groups`);
 }

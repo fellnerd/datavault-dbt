@@ -16,6 +16,13 @@ import { DataVaultTreeProvider } from './base';
  */
 export class StagingTreeProvider extends DataVaultTreeProvider {
   /**
+   * Return the layer name for group filtering
+   */
+  protected getLayerName(): 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' {
+    return 'staging';
+  }
+
+  /**
    * Don't group by type - all staging models are type "staging"
    */
   protected shouldGroupByType(): boolean {
@@ -59,6 +66,13 @@ export class StagingTreeProvider extends DataVaultTreeProvider {
  * Raw Vault Layer TreeDataProvider
  */
 export class RawVaultTreeProvider extends DataVaultTreeProvider {
+  /**
+   * Return the layer name for group filtering
+   */
+  protected getLayerName(): 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' {
+    return 'raw_vault';
+  }
+
   async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
     if (!this.metadata) {
       return [{
@@ -96,6 +110,13 @@ export class RawVaultTreeProvider extends DataVaultTreeProvider {
  * Business Vault Layer TreeDataProvider
  */
 export class BusinessVaultTreeProvider extends DataVaultTreeProvider {
+  /**
+   * Return the layer name for group filtering
+   */
+  protected getLayerName(): 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' {
+    return 'business_vault';
+  }
+
   async getChildren(element?: TreeItemData): Promise<TreeItemData[]> {
     if (!this.metadata) {
       return [{
@@ -134,6 +155,13 @@ export class BusinessVaultTreeProvider extends DataVaultTreeProvider {
  * Mart Layer TreeDataProvider
  */
 export class MartTreeProvider extends DataVaultTreeProvider {
+  /**
+   * Return the layer name for group filtering
+   */
+  protected getLayerName(): 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart' {
+    return 'mart';
+  }
+
   /**
    * Don't group by type - most mart models are type "mart"
    */

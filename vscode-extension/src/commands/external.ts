@@ -68,7 +68,7 @@ export async function createExternalTable(
 }
 
 /**
- * Create all external tables for a concept/source
+ * Create all external tables for a concept/source or group
  */
 export async function createAllExternalTables(
   treeItem: TreeItemData | undefined,
@@ -81,18 +81,28 @@ export async function createAllExternalTables(
     return;
   }
 
-  const conceptName = treeItem?.label || 'unknown';
-  const tables = treeItem?.children || [];
+  // Handle different tree item types
+  let displayName = treeItem?.label || 'unknown';
+  let tables = treeItem?.children || [];
+  
+  // For groups, we need to get the external table items from children
+  // Groups have type 'group' or 'groupAll' and children are external_table items
+  if (treeItem?.type === 'group' || treeItem?.type === 'groupAll') {
+    displayName = `Group: ${treeItem.label}`;
+    // Children of groups are already external table items
+    tables = treeItem.children || [];
+  }
+  
   const tableCount = tables.length;
   
   if (tableCount === 0) {
-    vscode.window.showWarningMessage(`No external tables found for "${conceptName}"`);
+    vscode.window.showWarningMessage(`No external tables found for "${displayName}"`);
     return;
   }
   
   // Confirm with user
   const confirm = await vscode.window.showInformationMessage(
-    `Create ${tableCount} external table(s) for "${conceptName}"?`,
+    `Create ${tableCount} external table(s) for "${displayName}"?`,
     { modal: true },
     'Create All'
   );
@@ -103,7 +113,7 @@ export async function createAllExternalTables(
   
   await vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
-    title: `Creating external tables for ${conceptName}`,
+    title: `Creating external tables for ${displayName}`,
     cancellable: true
   }, async (progress, token) => {
     let successCount = 0;
@@ -147,7 +157,7 @@ export async function createAllExternalTables(
     // Summary
     if (failCount === 0) {
       vscode.window.showInformationMessage(
-        `Successfully created ${successCount} external table(s) for "${conceptName}"`
+        `Successfully created ${successCount} external table(s) for "${displayName}"`
       );
     } else {
       vscode.window.showWarningMessage(

@@ -69,30 +69,35 @@ export function activate(context: vscode.ExtensionContext) {
   businessVaultProvider = new BusinessVaultTreeProvider();
   martProvider = new MartTreeProvider();
 
-  // Register tree views
+  // Register tree views with multi-selection support
   loadView = vscode.window.createTreeView('datavault-sources', {
     treeDataProvider: loadProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
 
   stagingView = vscode.window.createTreeView('datavault-staging', {
     treeDataProvider: stagingProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
 
   rawVaultView = vscode.window.createTreeView('datavault-rawvault', {
     treeDataProvider: rawVaultProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
 
   businessVaultView = vscode.window.createTreeView('datavault-businessvault', {
     treeDataProvider: businessVaultProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
 
   martView = vscode.window.createTreeView('datavault-mart', {
     treeDataProvider: martProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
 
   // Add tree views to subscriptions
@@ -153,11 +158,23 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Setup configuration change listener
-  vscode.workspace.onDidChangeConfiguration(e => {
-    if (e.affectsConfiguration('datavault')) {
-      setupFileWatcher();
-    }
-  });
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('datavault.autoRefresh') || 
+          e.affectsConfiguration('datavault.refreshDebounceMs')) {
+        setupFileWatcher();
+      }
+      // Refresh tree views when groups configuration changes
+      if (e.affectsConfiguration('datavault.groups')) {
+        log('Groups configuration changed, refreshing tree views...');
+        loadProvider.refresh();
+        stagingProvider.refresh();
+        rawVaultProvider.refresh();
+        businessVaultProvider.refresh();
+        martProvider.refresh();
+      }
+    })
+  );
   
   log('Extension activated');
 }
