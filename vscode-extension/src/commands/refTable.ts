@@ -83,7 +83,8 @@ export async function createRefTable(
 }
 
 /**
- * Create reference table by extracting data from external table
+ * Create reference table as a VIEW from external table
+ * This creates a dbt model (SQL view/table) that references the external table directly
  */
 async function createFromExternalTable(
   externalTable: ExternalTable,
@@ -91,18 +92,23 @@ async function createFromExternalTable(
   refreshProject: () => Promise<void>,
   log: Logger
 ): Promise<void> {
-  log(`Extracting from external table: ${externalTable.name}`);
+  log(`Creating reference table view from: ${externalTable.name}`);
 
-  // Step 1: Select columns to include
-  const columnItems = externalTable.columns.map(col => ({
+  // Filter out dss_* metadata columns - they come from source automatically
+  const dataColumns = externalTable.columns.filter(
+    col => !col.name.toLowerCase().startsWith('dss_')
+  );
+
+  // Step 1: Select columns to include (pre-select all data columns)
+  const columnItems = dataColumns.map(col => ({
     label: col.name,
     description: col.dataType,
-    picked: false
+    picked: true  // Pre-select all
   }));
 
   const selectedColumns = await vscode.window.showQuickPick(columnItems, {
     title: 'Select Columns for Reference Table',
-    placeHolder: 'Select columns to include (distinct values will be extracted)',
+    placeHolder: 'Select columns to include in the reference table',
     canPickMany: true
   });
 
@@ -114,7 +120,8 @@ async function createFromExternalTable(
   // Step 2: Select primary key column(s)
   const pkItems = selectedColumns.map(col => ({
     label: col.label,
-    picked: selectedColumns.length === 1 // Auto-select if only one column
+    description: col.description,
+    picked: col.label.toLowerCase().endsWith('_id') // Auto-select ID columns
   }));
 
   const selectedPks = await vscode.window.showQuickPick(pkItems, {
@@ -142,6 +149,10 @@ async function createFromExternalTable(
       if (!/^[a-z][a-z0-9_]*$/i.test(value)) {
         return 'Use snake_case (letters, numbers, underscores)';
       }
+      // Check for ref_ prefix already in name
+      if (value.toLowerCase().startsWith('ref_')) {
+        return 'Name should not include ref_ prefix (it will be added automatically)';
+      }
       return null;
     }
   });
@@ -150,11 +161,47 @@ async function createFromExternalTable(
     return; // Cancelled
   }
 
-  // Check if seed already exists
-  const seedPath = path.join(projectPath, 'seeds', `ref_${refTableName}.csv`);
-  if (fs.existsSync(seedPath)) {
+  const sourceConcept = externalTable.concept || 'common';
+  const fullRefName = `ref_${refTableName}`;
+  
+  // Step 4: Ask if source-specific or cross-source (common)
+  const scopeChoice = await vscode.window.showQuickPick(
+    [
+      {
+        label: `$(folder) Source-specific (vault_${sourceConcept})`,
+        description: `Place in raw_vault/${sourceConcept}/`,
+        detail: 'Reference data specific to this source system',
+        value: 'specific'
+      },
+      {
+        label: '$(globe) Cross-source (vault)',
+        description: 'Place in raw_vault/_common/',
+        detail: 'Shared reference data used across multiple sources',
+        value: 'common'
+      }
+    ],
+    {
+      title: 'Reference Table Scope',
+      placeHolder: 'Where should this reference table be placed?'
+    }
+  );
+
+  if (!scopeChoice) {
+    return; // Cancelled
+  }
+
+  const isCommon = scopeChoice.value === 'common';
+  const targetConcept = isCommon ? '_common' : sourceConcept;
+  const targetSchema = isCommon ? 'vault' : `vault_${sourceConcept}`;
+  
+  // Determine output path
+  const refTableDir = path.join(projectPath, 'models', 'raw_vault', targetConcept);
+  const refTablePath = path.join(refTableDir, `${fullRefName}.sql`);
+
+  // Check if file already exists
+  if (fs.existsSync(refTablePath)) {
     const overwrite = await vscode.window.showWarningMessage(
-      `Seed ref_${refTableName}.csv already exists. Overwrite?`,
+      `${fullRefName}.sql already exists. Overwrite?`,
       'Yes', 'No'
     );
     if (overwrite !== 'Yes') {
@@ -162,66 +209,155 @@ async function createFromExternalTable(
     }
   }
 
-  // Step 4: Generate SQL query for extraction
+  // Ensure directory exists
+  if (!fs.existsSync(refTableDir)) {
+    fs.mkdirSync(refTableDir, { recursive: true });
+  }
+
+  // Generate SQL view
   const columnNames = selectedColumns.map(c => c.label);
   const pkNames = selectedPks.map(c => c.label);
-  
-  const query = generateExtractionQuery(externalTable, columnNames, pkNames);
+  const sqlContent = generateRefTableViewSql(fullRefName, externalTable, columnNames, pkNames, targetSchema, sourceConcept);
 
-  // Show the query and ask user to run it manually (we don't have direct DB access)
+  // Write SQL file
+  fs.writeFileSync(refTablePath, sqlContent, 'utf-8');
+  log(`Created reference table: ${refTablePath}`);
+
+  // Update schema YAML in raw_vault/<targetConcept>/_<targetConcept>__models.yml
+  await updateRefTableModelYaml(projectPath, targetConcept, fullRefName, columnNames, pkNames, externalTable);
+  log(`Updated schema YAML for ${fullRefName}`);
+
+  // Show success and offer actions
   const action = await vscode.window.showInformationMessage(
-    `To extract data, run this query in your database and paste the results.`,
-    'Show Query', 'Enter Data Manually', 'Cancel'
+    `Reference table ${fullRefName} created successfully!`,
+    'Open File',
+    'Run dbt'
   );
 
-  if (action === 'Cancel' || !action) {
-    return;
+  if (action === 'Open File') {
+    const doc = await vscode.workspace.openTextDocument(refTablePath);
+    await vscode.window.showTextDocument(doc);
+  } else if (action === 'Run dbt') {
+    vscode.commands.executeCommand('datavault.dbtRun');
   }
-
-  let rows: RefTableRow[] = [];
-
-  if (action === 'Show Query') {
-    // Open a new document with the query
-    const queryDoc = await vscode.workspace.openTextDocument({
-      language: 'sql',
-      content: `-- Run this query to extract reference data for ref_${refTableName}\n-- Copy the results and use "Enter Data Manually"\n\n${query}`
-    });
-    await vscode.window.showTextDocument(queryDoc);
-    
-    // Ask for data entry
-    const enterData = await vscode.window.showInformationMessage(
-      'After running the query, enter the data manually.',
-      'Enter Data'
-    );
-    
-    if (enterData !== 'Enter Data') {
-      return;
-    }
-  }
-
-  // Collect data rows
-  rows = await collectRows(columnNames, pkNames.length > 1);
-  
-  if (rows.length === 0) {
-    vscode.window.showWarningMessage('No data entered. Reference table not created.');
-    return;
-  }
-
-  // Generate and save files
-  await saveRefTable(projectPath, refTableName, columnNames, pkNames, rows, log);
-  
-  vscode.window.showInformationMessage(
-    `Reference table ref_${refTableName} created with ${rows.length} rows.`,
-    'Open Seed File'
-  ).then(selection => {
-    if (selection === 'Open Seed File') {
-      vscode.workspace.openTextDocument(seedPath).then(doc => 
-        vscode.window.showTextDocument(doc)
-      );
-    }
-  });
 
   await refreshProject();
+}
+
+/**
+ * Generate SQL for a reference table (view on external table)
+ */
+function generateRefTableViewSql(
+  refName: string,
+  externalTable: ExternalTable,
+  columns: string[],
+  pkColumns: string[],
+  schema: string,
+  sourceConcept: string
+): string {
+  // Build column list with lowercase aliases
+  const columnSelects = columns.map(col => 
+    `    ${col} AS ${col.toLowerCase()}`
+  ).join(',\n');
+
+  // PK columns for WHERE NOT NULL clause
+  const pkNotNull = pkColumns.map(pk => `${pk} IS NOT NULL`).join(' AND ');
+
+  return `/*
+ * Reference Table: ${refName}
+ * 
+ * Source: ${externalTable.name}
+ * Primary Key: ${pkColumns.map(c => c.toLowerCase()).join(', ')}
+ * 
+ * Pattern: Non-historised Reference Table (Data Vault 2.0)
+ * Purpose: Lookup/reference data for ${sourceConcept}
+ * Usage: JOIN with satellite tables in Mart layer
+ */
+
+{{ config(
+    materialized='table',
+    schema='${schema}'
+) }}
+
+SELECT DISTINCT
+${columnSelects},
+    dss_load_date,
+    dss_record_source
+
+FROM {{ source('staging', '${externalTable.name}') }}
+WHERE ${pkNotNull}
+`;
+}
+
+/**
+ * Update or create model YAML for reference table in raw_vault/<concept>/
+ */
+async function updateRefTableModelYaml(
+  projectPath: string,
+  concept: string,
+  refName: string,
+  columns: string[],
+  pkColumns: string[],
+  externalTable: ExternalTable
+): Promise<void> {
+  const schemaPath = path.join(projectPath, 'models', 'raw_vault', concept, `_${concept}__models.yml`);
+  
+  // Build model entry
+  const modelEntry: Record<string, unknown> = {
+    name: refName,
+    description: `Reference table for ${refName.replace('ref_', '')}.\nLookup data from ${externalTable.name}.`,
+    columns: columns.map(col => {
+      const colLower = col.toLowerCase();
+      const isPk = pkColumns.some(pk => pk.toLowerCase() === colLower);
+      const colDef = externalTable.columns.find(c => c.name.toLowerCase() === colLower);
+      
+      const entry: Record<string, unknown> = {
+        name: colLower,
+        description: isPk ? `Primary Key - ${col}` : `${col}`,
+      };
+      
+      if (colDef?.dataType) {
+        entry.data_type = colDef.dataType.toLowerCase();
+      }
+      
+      if (isPk) {
+        entry.tests = ['not_null', 'unique'];
+      }
+      
+      return entry;
+    })
+  };
+
+  // Add metadata columns
+  (modelEntry.columns as Array<Record<string, unknown>>).push(
+    { name: 'dss_load_date', description: 'Load timestamp', data_type: 'datetime2(7)' },
+    { name: 'dss_record_source', description: 'Data source identifier', data_type: 'varchar(100)' }
+  );
+
+  try {
+    const YAML = await import('yaml');
+    let schema: { version: number; models: Array<Record<string, unknown>> };
+    
+    if (fs.existsSync(schemaPath)) {
+      const content = fs.readFileSync(schemaPath, 'utf-8');
+      schema = YAML.parse(content) || { version: 2, models: [] };
+      if (!schema.models) schema.models = [];
+      
+      // Remove existing entry if present
+      schema.models = schema.models.filter(m => m.name !== refName);
+    } else {
+      schema = { version: 2, models: [] };
+    }
+    
+    // Add new entry
+    schema.models.push(modelEntry);
+    
+    // Write back
+    const doc = new YAML.Document(schema);
+    fs.writeFileSync(schemaPath, doc.toString({ indent: 2, lineWidth: 0 }), 'utf-8');
+  } catch (error) {
+    console.error('Error updating model YAML:', error);
+  }
 }
 
 /**

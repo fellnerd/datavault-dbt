@@ -1,5 +1,4 @@
 version: 2
-
 models:
   - name: hub_vorgang
     description: |
@@ -27,7 +26,6 @@ models:
         data_type: varchar(100)
         tests:
           - not_null
-
   - name: sat_vorgang
     description: |
       Satellite for vorgang attributes.
@@ -74,7 +72,6 @@ models:
         data_type: varchar(100)
         tests:
           - not_null
-
   - name: link_comments_seed_vorgang
     description: |
       Link relationship.
@@ -101,7 +98,6 @@ models:
         data_type: varchar(100)
         tests:
           - not_null
-
   - name: sat_comments_seed_vorgang_dc
     description: |
       Dependent Child Satellite for comments_seed link relationship.
@@ -147,7 +143,6 @@ models:
         data_type: varchar(100)
         tests:
           - not_null
-
   - name: hub_project
     description: |
       Hub for project entity.
@@ -174,7 +169,6 @@ models:
         data_type: varchar(100)
         tests:
           - not_null
-
   - name: sat_project
     description: |
       Satellite for project attributes.
@@ -227,3 +221,35 @@ models:
         data_type: varchar(100)
         tests:
           - not_null
+  - name: ref_vorgang_status
+    description: |-
+      Reference table for vorgang_status.
+      Lookup data from ext_jira_issuestatuses.
+    columns:
+      - name: issue_status_id
+        description: Primary Key - ISSUE_STATUS_ID
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: issue_status_name
+        description: ISSUE_STATUS_NAME
+        data_type: nvarchar(4000)
+      - name: description
+        description: DESCRIPTION
+        data_type: nvarchar(4000)
+      - name: category
+        description: CATEGORY
+        data_type: nvarchar(4000)
+      - name: scope_id
+        description: Primary Key - SCOPE_ID
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
