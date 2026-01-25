@@ -66,6 +66,8 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
       item.contextValue = 'model-in-group';
     } else if (element.type === 'external_table' && element.groupName && element.groupName !== 'All') {
       item.contextValue = 'external_table-in-group';
+    } else if (element.type === 'psa_table' && element.groupName && element.groupName !== 'All') {
+      item.contextValue = 'psa_table-in-group';
     } else {
       item.contextValue = element.type;
     }
@@ -126,6 +128,8 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
         return new vscode.ThemeIcon('symbol-field');
       case 'external_table':
         return new vscode.ThemeIcon('cloud-download');
+      case 'psa_table':
+        return new vscode.ThemeIcon('database');
       case 'group':
         return new vscode.ThemeIcon('folder-library');
       case 'groupAll':

@@ -65,7 +65,7 @@ function getStagingSettings(): {
 }
 
 /**
- * Create a new staging view from an external table
+ * Create a new staging view from an external table or PSA table
  */
 export async function createStaging(
   treeItem: TreeItemData | undefined,
@@ -78,24 +78,48 @@ export async function createStaging(
     return;
   }
 
-  // Get external table from tree item
+  // Support both external tables and PSA tables
   const externalTable = treeItem?.externalTable;
-  if (!externalTable) {
-    vscode.window.showErrorMessage('Please select an external table');
+  const psaTable = treeItem?.psaTable;
+  
+  // Determine source type and get columns
+  let sourceName: string;
+  let columns: string[];
+  let sourceType: SourceType;
+  let psaModelName: string | undefined;
+
+  if (psaTable) {
+    // PSA table - use ref() syntax
+    sourceName = psaTable.name;
+    columns = psaTable.columns.map(c => c.name);
+    sourceType = 'database_table';  // Will trigger ref() usage
+    psaModelName = psaTable.modelName;  // e.g., 'psa_jira_customers'
+    log(`Creating staging view for PSA: ${sourceName} (model: ${psaModelName})`);
+  } else if (externalTable) {
+    // External table - use source() syntax
+    sourceName = externalTable.name;
+    columns = externalTable.columns.map(c => c.name);
+    sourceType = 'external_table';
+    log(`Creating staging view for: ${sourceName}`);
+  } else {
+    vscode.window.showErrorMessage('Please select an external table or PSA table');
     return;
   }
 
-  log(`Creating staging view for: ${externalTable.name}`);
-
   const settings = getStagingSettings();
-  const columns = externalTable.columns.map(c => c.name);
 
-  // Get default config based on external table
-  const defaultConfig = getDefaultStagingConfig(externalTable.name, columns, settings);
+  // Get default config based on source name
+  const defaultConfig = getDefaultStagingConfig(sourceName, columns, settings);
 
   if (!defaultConfig.concept || !defaultConfig.entityName) {
-    vscode.window.showErrorMessage(`Could not parse external table name: ${externalTable.name}`);
+    vscode.window.showErrorMessage(`Could not parse source name: ${sourceName}`);
     return;
+  }
+
+  // Override source type if from PSA
+  if (psaTable) {
+    defaultConfig.sourceType = 'database_table';
+    defaultConfig.psaModelName = psaModelName;
   }
 
   // Check if staging already exists
@@ -227,7 +251,9 @@ export async function createStaging(
   const stagingConfig: StagingConfig = {
     concept,
     entityName,
-    externalTable: externalTable.name,
+    externalTable: sourceName,  // Works for both external tables and PSA tables
+    sourceType,                 // 'external_table' or 'database_table' (for PSA)
+    psaModelName,               // For PSA: model name for ref() (undefined for external tables)
     businessKeyColumns,
     businessKeySeparator: settings.businessKeySeparator,
     payloadColumns,

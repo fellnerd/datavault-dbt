@@ -33,6 +33,22 @@ export interface ExternalTable {
 }
 
 /**
+ * PSA (Persistent Staging Area) table info
+ * These are dbt models that persist external table data
+ */
+export interface PsaTableInfo {
+  name: string;            // e.g., 'jira_customers' (without psa_ prefix in sources.yml)
+  modelName: string;       // e.g., 'psa_jira_customers' (actual dbt model name)
+  description?: string;
+  sourceName: string;      // Parent source name (e.g., 'staging')
+  schema: string;
+  columns: ColumnInfo[];
+  sourceExternalTable: string;  // Original ext_* table name
+  concept: string;
+  _yamlPath: string;
+}
+
+/**
  * YAML model definition from _*__models.yml files
  */
 export interface YamlModelDefinition {
@@ -151,6 +167,7 @@ export interface ProjectMetadata {
   staging: DbtModel[];
   seeds: DbtModel[];     // Reference tables from seeds
   externalTables: ExternalTable[];  // External tables from sources.yml
+  psaTables: PsaTableInfo[];        // PSA tables from sources.yml (meta.psa: true)
   concepts: string[];    // Unique business concepts
   schemas: string[];     // Unique schemas
   lastScanned: Date;
@@ -172,12 +189,13 @@ export interface GroupConfig {
 export interface TreeItemData {
   id: string;
   label: string;
-  type: 'layer' | 'concept' | 'category' | 'model' | 'column' | 'external_table' | 'group' | 'groupAll';
+  type: 'layer' | 'concept' | 'category' | 'model' | 'column' | 'external_table' | 'psa_table' | 'group' | 'groupAll';
   modelType?: ModelType;
   filePath?: string;
   children?: TreeItemData[];
   model?: DbtModel;
   externalTable?: ExternalTable;
+  psaTable?: PsaTableInfo;
   collapsibleState: 'none' | 'collapsed' | 'expanded';
   icon?: string;
   description?: string;
@@ -217,6 +235,7 @@ export interface StagingConfig {
   // Source
   externalTable: string;        // 'ext_adventureworks_customer' or seed name
   sourceType?: SourceType;      // Type of source (default: 'external_table')
+  psaModelName?: string;        // For PSA sources: the dbt model name (e.g., 'psa_werkportal_company')
   
   // Business Key
   businessKeyColumns: string[];

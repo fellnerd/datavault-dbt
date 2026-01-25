@@ -141,7 +141,9 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('        GETDATE() AS dss_load_date');
     lines.push(`    FROM {{ ref('${externalTable}') }}`);
   } else if (sourceType === 'database_table') {
-    lines.push(`    SELECT * FROM ${externalTable}`);
+    // PSA tables use ref() - psaModelName is passed in config for PSA sources
+    const psaModelName = config.psaModelName || `psa_${externalTable}`;
+    lines.push(`    SELECT * FROM {{ ref('${psaModelName}') }}`);
   } else {
     // Default: external_table
     lines.push(`    SELECT * FROM {{ source('staging', '${externalTable}') }}`);
@@ -458,13 +460,24 @@ function generateHashDiffMA(entityName: string, separator: string): string {
  * Pattern: ext_<concept>_<entity>
  */
 export function parseExternalTableName(tableName: string): { concept: string; entityName: string } | null {
-  const match = tableName.match(/^ext_([^_]+)_(.+)$/i);
-  if (match) {
+  // First try: ext_<concept>_<entity> format (external tables)
+  const extMatch = tableName.match(/^ext_([^_]+)_(.+)$/i);
+  if (extMatch) {
     return {
-      concept: match[1].toLowerCase(),
-      entityName: match[2].toLowerCase()
+      concept: extMatch[1].toLowerCase(),
+      entityName: extMatch[2].toLowerCase()
     };
   }
+  
+  // Second try: <concept>_<entity> format (PSA tables without ext_ prefix)
+  const psaMatch = tableName.match(/^([^_]+)_(.+)$/i);
+  if (psaMatch) {
+    return {
+      concept: psaMatch[1].toLowerCase(),
+      entityName: psaMatch[2].toLowerCase()
+    };
+  }
+  
   return null;
 }
 

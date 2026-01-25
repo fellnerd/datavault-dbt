@@ -1,299 +1,413 @@
-"version": 2
-"sources":
-  - "name": "staging"
-    "description": "External Tables via PolyBase (Parquet from ADLS)"
-    "database": "{{ target.database }}"
-    "schema": "stg"
-    "tables":
-      - "name": "ext_jira_customers"
-        "description": "Auto-generated from Customers.parquet"
-        "external":
-          "location": "jira/sql2/Customers.parquet"
-          "file_format": "ParquetFormat"
-          "data_source": "StageFileSystem"
-        "columns":
-          - "name": "SERVICE_DESK_ID"
-            "data_type": "BIGINT"
-          - "name": "PROJECT_KEY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CUSTOMER_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CUSTOMER_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "IS_ACTIVE"
-            "data_type": "BIT"
-          - "name": "TIMEZONE"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CUSTOMER_EMAIL"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_record_source"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_load_date"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_run_id"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_stage_timestamp"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_source_file_name"
-            "data_type": "NVARCHAR(4000)"
-      - "name": "ext_jira_issues"
-        "description": "Auto-generated from Issues.parquet"
-        "external":
-          "location": "jira/sql2/Issues.parquet"
-          "file_format": "ParquetFormat"
-          "data_source": "StageFileSystem"
-        "columns":
-          - "name": "ISSUE_ID"
-            "data_type": "BIGINT"
-          - "name": "ISSUE_KEY"
-            "data_type": "NVARCHAR(10)"
-          - "name": "ISSUE_TYPE_ID"
-            "data_type": "BIGINT"
-          - "name": "ISSUE_TYPE_NAME"
-            "data_type": "NVARCHAR(50)"
-          - "name": "ISSUE_STATUS_ID"
-            "data_type": "BIGINT"
-          - "name": "ISSUE_STATUS_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "SUMMARY"
-            "data_type": "NVARCHAR(MAX)"
-          - "name": "DESCRIPTION"
-            "data_type": "NVARCHAR(MAX)"
-          - "name": "PRIORITY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "WATCHERS"
-            "data_type": "BIGINT"
-          - "name": "WORK_RATIO"
-            "data_type": "BIGINT"
-          - "name": "VOTES"
-            "data_type": "BIGINT"
-          - "name": "RESOLUTION"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "PROJECT_ID"
-            "data_type": "BIGINT"
-          - "name": "PROJECT_KEY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CURRENT_ASSIGNEE_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CURRENT_ASSIGNEE_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CREATOR_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CREATOR_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "REPORTER_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "REPORTER_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "ENVIRONMENT"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CREATED"
-            "data_type": "DATETIME2"
-          - "name": "UPDATED"
-            "data_type": "DATETIME2"
-          - "name": "DUE_DATE"
-            "data_type": "DATETIME2"
-          - "name": "RESOLUTION_DATE"
-            "data_type": "DATETIME2"
-          - "name": "LAST_VIEWED"
-            "data_type": "DATETIME2"
-          - "name": "SECURITY_LEVEL_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "STATUS_CATEGORY_CHANGE_DATE"
-            "data_type": "DATETIME2"
-          - "name": "TIME_SPENT"
-            "data_type": "BIGINT"
-          - "name": "TIME_SPENT_WITH_SUBTASKS"
-            "data_type": "BIGINT"
-          - "name": "ORIGINAL_ESTIMATE"
-            "data_type": "BIGINT"
-          - "name": "ORIGINAL_ESTIMATE_WITH_SUBTASKS"
-            "data_type": "BIGINT"
-          - "name": "REMAINING_ESTIMATE"
-            "data_type": "BIGINT"
-          - "name": "REMAINING_ESTIMATE_WITH_SUBTASKS"
-            "data_type": "BIGINT"
-          - "name": "BUSINESS_TIME_SPENT"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "BUSINESS_TIME_SPENT_WITH_SUBTASKS"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "BUSINESS_ORIGINAL_ESTIMATE"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "BUSINESS_ORIGINAL_ESTIMATE_WITH_SUBTASKS"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "BUSINESS_REMAINING_ESTIMATE"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "BUSINESS_REMAINING_ESTIMATE_WITH_SUBTASKS"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "PARENT_ISSUE_ID"
-            "data_type": "BIGINT"
-          - "name": "PARENT_ISSUE_KEY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "PARENT_ISSUE_SUMMARY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "PARENT_ISSUE_TYPE_ID"
-            "data_type": "BIGINT"
-          - "name": "PARENT_ISSUE_TYPE_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "PARENT_PRIORITY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "PARENT_ISSUE_STATUS_ID"
-            "data_type": "BIGINT"
-          - "name": "PARENT_ISSUE_STATUS_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_record_source"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_load_date"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_run_id"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_stage_timestamp"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_source_file_name"
-            "data_type": "NVARCHAR(4000)"
-      - "name": "ext_jira_issuestatuses"
-        "description": "Auto-generated from IssueStatuses.parquet"
-        "external":
-          "location": "jira/sql2/IssueStatuses.parquet"
-          "file_format": "ParquetFormat"
-          "data_source": "StageFileSystem"
-        "columns":
-          - "name": "ISSUE_STATUS_ID"
-            "data_type": "BIGINT"
-          - "name": "ISSUE_STATUS_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "DESCRIPTION"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CATEGORY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "ICON_URL"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "SCOPE_TYPE"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "SCOPE_ID"
-            "data_type": "BIGINT"
-          - "name": "dss_record_source"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_load_date"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_run_id"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_stage_timestamp"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_source_file_name"
-            "data_type": "NVARCHAR(4000)"
-      - "name": "ext_jira_issuetypes"
-        "description": "Auto-generated from IssueTypes.parquet"
-        "external":
-          "location": "jira/sql2/IssueTypes.parquet"
-          "file_format": "ParquetFormat"
-          "data_source": "StageFileSystem"
-        "columns":
-          - "name": "ISSUE_TYPE_ID"
-            "data_type": "BIGINT"
-          - "name": "ISSUE_TYPE_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "DESCRIPTION"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "IS_SUBTASK"
-            "data_type": "BIT"
-          - "name": "ICON_URL"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "SCOPE_TYPE"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "SCOPE_ID"
-            "data_type": "BIGINT"
-          - "name": "dss_record_source"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_load_date"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_run_id"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_stage_timestamp"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_source_file_name"
-            "data_type": "NVARCHAR(4000)"
-      - "name": "ext_jira_labels"
-        "description": "Auto-generated from Labels.parquet"
-        "external":
-          "location": "jira/sql2/Labels.parquet"
-          "file_format": "ParquetFormat"
-          "data_source": "StageFileSystem"
-        "columns":
-          - "name": "NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "ISSUE_ID"
-            "data_type": "BIGINT"
-          - "name": "ISSUE_KEY"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_record_source"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_load_date"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_run_id"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_stage_timestamp"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_source_file_name"
-            "data_type": "NVARCHAR(4000)"
-      - "name": "ext_jira_projects"
-        "description": "Auto-generated from Projects.parquet"
-        "external":
-          "location": "jira/sql2/Projects.parquet"
-          "file_format": "ParquetFormat"
-          "data_source": "StageFileSystem"
-        "columns":
-          - "name": "PROJECT_ID"
-            "data_type": "BIGINT"
-          - "name": "PROJECT_KEY"
-            "data_type": "NVARCHAR(10)"
-          - "name": "NAME"
-            "data_type": "NVARCHAR(255)"
-          - "name": "URL"
-            "data_type": "NVARCHAR(500)"
-          - "name": "DESCRIPTION"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "CATEGORY"
-            "data_type": "NVARCHAR(100)"
-          - "name": "TYPE"
-            "data_type": "NVARCHAR(100)"
-          - "name": "STYLE"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "IS_PRIVATE"
-            "data_type": "BIT"
-          - "name": "LEAD_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "LEAD_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "TOTAL_ISSUE_COUNT"
-            "data_type": "BIGINT"
-          - "name": "LAST_ISSUE_UPDATE_TIME"
-            "data_type": "DATETIME2"
-          - "name": "IS_ARCHIVED"
-            "data_type": "BIT"
-          - "name": "ARCHIVED_DATE"
-            "data_type": "DATETIME2"
-          - "name": "ARCHIVED_BY_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "ARCHIVED_BY_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "IS_DELETED"
-            "data_type": "BIT"
-          - "name": "DELETED_DATE"
-            "data_type": "DATETIME2"
-          - "name": "RETENTION_TILL_DATE"
-            "data_type": "DATETIME2"
-          - "name": "DELETED_BY_ACCOUNT_ID"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "DELETED_BY_NAME"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_record_source"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_load_date"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_run_id"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_stage_timestamp"
-            "data_type": "NVARCHAR(4000)"
-          - "name": "dss_source_file_name"
-            "data_type": "NVARCHAR(4000)"
+version: 2
+sources:
+  - name: staging
+    description: External Tables via PolyBase (Parquet from ADLS)
+    database: "{{ target.database }}"
+    schema: stg
+    tables:
+      - name: ext_jira_customers
+        description: Auto-generated from Customers.parquet
+        external:
+          location: jira/sql2/Customers.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: SERVICE_DESK_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(4000)
+          - name: CUSTOMER_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CUSTOMER_NAME
+            data_type: NVARCHAR(4000)
+          - name: IS_ACTIVE
+            data_type: BIT
+          - name: TIMEZONE
+            data_type: NVARCHAR(4000)
+          - name: CUSTOMER_EMAIL
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_issues
+        description: Auto-generated from Issues.parquet
+        external:
+          location: jira/sql2/Issues.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ISSUE_ID
+            data_type: BIGINT
+          - name: ISSUE_KEY
+            data_type: NVARCHAR(10)
+          - name: ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: ISSUE_TYPE_NAME
+            data_type: NVARCHAR(50)
+          - name: ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: SUMMARY
+            data_type: NVARCHAR(MAX)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(MAX)
+          - name: PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: WATCHERS
+            data_type: BIGINT
+          - name: WORK_RATIO
+            data_type: BIGINT
+          - name: VOTES
+            data_type: BIGINT
+          - name: RESOLUTION
+            data_type: NVARCHAR(4000)
+          - name: PROJECT_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_NAME
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_NAME
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_NAME
+            data_type: NVARCHAR(4000)
+          - name: ENVIRONMENT
+            data_type: NVARCHAR(4000)
+          - name: CREATED
+            data_type: DATETIME2
+          - name: UPDATED
+            data_type: DATETIME2
+          - name: DUE_DATE
+            data_type: DATETIME2
+          - name: RESOLUTION_DATE
+            data_type: DATETIME2
+          - name: LAST_VIEWED
+            data_type: DATETIME2
+          - name: SECURITY_LEVEL_NAME
+            data_type: NVARCHAR(4000)
+          - name: STATUS_CATEGORY_CHANGE_DATE
+            data_type: DATETIME2
+          - name: TIME_SPENT
+            data_type: BIGINT
+          - name: TIME_SPENT_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: BUSINESS_TIME_SPENT
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_TIME_SPENT_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_KEY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_SUMMARY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_TYPE_NAME
+            data_type: NVARCHAR(4000)
+          - name: PARENT_PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: jira_issues
+        description: Persistent Staging Area for ext_jira_issues
+        meta:
+          psa: true
+          source_external_table: ext_jira_issues
+        columns:
+          - name: ISSUE_ID
+            data_type: BIGINT
+          - name: ISSUE_KEY
+            data_type: NVARCHAR(10)
+          - name: ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: ISSUE_TYPE_NAME
+            data_type: NVARCHAR(50)
+          - name: ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: SUMMARY
+            data_type: NVARCHAR(MAX)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(MAX)
+          - name: PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: WATCHERS
+            data_type: BIGINT
+          - name: WORK_RATIO
+            data_type: BIGINT
+          - name: VOTES
+            data_type: BIGINT
+          - name: RESOLUTION
+            data_type: NVARCHAR(4000)
+          - name: PROJECT_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_NAME
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_NAME
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_NAME
+            data_type: NVARCHAR(4000)
+          - name: ENVIRONMENT
+            data_type: NVARCHAR(4000)
+          - name: CREATED
+            data_type: DATETIME2
+          - name: UPDATED
+            data_type: DATETIME2
+          - name: DUE_DATE
+            data_type: DATETIME2
+          - name: RESOLUTION_DATE
+            data_type: DATETIME2
+          - name: LAST_VIEWED
+            data_type: DATETIME2
+          - name: SECURITY_LEVEL_NAME
+            data_type: NVARCHAR(4000)
+          - name: STATUS_CATEGORY_CHANGE_DATE
+            data_type: DATETIME2
+          - name: TIME_SPENT
+            data_type: BIGINT
+          - name: TIME_SPENT_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: BUSINESS_TIME_SPENT
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_TIME_SPENT_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_KEY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_SUMMARY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_TYPE_NAME
+            data_type: NVARCHAR(4000)
+          - name: PARENT_PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_issuestatuses
+        description: Auto-generated from IssueStatuses.parquet
+        external:
+          location: jira/sql2/IssueStatuses.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(4000)
+          - name: CATEGORY
+            data_type: NVARCHAR(4000)
+          - name: ICON_URL
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_TYPE
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_ID
+            data_type: BIGINT
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_issuetypes
+        description: Auto-generated from IssueTypes.parquet
+        external:
+          location: jira/sql2/IssueTypes.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: ISSUE_TYPE_NAME
+            data_type: NVARCHAR(4000)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(4000)
+          - name: IS_SUBTASK
+            data_type: BIT
+          - name: ICON_URL
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_TYPE
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_ID
+            data_type: BIGINT
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_labels
+        description: Auto-generated from Labels.parquet
+        external:
+          location: jira/sql2/Labels.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: NAME
+            data_type: NVARCHAR(4000)
+          - name: ISSUE_ID
+            data_type: BIGINT
+          - name: ISSUE_KEY
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_projects
+        description: Auto-generated from Projects.parquet
+        external:
+          location: jira/sql2/Projects.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: PROJECT_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(10)
+          - name: NAME
+            data_type: NVARCHAR(255)
+          - name: URL
+            data_type: NVARCHAR(500)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(4000)
+          - name: CATEGORY
+            data_type: NVARCHAR(100)
+          - name: TYPE
+            data_type: NVARCHAR(100)
+          - name: STYLE
+            data_type: NVARCHAR(4000)
+          - name: IS_PRIVATE
+            data_type: BIT
+          - name: LEAD_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: LEAD_NAME
+            data_type: NVARCHAR(4000)
+          - name: TOTAL_ISSUE_COUNT
+            data_type: BIGINT
+          - name: LAST_ISSUE_UPDATE_TIME
+            data_type: DATETIME2
+          - name: IS_ARCHIVED
+            data_type: BIT
+          - name: ARCHIVED_DATE
+            data_type: DATETIME2
+          - name: ARCHIVED_BY_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: ARCHIVED_BY_NAME
+            data_type: NVARCHAR(4000)
+          - name: IS_DELETED
+            data_type: BIT
+          - name: DELETED_DATE
+            data_type: DATETIME2
+          - name: RETENTION_TILL_DATE
+            data_type: DATETIME2
+          - name: DELETED_BY_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: DELETED_BY_NAME
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)

@@ -213,6 +213,12 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.createPersistentStaging",
+        "title": "Create PSA Table (Persist External)",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.createRefTable",
         "title": "Create Reference Table",
         "icon": "$(list-unordered)",
@@ -312,6 +318,10 @@
           "when": "false"
         },
         {
+          "command": "datavault.createPersistentStaging",
+          "when": "false"
+        },
+        {
           "command": "datavault.validateStaging",
           "when": "false"
         },
@@ -388,8 +398,13 @@
         },
         {
           "command": "datavault.createStaging",
-          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
           "group": "staging@1"
+        },
+        {
+          "command": "datavault.createPersistentStaging",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "staging@0"
         },
         {
           "command": "datavault.createAllExternalTables",
@@ -418,7 +433,7 @@
         },
         {
           "command": "datavault.createRefTable",
-          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
           "group": "reference@1"
         },
         {
@@ -443,12 +458,12 @@
         },
         {
           "command": "datavault.addToGroup",
-          "when": "view =~ /^datavault-/ && viewItem =~ /^(model|model-in-group|external_table|external_table-in-group)$/",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^(model|model-in-group|external_table|external_table-in-group|psa_table|psa_table-in-group)$/",
           "group": "groups@1"
         },
         {
           "command": "datavault.removeFromGroup",
-          "when": "view =~ /^datavault-/ && viewItem =~ /^(model-in-group|external_table-in-group)$/",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^(model-in-group|external_table-in-group|psa_table-in-group)$/",
           "group": "groups@2"
         }
       ]

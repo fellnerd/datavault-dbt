@@ -17,7 +17,8 @@ import {
   YamlModelDefinition,
   YamlColumnDefinition,
   ColumnInfo,
-  ExternalTable
+  ExternalTable,
+  PsaTableInfo
 } from './types';
 
 /**
@@ -131,9 +132,10 @@ export class DbtProjectParser {
     const staging = models.filter(m => m.layer === 'staging');
     const seeds = models.filter(m => m.type === 'ref');
 
-    // Step 4: Parse sources.yml for external tables
-    const externalTables = await this.parseSourcesYaml(modelPaths);
+    // Step 4: Parse sources.yml for external tables and PSA tables
+    const { externalTables, psaTables } = await this.parseSourcesYaml(modelPaths);
     console.log(`[DataVault] Loaded ${externalTables.length} external tables from sources.yml`);
+    console.log(`[DataVault] Loaded ${psaTables.length} PSA tables from sources.yml`);
 
     // Extract unique concepts and schemas
     const concepts = [...new Set(models.map(m => m.concept).filter(c => c))];
@@ -154,6 +156,7 @@ export class DbtProjectParser {
       staging,
       seeds,
       externalTables,
+      psaTables,
       concepts,
       schemas,
       lastScanned: new Date()
@@ -708,10 +711,11 @@ export class DbtProjectParser {
   }
 
   /**
-   * Parse sources.yml files to extract external table definitions
+   * Parse sources.yml files to extract external table and PSA table definitions
    */
-  private async parseSourcesYaml(modelPaths: string[]): Promise<ExternalTable[]> {
+  private async parseSourcesYaml(modelPaths: string[]): Promise<{ externalTables: ExternalTable[]; psaTables: PsaTableInfo[] }> {
     const externalTables: ExternalTable[] = [];
+    const psaTables: PsaTableInfo[] = [];
 
     for (const modelPath of modelPaths) {
       const fullPath = path.join(this.projectPath, modelPath);
@@ -745,34 +749,62 @@ export class DbtProjectParser {
                 description: col.description
               }));
 
-              // Extract concept from location or name
-              let concept = '_common';
-              if (table.external?.location) {
-                // Parse location like "werkportal/postgres/public.wp_company_client.parquet"
-                const locationParts = table.external.location.split('/');
-                if (locationParts.length > 0) {
-                  concept = locationParts[0].toLowerCase();
-                }
-              } else if (table.name.startsWith('ext_')) {
-                // Extract from name like "ext_werkportal_company"
-                const nameParts = table.name.substring(4).split('_');
+              // Check if this is a PSA table (has meta.psa: true)
+              const isPsa = table.meta?.psa === true;
+
+              if (isPsa) {
+                // PSA table - extract from meta
+                const sourceExtTable = table.meta?.source_external_table || '';
+                
+                // Extract concept from name like "jira_customers"
+                let concept = '_common';
+                const nameParts = table.name.split('_');
                 if (nameParts.length > 1) {
                   concept = nameParts[0].toLowerCase();
                 }
-              }
 
-              externalTables.push({
-                name: table.name,
-                description: table.description,
-                sourceName,
-                schema: sourceSchema,
-                columns,
-                location: table.external?.location,
-                fileFormat: table.external?.file_format,
-                dataSource: table.external?.data_source,
-                concept,
-                _yamlPath: sourcesFile
-              });
+                psaTables.push({
+                  name: table.name,
+                  modelName: `psa_${table.name}`,  // The actual dbt model is psa_<name>
+                  description: table.description,
+                  sourceName,
+                  schema: sourceSchema,
+                  columns,
+                  sourceExternalTable: sourceExtTable,
+                  concept,
+                  _yamlPath: sourcesFile
+                });
+              } else {
+                // Regular external table
+                // Extract concept from location or name
+                let concept = '_common';
+                if (table.external?.location) {
+                  // Parse location like "werkportal/postgres/public.wp_company_client.parquet"
+                  const locationParts = table.external.location.split('/');
+                  if (locationParts.length > 0) {
+                    concept = locationParts[0].toLowerCase();
+                  }
+                } else if (table.name.startsWith('ext_')) {
+                  // Extract from name like "ext_werkportal_company"
+                  const nameParts = table.name.substring(4).split('_');
+                  if (nameParts.length > 1) {
+                    concept = nameParts[0].toLowerCase();
+                  }
+                }
+
+                externalTables.push({
+                  name: table.name,
+                  description: table.description,
+                  sourceName,
+                  schema: sourceSchema,
+                  columns,
+                  location: table.external?.location,
+                  fileFormat: table.external?.file_format,
+                  dataSource: table.external?.data_source,
+                  concept,
+                  _yamlPath: sourcesFile
+                });
+              }
             }
           }
         } catch (error) {
@@ -781,7 +813,7 @@ export class DbtProjectParser {
       }
     }
 
-    return externalTables;
+    return { externalTables, psaTables };
   }
 
   /**

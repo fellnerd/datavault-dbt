@@ -12,6 +12,7 @@ import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 import { createStaging, validateStaging, deleteStaging, createStagingWizard } from './staging';
 import { createRefTable, createRefTableFromPalette } from './refTable';
+import { createPersistentStaging, createPersistentStagingWizard } from './persistentStaging';
 import { createPITTable, createPITTableFromPalette } from './pitTable';
 import { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 import { registerEntityDesignerCommands } from './entityDesigner';
@@ -23,6 +24,7 @@ export { discoverExternalSources } from './discover';
 export { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 export { createStaging, validateStaging, deleteStaging } from './staging';
 export { createRefTable, createRefTableFromPalette } from './refTable';
+export { createPersistentStaging, createPersistentStagingWizard } from './persistentStaging';
 export { createPITTable, createPITTableFromPalette } from './pitTable';
 export { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 export { registerEntityDesignerCommands } from './entityDesigner';
@@ -251,6 +253,20 @@ export function registerCommands(
       'datavault.deleteStaging',
       async (treeItem?: TreeItemData) => {
         await deleteStaging(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Create PSA Table Command (context menu on external table)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.createPersistentStaging',
+      async (treeItem?: TreeItemData) => {
+        await createPersistentStaging(treeItem, {
           projectPath: getCurrentProjectPath(),
           refreshProject,
           log

@@ -1,16 +1,27 @@
 /**
  * Load Layer TreeDataProvider
  * 
- * Displays External Tables from sources.yml in the tree view.
+ * Displays External Tables and PSA Tables from sources.yml in the tree view.
  * Groups tables by concept (source system), with support for custom groups.
  */
 
 import * as vscode from 'vscode';
-import { TreeItemData, ExternalTable, GroupConfig } from '../types';
+import { TreeItemData, ExternalTable, PsaTableInfo, GroupConfig } from '../types';
 import { DataVaultTreeProvider } from './base';
 
 /**
- * Load Layer TreeDataProvider - External Tables from sources.yml
+ * Combined source item for tree view (external table or PSA table)
+ */
+interface SourceItem {
+  type: 'external_table' | 'psa_table';
+  name: string;
+  concept: string;
+  externalTable?: ExternalTable;
+  psaTable?: PsaTableInfo;
+}
+
+/**
+ * Load Layer TreeDataProvider - External Tables and PSA Tables from sources.yml
  */
 export class LoadTreeProvider extends DataVaultTreeProvider {
   /**
@@ -32,10 +43,11 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
     }
 
     if (!element) {
-      // Root level - group external tables by concept (source system)
+      // Root level - combine external tables and PSA tables, group by concept
       const externalTables = this.metadata.externalTables || [];
+      const psaTables = this.metadata.psaTables || [];
       
-      if (externalTables.length === 0) {
+      if (externalTables.length === 0 && psaTables.length === 0) {
         return [{
           id: 'empty',
           label: 'No external tables found in sources.yml',
@@ -45,7 +57,7 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
         }];
       }
 
-      return this.createExternalTableConceptTree(externalTables);
+      return this.createSourceConceptTree(externalTables, psaTables);
     }
 
     // Return children for nested elements
@@ -62,17 +74,23 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
   }
 
   /**
-   * Group external tables by concept (source system) with group support
+   * Group external tables and PSA tables by concept (source system)
    */
-  private createExternalTableConceptTree(tables: ExternalTable[]): TreeItemData[] {
+  private createSourceConceptTree(externalTables: ExternalTable[], psaTables: PsaTableInfo[]): TreeItemData[] {
+    // Combine into source items
+    const sourceItems: SourceItem[] = [
+      ...externalTables.map(t => ({ type: 'external_table' as const, name: t.name, concept: t.concept, externalTable: t })),
+      ...psaTables.map(t => ({ type: 'psa_table' as const, name: t.name, concept: t.concept, psaTable: t }))
+    ];
+
     // Group by concept
-    const byConceptMap = new Map<string, ExternalTable[]>();
-    for (const table of tables) {
-      const concept = table.concept || '_other';
+    const byConceptMap = new Map<string, SourceItem[]>();
+    for (const item of sourceItems) {
+      const concept = item.concept || '_other';
       if (!byConceptMap.has(concept)) {
         byConceptMap.set(concept, []);
       }
-      byConceptMap.get(concept)!.push(table);
+      byConceptMap.get(concept)!.push(item);
     }
 
     // Sort concepts alphabetically
@@ -82,24 +100,39 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
       return a.localeCompare(b);
     });
 
-    return sortedConcepts.map(concept => ({
-      id: `load-concept-${concept}`,
-      label: concept === '_other' ? 'Other' : this.formatConceptName(concept),
-      type: 'concept' as const,
-      collapsibleState: 'collapsed' as const,
-      concept,
-      layer: 'sources' as const,
-      description: `${byConceptMap.get(concept)!.length} tables`,
-      children: this.createGroupedExternalTableItems(byConceptMap.get(concept)!, concept)
-    }));
+    return sortedConcepts.map(concept => {
+      const items = byConceptMap.get(concept)!;
+      const extCount = items.filter(i => i.type === 'external_table').length;
+      const psaCount = items.filter(i => i.type === 'psa_table').length;
+      const desc = psaCount > 0 ? `${extCount} ext, ${psaCount} psa` : `${extCount} tables`;
+      
+      return {
+        id: `load-concept-${concept}`,
+        label: concept === '_other' ? 'Other' : this.formatConceptName(concept),
+        type: 'concept' as const,
+        collapsibleState: 'collapsed' as const,
+        concept,
+        layer: 'sources' as const,
+        description: desc,
+        children: this.createGroupedSourceItems(items, concept)
+      };
+    });
   }
 
   /**
-   * Create tree items with groups (All + custom groups) for external tables
+   * Create tree items with groups (All + custom groups) for source items
    */
-  private createGroupedExternalTableItems(tables: ExternalTable[], concept: string): TreeItemData[] {
+  private createGroupedSourceItems(items: SourceItem[], concept: string): TreeItemData[] {
     const groups = this.getGroupsForConceptLocal(concept);
     const result: TreeItemData[] = [];
+
+    // Sort items: external tables first, then PSA tables, alphabetically within each
+    const sortedItems = [...items].sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'external_table' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
 
     // Always create "All" group first
     result.push({
@@ -109,14 +142,14 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
       collapsibleState: 'collapsed',
       concept,
       layer: 'sources',
-      description: `${tables.length}`,
-      children: tables.map(t => this.externalTableToTreeItemWithGroup(t, 'All'))
+      description: `${items.length}`,
+      children: sortedItems.map(item => this.sourceItemToTreeItem(item, 'All'))
     });
 
-    // Add custom groups (only if they have tables)
+    // Add custom groups (only if they have items)
     for (const group of groups) {
-      const groupTables = tables.filter(t => group.models.includes(t.name));
-      if (groupTables.length > 0) {
+      const groupItems = items.filter(item => group.models.includes(item.name));
+      if (groupItems.length > 0) {
         result.push({
           id: `load-${concept}-group-${group.name}`,
           label: group.name,
@@ -125,13 +158,83 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
           concept,
           layer: 'sources',
           groupName: group.name,
-          description: `${groupTables.length}`,
-          children: groupTables.map(t => this.externalTableToTreeItemWithGroup(t, group.name))
+          description: `${groupItems.length}`,
+          children: groupItems.map(item => this.sourceItemToTreeItem(item, group.name))
         });
       }
     }
 
     return result;
+  }
+
+  /**
+   * Convert a source item (external table or PSA table) to tree item
+   */
+  private sourceItemToTreeItem(item: SourceItem, groupName: string): TreeItemData {
+    if (item.type === 'psa_table' && item.psaTable) {
+      return this.psaTableToTreeItem(item.psaTable, groupName);
+    }
+    return this.externalTableToTreeItemWithGroup(item.externalTable!, groupName);
+  }
+
+  /**
+   * Convert a PSA table to a tree item
+   */
+  private psaTableToTreeItem(psa: PsaTableInfo, groupName: string): TreeItemData {
+    const hasColumns = psa.columns && psa.columns.length > 0;
+    return {
+      id: `psa-${psa.name}-${groupName}`,
+      label: psa.name,
+      type: 'psa_table',
+      modelType: 'table',
+      filePath: psa._yamlPath,
+      psaTable: psa,
+      groupName,
+      concept: psa.concept,
+      layer: 'sources',
+      collapsibleState: hasColumns ? 'collapsed' : 'none',
+      icon: 'database',  // Different icon for PSA
+      description: `← ${psa.sourceExternalTable}`,
+      tooltip: this.createPsaTableTooltip(psa),
+      children: hasColumns ? this.createPsaTableColumnItems(psa) : undefined
+    };
+  }
+
+  /**
+   * Create tooltip for PSA table
+   */
+  private createPsaTableTooltip(psa: PsaTableInfo): string {
+    const lines = [
+      `**${psa.name}** (Persistent Staging)`,
+      `Model: ${psa.modelName}`,
+      `Source: ${psa.sourceExternalTable}`,
+      `Schema: ${psa.schema}`
+    ];
+
+    if (psa.columns.length > 0) {
+      lines.push(`Columns: ${psa.columns.length}`);
+    }
+
+    if (psa.description) {
+      lines.push('', psa.description);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Create tree items for PSA table columns
+   */
+  private createPsaTableColumnItems(psa: PsaTableInfo): TreeItemData[] {
+    return psa.columns.map(col => ({
+      id: `psa-${psa.name}-col-${col.name}`,
+      label: col.name,
+      type: 'column' as const,
+      collapsibleState: 'none' as const,
+      description: col.dataType || 'unknown',
+      tooltip: col.description || `${col.name}: ${col.dataType || 'unknown'}`,
+      icon: this.getColumnIcon(col.name)
+    }));
   }
 
   /**
