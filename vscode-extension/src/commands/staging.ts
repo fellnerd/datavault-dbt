@@ -443,8 +443,7 @@ export async function deleteStaging(
   const confirmation = await vscode.window.showWarningMessage(
     `Are you sure you want to delete the staging model "${model.name}"?\n\nThis will delete:\n• ${path.basename(model.filePath)}\n• Entry in _staging__models.yml`,
     { modal: true },
-    'Delete',
-    'Cancel'
+    'Delete'
   );
 
   if (confirmation !== 'Delete') {

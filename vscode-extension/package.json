@@ -231,6 +231,18 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.deleteRawVaultModel",
+        "title": "Delete Raw Vault Model",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteBusinessVaultModel",
+        "title": "Delete Business Vault Model",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.createGroup",
         "title": "Create Group",
         "icon": "$(add)",
@@ -253,6 +265,14 @@
       "commandPalette": [
         {
           "command": "datavault.deleteStaging",
+          "when": "false"
+        },
+        {
+          "command": "datavault.deleteRawVaultModel",
+          "when": "false"
+        },
+        {
+          "command": "datavault.deleteBusinessVaultModel",
           "when": "false"
         },
         {
@@ -410,6 +430,16 @@
           "command": "datavault.createBridgeTable",
           "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
           "group": "businessvault@2"
+        },
+        {
+          "command": "datavault.deleteRawVaultModel",
+          "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
+          "group": "delete@1"
+        },
+        {
+          "command": "datavault.deleteBusinessVaultModel",
+          "when": "view == datavault-businessvault && viewItem =~ /^(model|model-in-group)$/",
+          "group": "delete@1"
         },
         {
           "command": "datavault.addToGroup",

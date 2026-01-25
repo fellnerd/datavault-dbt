@@ -12,7 +12,10 @@
 {%- set hashdiff_columns = [
     'CATEGORY',
     'DESCRIPTION',
-    'LEAD_NAME',
+    'IS_DELETED',
+    'IS_PRIVATE',
+    'LAST_ISSUE_UPDATE_TIME',
+    'LEAD_ACCOUNT_ID',
     'NAME',
     'PROJECT_KEY',
     'TOTAL_ISSUE_COUNT',
@@ -48,7 +51,7 @@ staged AS (
         -- ===========================================
         -- BUSINESS KEY(S)
         -- ===========================================
-        PROJECT_ID AS project_id,
+        PROJECT_ID as project_id,
 
         -- ===========================================
         -- PAYLOAD
@@ -59,8 +62,11 @@ staged AS (
         DESCRIPTION as description,
         CATEGORY as category,
         TYPE as type,
-        LEAD_NAME as lead,
-        TOTAL_ISSUE_COUNT as issue_count,
+        IS_PRIVATE as is_private,
+        LEAD_ACCOUNT_ID as lead_account_id,
+        TOTAL_ISSUE_COUNT as total_issue_count,
+        LAST_ISSUE_UPDATE_TIME as last_issue_update_time,
+        IS_DELETED as is_deleted,
 
         -- ===========================================
         -- METADATA

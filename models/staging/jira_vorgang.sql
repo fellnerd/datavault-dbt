@@ -5,17 +5,31 @@
  * Business Key: ISSUE_ID
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
+ * Links (Foreign Keys):
+ *   - jira.hub_project via project_id
+ *
  * Hash Keys calculated here (automate_dv pattern):
  *   - hk_vorgang (Entity Hash Key)
+ *   - hk_project (FK Hash Key for jira.hub_project)
+ *   - hk_link_vorgang_project (Link Hash Key)
  */
 
 {%- set hashdiff_columns = [
-    'ISSUE_KEY',
-    'ISSUE_STATUS_ID',
-    'ISSUE_TYPE_ID',
-    'PROJECT_ID',
-    'PROJECT_KEY',
-    'SUMMARY'
+    'issue_key',
+    'issue_status_id',
+    'issue_type_id',
+    'original_estimate',
+    'original_estimate_with_subtasks',
+    'parent_issue_id',
+    'priority',
+    'remaining_estimate',
+    'remaining_estimate_with_subtasks',
+    'reporter_account_id',
+    'resolution',
+    'summary',
+    'time_spent',
+    'time_spent_with_subtasks',
+    'work_ratio'
 ] -%}
 
 WITH source AS (
@@ -30,6 +44,24 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(ISSUE_ID AS NVARCHAR(MAX)), '')
         ), 2) AS hk_vorgang,
+
+        -- ===========================================
+        -- FK HASH KEYS (for Links)
+        -- ===========================================
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(project_id AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_project,
+
+        -- ===========================================
+        -- LINK HASH KEYS
+        -- ===========================================
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ISNULL(CAST(ISSUE_ID AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(project_id AS NVARCHAR(MAX)), '')
+            )
+        ), 2) AS hk_link_vorgang_project,
 
         -- ===========================================
         -- HASH DIFF (Change Detection - Satellite)
@@ -51,12 +83,22 @@ staged AS (
         -- ===========================================
         -- PAYLOAD
         -- ===========================================
-        ISSUE_KEY,
-        ISSUE_TYPE_ID,
-        ISSUE_STATUS_ID,
-        SUMMARY,
-        PROJECT_ID,
-        PROJECT_KEY,
+        issue_key,
+        issue_type_id,
+        issue_status_id,
+        summary,
+        priority,
+        work_ratio,
+        resolution,
+        project_id,
+        reporter_account_id,
+        time_spent,
+        time_spent_with_subtasks,
+        original_estimate,
+        original_estimate_with_subtasks,
+        remaining_estimate,
+        remaining_estimate_with_subtasks,
+        parent_issue_id,
 
         -- ===========================================
         -- METADATA

@@ -16,6 +16,7 @@ import { createPITTable, createPITTableFromPalette } from './pitTable';
 import { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 import { registerEntityDesignerCommands } from './entityDesigner';
 import { registerDbtCommands } from './dbtCommands';
+import { deleteRawVaultModel, deleteBusinessVaultModel } from './vaultDelete';
 
 // Re-export command implementations for use elsewhere
 export { discoverExternalSources } from './discover';
@@ -26,6 +27,7 @@ export { createPITTable, createPITTableFromPalette } from './pitTable';
 export { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 export { registerEntityDesignerCommands } from './entityDesigner';
 export { registerDbtCommands } from './dbtCommands';
+export { deleteRawVaultModel, deleteBusinessVaultModel } from './vaultDelete';
 
 /**
  * Logger function type
@@ -292,6 +294,36 @@ export function registerCommands(
       'datavault.createBridgeTable',
       async (treeItem?: TreeItemData) => {
         await createBridgeTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          getCurrentMetadata,
+          log
+        });
+      }
+    )
+  );
+
+  // Delete Raw Vault Model Command (Hub, Satellite, Link)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.deleteRawVaultModel',
+      async (treeItem?: TreeItemData) => {
+        await deleteRawVaultModel(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          getCurrentMetadata,
+          log
+        });
+      }
+    )
+  );
+
+  // Delete Business Vault Model Command (PIT, Bridge)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.deleteBusinessVaultModel',
+      async (treeItem?: TreeItemData) => {
+        await deleteBusinessVaultModel(treeItem, {
           projectPath: getCurrentProjectPath(),
           refreshProject,
           getCurrentMetadata,

@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as yaml from 'yaml';
 import { 
   ExternalTable, 
   EntityDesignConfig, 
@@ -140,6 +142,12 @@ export class EntityDesignerProvider {
   ): void {
     if (!this._panel) {return;}
 
+    // DEBUG: Log the columns being sent to verify dataTypes
+    console.log('[Entity Designer] Columns from externalTable:');
+    externalTable.columns.slice(0, 5).forEach(c => {
+      console.log(`  - ${c.name}: dataType = "${c.dataType}"`);
+    });
+
     const initMessage: WebviewInitMessage = {
       type: 'init',
       data: {
@@ -193,6 +201,7 @@ export class EntityDesignerProvider {
       case 'saveConfig':
         await this.handleSaveConfig(message.columns, message.entityName);
         break;
+      // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
       case 'update':
         // Legacy - column updates now handled via saveConfig
         break;
@@ -229,6 +238,156 @@ export class EntityDesignerProvider {
 
     await saveDesignerConfig(this._projectPath, config);
     console.log('[Entity Designer] Config saved to JSON');
+  }
+
+  /**
+   * Update data type in sources.yml
+   * This keeps the sources.yml in sync when user changes data types in the designer
+   */
+  private async handleUpdateDataType(columnName: string, newDataType: string): Promise<void> {
+    if (!this._projectPath || !this._currentEntity) {
+      console.error('[Entity Designer] Cannot update dataType: missing project path or entity context');
+      return;
+    }
+
+    const sourceTable = this._currentEntity.sourceTable;
+    const sourcesYmlPath = path.join(this._projectPath, 'models', 'staging', 'sources.yml');
+
+    try {
+      if (!fs.existsSync(sourcesYmlPath)) {
+        console.warn('[Entity Designer] sources.yml not found');
+        return;
+      }
+
+      const content = await fs.promises.readFile(sourcesYmlPath, 'utf-8');
+      const parsed = yaml.parse(content);
+
+      if (!parsed?.sources?.[0]?.tables) {
+        console.warn('[Entity Designer] Invalid sources.yml structure');
+        return;
+      }
+
+      // Find the table
+      const table = parsed.sources[0].tables.find((t: { name: string }) => t.name === sourceTable);
+      if (!table?.columns) {
+        console.warn(`[Entity Designer] Table ${sourceTable} not found in sources.yml`);
+        return;
+      }
+
+      // Find and update the column
+      const column = table.columns.find((c: { name: string }) => 
+        c.name.toLowerCase() === columnName.toLowerCase()
+      );
+      if (column) {
+        column.data_type = newDataType;
+        
+        // Write back to file with preserved formatting
+        const newContent = yaml.stringify(parsed, { 
+          lineWidth: 0,
+          defaultStringType: 'QUOTE_DOUBLE',
+          defaultKeyType: 'QUOTE_DOUBLE'
+        });
+        await fs.promises.writeFile(sourcesYmlPath, newContent, 'utf-8');
+        console.log(`[Entity Designer] Updated ${columnName} data_type to ${newDataType} in sources.yml`);
+      } else {
+        console.warn(`[Entity Designer] Column ${columnName} not found in table ${sourceTable}`);
+      }
+    } catch (error) {
+      console.error('[Entity Designer] Error updating sources.yml:', error);
+    }
+  }
+
+  /**
+   * Batch sync all dataTypes to sources.yml (called on Generate)
+   * Only writes once to avoid multiple file watcher triggers
+   */
+  private async syncDataTypesToSourcesYaml(columns: SavedColumnConfig[]): Promise<void> {
+    if (!this._projectPath || !this._currentEntity) {
+      console.warn('[Entity Designer] Cannot sync dataTypes: missing project path or entity context');
+      return;
+    }
+
+    const sourceTable = this._currentEntity.sourceTable;
+    const sourcesYmlPath = path.join(this._projectPath, 'models', 'staging', 'sources.yml');
+
+    try {
+      if (!fs.existsSync(sourcesYmlPath)) {
+        console.warn('[Entity Designer] sources.yml not found, skipping dataType sync');
+        return;
+      }
+
+      const content = await fs.promises.readFile(sourcesYmlPath, 'utf-8');
+      const parsed = yaml.parse(content);
+
+      if (!parsed?.sources?.[0]?.tables) {
+        console.warn('[Entity Designer] Invalid sources.yml structure');
+        return;
+      }
+
+      // Find the table
+      const table = parsed.sources[0].tables.find((t: { name: string }) => t.name === sourceTable);
+      if (!table?.columns) {
+        console.warn(`[Entity Designer] Table ${sourceTable} not found in sources.yml`);
+        return;
+      }
+
+      // Build map of column updates
+      let updatedCount = 0;
+      for (const col of columns) {
+        const sourceName = col.sourceName || col.name;
+        const ymlColumn = table.columns.find((c: { name: string }) => 
+          c.name.toLowerCase() === sourceName.toLowerCase()
+        );
+        if (ymlColumn && col.dataType && ymlColumn.data_type !== col.dataType) {
+          ymlColumn.data_type = col.dataType;
+          updatedCount++;
+        }
+      }
+
+      if (updatedCount > 0) {
+        // Write back to file with preserved formatting
+        const newContent = yaml.stringify(parsed, { 
+          lineWidth: 0,
+          defaultStringType: 'QUOTE_DOUBLE',
+          defaultKeyType: 'QUOTE_DOUBLE'
+        });
+        await fs.promises.writeFile(sourcesYmlPath, newContent, 'utf-8');
+        console.log(`[Entity Designer] Synced ${updatedCount} dataType(s) to sources.yml`);
+      } else {
+        console.log('[Entity Designer] No dataType changes to sync to sources.yml');
+      }
+    } catch (error) {
+      console.error('[Entity Designer] Error syncing dataTypes to sources.yml:', error);
+    }
+  }
+
+  /**
+   * Recreate external table after dataType changes
+   * Executes the datavault.createExternalTable command
+   */
+  private async recreateExternalTable(tableName: string): Promise<void> {
+    try {
+      console.log(`[Entity Designer] Recreating external table: ${tableName}`);
+      
+      // Create a minimal TreeItemData that the command expects
+      const treeItemData = {
+        label: tableName,
+        type: 'external_table' as const,
+        externalTable: {
+          name: tableName,
+          concept: this._currentEntity?.concept || '',
+          columns: []
+        }
+      };
+      
+      // Execute the createExternalTable command
+      await vscode.commands.executeCommand('datavault.createExternalTable', treeItemData);
+      
+      console.log(`[Entity Designer] External table recreated: ${tableName}`);
+    } catch (error) {
+      console.error('[Entity Designer] Error recreating external table:', error);
+      // Don't throw - this is a non-critical operation
+    }
   }
 
   /**
@@ -324,6 +483,12 @@ export class EntityDesignerProvider {
       if (result.success) {
         // Generate schema YAML
         await generateSchemaYaml(config, result.files, this._projectPath);
+        
+        // Sync dataTypes to sources.yml (batch update)
+        await this.syncDataTypesToSourcesYaml(savedConfig.columns);
+        
+        // Recreate external table to apply dataType changes
+        await this.recreateExternalTable(sourceTable);
         
         // Update config with generated objects info
         savedConfig.generatedObjects = targets;

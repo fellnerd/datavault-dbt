@@ -414,6 +414,15 @@ export interface WebviewReadyMessage {
 }
 
 /**
+ * Update data type in sources.yml
+ */
+export interface WebviewUpdateDataTypeMessage {
+  type: 'updateDataType';
+  columnName: string;  // Original column name in sources.yml
+  newDataType: string; // New data type to set
+}
+
+/**
  * Union type for all webview messages
  */
 export type WebviewMessage = 
@@ -422,4 +431,5 @@ export type WebviewMessage =
   | WebviewSaveConfigMessage
   | WebviewUpdateMessage
   | WebviewGenerationCompleteMessage
-  | WebviewReadyMessage;
+  | WebviewReadyMessage
+  | WebviewUpdateDataTypeMessage;

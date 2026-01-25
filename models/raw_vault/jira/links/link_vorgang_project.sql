@@ -1,14 +1,9 @@
 {#
-    Link: link_comments_seed_vorgang
-    Parent Hub: jira.hub_vorgang
-    Dependent Child: comments_seed (no own hub)
-    Driving Key: issue_id
-    Link Type: Dependent Child Link (Pure DC)
-    - Source entity has no own Business Key
-    - Identified by: Target FK (issue_id) + DCK (comment_author, comment_date)
-    - Link PK hash includes DCK columns (calculated in staging)
-    - DCK values are stored in the DC Satellite, not the link
-    Source: jira_comments_seed
+    Link: link_vorgang_project
+    Source Hub: hub_vorgang
+    Target Hub: jira.hub_project
+    Driving Key: project_id
+    Source: jira_vorgang
     
     Note: In automate_dv, links don't store payload columns.
     DCK columns are only used for the link hash calculation in staging.
@@ -24,9 +19,11 @@
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "jira_comments_seed"
-src_pk: "hk_link_comments_seed_vorgang"
-src_fk: "hk_vorgang"
+source_model: "jira_vorgang"
+src_pk: "hk_link_vorgang_project"
+src_fk: 
+    - "hk_vorgang"
+    - "hk_project"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}

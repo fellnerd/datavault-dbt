@@ -605,8 +605,12 @@ export const App: React.FC = () => {
         }
         
         // Convert columns - use saved config if available, otherwise auto-detect
+        // IMPORTANT: dataType from sources.yml (col.dataType) is the Single Source of Truth
+        // Only use saved dataType if it was explicitly changed by user (different from source)
         const configuredColumns: ColumnConfig[] = filteredColumns.map((col, index) => {
           const saved = savedColumnMap?.get(col.name.toLowerCase());
+          // Source dataType from sources.yml - this is the truth
+          const sourceDataType = col.dataType || 'NVARCHAR(MAX)';
           
           if (saved) {
             // Restore from saved configuration
@@ -632,7 +636,8 @@ export const App: React.FC = () => {
               name: col.name,
               sourceName: saved.sourceName || col.name,
               alias: saved.name || col.name,
-              dataType: saved.dataType || col.dataType || 'NVARCHAR(MAX)',
+              // Use source dataType - it's synced with sources.yml
+              dataType: sourceDataType,
               columnType: target,
               includeInHashDiff: target === 'satellite',
               foreignKeyTarget: saved.foreignKeyTarget,
@@ -660,7 +665,7 @@ export const App: React.FC = () => {
               name: col.name,
               sourceName: col.name,
               alias: col.name,
-              dataType: col.dataType || 'NVARCHAR(MAX)',
+              dataType: sourceDataType,
               columnType: target,
               includeInHashDiff: target === 'satellite',
               foreignKeyTarget,
@@ -742,7 +747,10 @@ export const App: React.FC = () => {
   const updateColumn = useCallback((index: number, updates: Partial<ColumnConfig>) => {
     setColumns(prev => {
       const newColumns = [...prev];
-      newColumns[index] = { ...newColumns[index], ...updates };
+      const column = newColumns[index];
+      newColumns[index] = { ...column, ...updates };
+      // DataType changes are saved to JSON via auto-save
+      // sources.yml sync happens on Generate
       return newColumns;
     });
   }, []);

@@ -1,11 +1,64 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'yaml';
 import { EntityDesignerProvider } from '../webviews/entityDesigner/EntityDesignerProvider';
-import { ExternalTable, DbtModel, TreeItemData } from '../types';
+import { ExternalTable, DbtModel, TreeItemData, ColumnInfo } from '../types';
 import { scanForExistingHubs } from '../services/hubScanner';
 
 let designerProvider: EntityDesignerProvider | undefined;
+
+/**
+ * Load dataType mapping from sources.yml
+ * Returns a Map of columnName (lowercase) -> dataType
+ */
+function loadDataTypesFromSourcesYaml(projectPath: string, tableName: string): Map<string, string> {
+  const dataTypeMap = new Map<string, string>();
+  const sourcesYmlPath = path.join(projectPath, 'models', 'staging', 'sources.yml');
+  
+  if (!fs.existsSync(sourcesYmlPath)) {
+    console.log('[Entity Designer] sources.yml not found');
+    return dataTypeMap;
+  }
+  
+  try {
+    const content = fs.readFileSync(sourcesYmlPath, 'utf-8');
+    const parsed = yaml.parse(content);
+    
+    if (!parsed?.sources?.[0]?.tables) {
+      return dataTypeMap;
+    }
+    
+    const table = parsed.sources[0].tables.find((t: { name: string }) => t.name === tableName);
+    if (!table?.columns) {
+      console.log(`[Entity Designer] Table ${tableName} not found in sources.yml`);
+      return dataTypeMap;
+    }
+    
+    // Build dataType map (case-insensitive lookup)
+    for (const col of table.columns) {
+      if (col.name && col.data_type) {
+        dataTypeMap.set(col.name.toLowerCase(), col.data_type);
+      }
+    }
+    
+    console.log(`[Entity Designer] Loaded ${dataTypeMap.size} dataTypes from sources.yml`);
+  } catch (error) {
+    console.error('[Entity Designer] Error parsing sources.yml:', error);
+  }
+  
+  return dataTypeMap;
+}
+
+/**
+ * Enrich columns with dataTypes from sources.yml
+ */
+function enrichColumnsWithDataTypes(columns: ColumnInfo[], dataTypeMap: Map<string, string>): ColumnInfo[] {
+  return columns.map(col => ({
+    ...col,
+    dataType: dataTypeMap.get(col.name.toLowerCase()) || col.dataType || 'NVARCHAR(MAX)'
+  }));
+}
 
 /**
  * Register Entity Designer commands
@@ -37,6 +90,15 @@ export function registerEntityDesignerCommands(
           externalTable = treeItem.externalTable;
           concept = externalTable.concept;
           entityName = extractEntityName(externalTable.name, concept);
+          
+          // Enrich existing columns with dataTypes from sources.yml
+          const dataTypeMap = loadDataTypesFromSourcesYaml(projectPath, externalTable.name);
+          if (dataTypeMap.size > 0) {
+            externalTable = { 
+              ...externalTable, 
+              columns: enrichColumnsWithDataTypes(externalTable.columns, dataTypeMap) 
+            };
+          }
         } else if (treeItem?.model) {
           // From Staging tree view - staging model
           const model = treeItem.model;
@@ -56,12 +118,16 @@ export function registerEntityDesignerCommands(
             }
           }
           
-          // Create a mock external table from the staging model
+          // Load dataTypes from sources.yml and enrich model.columns
+          const dataTypeMap = loadDataTypesFromSourcesYaml(projectPath, realExtTableName);
+          const enrichedColumns = enrichColumnsWithDataTypes(model.columns, dataTypeMap);
+          
+          // Create external table with model columns enriched with dataTypes
           externalTable = {
             name: realExtTableName,
             sourceName: 'staging',
             schema: 'stg',
-            columns: model.columns,
+            columns: enrichedColumns,
             concept,
             _yamlPath: model._yamlPath || ''
           };
@@ -78,7 +144,8 @@ export function registerEntityDesignerCommands(
           tableName: externalTable.name, 
           concept, 
           entityName,
-          columnCount: externalTable.columns?.length || 0
+          columnCount: externalTable.columns?.length || 0,
+          firstColDataType: externalTable.columns?.[0]?.dataType || 'undefined'
         });
 
         // Scan for existing hubs (always refresh)

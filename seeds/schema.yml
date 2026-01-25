@@ -1,17 +1,6 @@
 version: 2
+
 seeds:
-  - name: ref_issue_status
-    description: Reference table for issue_status
-    config:
-      schema: vault
-    columns:
-      - name: status_id
-        description: Primary Key - status_id
-        tests:
-          - unique
-          - not_null
-      - name: status_name
-        description: status_name column
   - name: ref_role
     description: Referenzdaten für Unternehmens-Rollen (Client, Contractor, Supplier)
     config:
