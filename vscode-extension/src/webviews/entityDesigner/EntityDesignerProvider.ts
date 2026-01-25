@@ -10,7 +10,7 @@ import {
 } from '../../types';
 import { getWebviewContent } from './getWebviewContent';
 import { generateDataVaultObjects, generateSchemaYaml } from '../../services/entityGenerator';
-import { loadDesignerConfig, saveDesignerConfig, DesignerConfig } from '../../services/designerConfigStore';
+import { loadDesignerConfig, saveDesignerConfig, DesignerConfig, detectSourceTypeFromStaging } from '../../services/designerConfigStore';
 
 /**
  * Manages the Entity Designer webview panel
@@ -234,7 +234,7 @@ export class EntityDesignerProvider {
   /**
    * Handle generate request - reads config from JSON file (Config-First)
    */
-  private async handleGenerate(target: 'all' | 'hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite'): Promise<void> {
+  private async handleGenerate(target: 'all' | 'hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite' | 'pit'): Promise<void> {
     try {
       if (!this._projectPath || !this._currentEntity) {
         throw new Error('Project path or entity context not set');
@@ -248,6 +248,22 @@ export class EntityDesignerProvider {
         throw new Error('No saved configuration found. Please configure columns first.');
       }
 
+      // Auto-detect sourceType from existing staging file if not saved in config
+      let effectiveSourceType = savedConfig.sourceType;
+      if (!effectiveSourceType) {
+        effectiveSourceType = await detectSourceTypeFromStaging(this._projectPath, concept, entityName);
+        // Save the detected type for future use
+        savedConfig.sourceType = effectiveSourceType;
+        await saveDesignerConfig(this._projectPath, savedConfig);
+        console.log(`[Entity Designer] Auto-detected sourceType: ${effectiveSourceType}`);
+      }
+
+      // Special handling for PIT table generation
+      if (target === 'pit') {
+        await this.handleGeneratePIT(concept, entityName, savedConfig);
+        return;
+      }
+
       vscode.window.showInformationMessage(`Generating ${target} from config...`);
 
       // Build EntityDesignConfig from saved JSON config
@@ -255,6 +271,7 @@ export class EntityDesignerProvider {
         concept,
         entityName,
         sourceTable,
+        sourceType: effectiveSourceType,  // Use detected/saved sourceType
         columns: savedConfig.columns.map(c => ({
           name: c.name,
           sourceName: c.sourceName || c.name,
@@ -347,6 +364,200 @@ export class EntityDesignerProvider {
         errors: [errorMessage]
       });
     }
+  }
+
+  /**
+   * Handle PIT table generation from Entity Designer
+   * Uses the pitTable command logic to generate a PIT for this entity
+   */
+  private async handleGeneratePIT(
+    concept: string,
+    entityName: string,
+    savedConfig: DesignerConfig
+  ): Promise<void> {
+    try {
+      if (!this._projectPath) {
+        throw new Error('Project path not set');
+      }
+
+      const fs = await import('fs');
+      const path = await import('path');
+      const yaml = await import('yaml');
+
+      // Construct hub and satellite names based on concept/entity
+      const hubName = `hub_${entityName}`;
+      const satName = `sat_${entityName}`;
+      const pitName = `pit_${entityName}`;
+      const hashKey = `hk_${entityName}`;
+
+      // Check if hub and satellite exist
+      const hubPath = path.join(this._projectPath, 'models', 'raw_vault', concept, 'hubs', `${hubName}.sql`);
+      const satPath = path.join(this._projectPath, 'models', 'raw_vault', concept, 'satellites', `${satName}.sql`);
+
+      // We'll generate based on what we expect, even if files don't exist yet
+      // (they might be generated alongside the PIT)
+      
+      vscode.window.showInformationMessage(`Generating PIT table for ${entityName}...`);
+
+      // Generate PIT SQL using automate_dv macro
+      const pitSql = this.generatePitSql(pitName, hubName, hashKey, [satName], concept);
+
+      // Ensure business_vault directory exists
+      const businessVaultDir = path.join(this._projectPath, 'models', 'business_vault');
+      if (!fs.existsSync(businessVaultDir)) {
+        fs.mkdirSync(businessVaultDir, { recursive: true });
+      }
+
+      // Write PIT model file
+      const pitPath = path.join(businessVaultDir, `${pitName}.sql`);
+      fs.writeFileSync(pitPath, pitSql, 'utf-8');
+
+      // Update business vault schema YAML
+      await this.updateBusinessVaultSchemaForPIT(
+        this._projectPath,
+        pitName,
+        hubName,
+        [satName],
+        hashKey
+      );
+
+      vscode.window.showInformationMessage(`PIT table ${pitName} created successfully.`);
+
+      // Open the generated file
+      const doc = await vscode.workspace.openTextDocument(pitPath);
+      await vscode.window.showTextDocument(doc, { preview: false, viewColumn: vscode.ViewColumn.Beside });
+
+      // Notify webview
+      this._panel?.webview.postMessage({
+        type: 'generationComplete',
+        success: true,
+        files: [pitPath],
+        errors: []
+      });
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`PIT generation failed: ${errorMessage}`);
+      
+      this._panel?.webview.postMessage({
+        type: 'generationComplete',
+        success: false,
+        files: [],
+        errors: [errorMessage]
+      });
+    }
+  }
+
+  /**
+   * Generate PIT table SQL using automate_dv macro
+   */
+  private generatePitSql(
+    pitName: string,
+    hubName: string,
+    hashKey: string,
+    satellites: string[],
+    concept: string
+  ): string {
+    const satYaml = satellites.map(sat => 
+      `    "${sat}":\n      pk:\n        PK: "${hashKey}"\n      ldts:\n        LDTS: "dss_load_date"`
+    ).join('\n');
+
+    const stagingName = `${concept}_${hubName.replace('hub_', '')}`;
+
+    return `{{-
+  PIT Table: ${pitName}
+  Hub: ${hubName}
+  Satellites: ${satellites.join(', ')}
+  
+  Point-in-Time table for efficient temporal queries.
+  Generated by Data Vault dbt Explorer - Entity Designer.
+-}}
+
+{{ config(
+    materialized='incremental',
+    incremental_strategy='append',
+    as_columnstore=false,
+    schema='vault'
+) }}
+
+{%- set source_model = "${hubName}" -%}
+{%- set src_pk = "${hashKey}" -%}
+{%- set src_ldts = "dss_load_date" -%}
+
+{%- set satellites = {
+${satYaml}
+} -%}
+
+{%- set stage_tables_ldts = {
+    "${stagingName}": "dss_load_date"
+} -%}
+
+-- Generate as-of dates from satellite load dates
+WITH as_of_date_table AS (
+    SELECT DISTINCT CAST(dss_load_date AS DATE) AS AS_OF_DATE
+    FROM (
+${satellites.map(sat => `        SELECT dss_load_date FROM {{ ref('${sat}') }}`).join('\n        UNION\n')}
+    ) all_dates
+    WHERE dss_load_date IS NOT NULL
+)
+
+{{ automate_dv.pit(
+    source_model=source_model,
+    src_pk=src_pk,
+    as_of_dates_table="as_of_date_table",
+    satellites=satellites,
+    stage_tables_ldts=stage_tables_ldts,
+    src_ldts=src_ldts
+) }}
+`;
+  }
+
+  /**
+   * Update business vault schema YAML for PIT table
+   */
+  private async updateBusinessVaultSchemaForPIT(
+    projectPath: string,
+    pitName: string,
+    hubName: string,
+    satellites: string[],
+    hashKey: string
+  ): Promise<void> {
+    const fs = await import('fs');
+    const path = await import('path');
+    const yaml = await import('yaml');
+
+    const schemaPath = path.join(projectPath, 'models', 'business_vault', '_business_vault__models.yml');
+
+    const columns = [
+      { name: 'AS_OF_DATE', description: 'Point-in-time date', data_type: 'date' },
+      { name: hashKey, description: `Hash Key from ${hubName}`, data_type: 'char(64)' },
+      ...satellites.flatMap(sat => [
+        { name: `${sat.toUpperCase()}_PK`, description: `Hash Key reference to ${sat}`, data_type: 'char(64)' },
+        { name: `${sat.toUpperCase()}_LDTS`, description: `Load timestamp from ${sat}`, data_type: 'datetime2(7)' }
+      ])
+    ];
+
+    const newPitDef = {
+      name: pitName,
+      description: `PIT table spanning ${hubName} and satellites: ${satellites.join(', ')}`,
+      columns
+    };
+
+    let schemaContent: { version: number; models: Array<{ name: string; [key: string]: unknown }> };
+
+    if (fs.existsSync(schemaPath)) {
+      const existingContent = fs.readFileSync(schemaPath, 'utf-8');
+      schemaContent = yaml.parse(existingContent) || { version: 2, models: [] };
+      schemaContent.models = (schemaContent.models || []).filter(m => m.name !== pitName);
+    } else {
+      schemaContent = { version: 2, models: [] };
+    }
+
+    schemaContent.models.push(newPitDef);
+    schemaContent.models.sort((a, b) => a.name.localeCompare(b.name));
+
+    const yamlContent = yaml.stringify(schemaContent, { indent: 2, lineWidth: 0 });
+    fs.writeFileSync(schemaPath, yamlContent, 'utf-8');
   }
 
   /**

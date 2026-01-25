@@ -16,6 +16,8 @@ export interface DesignerConfig {
   entityName: string;
   /** Source table name */
   sourceTable: string;
+  /** Source type: external_table, seed, database_table, manual */
+  sourceType?: 'external_table' | 'seed' | 'database_table' | 'manual';
   /** Column configurations */
   columns: SavedColumnConfig[];
   /** When the config was last saved */
@@ -74,6 +76,47 @@ export async function saveDesignerConfig(
   // Write config
   await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
   console.log(`[DesignerConfigStore] Saved config for ${config.concept}_${config.entityName}`);
+}
+
+/**
+ * Detect source type from an existing staging SQL file
+ * Returns 'seed' if file uses ref(), 'external_table' otherwise
+ */
+export async function detectSourceTypeFromStaging(
+  projectPath: string,
+  concept: string,
+  entityName: string
+): Promise<'external_table' | 'seed' | 'database_table' | 'manual'> {
+  const stagingPath = path.join(
+    projectPath, 
+    'models', 
+    'staging', 
+    `${concept}_${entityName}.sql`
+  );
+  
+  try {
+    const content = await fs.readFile(stagingPath, 'utf-8');
+    
+    // Check for ref() pattern - indicates a seed
+    if (content.includes("{{ ref('") || content.includes('{{ ref("')) {
+      console.log(`[DesignerConfigStore] Detected source type: seed (from ref() in staging)`);
+      return 'seed';
+    }
+    
+    // Check for direct table reference (no dbt function)
+    if (!content.includes("{{ source(") && !content.includes("{{ ref(")) {
+      console.log(`[DesignerConfigStore] Detected source type: database_table (no dbt function)`);
+      return 'database_table';
+    }
+    
+    // Default: external_table with source()
+    console.log(`[DesignerConfigStore] Detected source type: external_table (from source() in staging)`);
+    return 'external_table';
+    
+  } catch {
+    // File doesn't exist - default to external_table
+    return 'external_table';
+  }
 }
 
 /**

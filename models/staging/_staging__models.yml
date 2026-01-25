@@ -52,6 +52,178 @@ models:
       - name: dss_run_id
         description: Run ID
         data_type: nvarchar(4000)
+  - name: jira_comments
+    description: Staging view for Jira Comments (Dependent Child of Issue)
+    columns:
+      - name: hk_issue
+        description: FK Hash Key to parent hub_issue
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_comment_issue
+        description: Link Hash Key (FK + DCK)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_comment_issue_dc
+        description: Hash Diff for DC Satellite
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: issue_key
+        description: FK to parent issue
+        tests:
+          - not_null
+      - name: comment_author
+        description: DCK - Comment author
+      - name: comment_date
+        description: DCK - Comment timestamp
+      - name: comment_text
+        description: Payload - Comment content
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+  - name: jira_comments_seed
+    description: Staging view for comments_seed from jira
+    columns:
+      - name: hk_comments_seed
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_vorgang
+        description: Foreign Key to hub_vorgang
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_comments_seed
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: issue_id
+        description: Business Key
+        tests:
+          - not_null
+      - name: comment_author
+        description: Business Key
+        tests:
+          - not_null
+      - name: comment_date
+        description: Business Key
+        tests:
+          - not_null
+      - name: issue_key
+        description: Payload attribute
+      - name: comment_text
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+  - name: jira_project
+    description: Staging view for project from jira
+    columns:
+      - name: hk_project
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_project
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PROJECT_ID
+        description: Business Key
+        tests:
+          - not_null
+      - name: PROJECT_KEY
+        description: Payload attribute
+      - name: NAME
+        description: Payload attribute
+      - name: URL
+        description: Payload attribute
+      - name: DESCRIPTION
+        description: Payload attribute
+      - name: CATEGORY
+        description: Payload attribute
+      - name: TYPE
+        description: Payload attribute
+      - name: LEAD_NAME
+        description: Payload attribute
+      - name: TOTAL_ISSUE_COUNT
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: jira_vorgang
+    description: Staging view for vorgang from jira
+    columns:
+      - name: hk_vorgang
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_vorgang
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: ISSUE_ID
+        description: Business Key
+        tests:
+          - not_null
+      - name: ISSUE_KEY
+        description: Payload attribute
+      - name: ISSUE_TYPE_ID
+        description: Payload attribute
+      - name: ISSUE_STATUS_ID
+        description: Payload attribute
+      - name: SUMMARY
+        description: Payload attribute
+      - name: PROJECT_ID
+        description: Payload attribute
+      - name: PROJECT_KEY
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: jira_zeitbuchungen
     description: Staging view for zeitbuchungen from jira
     columns:
@@ -107,16 +279,29 @@ models:
       - name: dss_run_id
         description: dbt run identifier
   - name: werkportal_contact
-    description: Staging view for contact from werkportal
+    description: |
+      Staging view for contact from werkportal.
+      Contact is a Dependent Child (DC) of Contractor - it has no own Hub.
+      Key columns: hk_contractor (FK), hk_link_contact_contractor (Link Key)
     columns:
-      - name: hk_contact
-        description: Hash Key (Primary Key)
+      - name: hk_contractor
+        description: FK Hash Key to hub_contractor
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_contact_contractor
+        description: Link Hash Key (DC pattern - includes DCK columns)
         data_type: char(64)
         tests:
           - not_null
           - unique
       - name: hd_contact
         description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_contact_contractor_dc
+        description: Hash Diff for DC Satellite (contact attributes under contractor)
         data_type: char(64)
         tests:
           - not_null
@@ -127,13 +312,13 @@ models:
       - name: subscription
         description: Payload attribute
       - name: name
-        description: Payload attribute
+        description: DCK column (part of link hash)
       - name: state
         description: Payload attribute
       - name: title
         description: Payload attribute
       - name: email1
-        description: Payload attribute
+        description: DCK column (part of link hash)
       - name: email2
         description: Payload attribute
       - name: mobile1

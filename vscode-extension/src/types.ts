@@ -110,6 +110,7 @@ export interface DbtProjectConfig {
   version?: string;
   profile?: string;
   'model-paths'?: string[];
+  'seed-paths'?: string[];
   models?: Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -148,6 +149,7 @@ export interface ProjectMetadata {
   bridges: BridgeInfo[];
   marts: DbtModel[];
   staging: DbtModel[];
+  seeds: DbtModel[];     // Reference tables from seeds
   externalTables: ExternalTable[];  // External tables from sources.yml
   concepts: string[];    // Unique business concepts
   schemas: string[];     // Unique schemas
@@ -200,6 +202,11 @@ export interface ForeignKeyMapping {
 }
 
 /**
+ * Source type for staging views
+ */
+export type SourceType = 'external_table' | 'seed' | 'database_table' | 'manual';
+
+/**
  * Configuration for generating a staging view
  */
 export interface StagingConfig {
@@ -208,7 +215,8 @@ export interface StagingConfig {
   entityName: string;           // 'customer', 'company'
   
   // Source
-  externalTable: string;        // 'ext_adventureworks_customer'
+  externalTable: string;        // 'ext_adventureworks_customer' or seed name
+  sourceType?: SourceType;      // Type of source (default: 'external_table')
   
   // Business Key
   businessKeyColumns: string[];
@@ -217,9 +225,13 @@ export interface StagingConfig {
   // Payload (columns included in the view)
   payloadColumns: string[];
   
+  // Column mappings for aliases (source -> target)
+  // If a column has a different target name, it will be mapped here
+  columnMappings?: Record<string, string>;  // { 'SOURCE_COL': 'target_col' }
+  
   // Hash Diff (columns for change detection, subset of payload)
   hashDiffColumns: string[];
-  hashDiffSeparator: string;    // Default: '||'
+  hashDiffSeparator: string;    // Default: '^^' (DV 2.1 Standard)
   
   // Foreign Keys (auto-detected + manual)
   foreignKeys: ForeignKeyMapping[];
@@ -297,6 +309,7 @@ export interface EntityDesignConfig {
   concept: string;              // e.g., 'werkportal'
   entityName: string;           // e.g., 'contacts'
   sourceTable: string;          // External Table or Staging view name
+  sourceType?: SourceType;      // Type of source (seed, external_table, etc.)
   columns: DesignerColumnDefinition[];
   ghostRecordValue: string;     // Default: '-1'
 }

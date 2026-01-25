@@ -46,10 +46,18 @@ export class DbtProjectParser {
     
     // Find all model paths
     const modelPaths = this.projectConfig['model-paths'] || ['models'];
+    const seedPaths = this.projectConfig['seed-paths'] || ['seeds'];
     
     // Step 1: Load all YAML schema files first (primary source)
     for (const modelPath of modelPaths) {
       const fullPath = path.join(this.projectPath, modelPath);
+      if (fs.existsSync(fullPath)) {
+        await this.loadYamlSchemaFiles(fullPath);
+      }
+    }
+    // Also load schema files from seeds directory
+    for (const seedPath of seedPaths) {
+      const fullPath = path.join(this.projectPath, seedPath);
       if (fs.existsSync(fullPath)) {
         await this.loadYamlSchemaFiles(fullPath);
       }
@@ -93,6 +101,25 @@ export class DbtProjectParser {
       }
     }
 
+    // Step 3b: Process seeds (CSV files) - add as ref models in business_vault layer
+    for (const seedPath of seedPaths) {
+      const fullPath = path.join(this.projectPath, seedPath);
+      if (fs.existsSync(fullPath)) {
+        const csvFiles = this.findCsvFilesSync(fullPath);
+        for (const csvFile of csvFiles) {
+          const seedName = path.basename(csvFile, '.csv');
+          if (!processedModels.has(seedName)) {
+            const seed = this.parseSeedFromCsv(csvFile, seedName);
+            if (seed) {
+              models.push(seed);
+              processedModels.add(seedName);
+            }
+          }
+        }
+      }
+    }
+    console.log(`[DataVault] Loaded ${models.filter(m => m.type === 'ref').length} reference tables from seeds`);
+
     // Categorize models
     const hubs = models.filter(m => m.type === 'hub').map(m => this.enrichHub(m, models));
     const satellites = models.filter(m => m.type === 'satellite' || m.type === 'effectivity_satellite')
@@ -102,6 +129,7 @@ export class DbtProjectParser {
     const bridges = models.filter(m => m.type === 'bridge').map(m => this.enrichBridge(m, models));
     const marts = models.filter(m => m.layer === 'mart');
     const staging = models.filter(m => m.layer === 'staging');
+    const seeds = models.filter(m => m.type === 'ref');
 
     // Step 4: Parse sources.yml for external tables
     const externalTables = await this.parseSourcesYaml(modelPaths);
@@ -124,6 +152,7 @@ export class DbtProjectParser {
       bridges,
       marts,
       staging,
+      seeds,
       externalTables,
       concepts,
       schemas,
@@ -326,6 +355,94 @@ export class DbtProjectParser {
     }
     
     return results;
+  }
+
+  /**
+   * Recursively find all .csv files in a directory (synchronous)
+   */
+  private findCsvFilesSync(dir: string): string[] {
+    const results: string[] = [];
+    
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        
+        if (entry.isDirectory()) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+            continue;
+          }
+          results.push(...this.findCsvFilesSync(fullPath));
+        } else if (entry.isFile() && entry.name.endsWith('.csv')) {
+          results.push(fullPath);
+        }
+      }
+    } catch (error) {
+      console.error(`[DataVault] Error reading directory ${dir}:`, error);
+    }
+    
+    return results;
+  }
+
+  /**
+   * Parse a seed from CSV file
+   */
+  private parseSeedFromCsv(csvPath: string, seedName: string): DbtModel | null {
+    try {
+      const content = fs.readFileSync(csvPath, 'utf-8');
+      const lines = content.trim().split('\n');
+      
+      if (lines.length === 0) {
+        return null;
+      }
+
+      // Parse header line to get column names
+      const headerLine = lines[0];
+      const columns: ColumnInfo[] = headerLine.split(',').map(col => ({
+        name: col.trim(),
+        dataType: 'varchar' // Default type for CSV
+      }));
+
+      // Check if we have YAML definition for this seed (from seeds/schema.yml)
+      const yamlDef = this.yamlModels.get(seedName);
+      if (yamlDef) {
+        // Enrich columns with YAML info
+        for (const col of columns) {
+          const yamlCol = yamlDef.columns?.find(c => c.name === col.name);
+          if (yamlCol) {
+            col.description = yamlCol.description;
+            if (yamlCol.data_type) {
+              col.dataType = yamlCol.data_type;
+            }
+          }
+        }
+      }
+
+      // Determine type based on name prefix
+      const type: ModelType = seedName.startsWith('ref_') ? 'ref' : 'table';
+
+      const relativePath = path.relative(this.projectPath, csvPath);
+
+      return {
+        name: seedName,
+        schema: 'vault', // Default schema for seeds - can be overridden via config
+        type,
+        materialized: 'table', // Seeds are materialized as tables
+        filePath: csvPath,
+        relativePath,
+        columns,
+        refs: [],
+        sources: [],
+        concept: '_common', // Seeds are typically shared across concepts
+        layer: 'business_vault', // Reference tables belong to business vault
+        description: yamlDef?.description,
+        _yamlPath: yamlDef?._yamlPath
+      };
+    } catch (error) {
+      console.error(`[DataVault] Error parsing seed ${csvPath}:`, error);
+      return null;
+    }
   }
 
   /**

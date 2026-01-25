@@ -2,12 +2,12 @@
  * External Table Commands
  * 
  * Commands for creating external tables in the database
- * using dbt run-operation stage_external_sources.
+ * using our custom create_external_table macro (with DROP IF EXISTS).
  */
 
 import * as vscode from 'vscode';
 import { Logger } from './index';
-import { TreeItemData } from '../types';
+import { TreeItemData, ExternalTable } from '../types';
 import { runDbtOperation } from '../discoverService';
 
 /**
@@ -16,6 +16,7 @@ import { runDbtOperation } from '../discoverService';
 export interface ExternalTableContext {
   projectPath: string | null;
   log: Logger;
+  getExternalTables?: () => ExternalTable[];
 }
 
 /**
@@ -38,8 +39,6 @@ export async function createExternalTable(
   }
 
   const tableName = treeItem.externalTable.name;
-  // dbt-external-tables uses 'select: source.table' format
-  const selectArg = `staging.${tableName}`;
   
   await vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
@@ -49,10 +48,11 @@ export async function createExternalTable(
     try {
       progress.report({ message: 'Running dbt...' });
       
+      // Use our custom macro that drops and recreates the table
       const output = await runDbtOperation(
         projectPath,
-        'stage_external_sources',
-        { select: selectArg },
+        'create_external_table',
+        { table_name: tableName },
         (msg) => log(msg)
       );
       
@@ -135,13 +135,12 @@ export async function createAllExternalTables(
       
       try {
         log(`Creating external table: ${tableName}`);
-        // dbt-external-tables uses 'select: source.table' format
-        const selectArg = `staging.${tableName}`;
         
+        // Use our custom macro that drops and recreates the table
         await runDbtOperation(
           projectPath,
-          'stage_external_sources',
-          { select: selectArg },
+          'create_external_table',
+          { table_name: tableName },
           (msg) => log(msg)
         );
         
@@ -169,18 +168,27 @@ export async function createAllExternalTables(
 
 /**
  * Stage all external sources (creates/updates ALL external tables across all concepts)
+ * Uses our custom create_external_table macro with DROP IF EXISTS for consistent behavior.
  */
 export async function stageAllExternalSources(ctx: ExternalTableContext): Promise<void> {
-  const { projectPath, log } = ctx;
+  const { projectPath, log, getExternalTables } = ctx;
 
   if (!projectPath) {
     vscode.window.showErrorMessage('No dbt project found');
     return;
   }
+
+  // Get all external tables from metadata
+  const allTables = getExternalTables ? getExternalTables() : [];
+  
+  if (allTables.length === 0) {
+    vscode.window.showWarningMessage('No external tables found in sources.yml');
+    return;
+  }
   
   // Confirm with user - this is a big operation
   const confirm = await vscode.window.showWarningMessage(
-    'Stage ALL external sources? This will create or update ALL external tables across all concepts.',
+    `Stage ALL ${allTables.length} external sources? This will DROP and recreate ALL external tables.`,
     { modal: true },
     'Yes, Stage All'
   );
@@ -192,35 +200,59 @@ export async function stageAllExternalSources(ctx: ExternalTableContext): Promis
   await vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
     title: 'Staging all external sources',
-    cancellable: false
-  }, async (progress) => {
-    try {
-      progress.report({ message: 'Running dbt stage_external_sources... (this may take a while)' });
+    cancellable: true
+  }, async (progress, token) => {
+    let successCount = 0;
+    let failCount = 0;
+    const totalCount = allTables.length;
+    
+    for (let i = 0; i < allTables.length; i++) {
+      if (token.isCancellationRequested) {
+        log('Operation cancelled by user');
+        break;
+      }
       
-      // Run without filter to create ALL tables
-      const output = await runDbtOperation(
-        projectPath,
-        'stage_external_sources',
-        {},  // No filter = all tables
-        (msg) => log(msg)
-      );
+      const table = allTables[i];
+      const tableName = table.name;
       
-      // Log full output for debugging (split into lines for readability)
-      const lines = output.split('\n').filter(l => l.trim());
-      log(`Stage all external sources completed with ${lines.length} output lines`);
+      progress.report({ 
+        message: `(${i + 1}/${totalCount}) ${tableName}...`,
+        increment: i === 0 ? 0 : (100 / totalCount)
+      });
       
-      // Count created tables from output
-      const createdCount = (output.match(/START external source/g) || []).length;
-      const skipCount = (output.match(/SKIP/g) || []).length;
-      const successCount = createdCount - skipCount;
-      
+      try {
+        log(`Creating external table: ${tableName}`);
+        
+        // Use our custom macro that drops and recreates the table
+        await runDbtOperation(
+          projectPath,
+          'create_external_table',
+          { table_name: tableName },
+          (msg) => log(msg)
+        );
+        
+        successCount++;
+        log(`Created: ${tableName}`);
+      } catch (error) {
+        failCount++;
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        log(`Failed to create ${tableName}: ${errorMsg}`);
+      }
+    }
+    
+    // Summary
+    if (token.isCancellationRequested) {
       vscode.window.showInformationMessage(
-        `External sources staged: ${successCount} created, ${skipCount} skipped (already exist)`
+        `Operation cancelled. Created ${successCount}/${totalCount} tables before cancellation.`
       );
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      log(`Failed to stage external sources: ${errorMsg}`);
-      vscode.window.showErrorMessage(`Failed to stage external sources: ${errorMsg}`);
+    } else if (failCount === 0) {
+      vscode.window.showInformationMessage(
+        `Successfully created all ${successCount} external table(s)`
+      );
+    } else {
+      vscode.window.showWarningMessage(
+        `Created ${successCount}/${totalCount} tables. ${failCount} failed. Check output for details.`
+      );
     }
   });
 }

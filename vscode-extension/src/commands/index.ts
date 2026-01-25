@@ -10,7 +10,10 @@ import { DbtModel, ProjectMetadata, TreeItemData, GroupConfig } from '../types';
 import { ModelDetailsPanel } from '../webviewPanel';
 import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
-import { createStaging, validateStaging, deleteStaging } from './staging';
+import { createStaging, validateStaging, deleteStaging, createStagingWizard } from './staging';
+import { createRefTable, createRefTableFromPalette } from './refTable';
+import { createPITTable, createPITTableFromPalette } from './pitTable';
+import { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 import { registerEntityDesignerCommands } from './entityDesigner';
 import { registerDbtCommands } from './dbtCommands';
 
@@ -18,6 +21,9 @@ import { registerDbtCommands } from './dbtCommands';
 export { discoverExternalSources } from './discover';
 export { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 export { createStaging, validateStaging, deleteStaging } from './staging';
+export { createRefTable, createRefTableFromPalette } from './refTable';
+export { createPITTable, createPITTableFromPalette } from './pitTable';
+export { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 export { registerEntityDesignerCommands } from './entityDesigner';
 export { registerDbtCommands } from './dbtCommands';
 
@@ -187,7 +193,8 @@ export function registerCommands(
       async () => {
         await stageAllExternalSources({
           projectPath: getCurrentProjectPath(),
-          log
+          log,
+          getExternalTables: () => getCurrentMetadata()?.externalTables || []
         });
       }
     )
@@ -201,6 +208,21 @@ export function registerCommands(
         await createStaging(treeItem, {
           projectPath: getCurrentProjectPath(),
           refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Create Staging Wizard Command (Command Palette accessible)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.createStagingWizard',
+      async () => {
+        await createStagingWizard({
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          getCurrentMetadata,
           log
         });
       }
@@ -229,6 +251,50 @@ export function registerCommands(
         await deleteStaging(treeItem, {
           projectPath: getCurrentProjectPath(),
           refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Create Reference Table Command (context menu on external table)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.createRefTable',
+      async (treeItem?: TreeItemData) => {
+        await createRefTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Create PIT Table Command (context menu on hub or command palette)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.createPITTable',
+      async (treeItem?: TreeItemData) => {
+        await createPITTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          getCurrentMetadata,
+          log
+        });
+      }
+    )
+  );
+
+  // Create Bridge Table Command (context menu on hub or command palette)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.createBridgeTable',
+      async (treeItem?: TreeItemData) => {
+        await createBridgeTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          getCurrentMetadata,
           log
         });
       }

@@ -31,6 +31,7 @@ export function generateStagingSql(config: StagingConfig): string {
     businessKeyColumns,
     businessKeySeparator,
     payloadColumns,
+    columnMappings = {},  // Default empty if not provided
     hashDiffColumns,
     hashDiffSeparator,
     foreignKeys,
@@ -39,6 +40,18 @@ export function generateStagingSql(config: StagingConfig): string {
     dependentChildKeys,
     multiActiveKeys
   } = config;
+
+  // Helper to get the source column name for a target column
+  // If there's a mapping, use it; otherwise source = target
+  const getSourceColumn = (targetCol: string): string => {
+    // Check if there's a reverse mapping (source -> target where target matches)
+    for (const [source, target] of Object.entries(columnMappings)) {
+      if (target.toLowerCase() === targetCol.toLowerCase()) {
+        return source;
+      }
+    }
+    return targetCol;  // No mapping, source = target
+  };
 
   // Sort hash diff columns alphabetically for consistent hashing (automate_dv convention)
   const sortedHashDiffColumns = [...hashDiffColumns].sort((a, b) => 
@@ -117,9 +130,22 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('');
   }
 
-  // Source CTE
+  // Source CTE - handle different source types
   lines.push('WITH source AS (');
-  lines.push(`    SELECT * FROM {{ source('staging', '${externalTable}') }}`);
+  const sourceType = config.sourceType || 'external_table';
+  if (sourceType === 'seed') {
+    // Seeds use ref() and need generated metadata columns
+    lines.push('    SELECT ');
+    lines.push('        *,');
+    lines.push(`        '${recordSourceDefault}' AS dss_record_source,`);
+    lines.push('        GETDATE() AS dss_load_date');
+    lines.push(`    FROM {{ ref('${externalTable}') }}`);
+  } else if (sourceType === 'database_table') {
+    lines.push(`    SELECT * FROM ${externalTable}`);
+  } else {
+    // Default: external_table
+    lines.push(`    SELECT * FROM {{ source('staging', '${externalTable}') }}`);
+  }
   lines.push('),');
   lines.push('');
 
@@ -216,8 +242,10 @@ export function generateStagingSql(config: StagingConfig): string {
     for (const [targetHub, dcks] of Object.entries(dependentChildKeys)) {
       const targetEntity = targetHub.replace('hub_', '').replace(/^.*\./, '');
       const dcSatName = `${entityName}_${targetEntity}_dc`;
-      // DC Sat hash diff = DCK + regular attributes (alphabetically sorted)
-      const dcHashDiffColumns = [...dcks, ...sortedHashDiffColumns].sort((a, b) => 
+      // DC Sat hash diff = DCK + payload (deduplicated and alphabetically sorted)
+      const allColumns = [...dcks, ...sortedHashDiffColumns];
+      const uniqueColumns = [...new Set(allColumns)]; // Remove duplicates
+      const dcHashDiffColumns = uniqueColumns.sort((a, b) => 
         a.toLowerCase().localeCompare(b.toLowerCase())
       );
       lines.push(generateHashDiffForDC(dcSatName, dcHashDiffColumns, hashDiffSeparator));
@@ -255,8 +283,14 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push('        -- ===========================================');
   lines.push('        -- PAYLOAD');
   lines.push('        -- ===========================================');
-  payloadColumns.forEach((col) => {
-    lines.push(`        ${col},`);
+  payloadColumns.forEach((targetCol) => {
+    const sourceCol = getSourceColumn(targetCol);
+    if (sourceCol.toLowerCase() !== targetCol.toLowerCase()) {
+      // Source differs from target - need AS alias
+      lines.push(`        ${sourceCol} AS ${targetCol},`);
+    } else {
+      lines.push(`        ${targetCol},`);
+    }
   });
   lines.push('');
   
@@ -266,8 +300,15 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push('        -- ===========================================');
   lines.push('        -- METADATA');
   lines.push('        -- ===========================================');
-  lines.push(`        COALESCE(dss_record_source, '${recordSourceDefault}') AS dss_record_source,`);
-  lines.push('        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date' + (includeRunId ? ',' : ''));
+  if (sourceType === 'seed') {
+    // Seeds: metadata already added in source CTE
+    lines.push('        dss_record_source,');
+    lines.push('        dss_load_date' + (includeRunId ? ',' : ''));
+  } else {
+    // External tables / database tables: use COALESCE for optional metadata columns
+    lines.push(`        COALESCE(dss_record_source, '${recordSourceDefault}') AS dss_record_source,`);
+    lines.push('        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date' + (includeRunId ? ',' : ''));
+  }
   if (includeRunId) {
     lines.push('        dss_run_id');
   }
@@ -349,8 +390,8 @@ function generateLinkHashKey(
 /**
  * Generate Link Hash Key WITH DCK columns for DC Satellites
  * 
- * Link Hash = HASH(source BK columns + target FK column + DCK columns)
- * This ensures uniqueness at the line-item level for dependent children
+ * For DC pattern: Link Hash = HASH(FK column + DCK columns)
+ * The FK identifies the parent, DCK columns identify the child within the parent
  */
 function generateLinkHashKeyWithDCK(
   linkName: string,
@@ -361,8 +402,8 @@ function generateLinkHashKeyWithDCK(
   dckColumns: string[],
   separator: string
 ): string {
-  // Combine source BK + target FK + DCK for DC link hash
-  const allColumns = [...sourceBKColumns, targetFKColumn, ...dckColumns];
+  // DC Link Hash = FK + DCK (NOT source BK, as that would duplicate FK+DCK)
+  const allColumns = [targetFKColumn, ...dckColumns];
   const concatParts = allColumns.map(col => 
     `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
   ).join(`,\n                '${separator}',\n                `);

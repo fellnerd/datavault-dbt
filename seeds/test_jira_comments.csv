@@ -1,0 +1,7 @@
+issue_id,issue_key,comment_author,comment_date,comment_text
+1001,PROJ-1,max.mustermann,2025-01-01 10:00:00,Erster Kommentar
+1001,PROJ-1,anna.schmidt,2025-01-01 11:00:00,Zweiter Kommentar
+1001,PROJ-1,max.mustermann,2025-01-01 12:00:00,Dritter Kommentar vom gleichen Autor
+1002,PROJ-2,max.mustermann,2025-01-02 09:00:00,Kommentar zu anderem Issue
+1003,PROJ-3,daniel.fellner,2025-01-02 09:00:00,Hallo Welt
+1003,PROJ-3,anna.fellner,2025-01-02 09:00:00,Hallo Welt 2

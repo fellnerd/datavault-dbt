@@ -725,11 +725,14 @@ export const App: React.FC = () => {
   }, [columns, entityName, existingHubs]);
   
   // Check errors per object type - only block the affected objects
-  const hasGlobalErrors = validationErrors.some(e => e.type === 'error' && e.affectsObject === 'all');
+  // Note: 'all' errors are included in each specific check via the || condition
   const hasHubErrors = validationErrors.some(e => e.type === 'error' && (e.affectsObject === 'hub' || e.affectsObject === 'all'));
   const hasSatelliteErrors = validationErrors.some(e => e.type === 'error' && (e.affectsObject === 'satellite' || e.affectsObject === 'all'));
   const hasLinkErrors = validationErrors.some(e => e.type === 'error' && (e.affectsObject === 'link' || e.affectsObject === 'all'));
   const hasAnyError = validationErrors.some(e => e.type === 'error');
+  
+  // PIT table requires Hub + at least one Satellite to be useful
+  const canGeneratePIT = !hasHubErrors && !hasSatelliteErrors;
 
   // ============================================================================
   // COLUMN OPERATIONS
@@ -803,11 +806,12 @@ export const App: React.FC = () => {
   // ============================================================================
   // GENERATION (Config-First: reads from saved JSON)
   // ============================================================================
-  const handleGenerate = (target: 'all' | 'hub' | 'satellite' | 'links') => {
+  const handleGenerate = (target: 'all' | 'hub' | 'satellite' | 'links' | 'pit') => {
     // Check only relevant errors for the target
     const relevantErrors = target === 'all' ? hasAnyError :
       target === 'hub' ? hasHubErrors :
       target === 'satellite' ? (hasHubErrors || hasSatelliteErrors) : // Satellite needs Hub for FK
+      target === 'pit' ? (hasHubErrors || hasSatelliteErrors) : // PIT needs Hub + Satellites
       hasLinkErrors;
     
     if (relevantErrors) {
@@ -1288,6 +1292,12 @@ export const App: React.FC = () => {
             disabled={isGenerating || hasLinkErrors || stats.linkCols.length === 0}
             title={hasLinkErrors ? 'Fix Link validation errors first (select target Hub)' : 'Generate Link models'}
           >Generate Links</button>
+          <button
+            style={{ ...styles.buttonSecondary, ...(isGenerating || !canGeneratePIT || stats.hubCols.length === 0 || stats.satCols.length === 0 ? styles.buttonDisabled : {}) }}
+            onClick={() => handleGenerate('pit')}
+            disabled={isGenerating || !canGeneratePIT || stats.hubCols.length === 0 || stats.satCols.length === 0}
+            title={!canGeneratePIT ? 'Fix Hub/Satellite validation errors first' : stats.hubCols.length === 0 ? 'Requires Hub columns' : stats.satCols.length === 0 ? 'Requires Satellite columns' : 'Generate PIT table for this entity'}
+          >Generate PIT</button>
           <button
             style={{ ...styles.buttonPrimary, ...(isGenerating || hasAnyError ? styles.buttonDisabled : {}) }}
             onClick={() => handleGenerate('all')}

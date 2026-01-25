@@ -224,8 +224,137 @@ function getModelIcon(type: string): string {
     case 'satellite': return '$(list-unordered)';
     case 'link': return '$(git-merge)';
     case 'staging': return '$(database)';
+    case 'seed': return '$(table)';
     default: return '$(file)';
   }
+}
+
+interface DbtSeed {
+  name: string;
+  path: string;
+}
+
+interface SeedQuickPickItem extends vscode.QuickPickItem {
+  seed?: DbtSeed;
+}
+
+/**
+ * Get all dbt seeds from the seeds/ directory
+ */
+async function getDbtSeeds(projectPath: string): Promise<DbtSeed[]> {
+  const seedsDir = path.join(projectPath, 'seeds');
+  const seeds: DbtSeed[] = [];
+
+  if (!fs.existsSync(seedsDir)) {
+    return seeds;
+  }
+
+  // Recursively find all CSV files
+  function findCsvFiles(dir: string): void {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        findCsvFiles(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith('.csv')) {
+        const relativePath = path.relative(seedsDir, fullPath);
+        const name = path.basename(entry.name, '.csv');
+        seeds.push({
+          name,
+          path: relativePath
+        });
+      }
+    }
+  }
+
+  findCsvFiles(seedsDir);
+  return seeds.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Show seed picker and run dbt seed command
+ */
+async function showSeedPicker(
+  projectPath: string,
+  title: string,
+  placeHolder: string,
+  commandBuilder: (seeds: string[]) => string
+): Promise<void> {
+  const seeds = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Loading dbt seeds...',
+      cancellable: false
+    },
+    async () => getDbtSeeds(projectPath)
+  );
+
+  if (seeds.length === 0) {
+    vscode.window.showWarningMessage('No seed files (CSV) found in seeds/ directory.');
+    return;
+  }
+
+  const items: SeedQuickPickItem[] = seeds.map(seed => ({
+    label: `$(table) ${seed.name}`,
+    description: seed.path,
+    seed
+  }));
+
+  const quickPick = vscode.window.createQuickPick<SeedQuickPickItem>();
+  quickPick.title = title;
+  quickPick.placeholder = placeHolder;
+  quickPick.items = items;
+  quickPick.canSelectMany = true;
+  quickPick.matchOnDescription = true;
+
+  // Add "Select All" button
+  quickPick.buttons = [
+    {
+      iconPath: new vscode.ThemeIcon('check-all'),
+      tooltip: 'Select All'
+    },
+    {
+      iconPath: new vscode.ThemeIcon('clear-all'),
+      tooltip: 'Clear Selection'
+    }
+  ];
+
+  quickPick.onDidTriggerButton(button => {
+    if (button.tooltip === 'Select All') {
+      quickPick.selectedItems = items.filter(i => i.seed);
+    } else if (button.tooltip === 'Clear Selection') {
+      quickPick.selectedItems = [];
+    }
+  });
+
+  return new Promise<void>((resolve) => {
+    quickPick.onDidAccept(async () => {
+      const selected = quickPick.selectedItems.filter(i => i.seed);
+      quickPick.hide();
+
+      if (selected.length === 0) {
+        vscode.window.showWarningMessage('No seeds selected.');
+        resolve();
+        return;
+      }
+
+      // Build selector string using seed names
+      const selectors = selected.map(i => i.seed!.name);
+      const command = commandBuilder(selectors);
+
+      // Run in terminal with venv activation
+      runDbtInTerminal(projectPath, command);
+
+      resolve();
+    });
+
+    quickPick.onDidHide(() => {
+      quickPick.dispose();
+      resolve();
+    });
+
+    quickPick.show();
+  });
 }
 
 /**
@@ -429,6 +558,36 @@ export async function dbtRun(): Promise<void> {
 }
 
 /**
+ * dbt seed - Load CSV seed files into database
+ */
+export async function dbtSeed(): Promise<void> {
+  const projectPath = getDbtProjectPath();
+  if (!projectPath) return;
+
+  await showSeedPicker(
+    projectPath,
+    'dbt: Load Seeds',
+    'Select seed files to load into database',
+    (seeds) => `dbt seed --select ${seeds.join(' ')}`
+  );
+}
+
+/**
+ * dbt build - Run seeds, models, snapshots and tests
+ */
+export async function dbtBuild(): Promise<void> {
+  const projectPath = getDbtProjectPath();
+  if (!projectPath) return;
+
+  await showModelPicker(
+    projectPath,
+    'dbt: Build (Seeds + Models + Tests)',
+    'Select models to build (includes seeds, models, and tests)',
+    (models) => `dbt build --select ${models.join(' ')}`
+  );
+}
+
+/**
  * dbt test - Run tests for models
  */
 export async function dbtTest(): Promise<void> {
@@ -465,6 +624,8 @@ export function registerDbtCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('datavault.dbtRunFullRefresh', dbtRunFullRefresh),
     vscode.commands.registerCommand('datavault.dbtRun', dbtRun),
+    vscode.commands.registerCommand('datavault.dbtSeed', dbtSeed),
+    vscode.commands.registerCommand('datavault.dbtBuild', dbtBuild),
     vscode.commands.registerCommand('datavault.dbtTest', dbtTest),
     vscode.commands.registerCommand('datavault.dbtCompile', dbtCompile)
   );

@@ -153,6 +153,12 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.createStagingWizard",
+        "title": "Create Staging View (Wizard)",
+        "icon": "$(wand)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.validateStaging",
         "title": "Validate Staging Model",
         "icon": "$(check)",
@@ -183,6 +189,18 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.dbtSeed",
+        "title": "dbt: Load Seeds",
+        "icon": "$(table)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtBuild",
+        "title": "dbt: Build (Seeds + Models + Tests)",
+        "icon": "$(run-all)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.dbtTest",
         "title": "dbt: Test Models",
         "icon": "$(beaker)",
@@ -192,6 +210,24 @@
         "command": "datavault.dbtCompile",
         "title": "dbt: Compile (Preview SQL)",
         "icon": "$(file-code)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createRefTable",
+        "title": "Create Reference Table",
+        "icon": "$(list-unordered)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createPITTable",
+        "title": "Create PIT Table",
+        "icon": "$(history)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createBridgeTable",
+        "title": "Create Bridge Table",
+        "icon": "$(git-merge)",
         "category": "Data Vault"
       },
       {
@@ -274,6 +310,11 @@
       ],
       "view/title": [
         {
+          "command": "datavault.createStagingWizard",
+          "when": "view == datavault-staging",
+          "group": "navigation@0"
+        },
+        {
           "command": "datavault.stageAllExternalSources",
           "when": "view == datavault-sources",
           "group": "navigation@0"
@@ -322,12 +363,12 @@
         },
         {
           "command": "datavault.createExternalTable",
-          "when": "view == datavault-sources && viewItem == external_table",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
           "group": "database@1"
         },
         {
           "command": "datavault.createStaging",
-          "when": "view == datavault-sources && viewItem == external_table",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
           "group": "staging@1"
         },
         {
@@ -354,6 +395,21 @@
           "command": "datavault.deleteStaging",
           "when": "view == datavault-staging && viewItem == model",
           "group": "delete@1"
+        },
+        {
+          "command": "datavault.createRefTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "reference@1"
+        },
+        {
+          "command": "datavault.createPITTable",
+          "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
+          "group": "businessvault@1"
+        },
+        {
+          "command": "datavault.createBridgeTable",
+          "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
+          "group": "businessvault@2"
         },
         {
           "command": "datavault.addToGroup",
@@ -402,8 +458,8 @@
         },
         "datavault.staging.hashDiffSeparator": {
           "type": "string",
-          "default": "||",
-          "description": "Separator for hash diff columns"
+          "default": "^^",
+          "description": "Separator for hash diff columns (DV 2.1 standard: ^^)"
         },
         "datavault.staging.nullPlaceholder": {
           "type": "string",

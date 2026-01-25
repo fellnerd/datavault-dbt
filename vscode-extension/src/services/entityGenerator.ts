@@ -17,7 +17,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { EntityDesignConfig, DesignerColumnDefinition, GeneratedFile, GenerationResult, StagingConfig, ForeignKeyMapping } from '../types';
+import { EntityDesignConfig, DesignerColumnDefinition, GeneratedFile, GenerationResult, StagingConfig, ForeignKeyMapping, SourceType } from '../types';
 import { generateStagingSql } from './stagingGenerator';
 
 /**
@@ -92,7 +92,8 @@ export async function generateDataVaultObjects(
         foreignKeys,
         dependentChildKeys,
         multiActiveKeys,
-        projectPath
+        projectPath,
+        config.sourceType  // Pass sourceType from config
       );
       generatedFiles.push(stagingFile);
     }
@@ -194,7 +195,8 @@ async function regenerateStaging(
   foreignKeys: DesignerColumnDefinition[],
   dependentChildKeys: DesignerColumnDefinition[],
   multiActiveKeys: DesignerColumnDefinition[],
-  projectPath: string
+  projectPath: string,
+  sourceType?: SourceType
 ): Promise<GeneratedFile> {
   const { concept, entityName, sourceTable } = config;
   
@@ -248,16 +250,45 @@ async function regenerateStaging(
     ? hashDiffColumns 
     : attributes.map(a => a.name.toLowerCase());
   
+  // Determine the actual source table name based on sourceType
+  // For seeds: use the seed name (e.g., "test_jira_comments")
+  // For external tables: use the external table name (e.g., "ext_jira_comments_seed")
+  let actualSourceTable = sourceTable || `ext_${concept}_${entityName}`;
+  if (sourceType === 'seed') {
+    // For seeds, derive name from entityName: "comments_seed" -> "test_jira_comments" 
+    // Or check if sourceTable already looks like a seed name (doesn't start with ext_)
+    if (sourceTable && !sourceTable.startsWith('ext_')) {
+      actualSourceTable = sourceTable;  // Already a seed name
+    } else {
+      // Convert from ext_ convention to test_ convention
+      // ext_jira_comments_seed -> test_jira_comments
+      actualSourceTable = `test_${concept}_${entityName.replace(/_seed$/, '')}`;
+    }
+  }
+  
+  // Build column mappings for aliases (sourceName -> name)
+  // Only include columns where source differs from target
+  const columnMappings: Record<string, string> = {};
+  for (const col of config.columns) {
+    const sourceName = col.sourceName || col.name;
+    const targetName = col.name.toLowerCase();
+    if (sourceName.toLowerCase() !== targetName) {
+      columnMappings[sourceName] = targetName;
+    }
+  }
+  
   // Build staging config
   const stagingConfig: StagingConfig = {
     concept,
     entityName,
-    externalTable: sourceTable || `ext_${concept}_${entityName}`,
-    businessKeyColumns: businessKeys.map(bk => bk.name.toLowerCase()),
+    externalTable: actualSourceTable,
+    sourceType: sourceType || 'external_table',  // Default to external_table for backward compatibility
+    businessKeyColumns: businessKeys.map(bk => (bk.sourceName || bk.name).toUpperCase()),  // Use SOURCE name for SQL
     businessKeySeparator: '^^',
     payloadColumns,
+    columnMappings,  // Add the alias mappings
     hashDiffColumns: effectiveHashDiffColumns,
-    hashDiffSeparator: '||',
+    hashDiffSeparator: '^^',
     foreignKeys: fkMappings,
     recordSourceDefault: concept,
     includeRunId: config.columns.some(c => c.name.toLowerCase() === 'dss_run_id'),
