@@ -312,6 +312,8 @@ export interface DesignerColumnDefinition {
   sourceName?: string;
   dataType: string;
   columnType: DesignerColumnType;
+  /** Additional types for multi-type columns (e.g., satellite + link) */
+  additionalTypes?: DesignerColumnType[];
   includeInHashDiff: boolean;
   foreignKeyTarget?: string;  // e.g., 'hub_company' for links
   nullable?: boolean;
@@ -379,6 +381,8 @@ export interface SavedColumnConfig {
   sourceName?: string;
   dataType?: string;
   columnType: string;
+  /** Additional types for multi-target columns (e.g., link column also in satellite) */
+  additionalTypes?: string[];
   foreignKeyTarget?: string;
   nullable?: boolean;
   /** For dependent_child: which link this DCK belongs to */
@@ -444,11 +448,296 @@ export interface WebviewUpdateDataTypeMessage {
 /**
  * Union type for all webview messages
  */
-export type WebviewMessage = 
-  | WebviewInitMessage 
-  | WebviewGenerateMessage 
+export type WebviewMessage =
+  | WebviewInitMessage
+  | WebviewGenerateMessage
   | WebviewSaveConfigMessage
   | WebviewUpdateMessage
   | WebviewGenerationCompleteMessage
   | WebviewReadyMessage
   | WebviewUpdateDataTypeMessage;
+
+// ============================================
+// MART DESIGNER TYPES
+// ============================================
+
+/**
+ * SCD Type for dimensions
+ */
+export type SCDType = 'type1' | 'type2';
+
+/**
+ * Materialization options for mart models
+ */
+export type MartMaterialization = 'view' | 'table' | 'incremental';
+
+/**
+ * Source type for dimensions
+ */
+export type DimensionSourceType = 'hub' | 'pit' | 'seed' | 'static';
+
+/**
+ * Surrogate key generation strategy
+ */
+export type SurrogateKeyStrategy = 'row_number' | 'identity' | 'hash';
+
+/**
+ * Dimension attribute configuration
+ */
+export interface DimensionAttribute {
+  name: string;                    // Target column name in dimension
+  sourceModel: string;             // Source model (satellite, seed, etc.)
+  sourceColumn: string;            // Source column name
+  dataType: string;                // SQL data type
+  description?: string;            // Documentation
+}
+
+/**
+ * Dimension configuration for Mart Designer
+ */
+export interface DimensionConfig {
+  name: string;                    // e.g., 'dim_company'
+  concept: string;                 // e.g., 'werkportal'
+
+  // Source configuration
+  sourceType: DimensionSourceType; // 'hub' | 'pit' | 'seed' | 'static'
+  sourceHub?: string;              // hub_company (for sourceType='hub')
+  sourcePIT?: string;              // pit_company (for sourceType='pit' or SCD Type 2)
+  sourceSeed?: string;             // seed_date (for sourceType='seed')
+  sourceSatellites: string[];      // [sat_company, sat_company_ext]
+
+  // SCD configuration
+  scdType: SCDType;                // 'type1' or 'type2'
+
+  // Key configuration
+  surrogateKey: string;            // dim_company_key (Integer)
+  businessKey: string;             // object_id
+  hashKey?: string;                // hk_company (Vault Hash Key for traceability)
+  includeHashKey: boolean;         // Include hk_company as attribute?
+  surrogateKeyStrategy: SurrogateKeyStrategy;
+
+  // Attributes
+  attributes: DimensionAttribute[];
+
+  // Materialization
+  materialization: MartMaterialization;
+}
+
+/**
+ * Fact dimension reference (FK to dimension)
+ */
+export interface FactDimensionRef {
+  dimensionName: string;           // dim_company
+  foreignKey: string;              // company_key (name in fact output)
+  factJoinColumn?: string;         // Column in fact source to join on (e.g., issue_status_id in sat_vorgang)
+  dimJoinColumn?: string;          // Column in dimension to join on (e.g., issue_status_id in dim_vorgang_status)
+  sourceColumn?: string;           // Legacy: hk_company or date column
+  sourceModel?: string;            // Source model if not from link
+  joinColumn?: string;             // Legacy: Column to join on in dimension
+  scdType?: SCDType;               // SCD type of referenced dimension
+  roleAlias?: string;              // "Order Date" for role-playing
+  isRolePlaying: boolean;          // true if same dim used multiple times
+}
+
+/**
+ * Degenerate dimension (transaction attribute stored in fact)
+ */
+export interface DegenerateDimension {
+  name: string;                    // order_number
+  sourceColumn: string;            // Source column name
+  sourceModel: string;             // link_order or sat_order
+  dataType: string;                // SQL data type
+  isPartOfGrain: boolean;          // Part of unique key?
+}
+
+/**
+ * Fact measure configuration
+ */
+export interface FactMeasure {
+  name: string;                    // total_amount
+  sourceColumn: string;            // amount
+  sourceModel: string;             // sat_order
+  dataType: string;                // DECIMAL(18,2)
+  aggregation?: 'SUM' | 'COUNT' | 'AVG' | 'MIN' | 'MAX' | 'NONE';
+  description?: string;
+}
+
+/**
+ * Fact configuration for Mart Designer
+ */
+export interface FactConfig {
+  name: string;                    // fact_orders
+  concept: string;                 // werkportal
+
+  // Source configuration
+  sourceLink?: string;             // link_order
+  sourceBridge?: string;           // bridge_order (optional optimization)
+  sourceSatellites?: string[];     // [sat_order] for measures
+
+  // Grain definition
+  grain: string[];                 // ['company_key', 'date_key']
+
+  // Dimension references
+  dimensionRefs: FactDimensionRef[];
+
+  // Degenerate dimensions
+  degenerateDimensions: DegenerateDimension[];
+
+  // Measures
+  measures: FactMeasure[];
+
+  // Materialization
+  materialization: MartMaterialization;
+
+  // Incremental configuration
+  incrementalUniqueKey?: string[]; // ['company_key', 'date_key', 'order_number']
+  incrementalStrategy?: 'append' | 'merge';
+}
+
+/**
+ * Custom column added manually in final model
+ */
+export interface CustomColumn {
+  name: string;                    // Column name
+  expression: string;              // SQL expression (e.g., "UPPER(name)")
+  dataType?: string;               // Optional data type
+  description?: string;            // Documentation
+  addedManually: boolean;          // Always true for custom columns
+}
+
+/**
+ * React Flow node for Mart Designer
+ */
+export interface MartDesignerNode {
+  id: string;
+  type: 'dimension' | 'fact';
+  position: { x: number; y: number };
+  data: DimensionConfig | FactConfig;
+}
+
+/**
+ * React Flow edge for Mart Designer
+ */
+export interface MartDesignerEdge {
+  id: string;
+  source: string;                  // Fact node ID
+  target: string;                  // Dimension node ID
+  sourceHandle: string;            // FK column
+  targetHandle: string;            // SK column
+  data?: {
+    joinType: 'inner' | 'left';
+    label?: string;
+  };
+}
+
+/**
+ * Complete Mart Designer state for persistence
+ */
+export interface MartDesignerState {
+  version: string;                 // Schema version
+  concept: string;                 // Business concept
+  martName: string;                // Name of the mart design
+  lastModified: string;            // ISO timestamp
+  nodes: MartDesignerNode[];
+  edges: MartDesignerEdge[];
+}
+
+/**
+ * Validation error for Mart Designer
+ */
+export interface MartValidationError {
+  nodeId?: string;
+  field?: string;
+  message: string;
+  severity: 'error' | 'warning' | 'info';
+}
+
+/**
+ * Validation result for Mart Designer
+ */
+export interface MartValidationResult {
+  isValid: boolean;
+  errors: MartValidationError[];
+  warnings: MartValidationError[];
+}
+
+// ============================================
+// MART DESIGNER MESSAGE TYPES
+// ============================================
+
+/**
+ * Payload for adding a dimension
+ */
+export interface AddDimensionPayload {
+  name: string;
+  sourceType: DimensionSourceType;
+  sourceHub?: string;
+  sourceSeed?: string;
+  businessKey: string;
+  hashKey?: string;
+  columns: ColumnInfo[];
+  concept: string;
+  surrogateKey: string;
+  scdType: SCDType;
+  materialization: MartMaterialization;
+  surrogateKeyStrategy: SurrogateKeyStrategy;
+  includeHashKey: boolean;
+  sourceSatellites: string[];
+  attributes: DimensionAttribute[];
+}
+
+/**
+ * Payload for adding a fact
+ */
+export interface AddFactPayload {
+  name: string;
+  sourceLink: string;
+  foreignKeys: string[];
+  columns: ColumnInfo[];
+  concept: string;
+}
+
+/**
+ * Payload for adding attributes to a node
+ */
+export interface AddAttributesPayload {
+  targetNodeId: string;
+  sourceModel: string;
+  columns: ColumnInfo[];
+}
+
+/**
+ * Payload for adding a single column to a node
+ */
+export interface AddColumnPayload {
+  targetNodeId: string;
+  sourceModel: string;
+  column: ColumnInfo;
+}
+
+/**
+ * Payload for setting a source (PIT/Bridge)
+ */
+export interface SetSourcePayload {
+  targetNodeId: string;
+  sourceType: 'pit' | 'bridge';
+  sourceName: string;
+}
+
+/**
+ * Message types for Mart Designer webview communication
+ */
+export type MartDesignerMessage =
+  | { type: 'ready' }
+  | { type: 'init'; data: MartDesignerState }
+  | { type: 'addDimension'; payload: AddDimensionPayload }
+  | { type: 'addFact'; payload: AddFactPayload }
+  | { type: 'addAttributes'; payload: AddAttributesPayload }
+  | { type: 'addColumn'; payload: AddColumnPayload }
+  | { type: 'setSource'; payload: SetSourcePayload }
+  | { type: 'nodeSelected'; payload: { nodeId: string | null } }
+  | { type: 'save'; payload: MartDesignerState }
+  | { type: 'generate'; payload: MartDesignerState }
+  | { type: 'stateChanged' }
+  | { type: 'generationComplete'; success: boolean; files: string[]; errors: string[] }
+  | { type: 'loadState'; payload: MartDesignerState };

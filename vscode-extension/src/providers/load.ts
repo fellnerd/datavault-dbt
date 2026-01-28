@@ -233,7 +233,10 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
       collapsibleState: 'none' as const,
       description: col.dataType || 'unknown',
       tooltip: col.description || `${col.name}: ${col.dataType || 'unknown'}`,
-      icon: this.getColumnIcon(col.name)
+      icon: this.getColumnIcon(col.name),
+      psaTable: psa,  // Include parent PSA table for context menu actions
+      concept: psa.concept,
+      layer: 'sources' as const
     }));
   }
 
@@ -277,7 +280,10 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
       collapsibleState: 'none' as const,
       description: col.dataType || 'unknown',
       tooltip: col.description || `${col.name}: ${col.dataType || 'unknown'}`,
-      icon: this.getColumnIcon(col.name)
+      icon: this.getColumnIcon(col.name),
+      externalTable: table,  // Include parent external table for context menu actions
+      concept: table.concept,
+      layer: 'sources' as const
     }));
   }
 

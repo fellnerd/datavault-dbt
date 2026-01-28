@@ -1,16 +1,35 @@
-// esbuild configuration for Entity Designer Webview (React)
+// esbuild configuration for Webviews (React)
+// Supports multiple entry points: Entity Designer, Mart Designer
 import * as esbuild from 'esbuild';
+import * as fs from 'fs';
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+
+// Webview entry points with explicit output names
+const webviewEntries = [
+  { in: 'src/webviews/entityDesigner/app/index.tsx', out: 'entityDesigner' },
+  { in: 'src/webviews/martDesigner/app/index.tsx', out: 'martDesigner' },
+];
+
+// Filter to only existing entry points and build entryPoints object
+const existingEntryPoints = {};
+webviewEntries.forEach(entry => {
+  try {
+    fs.accessSync(entry.in);
+    existingEntryPoints[entry.out] = entry.in;
+  } catch {
+    console.log(`[esbuild] Skipping non-existent entry: ${entry.in}`);
+  }
+});
 
 /**
  * @type {import('esbuild').BuildOptions}
  */
 const buildOptions = {
-  entryPoints: ['src/webviews/entityDesigner/app/index.tsx'],
+  entryPoints: existingEntryPoints,
   bundle: true,
-  outfile: 'out/webviews/entityDesigner.js',
+  outdir: 'out/webviews', // Output directory for multiple entries
   external: [], // Bundle everything for webview
   format: 'iife',
   platform: 'browser',

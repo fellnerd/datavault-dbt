@@ -32,24 +32,31 @@ export async function generateDataVaultObjects(
   const errors: string[] = [];
 
   try {
+    // Helper to check if column has a type (primary or additional)
+    const hasType = (col: DesignerColumnDefinition, type: string): boolean => {
+      if (col.columnType === type) return true;
+      return col.additionalTypes?.includes(type as DesignerColumnDefinition['columnType']) ?? false;
+    };
+    
     // Map UI column types to internal types (handle both old and new naming)
+    // Also include columns with additionalTypes
     const businessKeys = config.columns.filter(c => 
-      c.columnType === 'business_key' || c.columnType === 'hub'
+      hasType(c, 'business_key') || hasType(c, 'hub')
     );
     const attributes = config.columns.filter(c => 
-      (c.columnType === 'attribute' || c.columnType === 'satellite') &&
+      (hasType(c, 'attribute') || hasType(c, 'satellite')) &&
       // Exclude hash columns from payload - they are handled separately
       !c.name.toLowerCase().startsWith('hk_') &&
       !c.name.toLowerCase().startsWith('hd_')
     );
     const foreignKeys = config.columns.filter(c => 
-      c.columnType === 'foreign_key' || c.columnType === 'link'
+      hasType(c, 'foreign_key') || hasType(c, 'link')
     );
     const dependentChildKeys = config.columns.filter(c => 
-      c.columnType === 'dependent_child'
+      hasType(c, 'dependent_child')
     );
     const multiActiveKeys = config.columns.filter(c => 
-      c.columnType === 'multi_active'
+      hasType(c, 'multi_active')
     );
 
     // Check if this is a Pure Dependent Child entity (no Hub, only Link + DC Sat)
@@ -420,7 +427,8 @@ async function generateSatellite(
 
 {{ config(
     materialized='incremental',
-    as_columnstore=false
+    as_columnstore=false,
+    post_hook="{{ update_satellite_current_flag(this, '${hashKeyName}') }}"
 ) }}
 
 {%- set yaml_metadata -%}
@@ -657,7 +665,8 @@ async function generateDependentChildSatellite(
 
 {{ config(
     materialized='incremental',
-    as_columnstore=false
+    as_columnstore=false,
+    post_hook="{{ update_satellite_current_flag(this, '${linkHashKey}') }}"
 ) }}
 
 {%- set yaml_metadata -%}
@@ -760,7 +769,8 @@ async function generateMultiActiveSatellite(
 
 {{ config(
     materialized='incremental',
-    as_columnstore=false
+    as_columnstore=false,
+    post_hook="{{ update_satellite_current_flag(this, '${hashKeyName}') }}"
 ) }}
 
 {%- set yaml_metadata -%}
@@ -817,17 +827,25 @@ export async function generateSchemaYaml(
   projectPath: string
 ): Promise<GeneratedFile> {
   const { concept, entityName } = config;
+  
+  // Helper to check if column has a type (primary or additional)
+  const hasType = (col: DesignerColumnDefinition, type: string): boolean => {
+    if (col.columnType === type) return true;
+    return col.additionalTypes?.includes(type as DesignerColumnDefinition['columnType']) ?? false;
+  };
+  
   const businessKeys = config.columns.filter(c => 
-    c.columnType === 'business_key' || c.columnType === 'hub'
+    hasType(c, 'business_key') || hasType(c, 'hub')
   );
+  // Include columns that are satellite OR have satellite in additionalTypes
   const attributes = config.columns.filter(c => 
-    c.columnType === 'attribute' || c.columnType === 'satellite'
+    hasType(c, 'attribute') || hasType(c, 'satellite')
   );
   const dependentChildKeys = config.columns.filter(c => 
-    c.columnType === 'dependent_child'
+    hasType(c, 'dependent_child')
   );
   const multiActiveKeys = config.columns.filter(c => 
-    c.columnType === 'multi_active'
+    hasType(c, 'multi_active')
   );
 
   // Build YAML content
@@ -912,7 +930,17 @@ models:`;
         description: Data source identifier
         data_type: varchar(100)
         tests:
-          - not_null`;
+          - not_null
+      - name: dss_is_current
+        description: Current record flag (Y=current, N=historical)
+        data_type: char(1)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Y', 'N']
+      - name: dss_end_date
+        description: End date when record was superseded
+        data_type: datetime2(7)`;
   }
 
   // Add Link models
@@ -959,11 +987,33 @@ models:`;
     `_${concept}__models.yml`
   );
 
-  // Check if file exists and merge if needed
+  // Check if file exists and merge/update if needed
   try {
     const existingContent = await fs.readFile(filePath, 'utf-8');
     
-    // Parse model names we're trying to add
+    // Parse the YAML to work with structured data
+    const yaml = await import('yaml');
+    let existingYaml: { version?: number; models?: Array<{ name: string; [key: string]: unknown }> };
+    try {
+      existingYaml = yaml.parse(existingContent) || { version: 2, models: [] };
+    } catch {
+      // If parsing fails, start fresh
+      existingYaml = { version: 2, models: [] };
+    }
+    
+    if (!existingYaml.models) {
+      existingYaml.models = [];
+    }
+    
+    // Build a map of existing models by name for quick lookup
+    const existingModelsMap = new Map<string, number>();
+    existingYaml.models.forEach((m, idx) => {
+      if (m.name) {
+        existingModelsMap.set(m.name, idx);
+      }
+    });
+    
+    // Parse model names we're trying to add/update
     const newModelNames = new Set<string>();
     if (generatedFiles.some(f => f.type === 'hub')) {
       newModelNames.add(`hub_${entityName}`);
@@ -985,59 +1035,61 @@ models:`;
       newModelNames.add(path.basename(maSatFile.path, '.sql'));
     }
     
-    // Check which models already exist in the YAML
-    const existingModelMatches = existingContent.matchAll(/^\s*-\s*name:\s*(\S+)/gm);
-    const existingModels = new Set([...existingModelMatches].map(m => m[1]));
+    // Build new model definitions
+    const newModelDefs: Array<{ name: string; description: string; columns: unknown[] }> = [];
     
-    // Filter to only new models that don't exist yet
-    const modelsToAdd: string[] = [];
-    for (const modelName of newModelNames) {
-      if (!existingModels.has(modelName)) {
-        modelsToAdd.push(modelName);
-      }
+    if (newModelNames.has(`hub_${entityName}`)) {
+      newModelDefs.push(buildHubYamlObject(entityName, businessKeys));
     }
-    
-    if (modelsToAdd.length === 0) {
-      console.log('[Entity Generator] All models already exist in YAML, skipping');
-      return { path: filePath, content: existingContent, type: 'schema' };
-    }
-    
-    // Build YAML for only the new models
-    let newModelsYaml = '';
-    
-    if (modelsToAdd.includes(`hub_${entityName}`)) {
-      newModelsYaml += buildHubYaml(entityName, businessKeys);
-    }
-    if (modelsToAdd.includes(`sat_${entityName}`)) {
-      newModelsYaml += buildSatelliteYaml(entityName, attributes);
+    if (newModelNames.has(`sat_${entityName}`)) {
+      newModelDefs.push(buildSatelliteYamlObject(entityName, attributes));
     }
     for (const linkFile of linkFiles) {
       const linkName = path.basename(linkFile.path, '.sql');
-      if (modelsToAdd.includes(linkName)) {
-        newModelsYaml += buildLinkYaml(linkName, entityName, linkFile);
+      if (newModelNames.has(linkName)) {
+        newModelDefs.push(buildLinkYamlObject(linkName, entityName, linkFile));
       }
     }
-    
-    // DC Satellites (reuse filtered files from above)
     for (const dcSatFile of dcSatFiles) {
       const dcSatName = path.basename(dcSatFile.path, '.sql');
-      if (modelsToAdd.includes(dcSatName)) {
-        newModelsYaml += buildDCSatelliteYaml(dcSatName, entityName, dependentChildKeys, attributes, dcSatFile);
+      if (newModelNames.has(dcSatName)) {
+        newModelDefs.push(buildDCSatelliteYamlObject(dcSatName, entityName, dependentChildKeys, attributes, dcSatFile));
       }
     }
-    
-    // MA Satellites (reuse filtered files from above)
     for (const maSatFile of maSatFiles) {
       const maSatName = path.basename(maSatFile.path, '.sql');
-      if (modelsToAdd.includes(maSatName)) {
-        newModelsYaml += buildMASatelliteYaml(maSatName, entityName, multiActiveKeys, attributes);
+      if (newModelNames.has(maSatName)) {
+        newModelDefs.push(buildMASatelliteYamlObject(maSatName, entityName, multiActiveKeys, attributes));
       }
     }
     
-    // Append new models to existing content (before final newline)
-    const mergedContent = existingContent.trimEnd() + '\n' + newModelsYaml;
+    // Update or add models
+    let addedCount = 0;
+    let updatedCount = 0;
+    for (const newModel of newModelDefs) {
+      const existingIdx = existingModelsMap.get(newModel.name);
+      if (existingIdx !== undefined) {
+        // Update existing model
+        existingYaml.models[existingIdx] = newModel;
+        updatedCount++;
+        console.log(`[Entity Generator] Updated model: ${newModel.name}`);
+      } else {
+        // Add new model
+        existingYaml.models.push(newModel);
+        addedCount++;
+        console.log(`[Entity Generator] Added model: ${newModel.name}`);
+      }
+    }
+    
+    // Write back the YAML
+    const mergedContent = yaml.stringify(existingYaml, { 
+      indent: 2,
+      lineWidth: 0,  // Prevent line wrapping
+      defaultStringType: 'QUOTE_DOUBLE',
+      defaultKeyType: 'PLAIN'
+    });
     await fs.writeFile(filePath, mergedContent, 'utf-8');
-    console.log(`[Entity Generator] Merged ${modelsToAdd.length} new models into YAML`);
+    console.log(`[Entity Generator] YAML updated: ${addedCount} added, ${updatedCount} updated`);
     
     return { path: filePath, content: mergedContent, type: 'schema' };
     
@@ -1315,4 +1367,241 @@ function buildMASatelliteYaml(
           - not_null
 `;
   return yaml;
+}
+
+/**
+ * Build YAML Object for a Hub model (for YAML merge/update)
+ */
+function buildHubYamlObject(entityName: string, businessKeys: DesignerColumnDefinition[]): { name: string; description: string; columns: unknown[] } {
+  const columns: unknown[] = [
+    {
+      name: `hk_${entityName.toLowerCase()}`,
+      description: 'Hash Key (Primary Key)',
+      data_type: 'char(64)',
+      tests: ['not_null', 'unique']
+    }
+  ];
+
+  for (const bk of businessKeys) {
+    columns.push({
+      name: bk.name.toLowerCase(),
+      description: 'Business Key',
+      data_type: bk.dataType || 'NVARCHAR(MAX)',
+      tests: ['not_null']
+    });
+  }
+
+  columns.push(
+    { name: 'dss_load_date', description: 'Load timestamp', data_type: 'datetime2(7)', tests: ['not_null'] },
+    { name: 'dss_record_source', description: 'Data source identifier', data_type: 'varchar(100)', tests: ['not_null'] }
+  );
+
+  return {
+    name: `hub_${entityName}`,
+    description: `Hub for ${entityName} entity.\nGenerated by Entity Designer using automate_dv.hub macro.\n`,
+    columns
+  };
+}
+
+/**
+ * Build YAML Object for a Satellite model (for YAML merge/update)
+ */
+function buildSatelliteYamlObject(entityName: string, attributes: DesignerColumnDefinition[]): { name: string; description: string; columns: unknown[] } {
+  const columns: unknown[] = [
+    {
+      name: `hk_${entityName.toLowerCase()}`,
+      description: 'Hash Key (FK to Hub)',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    },
+    {
+      name: 'hashdiff',
+      description: 'Hash Diff for change detection',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    }
+  ];
+
+  for (const attr of attributes) {
+    columns.push({
+      name: attr.name.toLowerCase(),
+      description: `${attr.name} attribute`,
+      data_type: attr.dataType || 'NVARCHAR(MAX)'
+    });
+  }
+
+  columns.push(
+    { name: 'effective_from', description: 'Business effectivity date', data_type: 'datetime2(7)' },
+    { name: 'dss_load_date', description: 'Load timestamp', data_type: 'datetime2(7)', tests: ['not_null'] },
+    { name: 'dss_record_source', description: 'Data source identifier', data_type: 'varchar(100)', tests: ['not_null'] },
+    { name: 'dss_is_current', description: 'Current record flag (Y=current, N=historical)', data_type: 'char(1)', tests: ['not_null', { accepted_values: { values: ['Y', 'N'] } }] },
+    { name: 'dss_end_date', description: 'End date when record was superseded', data_type: 'datetime2(7)' }
+  );
+
+  return {
+    name: `sat_${entityName}`,
+    description: `Satellite for ${entityName} attributes.\nGenerated by Entity Designer using automate_dv.sat macro.\n`,
+    columns
+  };
+}
+
+/**
+ * Build YAML Object for a Link model (for YAML merge/update)
+ */
+function buildLinkYamlObject(linkName: string, sourceEntityName: string, linkFile: GeneratedFile): { name: string; description: string; columns: unknown[] } {
+  // Extract target hub from link file content
+  const fkMatch = linkFile.content.match(/src_fk:\s*\n\s*-\s*"([^"]+)"\s*\n\s*-\s*"([^"]+)"/);
+  const fks = fkMatch ? [fkMatch[1], fkMatch[2]] : [`hk_${sourceEntityName.toLowerCase()}`];
+
+  const columns: unknown[] = [
+    {
+      name: `hk_${linkName.toLowerCase()}`,
+      description: 'Link Hash Key (Primary Key)',
+      data_type: 'char(64)',
+      tests: ['not_null', 'unique']
+    }
+  ];
+
+  for (const fk of fks) {
+    columns.push({
+      name: fk,
+      description: 'FK to Hub',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    });
+  }
+
+  columns.push(
+    { name: 'dss_load_date', description: 'Load timestamp', data_type: 'datetime2(7)', tests: ['not_null'] },
+    { name: 'dss_record_source', description: 'Data source identifier', data_type: 'varchar(100)', tests: ['not_null'] }
+  );
+
+  return {
+    name: linkName,
+    description: `Link relationship.\nGenerated by Entity Designer using automate_dv.link macro.\n`,
+    columns
+  };
+}
+
+/**
+ * Build YAML Object for a DC Satellite model (for YAML merge/update)
+ */
+function buildDCSatelliteYamlObject(
+  dcSatName: string,
+  sourceEntityName: string,
+  dependentChildKeys: DesignerColumnDefinition[],
+  attributes: DesignerColumnDefinition[],
+  dcSatFile: GeneratedFile
+): { name: string; description: string; columns: unknown[] } {
+  // Extract link hash key from DC Sat file
+  const pkMatch = dcSatFile.content.match(/src_pk:\s*"([^"]+)"/);
+  const linkHashKey = pkMatch ? pkMatch[1] : `hk_link_${sourceEntityName.toLowerCase()}`;
+
+  const columns: unknown[] = [
+    {
+      name: linkHashKey,
+      description: 'Link Hash Key (FK to Link)',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    },
+    {
+      name: 'hashdiff',
+      description: 'Hash Diff for change detection',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    }
+  ];
+
+  // Add DCK columns
+  for (const dck of dependentChildKeys) {
+    columns.push({
+      name: dck.name.toLowerCase(),
+      description: 'Dependent Child Key',
+      data_type: dck.dataType || 'NVARCHAR(MAX)',
+      tests: ['not_null']
+    });
+  }
+
+  // Add attribute columns
+  for (const attr of attributes) {
+    columns.push({
+      name: attr.name.toLowerCase(),
+      description: `${attr.name} attribute`,
+      data_type: attr.dataType || 'NVARCHAR(MAX)'
+    });
+  }
+
+  columns.push(
+    { name: 'effective_from', description: 'Business effectivity date', data_type: 'datetime2(7)' },
+    { name: 'dss_load_date', description: 'Load timestamp', data_type: 'datetime2(7)', tests: ['not_null'] },
+    { name: 'dss_record_source', description: 'Data source identifier', data_type: 'varchar(100)', tests: ['not_null'] },
+    { name: 'dss_is_current', description: 'Current record flag (Y=current, N=historical)', data_type: 'char(1)', tests: ['not_null', { accepted_values: { values: ['Y', 'N'] } }] },
+    { name: 'dss_end_date', description: 'End date when record was superseded', data_type: 'datetime2(7)' }
+  );
+
+  return {
+    name: dcSatName,
+    description: `Dependent Child Satellite for ${sourceEntityName} link relationship.\nContains DCK columns that make link records unique at a more granular level.\nGenerated by Entity Designer using automate_dv.sat macro.\n`,
+    columns
+  };
+}
+
+/**
+ * Build YAML Object for a MA Satellite model (for YAML merge/update)
+ */
+function buildMASatelliteYamlObject(
+  maSatName: string,
+  sourceEntityName: string,
+  multiActiveKeys: DesignerColumnDefinition[],
+  attributes: DesignerColumnDefinition[]
+): { name: string; description: string; columns: unknown[] } {
+  const hashKeyName = `hk_${sourceEntityName.toLowerCase()}`;
+
+  const columns: unknown[] = [
+    {
+      name: hashKeyName,
+      description: 'Hash Key (FK to Hub)',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    },
+    {
+      name: 'hashdiff',
+      description: 'Hash Diff for change detection',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    }
+  ];
+
+  // Add CDK columns
+  for (const cdk of multiActiveKeys) {
+    columns.push({
+      name: cdk.name.toLowerCase(),
+      description: 'Child Dependent Key (CDK) - distinguishes concurrent records',
+      data_type: cdk.dataType || 'NVARCHAR(MAX)',
+      tests: ['not_null']
+    });
+  }
+
+  // Add attribute columns
+  for (const attr of attributes) {
+    columns.push({
+      name: attr.name.toLowerCase(),
+      description: `${attr.name} attribute`,
+      data_type: attr.dataType || 'NVARCHAR(MAX)'
+    });
+  }
+
+  columns.push(
+    { name: 'effective_from', description: 'Business effectivity date', data_type: 'datetime2(7)' },
+    { name: 'dss_load_date', description: 'Load timestamp', data_type: 'datetime2(7)', tests: ['not_null'] },
+    { name: 'dss_record_source', description: 'Data source identifier', data_type: 'varchar(100)', tests: ['not_null'] },
+    { name: 'dss_is_current', description: 'Current record flag (Y=current, N=historical)', data_type: 'char(1)', tests: ['not_null', { accepted_values: { values: ['Y', 'N'] } }] },
+    { name: 'dss_end_date', description: 'End date when record was superseded', data_type: 'datetime2(7)' }
+  );
+
+  return {
+    name: maSatName,
+    description: `Multi-Active Satellite for ${sourceEntityName} entity.\nAllows multiple concurrent valid records per business key.\nCDK columns distinguish each concurrent record.\nGenerated by Entity Designer using automate_dv.ma_sat macro.\n`,
+    columns
+  };
 }

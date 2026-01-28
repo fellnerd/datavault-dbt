@@ -61,9 +61,12 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
     item.description = element.description;
     item.tooltip = element.tooltip || element.label;
     
-    // Set contextValue for context menu - use special values for grouped items
-    if (element.type === 'model' && element.groupName && element.groupName !== 'All') {
-      item.contextValue = 'model-in-group';
+    // Set contextValue for context menu - include model type for filtering
+    if (element.type === 'model') {
+      const modelType = element.modelType || 'unknown';
+      const inGroup = element.groupName && element.groupName !== 'All';
+      // Format: model-hub, model-satellite, model-link, model-hub-in-group, etc.
+      item.contextValue = inGroup ? `model-${modelType}-in-group` : `model-${modelType}`;
     } else if (element.type === 'external_table' && element.groupName && element.groupName !== 'All') {
       item.contextValue = 'external_table-in-group';
     } else if (element.type === 'psa_table' && element.groupName && element.groupName !== 'All') {
@@ -393,7 +396,10 @@ export abstract class DataVaultTreeProvider implements vscode.TreeDataProvider<T
       collapsibleState: 'none' as const,
       description: col.dataType || this.getColumnCategory(col.name),
       tooltip: col.description || `${col.name}${col.dataType ? ': ' + col.dataType : ''}`,
-      icon: this.getColumnIcon(col.name)
+      icon: this.getColumnIcon(col.name),
+      model,  // Include parent model for context menu actions
+      concept: model.concept,
+      layer: model.layer
     }));
   }
 

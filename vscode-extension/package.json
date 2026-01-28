@@ -265,6 +265,48 @@
         "title": "Remove from Group",
         "icon": "$(remove)",
         "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openMartDesigner",
+        "title": "Open Mart Designer",
+        "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addAsDimension",
+        "title": "Add as Dimension",
+        "icon": "$(symbol-class)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addAsFact",
+        "title": "Add as Fact",
+        "icon": "$(symbol-event)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addAttributesToNode",
+        "title": "Add Attributes to Node",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addColumnToNode",
+        "title": "Add Column to Node",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.useAsSource",
+        "title": "Use as Source",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addSeedAsDimension",
+        "title": "Add Seed as Reference Dimension",
+        "icon": "$(list-unordered)",
+        "category": "Data Vault"
       }
     ],
     "menus": {
@@ -336,6 +378,30 @@
         {
           "command": "datavault.removeFromGroup",
           "when": "false"
+        },
+        {
+          "command": "datavault.addAsDimension",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addAsFact",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addAttributesToNode",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addColumnToNode",
+          "when": "false"
+        },
+        {
+          "command": "datavault.useAsSource",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addSeedAsDimension",
+          "when": "false"
         }
       ],
       "view/title": [
@@ -355,6 +421,11 @@
           "group": "navigation@1"
         },
         {
+          "command": "datavault.openMartDesigner",
+          "when": "view == datavault-mart",
+          "group": "navigation@0"
+        },
+        {
           "command": "datavault.refresh",
           "when": "view =~ /^datavault-/",
           "group": "navigation@2"
@@ -363,32 +434,32 @@
       "view/item/context": [
         {
           "command": "datavault.openModel",
-          "when": "view =~ /^datavault-/ && viewItem == model",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
           "group": "navigation@1"
         },
         {
           "command": "datavault.openYamlDefinition",
-          "when": "view =~ /^datavault-/ && viewItem == model",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
           "group": "navigation@2"
         },
         {
           "command": "datavault.showLineage",
-          "when": "view =~ /^datavault-/ && viewItem == model",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
           "group": "navigation@3"
         },
         {
           "command": "datavault.showModelDetails",
-          "when": "view =~ /^datavault-/ && viewItem == model",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
           "group": "navigation@4"
         },
         {
           "command": "datavault.copyModelName",
-          "when": "view =~ /^datavault-/ && viewItem == model",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
           "group": "copy@1"
         },
         {
           "command": "datavault.copyRefSyntax",
-          "when": "view =~ /^datavault-/ && viewItem == model",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
           "group": "copy@2"
         },
         {
@@ -418,17 +489,17 @@
         },
         {
           "command": "datavault.validateStaging",
-          "when": "view == datavault-staging && viewItem == model",
+          "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
           "group": "staging@1"
         },
         {
           "command": "datavault.openEntityDesigner",
-          "when": "view == datavault-staging && viewItem == model",
+          "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
           "group": "staging@2"
         },
         {
           "command": "datavault.deleteStaging",
-          "when": "view == datavault-staging && viewItem == model",
+          "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
           "group": "delete@1"
         },
         {
@@ -438,33 +509,58 @@
         },
         {
           "command": "datavault.createPITTable",
-          "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
+          "when": "view == datavault-rawvault && viewItem =~ /^model-hub(-in-group)?$/",
           "group": "businessvault@1"
         },
         {
           "command": "datavault.createBridgeTable",
-          "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
+          "when": "view == datavault-rawvault && viewItem =~ /^model-link(-in-group)?$/",
           "group": "businessvault@2"
         },
         {
           "command": "datavault.deleteRawVaultModel",
-          "when": "view == datavault-rawvault && viewItem =~ /^(model|model-in-group)$/",
+          "when": "view == datavault-rawvault && viewItem =~ /^model-/",
           "group": "delete@1"
         },
         {
           "command": "datavault.deleteBusinessVaultModel",
-          "when": "view == datavault-businessvault && viewItem =~ /^(model|model-in-group)$/",
+          "when": "view == datavault-businessvault && viewItem =~ /^model-/",
           "group": "delete@1"
         },
         {
           "command": "datavault.addToGroup",
-          "when": "view =~ /^datavault-/ && viewItem =~ /^(model|model-in-group|external_table|external_table-in-group|psa_table|psa_table-in-group)$/",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^(model-|external_table|psa_table)/",
           "group": "groups@1"
         },
         {
           "command": "datavault.removeFromGroup",
-          "when": "view =~ /^datavault-/ && viewItem =~ /^(model-in-group|external_table-in-group|psa_table-in-group)$/",
+          "when": "view =~ /^datavault-/ && viewItem =~ /(-in-group|external_table-in-group|psa_table-in-group)$/",
           "group": "groups@2"
+        },
+        {
+          "command": "datavault.addAttributesToNode",
+          "when": "view =~ /^datavault-(rawvault|businessvault|staging|sources)$/ && viewItem =~ /^model-/ && datavault.martDesignerOpen && datavault.nodeSelected",
+          "group": "mart@1"
+        },
+        {
+          "command": "datavault.addColumnToNode",
+          "when": "view =~ /^datavault-/ && viewItem == column && datavault.martDesignerOpen && datavault.nodeSelected",
+          "group": "mart@4"
+        },
+        {
+          "command": "datavault.useAsSource",
+          "when": "view == datavault-businessvault && viewItem =~ /^model-(pit|bridge)(-in-group)?$/ && datavault.martDesignerOpen && datavault.nodeSelected",
+          "group": "mart@5"
+        },
+        {
+          "command": "datavault.addSeedAsDimension",
+          "when": "view == datavault-mart && viewItem =~ /^(seed|seed-in-group)$/ && datavault.martDesignerOpen",
+          "group": "mart@1"
+        },
+        {
+          "command": "datavault.openMartDesigner",
+          "when": "view == datavault-mart && viewItem == concept",
+          "group": "navigation@0"
         }
       ]
     },
@@ -518,7 +614,12 @@
           "markdownDescription": "Custom groups for organizing models in tree views. Each group appears under its concept in the specified layer.",
           "items": {
             "type": "object",
-            "required": ["name", "concept", "layer", "models"],
+            "required": [
+              "name",
+              "concept",
+              "layer",
+              "models"
+            ],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -533,7 +634,13 @@
               },
               "layer": {
                 "type": "string",
-                "enum": ["sources", "staging", "raw_vault", "business_vault", "mart"],
+                "enum": [
+                  "sources",
+                  "staging",
+                  "raw_vault",
+                  "business_vault",
+                  "mart"
+                ],
                 "enumDescriptions": [
                   "Sources/External Tables tree view",
                   "Staging tree view",
@@ -546,7 +653,9 @@
               },
               "models": {
                 "type": "array",
-                "items": { "type": "string" },
+                "items": {
+                  "type": "string"
+                },
                 "uniqueItems": true,
                 "description": "Model names in this group (e.g., 'hub_company', 'sat_contractor')",
                 "order": 4
@@ -569,6 +678,7 @@
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
@@ -581,6 +691,7 @@
     "typescript": "^5.3.0"
   },
   "dependencies": {
+    "@xyflow/react": "^12.10.0",
     "glob": "^10.3.10",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

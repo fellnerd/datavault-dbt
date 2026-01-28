@@ -436,7 +436,10 @@ export class EntityDesignerProvider {
           sourceName: c.sourceName || c.name,
           dataType: c.dataType || 'NVARCHAR(MAX)',
           columnType: c.columnType as 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore',
-          includeInHashDiff: c.columnType === 'satellite',
+          // Pass additionalTypes for multi-target columns (e.g., link + satellite)
+          additionalTypes: c.additionalTypes as ('hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore')[] | undefined,
+          // Include in hashDiff if satellite (primary or additional type)
+          includeInHashDiff: c.columnType === 'satellite' || (c.additionalTypes?.includes('satellite') ?? false),
           foreignKeyTarget: c.foreignKeyTarget,
           dependentChildForLink: c.dependentChildForLink,
           multiActiveSequence: c.multiActiveSequence,

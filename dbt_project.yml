@@ -83,4 +83,10 @@ models:
       # ===== COMMON (Schema: mart) =====
       _common:
         +schema: mart
-        +materialized: view
+        +materialized: table
+        +as_columnstore: false
+      # ===== JIRA (Schema: mart_jira) =====
+      jira:
+        +schema: mart_jira
+        +materialized: table
+        +as_columnstore: false

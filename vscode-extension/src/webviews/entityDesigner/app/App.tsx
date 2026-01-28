@@ -422,16 +422,25 @@ const targetColors: Record<DataVaultTarget, { bg: string; text: string; icon: st
 };
 
 // ============================================================================
+// HELPER: Check if column has a specific type (primary or additional)
+// ============================================================================
+function hasColumnType(col: ColumnConfig, type: DataVaultTarget): boolean {
+  if (col.columnType === type) return true;
+  return col.additionalTypes?.includes(type) ?? false;
+}
+
+// ============================================================================
 // DATA VAULT VALIDATION - Per Object Type
 // ============================================================================
 function validateDataVault(columns: ColumnConfig[], entityName: string, existingHubs: string[]): ValidationError[] {
   const errors: ValidationError[] = [];
   
-  const hubCols = columns.filter(c => c.columnType === 'hub');
-  const satCols = columns.filter(c => c.columnType === 'satellite');
-  const linkCols = columns.filter(c => c.columnType === 'link');
-  const dcCols = columns.filter(c => c.columnType === 'dependent_child');
-  const maCols = columns.filter(c => c.columnType === 'multi_active');
+  // Use hasColumnType to include columns with additionalTypes
+  const hubCols = columns.filter(c => hasColumnType(c, 'hub'));
+  const satCols = columns.filter(c => hasColumnType(c, 'satellite'));
+  const linkCols = columns.filter(c => hasColumnType(c, 'link'));
+  const dcCols = columns.filter(c => hasColumnType(c, 'dependent_child'));
+  const maCols = columns.filter(c => hasColumnType(c, 'multi_active'));
   
   // Check if this is a pure Dependent Child entity (no own Hub, only DC Sat)
   const isPureDependentChild = dcCols.length > 0 && hubCols.length === 0 && linkCols.length > 0;
@@ -632,6 +641,9 @@ export const App: React.FC = () => {
               target = 'ignore';
             }
             
+            // Load additionalTypes (e.g., ['satellite'] for link+satellite columns)
+            const additionalTypes = saved.additionalTypes as DataVaultTarget[] | undefined;
+            
             return {
               name: col.name,
               sourceName: saved.sourceName || col.name,
@@ -639,7 +651,8 @@ export const App: React.FC = () => {
               // Use source dataType - it's synced with sources.yml
               dataType: sourceDataType,
               columnType: target,
-              includeInHashDiff: target === 'satellite',
+              additionalTypes,
+              includeInHashDiff: target === 'satellite' || additionalTypes?.includes('satellite'),
               foreignKeyTarget: saved.foreignKeyTarget,
               dependentChildForLink: saved.dependentChildForLink,
               multiActiveSequence: saved.multiActiveSequence,
@@ -705,6 +718,8 @@ export const App: React.FC = () => {
         sourceName: c.sourceName,
         dataType: c.dataType,
         columnType: c.columnType,
+        // Save additionalTypes (e.g., satellite for link+satellite columns)
+        ...(c.additionalTypes && c.additionalTypes.length > 0 && { additionalTypes: c.additionalTypes }),
         ...(c.foreignKeyTarget && { foreignKeyTarget: c.foreignKeyTarget }),
         ...(c.dependentChildForLink && { dependentChildForLink: c.dependentChildForLink }),
         ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
@@ -1093,22 +1108,46 @@ export const App: React.FC = () => {
 
               {/* Link-specific: Target Hub */}
               {selectedColumn.columnType === 'link' && (
-                <div style={styles.propertyRow}>
-                  <span style={styles.propertyLabel}>Target Hub:</span>
-                  <select
-                    value={selectedColumn.foreignKeyTarget || ''}
-                    onChange={(e) => updateColumn(selectedIndex!, { foreignKeyTarget: e.target.value || undefined })}
-                    style={{
-                      ...styles.select,
-                      borderColor: !selectedColumn.foreignKeyTarget ? colors.error : colors.inputBorder,
-                    }}
-                  >
-                    <option value="">-- Select Target Hub --</option>
-                    {existingHubs.map(hub => (
-                      <option key={hub} value={hub}>{hub}</option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div style={styles.propertyRow}>
+                    <span style={styles.propertyLabel}>Target Hub:</span>
+                    <select
+                      value={selectedColumn.foreignKeyTarget || ''}
+                      onChange={(e) => updateColumn(selectedIndex!, { foreignKeyTarget: e.target.value || undefined })}
+                      style={{
+                        ...styles.select,
+                        borderColor: !selectedColumn.foreignKeyTarget ? colors.error : colors.inputBorder,
+                      }}
+                    >
+                      <option value="">-- Select Target Hub --</option>
+                      {existingHubs.map(hub => (
+                        <option key={hub} value={hub}>{hub}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Also include in Satellite checkbox */}
+                  <div style={styles.propertyRow}>
+                    <span style={styles.propertyLabel}>Also in Satellite:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedColumn.additionalTypes?.includes('satellite') ?? false}
+                        onChange={(e) => {
+                          const newAdditionalTypes = e.target.checked ? ['satellite'] as DataVaultTarget[] : undefined;
+                          updateColumn(selectedIndex!, { 
+                            additionalTypes: newAdditionalTypes,
+                            includeInHashDiff: e.target.checked  // Include in hash diff if in satellite
+                          });
+                        }}
+                        style={styles.checkbox}
+                      />
+                      <span style={{ fontSize: '11px', color: colors.textMuted }}>
+                        Copy value to Satellite (for denormalized access)
+                      </span>
+                    </div>
+                  </div>
+                </>
               )}
 
               {/* Dependent Child: Target Link */}

@@ -22,6 +22,7 @@
     'original_estimate_with_subtasks',
     'parent_issue_id',
     'priority',
+    'project_id',
     'remaining_estimate',
     'remaining_estimate_with_subtasks',
     'reporter_account_id',

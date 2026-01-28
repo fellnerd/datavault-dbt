@@ -256,7 +256,16 @@ export class DbtProjectParser {
       }
     }
     
-    const type = this.inferModelType('', modelName);
+    // Infer type from model name, but override with layer-based type if clear
+    let type = this.inferModelType('', modelName);
+    // If we're in staging layer and type couldn't be determined from name, use 'staging'
+    if (layer === 'staging' && type === 'view') {
+      type = 'staging';
+    }
+    // If we're in mart layer and type couldn't be determined from name, use 'mart'
+    if (layer === 'mart' && type === 'view') {
+      type = 'mart';
+    }
     const schema = this.determineSchema(layer, concept);
     
     // Extract columns from YAML with data types

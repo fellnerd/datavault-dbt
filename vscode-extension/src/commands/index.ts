@@ -18,6 +18,7 @@ import { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 import { registerEntityDesignerCommands } from './entityDesigner';
 import { registerDbtCommands } from './dbtCommands';
 import { deleteRawVaultModel, deleteBusinessVaultModel } from './vaultDelete';
+import { registerMartDesignerCommands } from './martDesigner';
 
 // Re-export command implementations for use elsewhere
 export { discoverExternalSources } from './discover';
@@ -30,6 +31,7 @@ export { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 export { registerEntityDesignerCommands } from './entityDesigner';
 export { registerDbtCommands } from './dbtCommands';
 export { deleteRawVaultModel, deleteBusinessVaultModel } from './vaultDelete';
+export { registerMartDesignerCommands } from './martDesigner';
 
 /**
  * Logger function type
@@ -355,6 +357,23 @@ export function registerCommands(
     () => getCurrentProjectPath() ?? undefined
   );
   disposables.push(...entityDesignerDisposables);
+
+  // Mart Designer Commands (Star Schema Designer)
+  const martDesignerDisposables = registerMartDesignerCommands({
+    extensionUri: context.extensionUri,
+    getProjectPath: () => getCurrentProjectPath() ?? undefined,
+    getMetadata: () => {
+      const metadata = getCurrentMetadata();
+      if (!metadata) {return undefined;}
+      return {
+        hubs: metadata.hubs,
+        links: metadata.links,
+        pits: metadata.pits,
+        bridges: metadata.bridges
+      };
+    }
+  });
+  disposables.push(...martDesignerDisposables);
 
   // dbt Commands (Run, Test, Compile with model picker)
   registerDbtCommands(context);

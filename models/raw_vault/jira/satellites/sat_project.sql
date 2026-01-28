@@ -10,7 +10,8 @@
 
 {{ config(
     materialized='incremental',
-    as_columnstore=false
+    as_columnstore=false,
+    post_hook="{{ update_satellite_current_flag(this, 'hk_project') }}"
 ) }}
 
 {%- set yaml_metadata -%}
