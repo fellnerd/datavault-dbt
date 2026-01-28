@@ -148,7 +148,7 @@ export async function generateMartModels(
         await generateDimension(basePath, martPath, dimConfig, result);
       } else if (node.type === 'fact') {
         const factConfig = node.data as FactConfig;
-        await generateFact(basePath, martPath, factConfig, result, hubBusinessKeys);
+        await generateFact(basePath, martPath, factConfig, result, hubBusinessKeys, state);
       }
     } catch (error) {
       result.errors.push(`Error generating ${node.id}: ${error}`);
@@ -204,13 +204,14 @@ async function generateFact(
   martPath: string,
   config: FactConfig,
   result: GenerationResult,
-  hubBusinessKeys: HubBusinessKeyCache
+  hubBusinessKeys: HubBusinessKeyCache,
+  state: MartDesignerState
 ): Promise<void> {
   const factName = config.name.startsWith('fact_') ? config.name : `fact_${config.name}`;
   const baseName = `_base_${factName}`;
 
   // Generate base model (always overwrite)
-  const baseContent = generateFactBaseSQL(config, hubBusinessKeys);
+  const baseContent = generateFactBaseSQL(config, hubBusinessKeys, state);
   const baseFile = path.join(basePath, `${baseName}.sql`);
   await fs.promises.writeFile(baseFile, baseContent, 'utf-8');
   result.generatedFiles.push(baseFile);
@@ -328,6 +329,15 @@ function generateDimensionBaseSQL(config: DimensionConfig): string {
         lines.push(`LEFT JOIN {{ ref('${model}') }} ${alias} ON ${firstAlias}.${hashKey} = ${alias}.${hashKey}`);
       });
     }
+
+    // SCD Type 1: Only use current records from satellites
+    if (config.scdType === 'type1') {
+      const satelliteModels = sourceModels.filter(m => m.startsWith('sat_'));
+      if (satelliteModels.length > 0) {
+        const satAlias = sourceModels.length === 1 ? '' : sanitizeAlias(satelliteModels[0]) + '.';
+        lines.push(`WHERE ${satAlias}dss_is_current = 'Y'`);
+      }
+    }
   } else {
     lines.push(`FROM (SELECT 1 AS placeholder) empty -- No source defined yet`);
   }
@@ -398,8 +408,9 @@ function generateDimensionFinalSQL(config: DimensionConfig, baseName: string): s
  *
  * @param config - Fact configuration from the designer
  * @param hubBusinessKeys - Cache of hub business keys loaded from YAML (description: "Business Key")
+ * @param state - Complete mart designer state (to access dimension SCD types)
  */
-function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKeyCache): string {
+function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKeyCache, state: MartDesignerState): string {
   const factName = config.name.startsWith('fact_') ? config.name : `fact_${config.name}`;
   const lines: string[] = [];
 
@@ -484,6 +495,7 @@ function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKey
     for (const ref of dimensionRefs) {
       const dimName = ref.dimensionName.startsWith('dim_') ? ref.dimensionName : `dim_${ref.dimensionName}`;
       if (ref.factJoinColumn && ref.dimJoinColumn) {
+        // Dimensions already filter on dss_is_current='Y' internally in their base model
         lines.push(`LEFT JOIN {{ ref('${dimName}') }} ${dimName} ON bridge.${ref.factJoinColumn} = ${dimName}.${ref.dimJoinColumn}`);
       } else {
         lines.push(`-- TODO: Configure join columns for ${ref.dimensionName}`);
@@ -514,11 +526,16 @@ function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKey
           // If yes → column is in hub, otherwise → column is FK attribute in satellite
           const isInHub = hubBKs.includes(ref.factJoinColumn);
           const joinSource = isInHub ? 'hub' : 'sat';
+
+          // Dimensions already filter on dss_is_current='Y' internally in their base model
           lines.push(`LEFT JOIN {{ ref('${dimName}') }} ${dimName} ON ${joinSource}.${ref.factJoinColumn} = ${dimName}.${ref.dimJoinColumn}`);
         } else {
           lines.push(`-- TODO: Configure join columns for ${ref.dimensionName}`);
         }
       }
+      
+      // Filter satellite to current records only
+      lines.push(`WHERE sat.dss_is_current = 'Y'`);
     } else {
       // Non-satellite source (hub, link, etc.)
       lines.push(`FROM {{ ref('${firstModel}') }} src`);
@@ -527,6 +544,7 @@ function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKey
       for (const ref of dimensionRefs) {
         const dimName = ref.dimensionName.startsWith('dim_') ? ref.dimensionName : `dim_${ref.dimensionName}`;
         if (ref.factJoinColumn && ref.dimJoinColumn) {
+          // Dimensions already filter on dss_is_current='Y' internally in their base model
           lines.push(`LEFT JOIN {{ ref('${dimName}') }} ${dimName} ON src.${ref.factJoinColumn} = ${dimName}.${ref.dimJoinColumn}`);
         } else {
           lines.push(`-- TODO: Configure join columns for ${ref.dimensionName}`);
@@ -549,6 +567,7 @@ function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKey
     for (const ref of dimensionRefs) {
       const dimName = ref.dimensionName.startsWith('dim_') ? ref.dimensionName : `dim_${ref.dimensionName}`;
       if (ref.factJoinColumn && ref.dimJoinColumn) {
+        // Dimensions already filter on dss_is_current='Y' internally in their base model
         lines.push(`LEFT JOIN {{ ref('${dimName}') }} ${dimName} ON link.${ref.factJoinColumn} = ${dimName}.${ref.dimJoinColumn}`);
       } else {
         lines.push(`-- TODO: Configure join columns for ${ref.dimensionName}`);

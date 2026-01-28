@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: dim_vorgang
-    description: "Dimension table for Vorgang (Jira Issue)"
+    description: "Dimension table for dim_vorgang"
     columns:
       - name: dim_vorgang_key
         description: "Surrogate key"
@@ -13,10 +13,10 @@ models:
         description: "Business key"
       - name: summary
 
-  - name: dim_projekt
-    description: "Dimension table for Projekt (Jira Project)"
+  - name: dim_project
+    description: "Dimension table for dim_project"
     columns:
-      - name: dim_projekt_key
+      - name: dim_project_key
         description: "Surrogate key"
         data_tests:
           - unique
@@ -26,7 +26,7 @@ models:
       - name: name
 
   - name: dim_vorgang_status
-    description: "Dimension table for Vorgang Status"
+    description: "Dimension table for dim_vorgang_status"
     columns:
       - name: dim_vorgang_status_key
         description: "Surrogate key"
@@ -39,13 +39,13 @@ models:
       - name: description
 
   - name: fact_vorgang
-    description: "Fact table for Vorgang metrics"
+    description: "Fact table for fact_vorgang"
     columns:
       - name: dim_vorgang_key
         description: "Foreign key to dim_vorgang"
-      - name: dim_projekt_key
-        description: "Foreign key to dim_projekt"
+      - name: dim_project_key
+        description: "Foreign key to dim_project"
       - name: dim_vorgang_status_key
         description: "Foreign key to dim_vorgang_status"
       - name: time_spent
-        description: "Measure: Time spent in seconds"
+        description: "Measure: SUM"
