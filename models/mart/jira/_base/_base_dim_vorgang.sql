@@ -8,7 +8,7 @@
 
 SELECT
   -- Surrogate Key
-  CONVERT(INT, HASHBYTES('MD5', CAST(hub_vorgang.issue_id AS NVARCHAR(MAX)))) AS dim_vorgang_key,
+  ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(hub_vorgang.issue_id AS NVARCHAR(MAX))))) AS dim_vorgang_key,
   -- Business Key
   hub_vorgang.issue_id,
   -- Attributes

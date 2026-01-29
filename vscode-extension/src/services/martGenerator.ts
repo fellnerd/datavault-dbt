@@ -268,16 +268,20 @@ function generateDimensionBaseSQL(config: DimensionConfig): string {
   const aliasPrefix = needsAlias ? `${primaryAlias}.` : '';
 
   // Surrogate key (auto-derived from dimension name)
+  // Use ABS() + BIGINT for deterministic positive keys with no collision risk
   if (businessKey) {
     if (config.scdType === 'type2') {
-      selectColumns.push({ comment: 'Surrogate Key', line: `CONVERT(INT, HASHBYTES('MD5', CONCAT_WS('^^', ${aliasPrefix}${businessKey}, CONVERT(VARCHAR, load_datetime, 126)))) AS ${surrogateKey}` });
+      selectColumns.push({ comment: 'Surrogate Key', line: `ABS(CONVERT(BIGINT, HASHBYTES('MD5', CONCAT_WS('^^', ${aliasPrefix}${businessKey}, CONVERT(VARCHAR, load_datetime, 126))))) AS ${surrogateKey}` });
     } else {
-      selectColumns.push({ comment: 'Surrogate Key', line: `CONVERT(INT, HASHBYTES('MD5', CAST(${aliasPrefix}${businessKey} AS NVARCHAR(MAX)))) AS ${surrogateKey}` });
+      selectColumns.push({ comment: 'Surrogate Key', line: `ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(${aliasPrefix}${businessKey} AS NVARCHAR(MAX))))) AS ${surrogateKey}` });
     }
     // Business key
     selectColumns.push({ comment: 'Business Key', line: `${aliasPrefix}${businessKey}` });
+  } else if (config.hashKey) {
+    // No business key but hash key available - use hash key for surrogate
+    selectColumns.push({ comment: 'Surrogate Key', line: `ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(${aliasPrefix}${config.hashKey} AS NVARCHAR(MAX))))) AS ${surrogateKey}` });
   } else {
-    // No business key available - use ROW_NUMBER
+    // No business key or hash key - fallback to ROW_NUMBER (not recommended)
     selectColumns.push({ comment: 'Surrogate Key', line: `ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS ${surrogateKey}` });
   }
 
