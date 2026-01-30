@@ -7,7 +7,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { SavedColumnConfig } from '../types';
+import { SavedColumnConfig, LambdaVaultConfig } from '../types';
 
 export interface DesignerConfig {
   /** Concept/source system name */
@@ -24,6 +24,8 @@ export interface DesignerConfig {
   savedAt: string;
   /** Which objects were generated */
   generatedObjects?: ('hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite')[];
+  /** Lambda Vault configuration for near-real-time data */
+  lambdaVault?: LambdaVaultConfig;
 }
 
 const CONFIG_FOLDER = '.vscode/entity-designer';

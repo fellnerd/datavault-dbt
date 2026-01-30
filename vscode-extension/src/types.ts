@@ -333,6 +333,48 @@ export interface EntityDesignConfig {
   sourceType?: SourceType;      // Type of source (seed, external_table, etc.)
   columns: DesignerColumnDefinition[];
   ghostRecordValue: string;     // Default: '-1'
+  /** Lambda Vault configuration for near-real-time data */
+  lambdaVault?: LambdaVaultConfig;
+}
+
+// ============================================
+// LAMBDA VAULT TYPES (Near-Real-Time Data Vault)
+// ============================================
+
+/**
+ * Column mapping between base staging and delta staging
+ * For columns with different names in base vs delta
+ */
+export interface LambdaColumnMapping {
+  /** Column name in base staging (e.g., 'hk_rechnung') */
+  baseColumn: string;
+  /** Column name in delta staging (e.g., 'hk_rechnung_delta') */
+  deltaColumn: string;
+}
+
+/**
+ * Lambda Vault configuration
+ * Enables virtual views that UNION persisted (base) + real-time (delta) data
+ */
+export interface LambdaVaultConfig {
+  /** Whether Lambda Vault is enabled for this entity */
+  enabled: boolean;
+  /** Name of the delta staging model (e.g., 'werkportal_rechnung_delta') */
+  deltaStagingModel: string;
+  /** Column mappings for columns with different names between base and delta */
+  columnMappings: LambdaColumnMapping[];
+}
+
+/**
+ * Info about a staging model for Lambda Vault dropdown
+ */
+export interface StagingModelInfo {
+  /** Model name (e.g., 'werkportal_rechnung_delta') */
+  name: string;
+  /** Concept/source (e.g., 'werkportal') */
+  concept: string;
+  /** Column names in the staging model */
+  columns: string[];
 }
 
 /**
@@ -341,7 +383,7 @@ export interface EntityDesignConfig {
 export interface GeneratedFile {
   path: string;
   content: string;
-  type: 'hub' | 'satellite' | 'link' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging';
+  type: 'hub' | 'satellite' | 'link' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
 }
 
 /**
@@ -370,6 +412,12 @@ export interface WebviewInitMessage {
     sourceTable: string;
     /** Saved column configurations (if previously configured) */
     savedColumns?: SavedColumnConfig[];
+    /** Available staging models for Lambda Vault delta selection */
+    availableStagingModels?: StagingModelInfo[];
+    /** Saved Lambda Vault configuration */
+    lambdaVault?: LambdaVaultConfig;
+    /** Column names from base staging SQL (for Lambda Vault comparison) */
+    baseStagingColumns?: string[];
   };
 }
 
@@ -407,6 +455,8 @@ export interface WebviewSaveConfigMessage {
   type: 'saveConfig';
   columns: SavedColumnConfig[];
   entityName?: string;  // Optional: set when user renames the entity
+  /** Lambda Vault configuration */
+  lambdaVault?: LambdaVaultConfig;
 }
 
 /**

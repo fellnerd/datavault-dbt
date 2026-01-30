@@ -184,24 +184,48 @@ WHERE stg.hd_vorgang != ISNULL(...);
 
 ### Extension Integration
 
-**Neuer Command:** `datavault.virtualizeRawVault`
+**Implementiert via Entity Designer**
 
-| Option | Beschreibung |
-|--------|--------------|
-| Concept | z.B. `jira` |
-| Entities | Multi-Select: hub_vorgang, sat_vorgang, link_* |
-| Output | Erstellt `v_*.sql` Views im `models/raw_vault/<concept>/virtual/` |
+| Feature | Status | Beschreibung |
+|---------|--------|--------------|
+| Lambda Vault UI | ✅ | Checkbox + Delta Model Dropdown + Column Mapping |
+| v_hub_* Views | ✅ | UNION ALL mit NOT IN Filter |
+| v_sat_* Views | ✅ | Mit dynamischem dss_is_current via Window-Funktion |
+| v_link_* Views | ✅ | Für jede Foreign Key Beziehung |
+| DC Sat Support | ✅ | Hängt an Link, PARTITION BY hk_link_* |
+| MA Sat Support | ✅ | PARTITION BY (hk_entity + CDK columns) |
+| Column Mapping | ✅ | Base ↔ Delta Spalten-Zuordnung |
+| NULL Handling | ✅ | `NULL AS column` für fehlende Delta-Spalten |
 
 **Generator-Output:**
 
 ```
 models/
 └── raw_vault/
-    └── jira/
+    └── <concept>/
         └── virtual/
-            ├── v_hub_vorgang.sql
-            ├── v_sat_vorgang.sql
-            └── v_link_vorgang_project.sql
+            ├── v_hub_<entity>.sql
+            ├── v_sat_<entity>.sql       # Standard, DC, oder MA
+            └── v_link_<entity>_<fk>.sql  # Pro Foreign Key
+```
+
+---
+
+### Satellite-Typen in Lambda Vault
+
+| Typ | Hängt an | PARTITION BY | Mehrere Current? |
+|-----|----------|--------------|------------------|
+| Standard Sat | Hub | `hk_entity` | ❌ 1 pro Entity |
+| DC Sat | Link | `hk_link_*` | ❌ 1 pro Link |
+| MA Sat | Hub | `hk_entity, cdk1, cdk2, ...` | ✅ 1 pro CDK-Kombination |
+
+**Beispiel MA Sat (Multi-Active):**
+```sql
+-- Für Employee mit mehreren Telefonnummern
+ROW_NUMBER() OVER (
+  PARTITION BY hk_employee, phone_type  -- CDK muss mit rein!
+  ORDER BY dss_load_date DESC
+) AS rn
 ```
 
 ---
@@ -212,7 +236,14 @@ models/
 |----------|--------|
 | Große Delta-Datei | PSA als Zwischenschicht nutzen (merge strategy) |
 | Viele kleine Parquets | Wildcard-Pfad: `delta/*.parquet` |
-| Langsame EXISTS-Checks | Indexed View auf Hub Hash Keys |
+| Langsame EXISTS-Checks | ✅ **Implementiert:** Non-Clustered Index auf Hash Key via `post_hook` |
 | Full Refresh nötig | `dbt run` - persistiert alles, Delta wird leer |
+
+**Index-Strategie (automatisch bei Entity Designer):**
+- Hubs: `post_hook=["{{ create_hash_index('hk_entity') }}"]`
+- Satellites: Index auf `hk_*` + `update_satellite_current_flag`
+- Links: Index auf `hk_link_*`
+
+Der Index beschleunigt die `NOT EXISTS`-Checks in den virtuellen Views erheblich.
 
 ---

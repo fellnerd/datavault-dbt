@@ -206,3 +206,103 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: werkportal_rechnung_delta
+    description: Staging view for rechnung_delta from werkportal
+    columns:
+      - name: hk_rechnung_delta
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_rechnung_delta
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: object_id
+        description: Business Key
+        tests:
+          - not_null
+      - name: advance_payment
+        description: Payload attribute
+      - name: client_name
+        description: Payload attribute
+      - name: client_object_id
+        description: Payload attribute
+      - name: comission_amount
+        description: Payload attribute
+      - name: contractor_name
+        description: Payload attribute
+      - name: contractor_object_id
+        description: Payload attribute
+      - name: createdby_name
+        description: Payload attribute
+      - name: createdby_object_id
+        description: Payload attribute
+      - name: credit_period
+        description: Payload attribute
+      - name: credit_rating_check
+        description: Payload attribute
+      - name: date_created
+        description: Payload attribute
+      - name: date_updated
+        description: Payload attribute
+      - name: deductions
+        description: Payload attribute
+      - name: deductions_description
+        description: Payload attribute
+      - name: description
+        description: Payload attribute
+      - name: discount
+        description: Payload attribute
+      - name: gross
+        description: Payload attribute
+      - name: hours_worked
+        description: Payload attribute
+      - name: invoice_date
+        description: Payload attribute
+      - name: invoicing_period_year
+        description: Payload attribute
+      - name: member_email
+        description: Payload attribute
+      - name: member_name
+        description: Payload attribute
+      - name: member_object_id
+        description: Payload attribute
+      - name: name
+        description: Payload attribute
+      - name: ordering
+        description: Payload attribute
+      - name: pay_target_date
+        description: Payload attribute
+      - name: payed
+        description: Payload attribute
+      - name: project_name
+        description: Payload attribute
+      - name: project_object_id
+        description: Payload attribute
+      - name: state
+        description: Payload attribute
+      - name: subscription_name
+        description: Payload attribute
+      - name: subscription_object_id
+        description: Payload attribute
+      - name: subtractions
+        description: Payload attribute
+      - name: sum_goal
+        description: Payload attribute
+      - name: sum_payed
+        description: Payload attribute
+      - name: u_amount
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null

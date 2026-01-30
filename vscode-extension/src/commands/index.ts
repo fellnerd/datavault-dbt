@@ -10,6 +10,7 @@ import { DbtModel, ProjectMetadata, TreeItemData, GroupConfig } from '../types';
 import { ModelDetailsPanel } from '../webviewPanel';
 import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
+import { renameExternalTable, copyExternalTable, disableColumns, deleteExternalTable } from './sourceTableCommands';
 import { createStaging, validateStaging, deleteStaging, createStagingWizard } from './staging';
 import { createRefTable, createRefTableFromPalette } from './refTable';
 import { createPersistentStaging, createPersistentStagingWizard } from './persistentStaging';
@@ -23,6 +24,7 @@ import { registerMartDesignerCommands } from './martDesigner';
 // Re-export command implementations for use elsewhere
 export { discoverExternalSources } from './discover';
 export { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
+export { renameExternalTable, copyExternalTable, disableColumns, deleteExternalTable } from './sourceTableCommands';
 export { createStaging, validateStaging, deleteStaging } from './staging';
 export { createRefTable, createRefTableFromPalette } from './refTable';
 export { createPersistentStaging, createPersistentStagingWizard } from './persistentStaging';
@@ -201,6 +203,62 @@ export function registerCommands(
           projectPath: getCurrentProjectPath(),
           log,
           getExternalTables: () => getCurrentMetadata()?.externalTables || []
+        });
+      }
+    )
+  );
+
+  // Rename External Table Command
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.renameExternalTable',
+      async (treeItem?: TreeItemData) => {
+        await renameExternalTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Copy External Table Command
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.copyExternalTable',
+      async (treeItem?: TreeItemData) => {
+        await copyExternalTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Disable Columns Command
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.disableColumns',
+      async (treeItem?: TreeItemData) => {
+        await disableColumns(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
+        });
+      }
+    )
+  );
+
+  // Delete External Table Command
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.deleteExternalTable',
+      async (treeItem?: TreeItemData) => {
+        await deleteExternalTable(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          log
         });
       }
     )

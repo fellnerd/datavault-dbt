@@ -544,6 +544,10 @@ export class DbtProjectParser {
     }
 
     // Check name-based patterns
+    // Virtual views for Lambda Vault (v_hub_, v_sat_, v_link_) - treated as their base type
+    if (nameLower.startsWith('v_hub_')) return 'hub';
+    if (nameLower.startsWith('v_sat_')) return 'satellite';
+    if (nameLower.startsWith('v_link_')) return 'link';
     if (nameLower.startsWith('hub_')) return 'hub';
     if (nameLower.startsWith('eff_sat_')) return 'effectivity_satellite';
     if (nameLower.startsWith('sat_')) return 'satellite';

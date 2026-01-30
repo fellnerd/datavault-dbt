@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useVSCodeApi } from './hooks/useVSCodeApi';
-import type { ColumnInfo, DesignerColumnDefinition } from '../../../types';
+import type { ColumnInfo, DesignerColumnDefinition, LambdaVaultConfig, LambdaColumnMapping, StagingModelInfo } from '../../../types';
 
 /**
  * Data Vault Target - Where the column will be used
@@ -77,6 +77,12 @@ interface InitData {
   concept: string;
   entityName: string;
   sourceTable: string;
+  /** Available staging models for Lambda Vault delta selection */
+  availableStagingModels?: StagingModelInfo[];
+  /** Saved Lambda Vault configuration */
+  lambdaVault?: LambdaVaultConfig;
+  /** Column names from base staging SQL (for Lambda Vault comparison) */
+  baseStagingColumns?: string[];
 }
 
 interface ValidationError {
@@ -570,6 +576,14 @@ export const App: React.FC = () => {
   const [entityName, setEntityName] = useState('');
   const [existingHubs, setExistingHubs] = useState<string[]>([]);
 
+  // Lambda Vault state
+  const [lambdaVaultEnabled, setLambdaVaultEnabled] = useState(false);
+  const [showLambdaVaultModal, setShowLambdaVaultModal] = useState(false);
+  const [deltaStagingModel, setDeltaStagingModel] = useState<string>('');
+  const [columnMappings, setColumnMappings] = useState<LambdaColumnMapping[]>([]);
+  const [availableStagingModels, setAvailableStagingModels] = useState<StagingModelInfo[]>([]);
+  const [baseStagingColumns, setBaseStagingColumns] = useState<string[]>([]);
+
   // ============================================================================
   // MESSAGE HANDLING
   // ============================================================================
@@ -690,6 +704,16 @@ export const App: React.FC = () => {
         
         setColumns(configuredColumns);
         setSelectedIndex(configuredColumns.length > 0 ? 0 : null);
+        
+        // Initialize Lambda Vault state
+        setAvailableStagingModels(data.availableStagingModels || []);
+        setBaseStagingColumns(data.baseStagingColumns || []);
+        if (data.lambdaVault) {
+          setLambdaVaultEnabled(data.lambdaVault.enabled);
+          setDeltaStagingModel(data.lambdaVault.deltaStagingModel || '');
+          setColumnMappings(data.lambdaVault.columnMappings || []);
+        }
+        
         setIsLoading(false);
       } else if (message.type === 'generationComplete') {
         setIsGenerating(false);
@@ -726,16 +750,24 @@ export const App: React.FC = () => {
         nullable: c.nullable,
       }));
 
+      // Build Lambda Vault config if enabled
+      const lambdaVault: LambdaVaultConfig | undefined = lambdaVaultEnabled ? {
+        enabled: true,
+        deltaStagingModel,
+        columnMappings
+      } : undefined;
+
       vscode.postMessage({
         type: 'saveConfig',
         columns: savedColumns,
-        entityName: entityName  // Include entityName for renaming support
+        entityName: entityName,  // Include entityName for renaming support
+        lambdaVault
       });
       console.log('[Entity Designer] Config auto-saved');
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [columns, entityName, isLoading, vscode]);
+  }, [columns, entityName, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, vscode]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -886,6 +918,34 @@ export const App: React.FC = () => {
           <span><strong>Concept:</strong> {initData?.concept}</span>
           <span>|</span>
           <span><strong>Source:</strong> {initData?.sourceTable}</span>
+          <span>|</span>
+          {/* Lambda Vault Toggle */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={lambdaVaultEnabled}
+              onChange={(e) => {
+                setLambdaVaultEnabled(e.target.checked);
+                if (e.target.checked && !deltaStagingModel) {
+                  setShowLambdaVaultModal(true);
+                }
+              }}
+              style={styles.checkbox}
+            />
+            <span style={{ fontWeight: 500 }}>🔄 Lambda Vault</span>
+          </label>
+          {lambdaVaultEnabled && (
+            <button
+              onClick={() => setShowLambdaVaultModal(true)}
+              style={{
+                ...styles.buttonSecondary,
+                padding: '4px 8px',
+                fontSize: '11px',
+              }}
+            >
+              Configure Mappings
+            </button>
+          )}
         </div>
       </div>
 
@@ -1353,6 +1413,207 @@ export const App: React.FC = () => {
           >Generate All</button>
         </div>
       </div>
+
+      {/* LAMBDA VAULT MODAL */}
+      {showLambdaVaultModal && (
+        <div style={styles.overlay}>
+          <div style={{
+            backgroundColor: colors.bg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '6px',
+            padding: '24px',
+            width: '600px',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+          }}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>🔄 Lambda Vault Configuration</h2>
+            <p style={{ color: colors.textMuted, fontSize: '12px', marginBottom: '16px' }}>
+              Lambda Vault enables near-real-time queries by creating virtual views that UNION 
+              persisted data (base staging) with real-time delta data.
+            </p>
+            
+            {/* Delta Staging Selection */}
+            <div style={styles.propertyGroup}>
+              <div style={styles.propertyGroupTitle}>Delta Staging Model</div>
+              <select
+                value={deltaStagingModel}
+                onChange={(e) => {
+                  setDeltaStagingModel(e.target.value);
+                  // Clear column mappings when model changes - auto-match is done by exact name only
+                  setColumnMappings([]);
+                }}
+                style={{ ...styles.select, width: '100%' }}
+              >
+                <option value="">-- Select Delta Staging Model --</option>
+                {availableStagingModels.map(model => (
+                  <option key={model.name} value={model.name}>{model.name}</option>
+                ))}
+              </select>
+              {availableStagingModels.length === 0 && (
+                <p style={{ color: colors.warning, fontSize: '11px', marginTop: '8px' }}>
+                  ⚠️ No other staging models found in this concept. Create a delta staging model first.
+                </p>
+              )}
+            </div>
+            
+            {/* Column Mappings - Simple list of all base columns */}
+            {deltaStagingModel && (() => {
+              const selectedModel = availableStagingModels.find(m => m.name === deltaStagingModel);
+              if (!selectedModel) return null;
+              
+              // Get columns from YAML
+              const baseColumns = baseStagingColumns;
+              const deltaColumns = selectedModel.columns;
+              const deltaColsLower = deltaColumns.map(c => c.toLowerCase());
+              
+              return (
+                <div style={styles.propertyGroup}>
+                  <div style={styles.propertyGroupTitle}>
+                    Column Mappings
+                    <span style={{ fontWeight: 'normal', marginLeft: '8px', fontSize: '10px', color: colors.textMuted }}>
+                      ({baseColumns.length} base columns)
+                    </span>
+                  </div>
+                  
+                  {/* Header */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr 24px 1fr 60px', 
+                    gap: '8px',
+                    marginBottom: '8px',
+                    fontSize: '10px',
+                    color: colors.textMuted,
+                    textTransform: 'uppercase',
+                    fontWeight: 600,
+                    padding: '0 8px'
+                  }}>
+                    <span>Base Column</span>
+                    <span></span>
+                    <span>Delta Column</span>
+                    <span>Status</span>
+                  </div>
+                  
+                  {/* Column list */}
+                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    {baseColumns.map((baseCol) => {
+                      const baseLower = baseCol.toLowerCase();
+                      const exactMatch = deltaColsLower.includes(baseLower);
+                      const manualMapping = columnMappings.find(m => m.baseColumn.toLowerCase() === baseLower);
+                      const mappedDeltaCol = manualMapping?.deltaColumn || (exactMatch ? baseCol : '');
+                      
+                      return (
+                        <div key={baseCol} style={{ 
+                          display: 'grid', 
+                          gridTemplateColumns: '1fr 24px 1fr 60px', 
+                          gap: '8px', 
+                          alignItems: 'center',
+                          marginBottom: '4px',
+                          padding: '6px 8px',
+                          backgroundColor: colors.bgSecondary,
+                          borderRadius: '4px',
+                          borderLeft: exactMatch || manualMapping ? `3px solid ${colors.success}` : `3px solid ${colors.warning}`
+                        }}>
+                          <span style={{ fontSize: '11px' }}>{baseCol}</span>
+                          <span style={{ color: colors.textMuted, textAlign: 'center' }}>←</span>
+                          
+                          {/* Delta column - dropdown for manual mapping */}
+                          <select
+                            value={mappedDeltaCol}
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              // Remove existing mapping for this base column
+                              const filtered = columnMappings.filter(m => m.baseColumn.toLowerCase() !== baseLower);
+                              if (newValue && newValue.toLowerCase() !== baseLower) {
+                                // Add new manual mapping (only if different from base)
+                                setColumnMappings([...filtered, { baseColumn: baseCol, deltaColumn: newValue }]);
+                              } else {
+                                // Clear manual mapping (exact match or NULL)
+                                setColumnMappings(filtered);
+                              }
+                            }}
+                            style={{ 
+                              ...styles.select, 
+                              fontSize: '11px',
+                              padding: '4px 6px'
+                            }}
+                          >
+                            <option value="">-- NULL --</option>
+                            {deltaColumns.map(dc => (
+                              <option key={dc} value={dc}>{dc}</option>
+                            ))}
+                          </select>
+                          
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: exactMatch || manualMapping ? colors.success : colors.warning
+                          }}>
+                            {exactMatch ? '✓ auto' : (manualMapping ? '✓ manual' : '⚠ NULL')}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Summary */}
+                  <div style={{ marginTop: '12px', fontSize: '11px', color: colors.textMuted }}>
+                    ✓ {baseColumns.filter(b => deltaColsLower.includes(b.toLowerCase()) || columnMappings.some(m => m.baseColumn.toLowerCase() === b.toLowerCase())).length} mapped | 
+                    ⚠ {baseColumns.filter(b => !deltaColsLower.includes(b.toLowerCase()) && !columnMappings.some(m => m.baseColumn.toLowerCase() === b.toLowerCase())).length} will be NULL in delta
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {/* Preview */}
+            {deltaStagingModel && (
+              <div style={styles.propertyGroup}>
+                <div style={styles.propertyGroupTitle}>Preview</div>
+                <div style={{ 
+                  padding: '12px', 
+                  backgroundColor: colors.bgSecondary, 
+                  borderRadius: '4px',
+                  fontFamily: 'var(--vscode-editor-font-family)',
+                  fontSize: '11px',
+                  lineHeight: 1.5,
+                }}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Generated Virtual Views:</strong>
+                  </div>
+                  <code style={{ color: '#9cdcfe' }}>v_hub_{entityName}.sql</code>
+                  <br />
+                  <code style={{ color: '#9cdcfe' }}>v_sat_{entityName}.sql</code>
+                  <div style={{ marginTop: '12px', color: colors.textMuted }}>
+                    These views will UNION data from:
+                  </div>
+                  <div>• <code>{initData?.concept}_{entityName}</code> (base - persisted)</div>
+                  <div>• <code>{deltaStagingModel}</code> (delta - real-time)</div>
+                </div>
+              </div>
+            )}
+            
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '24px' }}>
+              <button
+                onClick={() => {
+                  setShowLambdaVaultModal(false);
+                  if (!deltaStagingModel) {
+                    setLambdaVaultEnabled(false);
+                  }
+                }}
+                style={styles.buttonSecondary}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowLambdaVaultModal(false)}
+                style={styles.buttonPrimary}
+                disabled={!deltaStagingModel}
+              >
+                Save Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* LOADING OVERLAY */}
       {isGenerating && (

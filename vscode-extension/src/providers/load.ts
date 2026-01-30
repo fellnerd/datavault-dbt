@@ -245,9 +245,24 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
    */
   private externalTableToTreeItemWithGroup(table: ExternalTable, groupName: string): TreeItemData {
     const hasColumns = table.columns && table.columns.length > 0;
+    
+    // Check if this is a wildcard table (location ends with /)
+    const isWildcard = table.location?.endsWith('/');
+    const label = isWildcard ? `${table.name} *` : table.name;
+    
+    // For wildcard, show folder path; for normal, show filename
+    let description: string;
+    if (isWildcard) {
+      description = `→ ${table.location}*`;
+    } else if (table.location) {
+      description = `→ ${table.location.split('/').pop()}`;
+    } else {
+      description = table.schema || '';
+    }
+    
     return {
       id: `ext-${table.name}-${groupName}`,
-      label: table.name,
+      label,
       type: 'external_table',
       modelType: 'external_table',
       filePath: table._yamlPath,
@@ -256,7 +271,7 @@ export class LoadTreeProvider extends DataVaultTreeProvider {
       concept: table.concept,
       layer: 'sources',
       collapsibleState: hasColumns ? 'collapsed' : 'none',
-      description: table.location ? `→ ${table.location.split('/').pop()}` : table.schema,
+      description,
       tooltip: this.createExternalTableTooltip(table),
       children: hasColumns ? this.createExternalTableColumnItems(table) : undefined
     };

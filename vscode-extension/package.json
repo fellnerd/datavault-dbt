@@ -135,6 +135,30 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.renameExternalTable",
+        "title": "Rename Table",
+        "icon": "$(edit)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.copyExternalTable",
+        "title": "Copy Table",
+        "icon": "$(copy)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.disableColumns",
+        "title": "Disable Columns",
+        "icon": "$(eye-closed)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteExternalTable",
+        "title": "Delete Table",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.createAllExternalTables",
         "title": "Create External Tables for Source",
         "icon": "$(database)",
@@ -214,7 +238,7 @@
       },
       {
         "command": "datavault.createPersistentStaging",
-        "title": "Create PSA Table (Persist External)",
+        "title": "Create PSA Table",
         "icon": "$(database)",
         "category": "Data Vault"
       },
@@ -468,6 +492,26 @@
           "group": "database@1"
         },
         {
+          "command": "datavault.renameExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "edit@1"
+        },
+        {
+          "command": "datavault.copyExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "edit@2"
+        },
+        {
+          "command": "datavault.disableColumns",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "edit@3"
+        },
+        {
+          "command": "datavault.deleteExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "delete@1"
+        },
+        {
           "command": "datavault.createStaging",
           "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
           "group": "staging@1"
@@ -591,6 +635,11 @@
           "type": "string",
           "default": "",
           "description": "Last used folder path for Discover (saved automatically)"
+        },
+        "datavault.lastDeltaDiscoverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Last used folder path for Delta Discover (saved automatically)"
         },
         "datavault.staging.businessKeySeparator": {
           "type": "string",

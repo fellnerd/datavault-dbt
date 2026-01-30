@@ -88,11 +88,31 @@ export class MartDesignerStateService {
   // ============================================
 
   /**
+   * Strip virtual view prefix (v_) from model names.
+   * Converts v_hub_company -> hub_company, v_sat_company -> sat_company, etc.
+   */
+  private stripVirtualPrefix(name: string): string {
+    if (name.startsWith('v_hub_') || name.startsWith('v_sat_') || name.startsWith('v_link_')) {
+      return name.substring(2); // Remove 'v_' prefix
+    }
+    return name;
+  }
+
+  /**
+   * Extract entity name from model name (hub_company -> company, v_hub_company -> company)
+   */
+  private extractEntityName(modelName: string, prefix: string): string {
+    const stripped = this.stripVirtualPrefix(modelName);
+    return stripped.replace(prefix, '');
+  }
+
+  /**
    * Add a Hub as a new Dimension node.
    * Called when user right-clicks on a Hub in the Raw Vault tree.
+   * Supports both regular (hub_*) and virtual (v_hub_*) hubs.
    */
   public addDimension(hub: DbtModel): void {
-    const entityName = hub.name.replace('hub_', '');
+    const entityName = this.extractEntityName(hub.name, 'hub_');
     const businessKey = this.extractBusinessKey(hub);
 
     const payload: AddDimensionPayload = {
@@ -182,9 +202,10 @@ export class MartDesignerStateService {
   /**
    * Add a Link as a new Fact node.
    * Called when user right-clicks on a Link in the Raw Vault tree.
+   * Supports both regular (link_*) and virtual (v_link_*) links.
    */
   public addFact(link: DbtModel): void {
-    const entityName = link.name.replace('link_', '');
+    const entityName = this.extractEntityName(link.name, 'link_');
     const foreignKeys = this.extractForeignKeys(link);
 
     const payload: AddFactPayload = {
@@ -292,9 +313,10 @@ export class MartDesignerStateService {
   /**
    * Extract foreign key columns from a Link.
    * Returns hash keys that reference other hubs.
+   * Supports both regular (link_*) and virtual (v_link_*) links.
    */
   private extractForeignKeys(link: DbtModel): string[] {
-    const linkHashKey = `hk_link_${link.name.replace('link_', '')}`;
+    const linkHashKey = `hk_link_${this.extractEntityName(link.name, 'link_')}`;
     return link.columns
       .filter(c => c.name.startsWith('hk_') && c.name !== linkHashKey)
       .map(c => c.name);

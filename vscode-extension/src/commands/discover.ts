@@ -31,6 +31,7 @@ export interface DiscoverContext {
  */
 interface FileQuickPickItem extends vscode.QuickPickItem {
   fileName?: string;
+  isWildcard?: boolean;
 }
 
 /**
@@ -98,16 +99,26 @@ export async function discoverExternalSources(ctx: DiscoverContext): Promise<voi
     return;
   }
 
-  // Step 4: Multi-select files
-  const items: FileQuickPickItem[] = parquetFiles.map(f => ({
+  // Step 4: Multi-select files (with wildcard option at top)
+  const wildcardOption: FileQuickPickItem = {
+    label: '$(folder) Use entire folder (wildcard)',
+    description: `Read ALL ${parquetFiles.length} files at query time`,
+    detail: 'Creates a single External Table that reads all Parquet files in this folder',
+    isWildcard: true
+  };
+
+  const fileItems: FileQuickPickItem[] = parquetFiles.map(f => ({
     label: f.fileName,
     description: folderPath,
     fileName: f.fileName
   }));
 
+  // Add wildcard option at the top
+  const items: FileQuickPickItem[] = [wildcardOption, ...fileItems];
+
   const selectedItems = await vscode.window.showQuickPick(items, {
     canPickMany: true,
-    placeHolder: 'Select Parquet files to discover',
+    placeHolder: 'Select files OR choose "Use entire folder" for wildcard',
     title: `Discover Sources - ${parquetFiles.length} files found`
   });
 
@@ -115,10 +126,8 @@ export async function discoverExternalSources(ctx: DiscoverContext): Promise<voi
     return; // User cancelled
   }
 
-  // Determine which files to process
-  const filesToProcess = parquetFiles.filter(f => 
-    selectedItems.some(item => item.fileName === f.fileName)
-  );
+  // Check if wildcard option was selected
+  const useWildcard = selectedItems.some(item => item.isWildcard);
 
   // Step 5: Find sources.yml
   const sourcesPath = findSourcesYaml(projectPath);
@@ -126,6 +135,23 @@ export async function discoverExternalSources(ctx: DiscoverContext): Promise<voi
     vscode.window.showErrorMessage('Could not find sources.yml in the project');
     return;
   }
+
+  // =========================================================================
+  // WILDCARD PATH: Create single table for entire folder
+  // =========================================================================
+  if (useWildcard) {
+    await processWildcardFolder(projectPath, folderPath, parquetFiles, sourcesPath, refreshProject, log);
+    return;
+  }
+
+  // =========================================================================
+  // NORMAL PATH: Create individual tables for selected files
+  // =========================================================================
+
+  // Determine which files to process
+  const filesToProcess = parquetFiles.filter(f => 
+    selectedItems.some(item => item.fileName === f.fileName)
+  );
 
   // Step 6: Process files and handle duplicates
   const newTables: ExternalTableDefinition[] = [];
@@ -228,6 +254,137 @@ export async function discoverExternalSources(ctx: DiscoverContext): Promise<voi
   vscode.window.showInformationMessage(message);
 
   // Open sources.yml to show the result
+  const doc = await vscode.workspace.openTextDocument(sourcesPath);
+  await vscode.window.showTextDocument(doc);
+}
+
+/**
+ * Process wildcard folder - creates a single External Table that reads all files
+ */
+async function processWildcardFolder(
+  projectPath: string,
+  folderPath: string,
+  parquetFiles: Array<{ fileName: string; fullPath: string }>,
+  sourcesPath: string,
+  refreshProject: () => Promise<void>,
+  log: (msg: string) => void
+): Promise<void> {
+  // Suggest table name based on folder path
+  const normalizedPath = folderPath.replace(/^\/+|\/+$/g, '');
+  const suggestedName = 'ext_' + normalizedPath
+    .replace(/\//g, '_')
+    .replace(/-/g, '_')
+    .toLowerCase();
+
+  const tableName = await vscode.window.showInputBox({
+    prompt: `Create wildcard table for ${parquetFiles.length} files. Enter table name:`,
+    placeHolder: 'e.g., ext_werkportal_api_invoice_delta',
+    value: suggestedName,
+    validateInput: (value) => {
+      if (!value || value.trim() === '') {
+        return 'Table name is required';
+      }
+      if (!value.startsWith('ext_')) {
+        return 'External table names should start with "ext_"';
+      }
+      if (!/^[a-z0-9_]+$/.test(value)) {
+        return 'Table name should only contain lowercase letters, numbers, and underscores';
+      }
+      return null;
+    }
+  });
+
+  if (!tableName) {
+    return; // User cancelled
+  }
+
+  // Parse schema from first file as template
+  let tableDefinition: ExternalTableDefinition | null = null;
+  
+  await vscode.window.withProgress({
+    location: vscode.ProgressLocation.Notification,
+    title: 'Parsing schema from sample file...',
+    cancellable: false
+  }, async (progress) => {
+    try {
+      const sampleFile = parquetFiles[0];
+      progress.report({ message: `Reading schema from ${sampleFile.fileName}...` });
+      
+      tableDefinition = await getParquetSchema(
+        projectPath, 
+        folderPath, 
+        sampleFile.fileName,
+        (msg) => log(msg)
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Failed to parse schema: ${errorMsg}`);
+      log(`Schema parse error: ${errorMsg}`);
+    }
+  });
+
+  if (!tableDefinition) {
+    vscode.window.showErrorMessage('Failed to parse schema from sample file');
+    return;
+  }
+
+  // Modify table definition for folder-based access
+  // TypeScript needs explicit typing after null check
+  const baseTable = tableDefinition as ExternalTableDefinition;
+  const folderTableDefinition: ExternalTableDefinition = {
+    name: tableName,
+    description: `Wildcard External Table - reads ALL Parquet files from ${normalizedPath}/`,
+    external: {
+      file_format: baseTable.external.file_format,
+      data_source: baseTable.external.data_source,
+      // CRITICAL: Location is the FOLDER path (trailing slash)
+      // Azure SQL will read all Parquet files in this folder automatically
+      location: `${normalizedPath}/`
+    },
+    columns: baseTable.columns
+  };
+
+  log(`Created wildcard table definition with location: ${folderTableDefinition.external.location}`);
+
+  // Check for duplicates and handle
+  const tableExists = tableExistsInSources(sourcesPath, tableName);
+  
+  if (tableExists) {
+    const action = await vscode.window.showWarningMessage(
+      `Table "${tableName}" already exists in sources.yml`,
+      { modal: true },
+      'Replace',
+      'Cancel'
+    );
+
+    if (action === 'Cancel' || !action) {
+      return;
+    }
+
+    try {
+      replaceTableInSourcesYaml(sourcesPath, folderTableDefinition, (msg) => log(msg));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Failed to replace table: ${errorMsg}`);
+      return;
+    }
+  } else {
+    try {
+      await addTablesToSourcesYaml(sourcesPath, [folderTableDefinition], (msg) => log(msg));
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Failed to add table: ${errorMsg}`);
+      return;
+    }
+  }
+
+  // Refresh and show result (same as normal discover)
+  await refreshProject();
+
+  vscode.window.showInformationMessage(
+    `Wildcard External Table "${tableName}" added to sources.yml`
+  );
+
   const doc = await vscode.workspace.openTextDocument(sourcesPath);
   await vscode.window.showTextDocument(doc);
 }

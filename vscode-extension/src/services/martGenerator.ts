@@ -37,8 +37,8 @@ async function loadHubBusinessKeys(projectPath: string): Promise<HubBusinessKeyC
       if (!parsed || !parsed.models) continue;
 
       for (const model of parsed.models) {
-        // Only process hub models
-        if (!model.name.startsWith('hub_')) continue;
+        // Only process hub models (including virtual hubs v_hub_*)
+        if (!model.name.startsWith('hub_') && !model.name.startsWith('v_hub_')) continue;
 
         const businessKeys: string[] = [];
 
@@ -335,8 +335,9 @@ function generateDimensionBaseSQL(config: DimensionConfig): string {
     }
 
     // SCD Type 1: Only use current records from satellites
+    // Supports both regular (sat_*) and virtual (v_sat_*) satellites
     if (config.scdType === 'type1') {
-      const satelliteModels = sourceModels.filter(m => m.startsWith('sat_'));
+      const satelliteModels = sourceModels.filter(m => m.startsWith('sat_') || m.startsWith('v_sat_'));
       if (satelliteModels.length > 0) {
         const satAlias = sourceModels.length === 1 ? '' : sanitizeAlias(satelliteModels[0]) + '.';
         lines.push(`WHERE ${satAlias}dss_is_current = 'Y'`);
@@ -371,13 +372,26 @@ function sanitizeAlias(modelName: string): string {
 }
 
 /**
+ * Strip virtual view prefix (v_) from model names for entity extraction.
+ * v_hub_company -> hub_company, v_sat_company -> sat_company
+ */
+function stripVirtualPrefix(name: string): string {
+  if (name.startsWith('v_hub_') || name.startsWith('v_sat_') || name.startsWith('v_link_')) {
+    return name.substring(2);
+  }
+  return name;
+}
+
+/**
  * Try to find a common hash key for joining models
+ * Supports both regular (hub_*) and virtual (v_hub_*) hubs
  */
 function findCommonHashKey(models: string[]): string {
-  // Try to derive from hub name pattern
-  const hubModel = models.find(m => m.startsWith('hub_'));
+  // Try to derive from hub name pattern (including virtual views)
+  const hubModel = models.find(m => m.startsWith('hub_') || m.startsWith('v_hub_'));
   if (hubModel) {
-    return `hk_${hubModel.replace('hub_', '')}`;
+    const strippedName = stripVirtualPrefix(hubModel);
+    return `hk_${strippedName.replace('hub_', '')}`;
   }
   // Default fallback
   return 'hk';
@@ -507,17 +521,22 @@ function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKey
     }
   } else if (sourceModels.length > 0) {
     // Source is typically a satellite - check if we need to join to hub for BK
+    // Supports both regular (sat_*) and virtual (v_sat_*) satellites
     const firstModel = sourceModels[0];
-    const isSatellite = firstModel.startsWith('sat_');
+    const strippedFirstModel = stripVirtualPrefix(firstModel);
+    const isSatellite = strippedFirstModel.startsWith('sat_');
 
     if (isSatellite) {
       // Satellite source - need to join to hub to get business keys
-      const hubName = firstModel.replace('sat_', 'hub_');
-      const entityName = firstModel.replace('sat_', '');  // e.g., "vorgang"
+      // Derive hub name from satellite (sat_vorgang -> hub_vorgang, v_sat_vorgang -> v_hub_vorgang)
+      const entityName = strippedFirstModel.replace('sat_', '');  // e.g., "vorgang"
+      const isVirtual = firstModel.startsWith('v_');
+      const hubName = isVirtual ? `v_hub_${entityName}` : `hub_${entityName}`;
       const hashKey = `hk_${entityName}`;
 
       // Get the hub's business keys from YAML (identified by description: "Business Key")
-      const hubBKs = hubBusinessKeys[hubName] || [];
+      // Check both virtual and regular hub names
+      const hubBKs = hubBusinessKeys[hubName] || hubBusinessKeys[strippedFirstModel.replace('sat_', 'hub_')] || [];
 
       lines.push(`FROM {{ ref('${firstModel}') }} sat`);
       lines.push(`INNER JOIN {{ ref('${hubName}') }} hub ON sat.${hashKey} = hub.${hashKey}`);
@@ -556,12 +575,14 @@ function generateFactBaseSQL(config: FactConfig, hubBusinessKeys: HubBusinessKey
       }
     }
   } else if (config.sourceLink) {
-    // Link as source
+    // Link as source (supports both regular and virtual links)
     lines.push(`FROM {{ ref('${config.sourceLink}') }} link`);
 
     // Join satellites if specified
+    // Hash key derived from stripped link name (v_link_* -> link_*)
     if (config.sourceSatellites && config.sourceSatellites.length > 0) {
-      const linkHashKey = `hk_${config.sourceLink.replace('link_', '')}`;
+      const strippedLinkName = stripVirtualPrefix(config.sourceLink);
+      const linkHashKey = `hk_${strippedLinkName.replace('link_', '')}`;
       config.sourceSatellites.forEach((sat, index) => {
         lines.push(`LEFT JOIN {{ ref('${sat}') }} sat_${index + 1} ON link.${linkHashKey} = sat_${index + 1}.${linkHashKey}`);
       });

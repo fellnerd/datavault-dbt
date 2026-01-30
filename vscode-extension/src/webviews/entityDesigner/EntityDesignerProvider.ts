@@ -8,10 +8,12 @@ import {
   WebviewMessage,
   WebviewInitMessage,
   SavedColumnConfig,
-  WebviewSaveConfigMessage
+  WebviewSaveConfigMessage,
+  LambdaVaultConfig,
+  StagingModelInfo
 } from '../../types';
 import { getWebviewContent } from './getWebviewContent';
-import { generateDataVaultObjects, generateSchemaYaml } from '../../services/entityGenerator';
+import { generateDataVaultObjects, generateSchemaYaml, generateVirtualViews } from '../../services/entityGenerator';
 import { loadDesignerConfig, saveDesignerConfig, DesignerConfig, detectSourceTypeFromStaging } from '../../services/designerConfigStore';
 
 /**
@@ -132,14 +134,114 @@ export class EntityDesignerProvider {
   }
 
   /**
+   * Load available staging models for Lambda Vault selection
+   * Returns staging models from the same concept (excluding current entity)
+   */
+  private async loadAvailableStagingModels(concept: string, currentEntity: string): Promise<StagingModelInfo[]> {
+    if (!this._projectPath) return [];
+
+    const stagingDir = path.join(this._projectPath, 'models', 'staging');
+    const stagingModels: StagingModelInfo[] = [];
+    const currentModelName = `${concept}_${currentEntity}`;
+
+    try {
+      if (!fs.existsSync(stagingDir)) return [];
+
+      const files = await fs.promises.readdir(stagingDir);
+      const sqlFiles = files.filter(f => f.endsWith('.sql') && !f.startsWith('_'));
+
+      for (const file of sqlFiles) {
+        const modelName = file.replace('.sql', '');
+        // Only include models from same concept, exclude EXACT current model (not partial match)
+        if (modelName.startsWith(concept + '_') && modelName !== currentModelName) {
+          // Try to extract columns from the staging SQL
+          const filePath = path.join(stagingDir, file);
+          const columns = await this.extractStagingColumns(filePath);
+          
+          stagingModels.push({
+            name: modelName,
+            concept,
+            columns
+          });
+        }
+      }
+
+      console.log(`[Entity Designer] Found ${stagingModels.length} staging models for Lambda Vault`);
+    } catch (error) {
+      console.error('[Entity Designer] Error loading staging models:', error);
+    }
+
+    return stagingModels;
+  }
+
+  /**
+   * Extract column names from a staging SQL file
+   */
+  private async extractStagingColumns(filePath: string): Promise<string[]> {
+    // Read columns from _staging__models.yml instead of parsing SQL
+    if (!this._projectPath) return [];
+    
+    const modelName = path.basename(filePath, '.sql');
+    const yamlPath = path.join(this._projectPath, 'models', 'staging', '_staging__models.yml');
+    
+    try {
+      if (!fs.existsSync(yamlPath)) {
+        console.log(`[Entity Designer] No _staging__models.yml found`);
+        return [];
+      }
+      
+      const content = await fs.promises.readFile(yamlPath, 'utf-8');
+      const yaml = require('js-yaml');
+      const parsed = yaml.load(content) as { models?: Array<{ name: string; columns?: Array<{ name: string }> }> };
+      
+      if (!parsed?.models) return [];
+      
+      const model = parsed.models.find(m => m.name === modelName);
+      if (!model?.columns) {
+        console.log(`[Entity Designer] Model ${modelName} not found in _staging__models.yml`);
+        return [];
+      }
+      
+      const columns = model.columns.map(c => c.name);
+      console.log(`[Entity Designer] Loaded ${columns.length} columns for ${modelName} from YAML`);
+      return columns;
+    } catch (err) {
+      console.error(`[Entity Designer] Error reading _staging__models.yml:`, err);
+      return [];
+    }
+  }
+
+  /**
+   * Load column names from the base staging model for Lambda Vault comparison
+   */
+  private async loadBaseStagingColumns(concept: string, entityName: string): Promise<string[]> {
+    if (!this._projectPath) return [];
+
+    const stagingDir = path.join(this._projectPath, 'models', 'staging');
+    const baseStagingFile = path.join(stagingDir, `${concept}_${entityName}.sql`);
+
+    try {
+      if (fs.existsSync(baseStagingFile)) {
+        const columns = await this.extractStagingColumns(baseStagingFile);
+        console.log(`[Entity Designer] Loaded ${columns.length} columns from base staging ${concept}_${entityName}`);
+        return columns;
+      }
+    } catch (error) {
+      console.error('[Entity Designer] Error loading base staging columns:', error);
+    }
+
+    return [];
+  }
+
+  /**
    * Send initialization data to the webview
    */
-  private sendInitMessage(
+  private async sendInitMessage(
     externalTable: ExternalTable,
     concept: string,
     entityName: string,
     savedConfig?: DesignerConfig | null
-  ): void {
+  ): Promise<void> {
     if (!this._panel) {return;}
 
     // DEBUG: Log the columns being sent to verify dataTypes
@@ -147,6 +249,12 @@ export class EntityDesignerProvider {
     externalTable.columns.slice(0, 5).forEach(c => {
       console.log(`  - ${c.name}: dataType = "${c.dataType}"`);
     });
+
+    // Load available staging models for Lambda Vault
+    const availableStagingModels = await this.loadAvailableStagingModels(concept, entityName);
+    
+    // Load base staging columns for Lambda Vault comparison
+    const baseStagingColumns = await this.loadBaseStagingColumns(concept, entityName);
 
     const initMessage: WebviewInitMessage = {
       type: 'init',
@@ -156,12 +264,18 @@ export class EntityDesignerProvider {
         concept,
         entityName,
         sourceTable: externalTable.name,
-        savedColumns: savedConfig && savedConfig.columns.length > 0 ? savedConfig.columns : undefined
+        savedColumns: savedConfig && savedConfig.columns.length > 0 ? savedConfig.columns : undefined,
+        availableStagingModels,
+        lambdaVault: savedConfig?.lambdaVault,
+        baseStagingColumns
       }
     };
 
     if (savedConfig) {
       console.log('[Entity Designer] Sending init with saved config:', savedConfig.columns.length, 'columns');
+      if (savedConfig.lambdaVault?.enabled) {
+        console.log('[Entity Designer] Lambda Vault enabled with delta:', savedConfig.lambdaVault.deltaStagingModel);
+      }
     }
 
     // Store current entity context for config-first generation
@@ -199,7 +313,7 @@ export class EntityDesignerProvider {
         await this.handleGenerate(message.target);
         break;
       case 'saveConfig':
-        await this.handleSaveConfig(message.columns, message.entityName);
+        await this.handleSaveConfig(message.columns, message.entityName, (message as WebviewSaveConfigMessage).lambdaVault);
         break;
       // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
       case 'update':
@@ -211,7 +325,7 @@ export class EntityDesignerProvider {
   /**
    * Save config to JSON file (Config-First: JSON is Single Source of Truth)
    */
-  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string): Promise<void> {
+  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig): Promise<void> {
     if (!this._projectPath || !this._currentEntity) {
       console.error('[Entity Designer] Cannot save config: missing project path or entity context');
       return;
@@ -233,11 +347,15 @@ export class EntityDesignerProvider {
       entityName: this._currentEntity.entityName,
       sourceTable: this._currentEntity.sourceTable,
       columns,
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toISOString(),
+      lambdaVault
     };
 
     await saveDesignerConfig(this._projectPath, config);
     console.log('[Entity Designer] Config saved to JSON');
+    if (lambdaVault?.enabled) {
+      console.log('[Entity Designer] Lambda Vault saved with delta:', lambdaVault.deltaStagingModel);
+    }
   }
 
   /**
@@ -486,6 +604,18 @@ export class EntityDesignerProvider {
       if (result.success) {
         // Generate schema YAML
         await generateSchemaYaml(config, result.files, this._projectPath);
+        
+        // Generate Virtual Views if Lambda Vault is enabled
+        if (savedConfig.lambdaVault?.enabled && savedConfig.lambdaVault.deltaStagingModel) {
+          console.log('[Entity Designer] Lambda Vault enabled, generating virtual views...');
+          const virtualFiles = await generateVirtualViews(
+            config,
+            savedConfig.lambdaVault,
+            this._projectPath
+          );
+          result.files.push(...virtualFiles);
+          console.log(`[Entity Designer] Generated ${virtualFiles.length} virtual view(s)`);
+        }
         
         // Sync dataTypes to sources.yml (batch update)
         await this.syncDataTypesToSourcesYaml(savedConfig.columns);
