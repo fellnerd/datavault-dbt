@@ -168,6 +168,119 @@ export function registerEntityDesignerCommands(
     )
   );
 
+  // Open Entity Designer from saved JSON config
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.openEntityDesignerFromConfig',
+      async (uri?: vscode.Uri) => {
+        const projectPath = getProjectPath();
+        if (!projectPath) {
+          vscode.window.showErrorMessage('No dbt project found');
+          return;
+        }
+
+        let configPath: string | undefined;
+
+        if (uri) {
+          // Called with a URI (e.g., from file explorer context menu)
+          configPath = uri.fsPath;
+        } else {
+          // Show file picker for JSON files in .vscode/entity-designer/
+          const configDir = path.join(projectPath, '.vscode', 'entity-designer');
+          
+          if (!fs.existsSync(configDir)) {
+            vscode.window.showWarningMessage('No saved Entity Designer configurations found.');
+            return;
+          }
+
+          const configFiles = fs.readdirSync(configDir)
+            .filter(f => f.endsWith('.json'))
+            .map(f => ({
+              label: f.replace('.json', ''),
+              description: f,
+              path: path.join(configDir, f)
+            }));
+
+          if (configFiles.length === 0) {
+            vscode.window.showWarningMessage('No saved Entity Designer configurations found.');
+            return;
+          }
+
+          const selected = await vscode.window.showQuickPick(configFiles, {
+            placeHolder: 'Select an Entity Designer configuration to open'
+          });
+
+          if (!selected) {
+            return;
+          }
+
+          configPath = selected.path;
+        }
+
+        if (!configPath || !fs.existsSync(configPath)) {
+          vscode.window.showErrorMessage(`Config file not found: ${configPath}`);
+          return;
+        }
+
+        try {
+          // Load the saved config
+          const configContent = fs.readFileSync(configPath, 'utf-8');
+          const savedConfig = JSON.parse(configContent);
+
+          const concept = savedConfig.concept;
+          const entityName = savedConfig.entityName;
+          const sourceTable = savedConfig.sourceTable;
+
+          if (!concept || !entityName || !sourceTable) {
+            vscode.window.showErrorMessage('Invalid Entity Designer config: missing concept, entityName, or sourceTable');
+            return;
+          }
+
+          console.log(`[Entity Designer] Opening from config: ${concept}_${entityName}`);
+
+          // Load dataTypes from sources.yml for the source table
+          const dataTypeMap = loadDataTypesFromSourcesYaml(projectPath, sourceTable);
+
+          // Build columns from saved config, enriched with dataTypes from sources.yml
+          const columns: ColumnInfo[] = savedConfig.columns.map((col: { sourceName?: string; name: string; dataType?: string }) => ({
+            name: col.sourceName || col.name,
+            dataType: dataTypeMap.get((col.sourceName || col.name).toLowerCase()) || col.dataType || 'NVARCHAR(MAX)'
+          }));
+
+          // Create external table representation
+          const externalTable: ExternalTable = {
+            name: sourceTable,
+            sourceName: 'staging',
+            schema: 'stg',
+            columns,
+            concept,
+            _yamlPath: ''
+          };
+
+          // Scan for existing hubs
+          const existingHubs = await scanForExistingHubs(projectPath);
+
+          // Create or get the provider
+          if (!designerProvider) {
+            designerProvider = new EntityDesignerProvider(
+              context.extensionUri,
+              existingHubs
+            );
+          } else {
+            designerProvider.updateExistingHubs(existingHubs);
+          }
+
+          // Open the designer
+          await designerProvider.openDesigner(externalTable, concept, entityName, projectPath);
+
+        } catch (error) {
+          console.error('[Entity Designer] Error loading config:', error);
+          vscode.window.showErrorMessage(`Failed to load Entity Designer config: ${error}`);
+        }
+      }
+    )
+  );
+
   return disposables;
 }
 

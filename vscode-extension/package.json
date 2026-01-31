@@ -177,6 +177,12 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.openEntityDesignerFromConfig",
+        "title": "Open Entity Designer from Config",
+        "icon": "$(json)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.deleteEntity",
         "title": "Delete Entity (Staging + Vault)",
         "icon": "$(trash)",
@@ -400,6 +406,13 @@
         {
           "command": "datavault.addSeedAsDimension",
           "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "datavault.openEntityDesignerFromConfig",
+          "when": "resourceFilename =~ /\\.json$/ && resourcePath =~ /entity-designer/",
+          "group": "datavault@1"
         }
       ],
       "view/title": [
