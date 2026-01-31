@@ -99,8 +99,10 @@ async function removeFromSchemaYaml(
   // Determine schema file path based on model location
   const modelDir = path.dirname(model.filePath);
   
-  // Find the _<concept>__models.yml file
+  // Find the appropriate YAML file
   const possibleSchemaFiles = [
+    // Staging: models/staging/_staging__models.yml
+    path.join(projectPath, 'models', 'staging', '_staging__models.yml'),
     // Raw Vault: models/raw_vault/<concept>/_<concept>__models.yml
     path.join(modelDir, '..', `_${model.concept || 'models'}__models.yml`),
     // Also check parent directory
@@ -371,10 +373,37 @@ export async function deleteEntity(
   // Extract concept and entity name from staging model
   // Staging model name format: <concept>_<entity> (e.g., "adworks_kunde")
   const stagingName = model.name;
-  const concept = model.concept || stagingName.split('_')[0];
-  const entityName = stagingName.replace(`${concept}_`, '');
+  const stagingConcept = model.concept || stagingName.split('_')[0];
+  let entityName = stagingName.replace(`${stagingConcept}_`, '');
+  
+  // Try to load Entity Designer config to get the actual target concept
+  // The staging source might be "adventureworks" but vault target could be "adworks"
+  let targetConcept = stagingConcept;
+  const possibleConfigPaths = [
+    path.join(projectPath, '.vscode', 'entity-designer', `${stagingName}.json`),
+    path.join(projectPath, '.vscode', 'entity-designer', `${stagingConcept}_${entityName}.json`),
+  ];
+  
+  for (const configPath of possibleConfigPaths) {
+    if (fs.existsSync(configPath)) {
+      try {
+        const configContent = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        if (configContent.concept) {
+          targetConcept = configContent.concept;
+          log(`Found designer config: target concept = ${targetConcept}`);
+        }
+        if (configContent.entityName) {
+          entityName = configContent.entityName;
+          log(`Found designer config: entity name = ${entityName}`);
+        }
+        break;
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }
 
-  log(`Preparing to delete entity: ${entityName} (concept: ${concept})`);
+  log(`Preparing to delete entity: ${entityName} (staging: ${stagingConcept}, vault: ${targetConcept})`);
 
   // Collect all files to delete
   const filesToDelete: { path: string; type: string }[] = [];
@@ -387,27 +416,32 @@ export async function deleteEntity(
   yamlUpdates.push({ model, type: 'Staging YAML' });
 
   // 2. Find Raw Vault models for this entity
-  const rawVaultModels = metadata.models.filter(m => 
-    m.layer === 'raw_vault' && 
-    m.concept === concept
-  );
+  // Search in ALL raw vault models by entity name, not limited to specific concepts
+  // This handles cases where staging concept differs from vault concept
+  // (e.g., staging: adworks_kunde, vault folder: adventureworks/hub_kunde)
+  
+  const allRawVaultModels = metadata.models.filter(m => m.layer === 'raw_vault');
+  
+  log(`Searching for entity "${entityName}" in ${allRawVaultModels.length} raw vault models`);
 
-  // Hub
-  const hub = rawVaultModels.find(m => m.name === `hub_${entityName}`);
+  // Hub - search in ALL raw vault models
+  const hub = allRawVaultModels.find(m => m.name === `hub_${entityName}`);
   if (hub && fs.existsSync(hub.filePath)) {
     filesToDelete.push({ path: hub.filePath, type: 'Hub' });
     yamlUpdates.push({ model: hub, type: 'Hub YAML' });
+    log(`Found Hub: ${hub.name} in concept ${hub.concept}`);
   }
 
   // Satellite
-  const sat = rawVaultModels.find(m => m.name === `sat_${entityName}`);
+  const sat = allRawVaultModels.find(m => m.name === `sat_${entityName}`);
   if (sat && fs.existsSync(sat.filePath)) {
     filesToDelete.push({ path: sat.filePath, type: 'Satellite' });
     yamlUpdates.push({ model: sat, type: 'Satellite YAML' });
+    log(`Found Satellite: ${sat.name} in concept ${sat.concept}`);
   }
 
   // Links (any link that contains the entity name)
-  const links = rawVaultModels.filter(m => 
+  const links = allRawVaultModels.filter(m => 
     m.name.startsWith('link_') && 
     (m.name.includes(entityName) || m.name.includes(`_${entityName}`))
   );
@@ -415,50 +449,96 @@ export async function deleteEntity(
     if (fs.existsSync(link.filePath)) {
       filesToDelete.push({ path: link.filePath, type: 'Link' });
       yamlUpdates.push({ model: link, type: 'Link YAML' });
+      log(`Found Link: ${link.name} in concept ${link.concept}`);
     }
   }
 
-  // Link Satellites
-  const lsats = rawVaultModels.filter(m => 
-    m.name.startsWith('lsat_') && m.name.includes(entityName)
+  // Link Satellites (sat_<link_name> where link exists)
+  // Link Satellites use same sat_ prefix but reference link hash keys
+  // They are found via link name pattern: sat_<entity1>_<entity2>
+  const linkSats = allRawVaultModels.filter(m => 
+    m.name.startsWith('sat_') && 
+    m.name.includes(entityName) &&
+    links.some(link => m.name === link.name.replace('link_', 'sat_'))
   );
-  for (const lsat of lsats) {
-    if (fs.existsSync(lsat.filePath)) {
-      filesToDelete.push({ path: lsat.filePath, type: 'Link Satellite' });
-      yamlUpdates.push({ model: lsat, type: 'Link Satellite YAML' });
+  for (const linkSat of linkSats) {
+    if (fs.existsSync(linkSat.filePath)) {
+      filesToDelete.push({ path: linkSat.filePath, type: 'Link Satellite' });
+      yamlUpdates.push({ model: linkSat, type: 'Link Satellite YAML' });
+      log(`Found Link Satellite: ${linkSat.name} in concept ${linkSat.concept}`);
     }
   }
 
   // DC Satellites
-  const dcSats = rawVaultModels.filter(m => 
+  const dcSats = allRawVaultModels.filter(m => 
     m.name.includes(entityName) && m.name.includes('_dc')
   );
   for (const dcSat of dcSats) {
     if (fs.existsSync(dcSat.filePath)) {
       filesToDelete.push({ path: dcSat.filePath, type: 'DC Satellite' });
       yamlUpdates.push({ model: dcSat, type: 'DC Satellite YAML' });
+      log(`Found DC Satellite: ${dcSat.name} in concept ${dcSat.concept}`);
     }
   }
 
   // MA Satellites
-  const maSats = rawVaultModels.filter(m => 
+  const maSats = allRawVaultModels.filter(m => 
     m.name.includes(entityName) && m.name.includes('_ma')
   );
   for (const maSat of maSats) {
     if (fs.existsSync(maSat.filePath)) {
       filesToDelete.push({ path: maSat.filePath, type: 'MA Satellite' });
       yamlUpdates.push({ model: maSat, type: 'MA Satellite YAML' });
+      log(`Found MA Satellite: ${maSat.name} in concept ${maSat.concept}`);
     }
   }
 
-  // 3. Entity Designer JSON config
-  const configPaths = [
-    path.join(projectPath, '.vscode', 'entity-designer', `${concept}_${entityName}.json`),
-    path.join(projectPath, '.datavault', 'entity-configs', `${concept}_${entityName}.json`),
-  ];
-  for (const configPath of configPaths) {
-    if (fs.existsSync(configPath)) {
-      filesToDelete.push({ path: configPath, type: 'Designer Config' });
+  // Reference Tables (ref_<entity_name>)
+  const refTables = allRawVaultModels.filter(m => 
+    m.name.startsWith('ref_') && m.name.includes(entityName)
+  );
+  for (const refTable of refTables) {
+    if (fs.existsSync(refTable.filePath)) {
+      filesToDelete.push({ path: refTable.filePath, type: 'Reference Table' });
+      yamlUpdates.push({ model: refTable, type: 'Reference Table YAML' });
+      log(`Found Reference Table: ${refTable.name} in concept ${refTable.concept}`);
+    }
+  }
+
+  // 3. Entity Designer JSON config - search ALL configs in the folder
+  const configDir = path.join(projectPath, '.vscode', 'entity-designer');
+  if (fs.existsSync(configDir)) {
+    const configFiles = fs.readdirSync(configDir).filter(f => f.endsWith('.json'));
+    for (const configFile of configFiles) {
+      const configPath = path.join(configDir, configFile);
+      try {
+        const configContent = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        // Match by: sourceTable name, concept_entity name, or the config concept/entityName
+        const configEntityName = configContent.entityName;
+        const configSourceTable = configContent.sourceTable;
+        const configFullName = `${configContent.concept}_${configContent.entityName}`;
+        
+        // Get source from model.sources array (format: "source.table")
+        const modelSourceTable = model.sources?.[0]?.split('.')?.[1] || '';
+        
+        // Check if this config relates to the staging model being deleted
+        const shouldDelete = 
+          configSourceTable === modelSourceTable ||                     // Same source table
+          configSourceTable === stagingName ||                          // Source table matches staging name
+          configFullName === stagingName ||                             // config name matches staging
+          configFile === `${stagingName}.json` ||                       // Direct filename match
+          configFile === `${stagingConcept}_${entityName}.json` ||      // Staging concept + entity
+          configFile === `${targetConcept}_${entityName}.json` ||       // Target concept + entity
+          (configEntityName && entityName.includes(configEntityName)) || // Entity name matches
+          (configSourceTable && stagingName.includes(configSourceTable.replace('ext_', ''))); // Source table in staging name
+        
+        if (shouldDelete && !filesToDelete.some(f => f.path === configPath)) {
+          filesToDelete.push({ path: configPath, type: 'Designer Config' });
+          log(`Found matching config: ${configFile} (sourceTable: ${configSourceTable})`);
+        }
+      } catch (e) {
+        // Skip files that can't be parsed
+      }
     }
   }
 

@@ -134,7 +134,7 @@ export async function generateDataVaultObjects(
     // For Pure Link Entity: Generate Link Satellite instead of regular Satellite
     if (effectiveTargets.includes('satellite') && attributes.length > 0) {
       if (isPureLinkEntity) {
-        // Generate Link Satellite (lsat_) instead of regular Satellite
+        // Generate Link Satellite (sat_) instead of regular Satellite
         const lsatFile = await generateLinkSatellite(config, foreignKeys, attributes, projectPath);
         generatedFiles.push(lsatFile);
       } else {
@@ -980,7 +980,7 @@ src_source: "dss_record_source"
  * A Link Satellite holds the descriptive attributes of a Link relationship.
  * For example, customeraddress has AddressType as a link attribute.
  * 
- * Naming convention: lsat_<link_name> (e.g., lsat_kunde_adresse)
+ * Naming convention: sat_<link_name> (e.g., sat_kunde_adresse)
  * 
  * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_link_satellites/
  */
@@ -1005,7 +1005,7 @@ async function generateLinkSatellite(
   });
   
   const linkName = `link_${targetEntities.join('_')}`;
-  const lsatName = `lsat_${targetEntities.join('_')}`;
+  const satName = `sat_${targetEntities.join('_')}`;
   const linkHashKey = `hk_${linkName}`;
   const hashDiffName = `hd_${targetEntities.join('_')}`;
   const stagingRef = `${concept}_${entityName}`;
@@ -1019,7 +1019,7 @@ async function generateLinkSatellite(
     : '[]';
 
   const sql = `{#
-    Link Satellite: ${lsatName}
+    Link Satellite: ${satName}
     Parent Link: ${linkName}
     Payload: ${attributes.map(a => a.name).join(', ') || '(none)'}
     Source: ${stagingRef}
@@ -1073,7 +1073,7 @@ src_source: "dss_record_source"
     'raw_vault',
     concept,
     'satellites',
-    `${lsatName}.sql`
+    `${satName}.sql`
   );
 
   // Ensure directory exists

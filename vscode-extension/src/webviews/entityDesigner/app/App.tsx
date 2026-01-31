@@ -664,6 +664,10 @@ export const App: React.FC = () => {
             
             // Load additionalTypes (e.g., ['satellite'] for link+satellite columns)
             const additionalTypes = saved.additionalTypes as DataVaultTarget[] | undefined;
+            // Determine if this is a satellite type column
+            const isSatelliteType = target === 'satellite' || additionalTypes?.includes('satellite');
+            // Use saved includeInHashDiff if available, otherwise default based on type
+            const includeInHashDiff = saved.includeInHashDiff !== undefined ? saved.includeInHashDiff : isSatelliteType;
             
             return {
               name: col.name,
@@ -673,7 +677,7 @@ export const App: React.FC = () => {
               dataType: sourceDataType,
               columnType: target,
               additionalTypes,
-              includeInHashDiff: target === 'satellite' || additionalTypes?.includes('satellite'),
+              includeInHashDiff,
               foreignKeyTarget: saved.foreignKeyTarget,
               dependentChildForLink: saved.dependentChildForLink,
               multiActiveSequence: saved.multiActiveSequence,
@@ -736,9 +740,28 @@ export const App: React.FC = () => {
   // ============================================================================
   // AUTO-SAVE CONFIG (Config-First: JSON is Single Source of Truth)
   // ============================================================================
+  // Track if user has made any changes (to avoid saving on initial load)
+  const [hasUserChanges, setHasUserChanges] = useState(false);
+  // Track original values from init - used for auto-save (not including concept/entity changes)
+  const [originalConcept, setOriginalConcept] = useState('');
+  const [originalEntityName, setOriginalEntityName] = useState('');
+  
+  // Initialize original values when initData arrives (only once)
   useEffect(() => {
-    // Don't save during initial load
-    if (isLoading || columns.length === 0) {
+    if (initData && !originalConcept && !originalEntityName) {
+      setOriginalConcept(initData.concept);
+      setOriginalEntityName(initData.entityName);
+    }
+  }, [initData, originalConcept, originalEntityName]);
+  
+  useEffect(() => {
+    // Don't save during initial load or if no user changes
+    if (isLoading || columns.length === 0 || !hasUserChanges) {
+      return;
+    }
+    
+    // Don't save while generating
+    if (isGenerating) {
       return;
     }
 
@@ -754,6 +777,8 @@ export const App: React.FC = () => {
         ...(c.foreignKeyTarget && { foreignKeyTarget: c.foreignKeyTarget }),
         ...(c.dependentChildForLink && { dependentChildForLink: c.dependentChildForLink }),
         ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
+        // Save includeInHashDiff for satellite columns (explicit user choice)
+        ...(c.includeInHashDiff !== undefined && { includeInHashDiff: c.includeInHashDiff }),
         nullable: c.nullable,
       }));
 
@@ -764,18 +789,20 @@ export const App: React.FC = () => {
         columnMappings
       } : undefined;
 
+      // Auto-save uses CURRENT concept/entity (same as Generate)
+      // This ensures the JSON is always consistent
       vscode.postMessage({
         type: 'saveConfig',
         columns: savedColumns,
-        entityName: entityName,  // Include entityName for renaming support
-        concept: concept,        // Include concept for target folder
+        entityName: entityName,
+        concept: concept,
         lambdaVault
       });
       console.log('[Entity Designer] Config auto-saved');
-    }, 500); // 500ms debounce
+    }, 1000); // 1 second debounce (longer to avoid race conditions)
 
     return () => clearTimeout(timeoutId);
-  }, [columns, entityName, concept, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, vscode]);
+  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -800,6 +827,7 @@ export const App: React.FC = () => {
   const selectedColumn = selectedIndex !== null ? columns[selectedIndex] : null;
 
   const updateColumn = useCallback((index: number, updates: Partial<ColumnConfig>) => {
+    setHasUserChanges(true); // Mark that user made changes
     setColumns(prev => {
       const newColumns = [...prev];
       const column = newColumns[index];
@@ -813,6 +841,7 @@ export const App: React.FC = () => {
   const moveColumn = useCallback((direction: 'up' | 'down' | 'top' | 'bottom') => {
     if (selectedIndex === null) return;
     
+    setHasUserChanges(true); // Mark that user made changes
     setColumns(prev => {
       const newColumns = [...prev];
       let newIndex = selectedIndex;
@@ -887,10 +916,42 @@ export const App: React.FC = () => {
     
     setIsGenerating(true);
     
-    // Config-First: Only send the target, config is read from JSON file
+    // Build current column config for generate
+    const savedColumns = columns.map(c => ({
+      name: c.alias || c.name,
+      sourceName: c.sourceName,
+      dataType: c.dataType,
+      columnType: c.columnType,
+      ...(c.additionalTypes && c.additionalTypes.length > 0 && { additionalTypes: c.additionalTypes }),
+      ...(c.foreignKeyTarget && { foreignKeyTarget: c.foreignKeyTarget }),
+      ...(c.dependentChildForLink && { dependentChildForLink: c.dependentChildForLink }),
+      ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
+      // Include includeInHashDiff for satellite columns
+      ...(c.includeInHashDiff !== undefined && { includeInHashDiff: c.includeInHashDiff }),
+      nullable: c.nullable,
+    }));
+
+    // Build Lambda Vault config if enabled
+    const lambdaVault: LambdaVaultConfig | undefined = lambdaVaultEnabled ? {
+      enabled: true,
+      deltaStagingModel,
+      columnMappings
+    } : undefined;
+    
+    // Send generate with CURRENT concept/entity values
+    // This allows user to change concept/entity in the UI and have it take effect on generate
     vscode.postMessage({
       type: 'generate',
-      target
+      target,
+      // Include current values for concept/entity (may differ from original)
+      concept: concept,
+      entityName: entityName,
+      // Include original values so provider can clean up old files if renamed
+      originalConcept: originalConcept,
+      originalEntityName: originalEntityName,
+      // Include columns so config is saved before generate
+      columns: savedColumns,
+      lambdaVault
     });
   };
 
@@ -939,6 +1000,7 @@ export const App: React.FC = () => {
               type="checkbox"
               checked={lambdaVaultEnabled}
               onChange={(e) => {
+                setHasUserChanges(true); // Mark changes
                 setLambdaVaultEnabled(e.target.checked);
                 if (e.target.checked && !deltaStagingModel) {
                   setShowLambdaVaultModal(true);
@@ -1473,6 +1535,7 @@ export const App: React.FC = () => {
               <select
                 value={deltaStagingModel}
                 onChange={(e) => {
+                  setHasUserChanges(true); // Mark changes
                   setDeltaStagingModel(e.target.value);
                   // Clear column mappings when model changes - auto-match is done by exact name only
                   setColumnMappings([]);
@@ -1555,6 +1618,7 @@ export const App: React.FC = () => {
                           <select
                             value={mappedDeltaCol}
                             onChange={(e) => {
+                              setHasUserChanges(true); // Mark changes
                               const newValue = e.target.value;
                               // Remove existing mapping for this base column
                               const filtered = columnMappings.filter(m => m.baseColumn.toLowerCase() !== baseLower);

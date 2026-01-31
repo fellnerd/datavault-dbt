@@ -454,6 +454,8 @@ export interface SavedColumnConfig {
   dependentChildForLink?: string;
   /** For multi_active: is this a sequence/identifier column */
   multiActiveSequence?: boolean;
+  /** Whether to include this column in Hash Diff calculation (for satellite columns) */
+  includeInHashDiff?: boolean;
 }
 
 /**
@@ -472,6 +474,7 @@ export interface WebviewSaveConfigMessage {
   type: 'saveConfig';
   columns: SavedColumnConfig[];
   entityName?: string;  // Optional: set when user renames the entity
+  concept?: string;     // Optional: set when user changes the concept
   /** Lambda Vault configuration */
   lambdaVault?: LambdaVaultConfig;
 }

@@ -83,8 +83,13 @@ export async function createRefTable(
 }
 
 /**
- * Create reference table as a VIEW from external table
- * This creates a dbt model (SQL view/table) that references the external table directly
+ * Create reference table using automate_dv.ref_table macro
+ * 
+ * According to https://automate-dv.readthedocs.io/en/latest/tutorial/tut_ref_tables/
+ * Reference Tables contain static lookup data (codes, categories, types)
+ * They have a Natural Key (not a hash) and optional extra columns
+ * 
+ * The source should be a staging view, not an external table directly
  */
 async function createFromExternalTable(
   externalTable: ExternalTable,
@@ -92,54 +97,53 @@ async function createFromExternalTable(
   refreshProject: () => Promise<void>,
   log: Logger
 ): Promise<void> {
-  log(`Creating reference table view from: ${externalTable.name}`);
+  log(`Creating reference table from: ${externalTable.name}`);
 
-  // Filter out dss_* metadata columns - they come from source automatically
+  // Filter out dss_* metadata columns and FK columns (IDs that reference other tables)
   const dataColumns = externalTable.columns.filter(
     col => !col.name.toLowerCase().startsWith('dss_')
   );
 
-  // Step 1: Select columns to include (pre-select all data columns)
-  const columnItems = dataColumns.map(col => ({
+  // Step 1: Select the Primary Key column (Natural Key - single column)
+  const pkItems = dataColumns.map(col => ({
     label: col.name,
     description: col.dataType,
-    picked: true  // Pre-select all
+    detail: col.name.toLowerCase().endsWith('_id') ? 'Likely a Foreign Key' : 
+            col.name.toLowerCase().includes('code') || col.name.toLowerCase().includes('type') ? 'Likely a good PK' : ''
   }));
 
-  const selectedColumns = await vscode.window.showQuickPick(columnItems, {
-    title: 'Select Columns for Reference Table',
-    placeHolder: 'Select columns to include in the reference table',
+  const selectedPk = await vscode.window.showQuickPick(pkItems, {
+    title: 'Step 1/5: Select Primary Key (Natural Key)',
+    placeHolder: 'Select the single column that uniquely identifies each reference record (e.g., code, type)',
+    canPickMany: false
+  });
+
+  if (!selectedPk) {
+    return; // Cancelled
+  }
+
+  // Step 2: Select extra columns (attributes)
+  const extraColumnItems = dataColumns
+    .filter(col => col.name !== selectedPk.label)
+    .map(col => ({
+      label: col.name,
+      description: col.dataType,
+      picked: !col.name.toLowerCase().endsWith('_id') // Don't pre-select FK columns
+    }));
+
+  const selectedExtraColumns = await vscode.window.showQuickPick(extraColumnItems, {
+    title: 'Step 2/5: Select Extra Columns (Optional)',
+    placeHolder: 'Select additional columns to include (e.g., name, description)',
     canPickMany: true
   });
 
-  if (!selectedColumns || selectedColumns.length === 0) {
-    vscode.window.showWarningMessage('At least one column is required');
-    return;
-  }
-
-  // Step 2: Select primary key column(s)
-  const pkItems = selectedColumns.map(col => ({
-    label: col.label,
-    description: col.description,
-    picked: col.label.toLowerCase().endsWith('_id') // Auto-select ID columns
-  }));
-
-  const selectedPks = await vscode.window.showQuickPick(pkItems, {
-    title: 'Select Primary Key Column(s)',
-    placeHolder: 'Select the column(s) that uniquely identify each row',
-    canPickMany: true
-  });
-
-  if (!selectedPks || selectedPks.length === 0) {
-    vscode.window.showWarningMessage('At least one primary key column is required');
-    return;
-  }
+  // Extra columns are optional, so empty selection is OK
 
   // Step 3: Enter reference table name
-  const suggestedName = extractRefTableName(externalTable.name, selectedColumns.map(c => c.label));
+  const suggestedName = extractRefTableName(externalTable.name, [selectedPk.label]);
   
   const refTableName = await vscode.window.showInputBox({
-    title: 'Reference Table Name',
+    title: 'Step 3/5: Reference Table Name',
     prompt: 'Enter name for the reference table (without ref_ prefix)',
     value: suggestedName,
     validateInput: (value) => {
@@ -149,7 +153,6 @@ async function createFromExternalTable(
       if (!/^[a-z][a-z0-9_]*$/i.test(value)) {
         return 'Use snake_case (letters, numbers, underscores)';
       }
-      // Check for ref_ prefix already in name
       if (value.toLowerCase().startsWith('ref_')) {
         return 'Name should not include ref_ prefix (it will be added automatically)';
       }
@@ -161,38 +164,67 @@ async function createFromExternalTable(
     return; // Cancelled
   }
 
+  // Step 4: Enter concept name
   const sourceConcept = externalTable.concept || 'common';
-  const fullRefName = `ref_${refTableName}`;
-  
-  // Step 4: Ask if source-specific or cross-source (common)
-  const scopeChoice = await vscode.window.showQuickPick(
-    [
-      {
-        label: `$(folder) Source-specific (vault_${sourceConcept})`,
-        description: `Place in raw_vault/${sourceConcept}/`,
-        detail: 'Reference data specific to this source system',
-        value: 'specific'
-      },
-      {
-        label: '$(globe) Cross-source (vault)',
-        description: 'Place in raw_vault/_common/',
-        detail: 'Shared reference data used across multiple sources',
-        value: 'common'
+  const conceptInput = await vscode.window.showInputBox({
+    title: 'Step 4/5: Concept Name',
+    prompt: 'Enter the concept name for this reference table',
+    value: sourceConcept,
+    validateInput: (value) => {
+      if (!value || value.trim() === '') {
+        return 'Concept name is required';
       }
-    ],
-    {
-      title: 'Reference Table Scope',
-      placeHolder: 'Where should this reference table be placed?'
+      if (!/^[a-z][a-z0-9_]*$/i.test(value)) {
+        return 'Use snake_case (letters, numbers, underscores)';
+      }
+      return null;
     }
-  );
+  });
 
-  if (!scopeChoice) {
+  if (!conceptInput) {
     return; // Cancelled
   }
 
-  const isCommon = scopeChoice.value === 'common';
-  const targetConcept = isCommon ? '_common' : sourceConcept;
-  const targetSchema = isCommon ? 'vault' : `vault_${sourceConcept}`;
+  // Step 5: Select materialization
+  const materializationChoice = await vscode.window.showQuickPick(
+    [
+      {
+        label: '$(table) Table (Persistent)',
+        description: 'materialized=\'table\'',
+        detail: 'Data is stored physically - better for large reference data or frequent joins',
+        value: 'table'
+      },
+      {
+        label: '$(eye) View (Virtual)',
+        description: 'materialized=\'view\'',
+        detail: 'Data is computed on-the-fly - better for small or frequently changing reference data',
+        value: 'view'
+      },
+      {
+        label: '$(history) Incremental',
+        description: 'materialized=\'incremental\'',
+        detail: 'Only new/changed records are processed - best for large, append-only reference data',
+        value: 'incremental'
+      }
+    ],
+    {
+      title: 'Step 5/5: Materialization',
+      placeHolder: 'How should the reference table be stored?'
+    }
+  );
+
+  if (!materializationChoice) {
+    return; // Cancelled
+  }
+
+  const fullRefName = `ref_${refTableName}`;
+  const targetConcept = conceptInput.trim().toLowerCase();
+  const targetSchema = `vault_${targetConcept}`;
+  const materialization = materializationChoice.value;
+  
+  // Staging view name matches the reference table name (without ref_ prefix)
+  // Pattern: ref_address_type -> <concept>_address_type
+  const stagingViewName = `${targetConcept}_${refTableName}`;
   
   // Determine output path
   const refTableDir = path.join(projectPath, 'models', 'raw_vault', targetConcept);
@@ -214,22 +246,37 @@ async function createFromExternalTable(
     fs.mkdirSync(refTableDir, { recursive: true });
   }
 
-  // Generate SQL view
-  const columnNames = selectedColumns.map(c => c.label);
-  const pkNames = selectedPks.map(c => c.label);
-  const sqlContent = generateRefTableViewSql(fullRefName, externalTable, columnNames, pkNames, targetSchema, sourceConcept);
+  // Generate SQL using automate_dv.ref_table macro
+  const pkName = selectedPk.label;
+  const extraColumnNames = selectedExtraColumns?.map(c => c.label) || [];
+  const sqlContent = generateRefTableMacroSql(
+    fullRefName, 
+    stagingViewName,
+    pkName, 
+    extraColumnNames, 
+    targetSchema,
+    materialization
+  );
 
   // Write SQL file
   fs.writeFileSync(refTablePath, sqlContent, 'utf-8');
   log(`Created reference table: ${refTablePath}`);
 
-  // Update schema YAML in raw_vault/<targetConcept>/_<targetConcept>__models.yml
-  await updateRefTableModelYaml(projectPath, targetConcept, fullRefName, columnNames, pkNames, externalTable);
+  // Update schema YAML
+  const allColumns = [pkName, ...extraColumnNames];
+  await updateRefTableModelYaml(projectPath, targetConcept, fullRefName, allColumns, [pkName], externalTable);
   log(`Updated schema YAML for ${fullRefName}`);
+
+  // Automatically create staging view if it doesn't exist (required for automate_dv.ref_table)
+  const stagingPath = path.join(projectPath, 'models', 'staging', `${stagingViewName}.sql`);
+  if (!fs.existsSync(stagingPath)) {
+    await createMinimalStagingView(projectPath, stagingViewName, externalTable, [pkName, ...extraColumnNames], log);
+    vscode.window.showInformationMessage(`Staging view '${stagingViewName}' created automatically.`);
+  }
 
   // Show success and offer actions
   const action = await vscode.window.showInformationMessage(
-    `Reference table ${fullRefName} created successfully!`,
+    `Reference table ${fullRefName} created successfully using automate_dv.ref_table macro!`,
     'Open File',
     'Run dbt'
   );
@@ -245,47 +292,179 @@ async function createFromExternalTable(
 }
 
 /**
- * Generate SQL for a reference table (view on external table)
+ * Create a minimal staging view for reference table source
+ * Also updates _staging__models.yml
  */
-function generateRefTableViewSql(
-  refName: string,
+async function createMinimalStagingView(
+  projectPath: string,
+  stagingViewName: string,
   externalTable: ExternalTable,
   columns: string[],
-  pkColumns: string[],
-  schema: string,
-  sourceConcept: string
-): string {
-  // Build column list with lowercase aliases
+  log: Logger
+): Promise<void> {
+  const stagingPath = path.join(projectPath, 'models', 'staging', `${stagingViewName}.sql`);
+  
   const columnSelects = columns.map(col => 
-    `    ${col} AS ${col.toLowerCase()}`
+    `        ${col} AS ${col.toLowerCase()}`
   ).join(',\n');
 
-  // PK columns for WHERE NOT NULL clause
-  const pkNotNull = pkColumns.map(pk => `${pk} IS NOT NULL`).join(' AND ');
+  const sql = `/*
+ * Staging View: ${stagingViewName}
+ * 
+ * Minimal staging view for reference table source.
+ * Source: ${externalTable.name}
+ */
+
+WITH source AS (
+    SELECT * FROM {{ source('staging', '${externalTable.name}') }}
+),
+
+staged AS (
+    SELECT DISTINCT
+${columnSelects},
+        COALESCE(dss_record_source, '${externalTable.concept || 'unknown'}') AS dss_record_source,
+        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date
+
+    FROM source
+)
+
+SELECT * FROM staged
+`;
+
+  fs.writeFileSync(stagingPath, sql, 'utf-8');
+  log(`Created minimal staging view: ${stagingPath}`);
+
+  // Update _staging__models.yml
+  await updateStagingModelYaml(projectPath, stagingViewName, externalTable, columns, log);
+}
+
+/**
+ * Update _staging__models.yml with new staging view entry
+ */
+async function updateStagingModelYaml(
+  projectPath: string,
+  stagingViewName: string,
+  externalTable: ExternalTable,
+  columns: string[],
+  log: Logger
+): Promise<void> {
+  const yamlPath = path.join(projectPath, 'models', 'staging', '_staging__models.yml');
+  
+  // Build model entry
+  const modelEntry: Record<string, unknown> = {
+    name: stagingViewName,
+    description: `Staging view for reference table source.\nSource: ${externalTable.name}`,
+    config: {
+      meta: {
+        entity_type: 'reference',
+        source_type: 'external_table',
+        external_table: externalTable.name
+      }
+    },
+    columns: [
+      ...columns.map(col => ({
+        name: col.toLowerCase(),
+        description: `Reference data column`
+      })),
+      {
+        name: 'dss_record_source',
+        description: 'Data source identifier',
+        data_type: 'varchar(100)',
+        tests: ['not_null']
+      },
+      {
+        name: 'dss_load_date',
+        description: 'Load timestamp',
+        data_type: 'datetime2(7)',
+        tests: ['not_null']
+      }
+    ]
+  };
+
+  try {
+    const YAML = await import('yaml');
+    let schema: { version: number; models: Array<Record<string, unknown>> };
+    
+    if (fs.existsSync(yamlPath)) {
+      const content = fs.readFileSync(yamlPath, 'utf-8');
+      schema = YAML.parse(content) || { version: 2, models: [] };
+      if (!schema.models) schema.models = [];
+      
+      // Remove existing entry if present
+      schema.models = schema.models.filter(m => m.name !== stagingViewName);
+    } else {
+      schema = { version: 2, models: [] };
+    }
+    
+    // Add new entry
+    schema.models.push(modelEntry);
+    
+    // Write back
+    const doc = new YAML.Document(schema);
+    fs.writeFileSync(yamlPath, doc.toString({ indent: 2, lineWidth: 0 }), 'utf-8');
+    log(`Updated _staging__models.yml with ${stagingViewName}`);
+  } catch (error) {
+    log(`Warning: Could not update _staging__models.yml: ${error}`);
+  }
+}
+
+/**
+ * Generate SQL using automate_dv.ref_table macro
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_ref_tables/
+ */
+function generateRefTableMacroSql(
+  refName: string,
+  sourceModel: string,
+  pkColumn: string,
+  extraColumns: string[],
+  schema: string,
+  materialization: string
+): string {
+  // Build extra columns config
+  const extraColumnsConfig = extraColumns.length > 0
+    ? `[${extraColumns.map(c => `'${c.toLowerCase()}'`).join(', ')}]`
+    : '[]';
+
+  // Incremental needs additional config
+  const incrementalConfig = materialization === 'incremental' 
+    ? `,
+    incremental_strategy='append',
+    as_columnstore=false`
+    : '';
 
   return `/*
  * Reference Table: ${refName}
  * 
- * Source: ${externalTable.name}
- * Primary Key: ${pkColumns.map(c => c.toLowerCase()).join(', ')}
- * 
  * Pattern: Non-historised Reference Table (Data Vault 2.0)
- * Purpose: Lookup/reference data for ${sourceConcept}
- * Usage: JOIN with satellite tables in Mart layer
+ * Source Model: ${sourceModel}
+ * Primary Key: ${pkColumn.toLowerCase()} (Natural Key)
+ * Extra Columns: ${extraColumns.length > 0 ? extraColumns.map(c => c.toLowerCase()).join(', ') : '(none)'}
+ * 
+ * Reference Tables store static lookup data (codes, categories, types).
+ * The PK is a Natural Key (not a hash key).
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_ref_tables/
  */
 
 {{ config(
-    materialized='table',
-    schema='${schema}'
+    materialized='${materialization}',
+    schema='${schema}'${incrementalConfig}
 ) }}
 
-SELECT DISTINCT
-${columnSelects},
-    dss_load_date,
-    dss_record_source
+{%- set source_model = '${sourceModel}' -%}
+{%- set src_pk = '${pkColumn.toLowerCase()}' -%}
+{%- set src_extra_columns = ${extraColumnsConfig} -%}
+{%- set src_ldts = 'dss_load_date' -%}
+{%- set src_source = 'dss_record_source' -%}
 
-FROM {{ source('staging', '${externalTable.name}') }}
-WHERE ${pkNotNull}
+{{ automate_dv.ref_table(
+    src_pk=src_pk,
+    src_extra_columns=src_extra_columns,
+    src_ldts=src_ldts,
+    src_source=src_source,
+    source_model=source_model
+) }}
 `;
 }
 
@@ -738,4 +917,159 @@ export async function createRefTableFromPalette(
   context: RefTableCommandContext
 ): Promise<void> {
   await createRefTable(undefined, context);
+}
+
+/**
+ * Delete a Reference Table and its associated staging view
+ * 
+ * Deletes:
+ * 1. Reference Table SQL (raw_vault/<concept>/ref_<name>.sql)
+ * 2. Staging View SQL (staging/<concept>_<name>.sql)
+ * 3. YAML entries in both _staging__models.yml and _<concept>__models.yml
+ */
+export async function deleteRefTable(
+  treeItem: TreeItemData | undefined,
+  context: RefTableCommandContext
+): Promise<void> {
+  const { projectPath, refreshProject, log } = context;
+
+  if (!projectPath) {
+    vscode.window.showErrorMessage('No dbt project found');
+    return;
+  }
+
+  // Get model from tree item - can be ref table or staging view
+  const model = treeItem?.model;
+  if (!model) {
+    vscode.window.showErrorMessage('Please select a Reference Table or its Staging View to delete');
+    return;
+  }
+
+  let refTableName: string;
+  let stagingViewName: string;
+  let concept: string;
+
+  // Determine names based on what was selected
+  if (model.name.startsWith('ref_')) {
+    // Selected the ref table directly
+    refTableName = model.name;
+    concept = model.concept || '';
+    // Staging view name: concept + ref table name without ref_ prefix
+    // e.g., ref_address_type -> adworks_address_type
+    stagingViewName = `${concept}_${model.name.replace('ref_', '')}`;
+  } else if (model.layer === 'staging') {
+    // Selected the staging view
+    stagingViewName = model.name;
+    concept = model.concept || model.name.split('_')[0];
+    // Ref table name: ref_ + entity name
+    const entityName = model.name.replace(`${concept}_`, '');
+    refTableName = `ref_${entityName}`;
+  } else {
+    vscode.window.showErrorMessage('Please select a Reference Table or its Staging View');
+    return;
+  }
+
+  log(`Preparing to delete Reference Table: ${refTableName} (staging: ${stagingViewName}, concept: ${concept})`);
+
+  // Collect files to delete
+  const filesToDelete: { path: string; type: string; exists: boolean }[] = [];
+
+  // 1. Reference Table SQL
+  const refTablePath = path.join(projectPath, 'models', 'raw_vault', concept, `${refTableName}.sql`);
+  filesToDelete.push({ 
+    path: refTablePath, 
+    type: 'Reference Table', 
+    exists: fs.existsSync(refTablePath) 
+  });
+
+  // 2. Staging View SQL
+  const stagingPath = path.join(projectPath, 'models', 'staging', `${stagingViewName}.sql`);
+  filesToDelete.push({ 
+    path: stagingPath, 
+    type: 'Staging View', 
+    exists: fs.existsSync(stagingPath) 
+  });
+
+  // Show confirmation
+  const existingFiles = filesToDelete.filter(f => f.exists);
+  if (existingFiles.length === 0) {
+    vscode.window.showWarningMessage('No files found to delete');
+    return;
+  }
+
+  const fileList = existingFiles.map(f => `• ${f.type}: ${path.basename(f.path)}`).join('\n');
+  const confirm = await vscode.window.showWarningMessage(
+    `Delete Reference Table "${refTableName}"?\n\nFiles to delete:\n${fileList}\n\nThis will also remove YAML entries.`,
+    { modal: true },
+    'Delete'
+  );
+
+  if (confirm !== 'Delete') {
+    return;
+  }
+
+  // Delete files
+  for (const file of existingFiles) {
+    try {
+      fs.unlinkSync(file.path);
+      log(`Deleted: ${file.path}`);
+    } catch (error) {
+      log(`Warning: Could not delete ${file.path}: ${error}`);
+    }
+  }
+
+  // Remove from _staging__models.yml
+  await removeModelFromYaml(
+    path.join(projectPath, 'models', 'staging', '_staging__models.yml'),
+    stagingViewName,
+    log
+  );
+
+  // Remove from _<concept>__models.yml
+  await removeModelFromYaml(
+    path.join(projectPath, 'models', 'raw_vault', concept, `_${concept}__models.yml`),
+    refTableName,
+    log
+  );
+
+  vscode.window.showInformationMessage(`Reference Table "${refTableName}" deleted successfully`);
+  await refreshProject();
+}
+
+/**
+ * Remove a model entry from a YAML schema file
+ */
+async function removeModelFromYaml(
+  yamlPath: string,
+  modelName: string,
+  log: Logger
+): Promise<void> {
+  if (!fs.existsSync(yamlPath)) {
+    log(`YAML file not found: ${yamlPath}`);
+    return;
+  }
+
+  try {
+    const YAML = await import('yaml');
+    const content = fs.readFileSync(yamlPath, 'utf-8');
+    const schema = YAML.parse(content);
+
+    if (!schema?.models || !Array.isArray(schema.models)) {
+      log(`No models array in ${yamlPath}`);
+      return;
+    }
+
+    const originalLength = schema.models.length;
+    schema.models = schema.models.filter((m: { name: string }) => m.name !== modelName);
+
+    if (schema.models.length < originalLength) {
+      const doc = new YAML.Document(schema);
+      fs.writeFileSync(yamlPath, doc.toString({ indent: 2, lineWidth: 0 }), 'utf-8');
+      log(`Removed "${modelName}" from ${yamlPath}`);
+    } else {
+      log(`Model "${modelName}" not found in ${yamlPath}`);
+    }
+  } catch (error) {
+    log(`Warning: Could not update ${yamlPath}: ${error}`);
+  }
 }

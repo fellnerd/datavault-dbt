@@ -1,7 +1,7 @@
 {#
     Pure Link (Intersection Table): link_kunde_adresse
     Connects: hub_kunde, hub_adresse
-    Source: adventureworks_saleslt_customeraddress
+    Source: adworks_kunde_adresse
     
     A Pure Link Entity represents an intersection/bridge table
     that connects multiple Hubs without having its own identity.
@@ -22,7 +22,7 @@
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "adventureworks_saleslt_customeraddress"
+source_model: "adworks_kunde_adresse"
 src_pk: "hk_link_kunde_adresse"
 src_fk: 
     - "hk_kunde"

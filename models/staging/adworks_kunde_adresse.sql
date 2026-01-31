@@ -1,5 +1,5 @@
 /*
- * Staging Model: adventureworks_saleslt_customeraddress
+ * Staging Model: adworks_kunde_adresse
  *
  * Source: ext_adventureworks_saleslt_customeraddress
  * Hash Key Separator: '^^' (DV 2.1 Standard)
@@ -16,8 +16,7 @@
  */
 
 {%- set hashdiff_columns = [
-    'addresstype',
-    'modifieddate'
+    'addresstype'
 ] -%}
 
 WITH source AS (
@@ -65,7 +64,7 @@ staged AS (
         -- ===========================================
         -- METADATA
         -- ===========================================
-        COALESCE(dss_record_source, 'adventureworks') AS dss_record_source,
+        COALESCE(dss_record_source, 'adworks') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
         dss_run_id
 

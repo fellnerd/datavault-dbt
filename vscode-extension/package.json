@@ -318,10 +318,6 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "datavault.deleteStaging",
-          "when": "false"
-        },
-        {
           "command": "datavault.deleteRawVaultModel",
           "when": "false"
         },

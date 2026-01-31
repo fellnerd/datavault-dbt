@@ -310,14 +310,15 @@ export class EntityDesignerProvider {
         }
         break;
       case 'generate':
-        await this.handleGenerate(message.target);
+        await this.handleGenerateWithContext(message);
         break;
       case 'saveConfig':
+        const saveMsg = message as WebviewSaveConfigMessage;
         await this.handleSaveConfig(
-          message.columns, 
-          message.entityName, 
-          (message as WebviewSaveConfigMessage).lambdaVault,
-          (message as any).concept
+          saveMsg.columns, 
+          saveMsg.entityName, 
+          saveMsg.lambdaVault,
+          saveMsg.concept
         );
         break;
       // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
@@ -325,6 +326,75 @@ export class EntityDesignerProvider {
         // Legacy - column updates now handled via saveConfig
         break;
     }
+  }
+
+  /**
+   * Handle generate with context (concept/entity may have changed)
+   */
+  private async handleGenerateWithContext(message: any): Promise<void> {
+    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault } = message;
+    
+    // Check if concept or entity was renamed
+    const conceptChanged = originalConcept && concept && concept !== originalConcept;
+    const entityChanged = originalEntityName && entityName && entityName !== originalEntityName;
+    
+    if (conceptChanged || entityChanged) {
+      console.log(`[Entity Designer] Detected rename: ${originalConcept}_${originalEntityName} -> ${concept}_${entityName}`);
+      
+      // Update current entity context to new values
+      if (this._currentEntity) {
+        this._currentEntity.concept = concept;
+        this._currentEntity.entityName = entityName;
+      }
+      
+      // Save config under NEW name first
+      if (columns && this._projectPath) {
+        const config: DesignerConfig = {
+          concept,
+          entityName,
+          sourceTable: this._currentEntity?.sourceTable || '',
+          columns,
+          savedAt: new Date().toISOString(),
+          lambdaVault
+        };
+        await saveDesignerConfig(this._projectPath, config);
+        console.log(`[Entity Designer] Saved config as ${concept}_${entityName}.json`);
+        
+        // Delete old config file if it exists
+        const oldConfigPath = path.join(this._projectPath, '.vscode', 'entity-designer', `${originalConcept}_${originalEntityName}.json`);
+        if (fs.existsSync(oldConfigPath)) {
+          fs.unlinkSync(oldConfigPath);
+          console.log(`[Entity Designer] Deleted old config: ${originalConcept}_${originalEntityName}.json`);
+        }
+        
+        // Delete old staging SQL if it exists
+        const oldStagingPath = path.join(this._projectPath, 'models', 'staging', `${originalConcept}_${originalEntityName}.sql`);
+        if (fs.existsSync(oldStagingPath)) {
+          fs.unlinkSync(oldStagingPath);
+          console.log(`[Entity Designer] Deleted old staging: ${originalConcept}_${originalEntityName}.sql`);
+        }
+      }
+      
+      // Update panel title
+      if (this._panel) {
+        this._panel.title = `Entity Designer: ${entityName}`;
+      }
+    } else if (columns && this._projectPath && this._currentEntity) {
+      // No rename, but save current config before generate
+      console.log(`[Entity Designer] Generate: saving ${columns.length} columns (ignored: ${columns.filter((c: SavedColumnConfig) => c.columnType === 'ignore').length})`);
+      const config: DesignerConfig = {
+        concept: this._currentEntity.concept,
+        entityName: this._currentEntity.entityName,
+        sourceTable: this._currentEntity.sourceTable,
+        columns,
+        savedAt: new Date().toISOString(),
+        lambdaVault
+      };
+      await saveDesignerConfig(this._projectPath, config);
+    }
+    
+    // Now proceed with generation
+    await this.handleGenerate(target);
   }
 
   /**
@@ -361,6 +431,13 @@ export class EntityDesignerProvider {
       savedAt: new Date().toISOString(),
       lambdaVault
     };
+
+    // Debug: Log column count and types
+    console.log(`[Entity Designer] Saving ${columns.length} columns to JSON`);
+    const ignoredCount = columns.filter(c => c.columnType === 'ignore').length;
+    if (ignoredCount > 0) {
+      console.log(`[Entity Designer] Including ${ignoredCount} ignored column(s)`);
+    }
 
     await saveDesignerConfig(this._projectPath, config);
     console.log('[Entity Designer] Config saved to JSON');
@@ -560,20 +637,27 @@ export class EntityDesignerProvider {
         entityName,
         sourceTable,
         sourceType: effectiveSourceType,  // Use detected/saved sourceType
-        columns: savedConfig.columns.map(c => ({
-          name: c.name,
-          sourceName: c.sourceName || c.name,
-          dataType: c.dataType || 'NVARCHAR(MAX)',
-          columnType: c.columnType as 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore',
-          // Pass additionalTypes for multi-target columns (e.g., link + satellite)
-          additionalTypes: c.additionalTypes as ('hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore')[] | undefined,
-          // Include in hashDiff if satellite (primary or additional type)
-          includeInHashDiff: c.columnType === 'satellite' || (c.additionalTypes?.includes('satellite') ?? false),
-          foreignKeyTarget: c.foreignKeyTarget,
-          dependentChildForLink: c.dependentChildForLink,
-          multiActiveSequence: c.multiActiveSequence,
-          nullable: c.nullable ?? true
-        })),
+        columns: savedConfig.columns.map(c => {
+          // Determine if column is a satellite type (primary or additional)
+          const isSatelliteType = c.columnType === 'satellite' || (c.additionalTypes?.includes('satellite') ?? false);
+          // Use saved includeInHashDiff if available, otherwise default to true for satellite columns
+          const includeInHashDiff = c.includeInHashDiff !== undefined ? c.includeInHashDiff : isSatelliteType;
+          
+          return {
+            name: c.name,
+            sourceName: c.sourceName || c.name,
+            dataType: c.dataType || 'NVARCHAR(MAX)',
+            columnType: c.columnType as 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore',
+            // Pass additionalTypes for multi-target columns (e.g., link + satellite)
+            additionalTypes: c.additionalTypes as ('hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore')[] | undefined,
+            // Use saved value or default to true for satellite columns
+            includeInHashDiff,
+            foreignKeyTarget: c.foreignKeyTarget,
+            dependentChildForLink: c.dependentChildForLink,
+            multiActiveSequence: c.multiActiveSequence,
+            nullable: c.nullable ?? true
+          };
+        }),
         ghostRecordValue: '-1'
       };
 

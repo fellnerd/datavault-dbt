@@ -30,9 +30,45 @@ export class DbtProjectParser {
   private projectPath: string;
   private projectConfig: DbtProjectConfig | null = null;
   private yamlModels: Map<string, YamlModelDefinition> = new Map();
+  /** Map of staging model names to their Entity Designer concept */
+  private designerConcepts: Map<string, string> = new Map();
 
   constructor(projectPath: string) {
     this.projectPath = projectPath;
+  }
+
+  /**
+   * Load Entity Designer configs to get concept mappings
+   * This allows staging models to be grouped by their configured concept
+   */
+  private async loadDesignerConfigs(): Promise<Map<string, string>> {
+    const configDir = path.join(this.projectPath, '.vscode', 'entity-designer');
+    const conceptMap = new Map<string, string>();
+    
+    if (!fs.existsSync(configDir)) {
+      return conceptMap;
+    }
+    
+    try {
+      const files = fs.readdirSync(configDir).filter(f => f.endsWith('.json'));
+      for (const file of files) {
+        try {
+          const configPath = path.join(configDir, file);
+          const content = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+          if (content.concept && content.entityName) {
+            // Map: "concept_entityName" -> "concept"
+            const stagingModelName = `${content.concept}_${content.entityName}`;
+            conceptMap.set(stagingModelName.toLowerCase(), content.concept.toLowerCase());
+          }
+        } catch (e) {
+          // Ignore individual file errors
+        }
+      }
+    } catch (e) {
+      console.error('[DataVault] Error loading designer configs:', e);
+    }
+    
+    return conceptMap;
   }
 
   /**
@@ -44,6 +80,10 @@ export class DbtProjectParser {
     // Load dbt_project.yml
     this.projectConfig = await this.loadProjectConfig();
     console.log(`[DataVault] Loaded config for project: ${this.projectConfig.name}`);
+    
+    // Load Entity Designer configs to get correct concept mappings
+    this.designerConcepts = await this.loadDesignerConfigs();
+    console.log(`[DataVault] Loaded ${this.designerConcepts.size} Entity Designer configs`);
     
     // Find all model paths
     const modelPaths = this.projectConfig['model-paths'] || ['models'];
@@ -245,14 +285,21 @@ export class DbtProjectParser {
     // For other layers, use the concept from the YAML path
     let concept = yamlDef._concept || '_common';
     if (layer === 'staging') {
-      // Handle stg_<concept>_<entity> pattern (e.g., stg_tempo_worklog -> tempo)
-      let nameToMatch = modelName;
-      if (modelName.toLowerCase().startsWith('stg_')) {
-        nameToMatch = modelName.substring(4); // Remove 'stg_' prefix
-      }
-      const match = nameToMatch.match(/^([a-z]+)_/i);
-      if (match && !['ext'].includes(match[1].toLowerCase())) {
-        concept = match[1].toLowerCase();
+      // First: Check if we have an Entity Designer config for this model
+      // This gives us the correct concept for models like "adworks_delete_kunde_adresse"
+      const designerConcept = this.designerConcepts.get(modelName.toLowerCase());
+      if (designerConcept) {
+        concept = designerConcept;
+      } else {
+        // Fallback: Handle stg_<concept>_<entity> pattern (e.g., stg_tempo_worklog -> tempo)
+        let nameToMatch = modelName;
+        if (modelName.toLowerCase().startsWith('stg_')) {
+          nameToMatch = modelName.substring(4); // Remove 'stg_' prefix
+        }
+        const match = nameToMatch.match(/^([a-z]+)_/i);
+        if (match && !['ext'].includes(match[1].toLowerCase())) {
+          concept = match[1].toLowerCase();
+        }
       }
     }
     

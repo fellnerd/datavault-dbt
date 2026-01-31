@@ -2,7 +2,7 @@
  * Staging Model: adworks_adresse
  *
  * Source: ext_adventureworks_saleslt_address
- * Business Key: AddressID
+ * Business Key: ADDRESSID
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
  * Hash Keys calculated here (automate_dv pattern):
@@ -10,12 +10,12 @@
  */
 
 {%- set hashdiff_columns = [
-    'AddressLine1',
-    'AddressLine2',
-    'City',
-    'CountryRegion',
-    'PostalCode',
-    'StateProvince'
+    'addressline1',
+    'addressline2',
+    'city',
+    'countryregion',
+    'postalcode',
+    'stateprovince'
 ] -%}
 
 WITH source AS (
@@ -28,7 +28,7 @@ staged AS (
         -- HASH KEY (Entity)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(AddressID AS NVARCHAR(MAX)), '')
+            ISNULL(CAST(ADDRESSID AS NVARCHAR(MAX)), '')
         ), 2) AS hk_adresse,
 
         -- ===========================================
@@ -46,18 +46,18 @@ staged AS (
         -- ===========================================
         -- BUSINESS KEY(S)
         -- ===========================================
-        AddressID,
+        ADDRESSID,
 
         -- ===========================================
         -- PAYLOAD
         -- ===========================================
-        AddressLine1,
-        AddressLine2,
-        City,
-        StateProvince,
-        CountryRegion,
-        PostalCode,
-        ModifiedDate,
+        addressline1,
+        addressline2,
+        city,
+        stateprovince,
+        countryregion,
+        postalcode,
+        modifieddate,
 
         -- ===========================================
         -- METADATA

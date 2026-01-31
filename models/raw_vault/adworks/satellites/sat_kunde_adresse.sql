@@ -1,8 +1,8 @@
 {#
-    Link Satellite: lsat_kunde_adresse
+    Link Satellite: sat_kunde_adresse
     Parent Link: link_kunde_adresse
     Payload: AddressType, ModifiedDate
-    Source: adventureworks_saleslt_customeraddress
+    Source: adworks_kunde_adresse
     
     A Link Satellite holds the descriptive attributes of a Link relationship.
     The Link Hash Key is the primary key.
@@ -23,7 +23,7 @@
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "adventureworks_saleslt_customeraddress"
+source_model: "adworks_kunde_adresse"
 src_pk: "hk_link_kunde_adresse"
 src_hashdiff: 
   source_column: "hd_kunde_adresse"

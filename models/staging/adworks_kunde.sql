@@ -2,7 +2,7 @@
  * Staging Model: adworks_kunde
  *
  * Source: ext_adventureworks_saleslt_customer
- * Business Key: CustomerID
+ * Business Key: CUSTOMERID
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
  * Hash Keys calculated here (automate_dv pattern):
@@ -10,18 +10,18 @@
  */
 
 {%- set hashdiff_columns = [
-    'CompanyName',
-    'EmailAddress',
-    'FirstName',
-    'LastName',
-    'MiddleName',
-    'NameStyle',
-    'PasswordHash',
-    'PasswordSalt',
-    'Phone',
-    'SalesPerson',
-    'Suffix',
-    'Title'
+    'companyname',
+    'emailaddress',
+    'firstname',
+    'lastname',
+    'middlename',
+    'namestyle',
+    'passwordhash',
+    'passwordsalt',
+    'phone',
+    'salesperson',
+    'suffix',
+    'title'
 ] -%}
 
 WITH source AS (
@@ -34,7 +34,7 @@ staged AS (
         -- HASH KEY (Entity)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(CustomerID AS NVARCHAR(MAX)), '')
+            ISNULL(CAST(CUSTOMERID AS NVARCHAR(MAX)), '')
         ), 2) AS hk_kunde,
 
         -- ===========================================
@@ -52,23 +52,24 @@ staged AS (
         -- ===========================================
         -- BUSINESS KEY(S)
         -- ===========================================
-        CustomerID,
+        CUSTOMERID,
 
         -- ===========================================
         -- PAYLOAD
         -- ===========================================
-        NameStyle,
-        Title,
-        FirstName,
-        MiddleName,
-        LastName,
-        Suffix,
-        CompanyName,
-        SalesPerson,
-        EmailAddress,
-        Phone,
-        PasswordHash,
-        PasswordSalt,
+        namestyle,
+        title,
+        firstname,
+        middlename,
+        lastname,
+        suffix,
+        companyname,
+        salesperson,
+        emailaddress,
+        phone,
+        passwordhash,
+        passwordsalt,
+        modifieddate,
 
         -- ===========================================
         -- METADATA

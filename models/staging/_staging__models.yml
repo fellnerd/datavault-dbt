@@ -1,7 +1,188 @@
 version: 2
 models:
-  - name: adventureworks_saleslt_customeraddress
-    description: Staging view for saleslt_customeraddress from adventureworks
+  - name: adventureworks_saleslt_product
+    description: Staging view for saleslt_product from adventureworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_product
+        business_keys:
+          - PRODUCTID
+    columns:
+      - name: hk_saleslt_product
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_saleslt_product
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PRODUCTID
+        description: Business Key
+        tests:
+          - not_null
+      - name: name
+        description: Payload attribute
+      - name: productnumber
+        description: Payload attribute
+      - name: color
+        description: Payload attribute
+      - name: standardcost
+        description: Payload attribute
+      - name: listprice
+        description: Payload attribute
+      - name: size
+        description: Payload attribute
+      - name: weight
+        description: Payload attribute
+      - name: productcategoryid
+        description: Payload attribute
+      - name: productmodelid
+        description: Payload attribute
+      - name: sellstartdate
+        description: Payload attribute
+      - name: sellenddate
+        description: Payload attribute
+      - name: discontinueddate
+        description: Payload attribute
+      - name: thumbnailphoto
+        description: Payload attribute
+      - name: thumbnailphotofilename
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_adresse
+    description: Staging view for adresse from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_address
+        business_keys:
+          - ADDRESSID
+    columns:
+      - name: hk_adresse
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_adresse
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: ADDRESSID
+        description: Business Key
+        tests:
+          - not_null
+      - name: addressline1
+        description: Payload attribute
+      - name: addressline2
+        description: Payload attribute
+      - name: city
+        description: Payload attribute
+      - name: stateprovince
+        description: Payload attribute
+      - name: countryregion
+        description: Payload attribute
+      - name: postalcode
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_kunde
+    description: Staging view for kunde from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_customer
+        business_keys:
+          - CUSTOMERID
+    columns:
+      - name: hk_kunde
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kunde
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: CUSTOMERID
+        description: Business Key
+        tests:
+          - not_null
+      - name: namestyle
+        description: Payload attribute
+      - name: title
+        description: Payload attribute
+      - name: firstname
+        description: Payload attribute
+      - name: middlename
+        description: Payload attribute
+      - name: lastname
+        description: Payload attribute
+      - name: suffix
+        description: Payload attribute
+      - name: companyname
+        description: Payload attribute
+      - name: salesperson
+        description: Payload attribute
+      - name: emailaddress
+        description: Payload attribute
+      - name: phone
+        description: Payload attribute
+      - name: passwordhash
+        description: Payload attribute
+      - name: passwordsalt
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_kunde_adresse
+    description: Staging view for kunde_adresse from adworks
     config:
       meta:
         entity_type: standard
@@ -60,297 +241,60 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: adworks_adresse
-    description: Staging view for adresse from adworks
+  - name: adworks_produkt
+    description: Staging view for produkt from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_product
+        business_keys:
+          - PRODUCTID
     columns:
-      - name: hk_adresse
+      - name: hk_produkt
         description: Hash Key (Primary Key)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_adresse
+      - name: hd_produkt
         description: Hash Diff for change detection
         data_type: char(64)
         tests:
           - not_null
-      - name: AddressID
+      - name: PRODUCTID
         description: Business Key
         tests:
           - not_null
-      - name: AddressLine1
-        description: Payload attribute
-      - name: AddressLine2
-        description: Payload attribute
-      - name: City
-        description: Payload attribute
-      - name: StateProvince
-        description: Payload attribute
-      - name: CountryRegion
-        description: Payload attribute
-      - name: PostalCode
-        description: Payload attribute
-      - name: ModifiedDate
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: adworks_kunde
-    description: Staging view for kunde from adworks
-    columns:
-      - name: hk_kunde
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hd_kunde
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: CustomerID
-        description: Business Key
-        tests:
-          - not_null
-      - name: NameStyle
-        description: Payload attribute
-      - name: Title
-        description: Payload attribute
-      - name: FirstName
-        description: Payload attribute
-      - name: MiddleName
-        description: Payload attribute
-      - name: LastName
-        description: Payload attribute
-      - name: Suffix
-        description: Payload attribute
-      - name: CompanyName
-        description: Payload attribute
-      - name: SalesPerson
-        description: Payload attribute
-      - name: EmailAddress
-        description: Payload attribute
-      - name: Phone
-        description: Payload attribute
-      - name: PasswordHash
-        description: Payload attribute
-      - name: PasswordSalt
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: jira_project
-    description: Staging view for project from jira
-    columns:
-      - name: hk_project
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hd_project
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: PROJECT_ID
-        description: Business Key
-        tests:
-          - not_null
-      - name: PROJECT_KEY
-        description: Payload attribute
-      - name: NAME
-        description: Payload attribute
-      - name: URL
-        description: Payload attribute
-      - name: DESCRIPTION
-        description: Payload attribute
-      - name: CATEGORY
-        description: Payload attribute
-      - name: TYPE
-        description: Payload attribute
-      - name: IS_PRIVATE
-        description: Payload attribute
-      - name: LEAD_ACCOUNT_ID
-        description: Payload attribute
-      - name: TOTAL_ISSUE_COUNT
-        description: Payload attribute
-      - name: LAST_ISSUE_UPDATE_TIME
-        description: Payload attribute
-      - name: IS_DELETED
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: jira_vorgang
-    description: Staging view for vorgang from jira
-    columns:
-      - name: hk_vorgang
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hd_vorgang
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: ISSUE_ID
-        description: Business Key
-        tests:
-          - not_null
-      - name: ISSUE_KEY
-        description: Payload attribute
-      - name: ISSUE_TYPE_ID
-        description: Payload attribute
-      - name: ISSUE_STATUS_ID
-        description: Payload attribute
-      - name: SUMMARY
-        description: Payload attribute
-      - name: PRIORITY
-        description: Payload attribute
-      - name: WORK_RATIO
-        description: Payload attribute
-      - name: RESOLUTION
-        description: Payload attribute
-      - name: PROJECT_ID
-        description: Payload attribute
-      - name: REPORTER_ACCOUNT_ID
-        description: Payload attribute
-      - name: TIME_SPENT
-        description: Payload attribute
-      - name: TIME_SPENT_WITH_SUBTASKS
-        description: Payload attribute
-      - name: ORIGINAL_ESTIMATE
-        description: Payload attribute
-      - name: ORIGINAL_ESTIMATE_WITH_SUBTASKS
-        description: Payload attribute
-      - name: REMAINING_ESTIMATE
-        description: Payload attribute
-      - name: REMAINING_ESTIMATE_WITH_SUBTASKS
-        description: Payload attribute
-      - name: PARENT_ISSUE_ID
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: werkportal_rechnung
-    description: Staging view for rechnung from werkportal
-    columns:
-      - name: hk_rechnung
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hd_rechnung
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: object_id
-        description: Business Key
-        tests:
-          - not_null
-      - name: date_created
-        description: Payload attribute
-      - name: date_updated
-        description: Payload attribute
-      - name: subscription
-        description: Payload attribute
       - name: name
         description: Payload attribute
-      - name: state
+      - name: productnumber
         description: Payload attribute
-      - name: deductions_description
+      - name: color
         description: Payload attribute
-      - name: gross
+      - name: standardcost
         description: Payload attribute
-      - name: invoicing_period_year
+      - name: listprice
         description: Payload attribute
-      - name: project
+      - name: size
         description: Payload attribute
-      - name: invoice_date
+      - name: weight
         description: Payload attribute
-      - name: date_payed
+      - name: productcategoryid
         description: Payload attribute
-      - name: description
+      - name: productmodelid
         description: Payload attribute
-      - name: advance_payment
+      - name: sellstartdate
         description: Payload attribute
-      - name: date_payed_internally
+      - name: sellenddate
         description: Payload attribute
-      - name: payed
+      - name: discontinueddate
         description: Payload attribute
-      - name: contractor
+      - name: thumbnailphoto
         description: Payload attribute
-      - name: client
+      - name: thumbnailphotofilename
         description: Payload attribute
-      - name: sum_goal
-        description: Payload attribute
-      - name: credit_period
-        description: Payload attribute
-      - name: deductions
-        description: Payload attribute
-      - name: sum_payed
-        description: Payload attribute
-      - name: hours_worked
-        description: Payload attribute
-      - name: subtractions
-        description: Payload attribute
-      - name: credit_rating_check
-        description: Payload attribute
-      - name: discount
-        description: Payload attribute
-      - name: ordering
-        description: Payload attribute
-      - name: createdby
-        description: Payload attribute
-      - name: member
-        description: Payload attribute
-      - name: pay_target_date
-        description: Payload attribute
-      - name: u_amount
-        description: Payload attribute
-      - name: comission_amount
+      - name: modifieddate
         description: Payload attribute
       - name: dss_record_source
         description: Data source identifier
@@ -364,103 +308,3 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: werkportal_rechnung_delta
-    description: Staging view for rechnung_delta from werkportal
-    columns:
-      - name: hk_rechnung_delta
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hd_rechnung_delta
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: object_id
-        description: Business Key
-        tests:
-          - not_null
-      - name: advance_payment
-        description: Payload attribute
-      - name: client_name
-        description: Payload attribute
-      - name: client_object_id
-        description: Payload attribute
-      - name: comission_amount
-        description: Payload attribute
-      - name: contractor_name
-        description: Payload attribute
-      - name: contractor_object_id
-        description: Payload attribute
-      - name: createdby_name
-        description: Payload attribute
-      - name: createdby_object_id
-        description: Payload attribute
-      - name: credit_period
-        description: Payload attribute
-      - name: credit_rating_check
-        description: Payload attribute
-      - name: date_created
-        description: Payload attribute
-      - name: date_updated
-        description: Payload attribute
-      - name: deductions
-        description: Payload attribute
-      - name: deductions_description
-        description: Payload attribute
-      - name: description
-        description: Payload attribute
-      - name: discount
-        description: Payload attribute
-      - name: gross
-        description: Payload attribute
-      - name: hours_worked
-        description: Payload attribute
-      - name: invoice_date
-        description: Payload attribute
-      - name: invoicing_period_year
-        description: Payload attribute
-      - name: member_email
-        description: Payload attribute
-      - name: member_name
-        description: Payload attribute
-      - name: member_object_id
-        description: Payload attribute
-      - name: name
-        description: Payload attribute
-      - name: ordering
-        description: Payload attribute
-      - name: pay_target_date
-        description: Payload attribute
-      - name: payed
-        description: Payload attribute
-      - name: project_name
-        description: Payload attribute
-      - name: project_object_id
-        description: Payload attribute
-      - name: state
-        description: Payload attribute
-      - name: subscription_name
-        description: Payload attribute
-      - name: subscription_object_id
-        description: Payload attribute
-      - name: subtractions
-        description: Payload attribute
-      - name: sum_goal
-        description: Payload attribute
-      - name: sum_payed
-        description: Payload attribute
-      - name: u_amount
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
