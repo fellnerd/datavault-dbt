@@ -267,4 +267,99 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  
+  - name: adworks_verkauf
+    description: Staging view for verkauf from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_salesorderheader
+        business_keys:
+          - SALESORDERID
+        foreign_keys:
+          - column: customerid
+            target_entity: kunde
+            target_hub: adworks.hub_kunde
+          - column: shiptoaddressid
+            target_entity: adresse
+            target_hub: adworks.hub_adresse
+          - column: billtoaddressid
+            target_entity: adresse
+            target_hub: adworks.hub_adresse
+    columns:
+      - name: hk_verkauf
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_kunde
+        description: Foreign Key to hub_kunde
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_adresse
+        description: Foreign Key to hub_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_adresse
+        description: Foreign Key to hub_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_verkauf
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: SALESORDERID
+        description: Business Key
+        tests:
+          - not_null
+      - name: revisionnumber
+        description: Payload attribute
+      - name: orderdate
+        description: Payload attribute
+      - name: duedate
+        description: Payload attribute
+      - name: shipdate
+        description: Payload attribute
+      - name: status
+        description: Payload attribute
+      - name: onlineorderflag
+        description: Payload attribute
+      - name: salesordernumber
+        description: Payload attribute
+      - name: purchaseordernumber
+        description: Payload attribute
+      - name: accountnumber
+        description: Payload attribute
+      - name: shipmethod
+        description: Payload attribute
+      - name: creditcardapprovalcode
+        description: Payload attribute
+      - name: subtotal
+        description: Payload attribute
+      - name: taxamt
+        description: Payload attribute
+      - name: freight
+        description: Payload attribute
+      - name: totaldue
+        description: Payload attribute
+      - name: comment
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier

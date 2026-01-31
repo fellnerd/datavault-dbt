@@ -705,29 +705,14 @@ async function generateLink(
   const targetEntity = targetHub.replace('hub_', '');
   
   // Check if multiple FKs point to the same target hub
-  // If so, include a suffix from the FK column name to distinguish them
+  // If so, include a numeric suffix to distinguish them
   let linkSuffix = '';
   if (allForeignKeys) {
     const sameTargetFKs = allForeignKeys.filter(fk => fk.foreignKeyTarget === targetHubFull);
     if (sameTargetFKs.length > 1) {
-      // Multiple FKs to same hub - derive suffix from FK column name
-      // e.g., "ShipToAddressID" -> "ship", "BillToAddressID" -> "bill"
-      const fkName = foreignKey.name.toLowerCase();
-      if (fkName.includes('shipto')) {
-        linkSuffix = '_ship';
-      } else if (fkName.includes('billto')) {
-        linkSuffix = '_bill';
-      } else if (fkName.includes('from')) {
-        linkSuffix = '_from';
-      } else if (fkName.includes('to')) {
-        linkSuffix = '_to';
-      } else {
-        // Fallback: use index
-        const fkIndex = sameTargetFKs.findIndex(fk => fk.name === foreignKey.name);
-        if (fkIndex > 0) {
-          linkSuffix = `_${fkIndex + 1}`;
-        }
-      }
+      // Multiple FKs to same hub - use index-based suffix
+      const fkIndex = sameTargetFKs.findIndex(fk => fk.name === foreignKey.name);
+      linkSuffix = `_${fkIndex + 1}`;
     }
   }
   

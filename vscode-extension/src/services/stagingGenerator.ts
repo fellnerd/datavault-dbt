@@ -249,16 +249,10 @@ export function generateStagingSql(config: StagingConfig): string {
         // Determine suffix if multiple FKs point to same target
         let linkSuffix = '';
         if (fkCountByTarget[fk.targetHub] > 1) {
-          const fkName = fk.sourceColumn.toLowerCase();
-          if (fkName.includes('shipto')) {
-            linkSuffix = '_ship';
-          } else if (fkName.includes('billto')) {
-            linkSuffix = '_bill';
-          } else if (fkName.includes('from')) {
-            linkSuffix = '_from';
-          } else if (fkName.includes('to')) {
-            linkSuffix = '_to';
-          }
+          // Use index-based suffix for multiple FKs to same target
+          const sameTargetFKs = foreignKeys.filter(f => f.targetHub === fk.targetHub);
+          const fkIndex = sameTargetFKs.findIndex(f => f.sourceColumn === fk.sourceColumn);
+          linkSuffix = `_${fkIndex + 1}`;
         }
         
         const linkName = `link_${entityName}_${targetEntity}${linkSuffix}`;
