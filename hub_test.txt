@@ -1,0 +1,1 @@
+Sqlcmd: Error: Microsoft ODBC Driver 17 for SQL Server : Windows logins are not supported in this version of SQL Server..

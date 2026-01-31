@@ -1,5 +1,137 @@
 version: 2
 models:
+  - name: adworks_adresse
+    description: Staging view for adresse from adworks
+    columns:
+      - name: hk_adresse
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_adresse
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: AddressID
+        description: Business Key
+        tests:
+          - not_null
+      - name: AddressLine1
+        description: Payload attribute
+      - name: AddressLine2
+        description: Payload attribute
+      - name: City
+        description: Payload attribute
+      - name: StateProvince
+        description: Payload attribute
+      - name: CountryRegion
+        description: Payload attribute
+      - name: PostalCode
+        description: Payload attribute
+      - name: ModifiedDate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_kunde
+    description: Staging view for kunde from adworks
+    columns:
+      - name: hk_kunde
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kunde
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: CustomerID
+        description: Business Key
+        tests:
+          - not_null
+      - name: NameStyle
+        description: Payload attribute
+      - name: Title
+        description: Payload attribute
+      - name: FirstName
+        description: Payload attribute
+      - name: MiddleName
+        description: Payload attribute
+      - name: LastName
+        description: Payload attribute
+      - name: Suffix
+        description: Payload attribute
+      - name: CompanyName
+        description: Payload attribute
+      - name: SalesPerson
+        description: Payload attribute
+      - name: EmailAddress
+        description: Payload attribute
+      - name: Phone
+        description: Payload attribute
+      - name: PasswordHash
+        description: Payload attribute
+      - name: PasswordSalt
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_kunde_adresse
+    description: Staging view for kunde_adresse from adworks
+    columns:
+      - name: hk_kunde_adresse
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kunde_adresse
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: CustomerID
+        description: Payload attribute
+      - name: AddressID
+        description: Payload attribute
+      - name: AddressType
+        description: Payload attribute
+      - name: ModifiedDate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: jira_project
     description: Staging view for project from jira
     columns:

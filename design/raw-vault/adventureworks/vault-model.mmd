@@ -1,0 +1,378 @@
+erDiagram
+    %%{init: {'theme': 'base'}}%%
+    %% Data Vault 2.0 Model: AdventureWorks SalesLT
+    %% Schema: vault_adworks
+    
+    %% ========================================
+    %% HUBS (Business Keys)
+    %% ========================================
+    
+    HUB_CUSTOMER {
+        char64 hk_kunde PK
+        int customerid
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_ADDRESS {
+        char64 hk_address PK
+        int addressid
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_PRODUCT {
+        char64 hk_product PK
+        int productid
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_PRODUCTCATEGORY {
+        char64 hk_productcategory PK
+        int productcategoryid
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    HUB_SALESORDER {
+        char64 hk_salesorder PK
+        int salesorderid
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    %% ========================================
+    %% LINKS (Relationships)
+    %% ========================================
+    
+    LINK_CUSTOMER_ADDRESS {
+        char64 hk_link_customer_address PK
+        char64 hk_kunde FK
+        char64 hk_address FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_SALESORDER_CUSTOMER {
+        char64 hk_link_salesorder_customer PK
+        char64 hk_salesorder FK
+        char64 hk_kunde FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_SALESORDER_ADDRESS_SHIP {
+        char64 hk_link_salesorder_address_ship PK
+        char64 hk_salesorder FK
+        char64 hk_address FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_SALESORDER_ADDRESS_BILL {
+        char64 hk_link_salesorder_address_bill PK
+        char64 hk_salesorder FK
+        char64 hk_address FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_PRODUCT_CATEGORY {
+        char64 hk_link_product_category PK
+        char64 hk_product FK
+        char64 hk_productcategory FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_PRODUCTCATEGORY_PARENT {
+        char64 hk_link_productcategory_parent PK
+        char64 hk_productcategory_child FK
+        char64 hk_productcategory_parent FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    LINK_SALESORDERDETAIL {
+        char64 hk_link_salesorderdetail PK
+        char64 hk_salesorder FK
+        char64 hk_product FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+    }
+    
+    %% ========================================
+    %% SATELLITES (Descriptive Attributes)
+    %% ========================================
+    
+    SAT_CUSTOMER {
+        char64 hk_kunde FK
+        char64 hashdiff
+        nvarchar firstname
+        nvarchar lastname
+        nvarchar middlename
+        nvarchar title
+        nvarchar suffix
+        bit namestyle
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_CUSTOMER_CONTACT {
+        char64 hk_kunde FK
+        char64 hashdiff
+        nvarchar emailaddress
+        nvarchar phone
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_CUSTOMER_COMPANY {
+        char64 hk_kunde FK
+        char64 hashdiff
+        nvarchar companyname
+        nvarchar salesperson
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_CUSTOMER_AUTH {
+        char64 hk_kunde FK
+        char64 hashdiff
+        nvarchar passwordhash
+        nvarchar passwordsalt
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_ADDRESS {
+        char64 hk_address FK
+        char64 hashdiff
+        nvarchar addressline1
+        nvarchar addressline2
+        nvarchar city
+        nvarchar stateprovince
+        nvarchar countryregion
+        nvarchar postalcode
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_PRODUCT {
+        char64 hk_product FK
+        char64 hashdiff
+        nvarchar name
+        nvarchar productnumber
+        nvarchar color
+        nvarchar size
+        decimal weight
+        int productmodelid
+        nvarchar productmodelname
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_PRODUCT_PRICING {
+        char64 hk_product FK
+        char64 hashdiff
+        money standardcost
+        money listprice
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_PRODUCT_LIFECYCLE {
+        char64 hk_product FK
+        char64 hashdiff
+        datetime2 sellstartdate
+        datetime2 sellenddate
+        datetime2 discontinueddate
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_PRODUCT_MEDIA {
+        char64 hk_product FK
+        char64 hashdiff
+        varbinary thumbnailphoto
+        nvarchar thumbnailphotofilename
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_PRODUCT_DESCRIPTION_MA {
+        char64 hk_product FK
+        char64 hashdiff
+        nvarchar culture
+        nvarchar description
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_PRODUCTCATEGORY {
+        char64 hk_productcategory FK
+        char64 hashdiff
+        nvarchar name
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_SALESORDER {
+        char64 hk_salesorder FK
+        char64 hashdiff
+        tinyint revisionnumber
+        datetime2 orderdate
+        datetime2 duedate
+        datetime2 shipdate
+        tinyint status
+        bit onlineorderflag
+        nvarchar salesordernumber
+        nvarchar purchaseordernumber
+        nvarchar accountnumber
+        nvarchar shipmethod
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_SALESORDER_PAYMENT {
+        char64 hk_salesorder FK
+        char64 hashdiff
+        nvarchar creditcardapprovalcode
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_SALESORDER_TOTALS {
+        char64 hk_salesorder FK
+        char64 hashdiff
+        money subtotal
+        money taxamt
+        money freight
+        money totaldue
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_SALESORDER_COMMENT {
+        char64 hk_salesorder FK
+        char64 hashdiff
+        nvarchar comment
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    SAT_SALESORDERDETAIL_DC {
+        char64 hk_link_salesorderdetail FK
+        char64 hashdiff
+        smallint salesorderdetailid
+        smallint orderqty
+        money unitprice
+        money unitpricediscount
+        money linetotal
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    LSAT_CUSTOMER_ADDRESS {
+        char64 hk_link_customer_address FK
+        char64 hashdiff
+        nvarchar addresstype
+        datetime2 dss_load_date
+        varchar dss_record_source
+        char dss_is_current
+    }
+    
+    %% ========================================
+    %% REFERENCE TABLES
+    %% ========================================
+    
+    REF_SALESORDER_STATUS {
+        int status_id PK
+        nvarchar status_name
+        nvarchar status_description
+    }
+    
+    REF_ADDRESS_TYPE {
+        int addresstype_id PK
+        nvarchar addresstype_name
+    }
+    
+    REF_CULTURE {
+        nvarchar culture_code PK
+        nvarchar culture_name
+    }
+    
+    %% ========================================
+    %% RELATIONSHIPS
+    %% ========================================
+    
+    %% Hub to Satellites
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER : has
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER_CONTACT : has
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER_COMPANY : has
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER_AUTH : has
+    
+    HUB_ADDRESS ||--o{ SAT_ADDRESS : has
+    
+    HUB_PRODUCT ||--o{ SAT_PRODUCT : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_PRICING : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_LIFECYCLE : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_MEDIA : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_DESCRIPTION_MA : has
+    
+    HUB_PRODUCTCATEGORY ||--o{ SAT_PRODUCTCATEGORY : has
+    
+    HUB_SALESORDER ||--o{ SAT_SALESORDER : has
+    HUB_SALESORDER ||--o{ SAT_SALESORDER_PAYMENT : has
+    HUB_SALESORDER ||--o{ SAT_SALESORDER_TOTALS : has
+    HUB_SALESORDER ||--o{ SAT_SALESORDER_COMMENT : has
+    
+    %% Hubs to Links
+    HUB_CUSTOMER ||--o{ LINK_CUSTOMER_ADDRESS : references
+    HUB_ADDRESS ||--o{ LINK_CUSTOMER_ADDRESS : references
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDER_CUSTOMER : references
+    HUB_CUSTOMER ||--o{ LINK_SALESORDER_CUSTOMER : references
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDER_ADDRESS_SHIP : references
+    HUB_ADDRESS ||--o{ LINK_SALESORDER_ADDRESS_SHIP : references
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDER_ADDRESS_BILL : references
+    HUB_ADDRESS ||--o{ LINK_SALESORDER_ADDRESS_BILL : references
+    
+    HUB_PRODUCT ||--o{ LINK_PRODUCT_CATEGORY : references
+    HUB_PRODUCTCATEGORY ||--o{ LINK_PRODUCT_CATEGORY : references
+    
+    HUB_PRODUCTCATEGORY ||--o{ LINK_PRODUCTCATEGORY_PARENT : child
+    HUB_PRODUCTCATEGORY ||--o{ LINK_PRODUCTCATEGORY_PARENT : parent
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDERDETAIL : references
+    HUB_PRODUCT ||--o{ LINK_SALESORDERDETAIL : references
+    
+    %% Links to Link Satellites
+    LINK_CUSTOMER_ADDRESS ||--o{ LSAT_CUSTOMER_ADDRESS : has
+    
+    %% Links to Dependent Child Satellites
+    LINK_SALESORDERDETAIL ||--o{ SAT_SALESORDERDETAIL_DC : has
+    
+    %% Reference Table Relationships (informational only)
+    SAT_SALESORDER }o--|| REF_SALESORDER_STATUS : uses
+    LSAT_CUSTOMER_ADDRESS }o--|| REF_ADDRESS_TYPE : uses
+    SAT_PRODUCT_DESCRIPTION_MA }o--|| REF_CULTURE : uses
