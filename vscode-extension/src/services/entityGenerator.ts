@@ -69,9 +69,20 @@ export async function generateDataVaultObjects(
                               businessKeys.length === 0 && 
                               dependentChildKeys.length === 0;
 
+    // Check if this is a Split-Satellite (all BK columns point to existing hub)
+    // Split-Satellite: Uses existing Hub's hash key, only generates Satellite
+    const isSplitSatellite = businessKeys.length > 0 && 
+                              businessKeys.every(bk => bk.hubTarget);
+    
+    // Get the target hub for Split-Satellites (all BKs must point to same hub)
+    const splitSatelliteTargetHub = isSplitSatellite 
+      ? businessKeys[0].hubTarget 
+      : undefined;
+
     // Validate basic requirements
     // Exception: Pure Dependent Child entities don't need a BK (they have no Hub)
     // Exception: Pure Link entities (Intersection Tables) don't need a BK
+    // Exception: Split-Satellites use existing Hub's BK
     if (businessKeys.length === 0 && targets.includes('hub') && !isPureDependentChild && !isPureLinkEntity) {
       errors.push('At least one Business Key is required for Hub generation');
       return { success: false, files: [], errors };
@@ -99,12 +110,18 @@ export async function generateDataVaultObjects(
       }
     }
 
+    // For Split-Satellite: Remove 'hub' from targets (we use existing hub)
+    if (isSplitSatellite) {
+      effectiveTargets = effectiveTargets.filter(t => t !== 'hub');
+    }
+
     // ============================================
     // GENERATE STAGING VIEW
     // ============================================
     // The staging view is always generated from the Entity Designer configuration.
     // This ensures staging contains all necessary hashes for the modeled vault objects:
     // - hk_<entity> (Entity's own hash key from BK) - for standard entities
+    // - hk_<target_entity> (Split-Satellite: uses existing hub's hash key name)
     // - hk_<target> (FK hash key for each link target)
     // - hk_link_<source>_<target> (Link hash key for each link)
     // - hk_link_<entity1>_<entity2> (Combined link hash key for Pure Link Entities)
@@ -120,23 +137,30 @@ export async function generateDataVaultObjects(
       multiActiveKeys,
       projectPath,
       config.sourceType,
-      isPureLinkEntity
+      isPureLinkEntity,
+      splitSatelliteTargetHub
     );
     generatedFiles.push(stagingFile);
 
     // Generate Hub using automate_dv.hub macro
-    if (effectiveTargets.includes('hub') && businessKeys.length > 0) {
+    // Skip for Split-Satellites (use existing hub)
+    if (effectiveTargets.includes('hub') && businessKeys.length > 0 && !isSplitSatellite) {
       const hubFile = await generateHub(config, businessKeys, projectPath);
       generatedFiles.push(hubFile);
     }
 
     // Generate Satellite using automate_dv.sat macro
     // For Pure Link Entity: Generate Link Satellite instead of regular Satellite
+    // For Split-Satellite: Generate Satellite pointing to existing Hub
     if (effectiveTargets.includes('satellite') && attributes.length > 0) {
       if (isPureLinkEntity) {
         // Generate Link Satellite (sat_) instead of regular Satellite
         const lsatFile = await generateLinkSatellite(config, foreignKeys, attributes, projectPath);
         generatedFiles.push(lsatFile);
+      } else if (isSplitSatellite && splitSatelliteTargetHub) {
+        // Generate Split-Satellite pointing to existing Hub
+        const splitSatFile = await generateSplitSatellite(config, splitSatelliteTargetHub, attributes, projectPath);
+        generatedFiles.push(splitSatFile);
       } else {
         const satFile = await generateSatellite(config, attributes, projectPath);
         generatedFiles.push(satFile);
@@ -158,7 +182,8 @@ export async function generateDataVaultObjects(
             const linkDCKs = dependentChildKeys.filter(dck => 
               dck.dependentChildForLink === fk.foreignKeyTarget
             );
-            const linkFile = await generateLink(config, fk, businessKeys, linkDCKs, projectPath);
+            // Pass all FKs to detect duplicate targets (e.g., ShipToAddressID + BillToAddressID)
+            const linkFile = await generateLink(config, fk, businessKeys, linkDCKs, projectPath, foreignKeys);
             generatedFiles.push(linkFile);
           }
         }
@@ -241,7 +266,8 @@ async function generateStaging(
   multiActiveKeys: DesignerColumnDefinition[],
   projectPath: string,
   sourceType?: SourceType,
-  isPureLinkEntity?: boolean
+  isPureLinkEntity?: boolean,
+  splitSatelliteTargetHub?: string
 ): Promise<GeneratedFile> {
   const { concept, entityName, sourceTable } = config;
   
@@ -339,7 +365,9 @@ async function generateStaging(
     includeRunId: config.columns.some(c => c.name.toLowerCase() === 'dss_run_id'),
     dependentChildKeys: Object.keys(dckByHub).length > 0 ? dckByHub : undefined,
     multiActiveKeys: multiActiveKeys.length > 0 ? multiActiveKeys.map(m => m.name.toLowerCase()) : undefined,
-    isPureLinkEntity: isPureLinkEntity
+    isPureLinkEntity: isPureLinkEntity,
+    // Split-Satellite: use target hub's entity name for hash key
+    splitSatelliteTargetHub: splitSatelliteTargetHub
   };
   
   // Generate SQL using the staging generator
@@ -522,6 +550,121 @@ src_source: "dss_record_source"
 }
 
 /**
+ * Generate Split-Satellite SQL file using automate_dv.sat macro
+ * 
+ * Split-Satellite: A satellite that points to an EXISTING Hub
+ * instead of creating its own Hub. This is used when multiple
+ * source tables feed attributes into the same Hub entity.
+ * 
+ * Example: Product has two source tables:
+ * - SalesLT.Product → hub_product + sat_product (main attributes)
+ * - SalesLT.ProductModel → sat_product_model (Split-Satellite, uses hk_product)
+ * 
+ * Key differences from regular satellite:
+ * - Uses target hub's hash key (hk_<targetEntity>) instead of hk_<entityName>
+ * - References existing hub, no new hub is generated
+ * - Satellite name still uses entityName for uniqueness (sat_<entityName>)
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_satellites/
+ */
+async function generateSplitSatellite(
+  config: EntityDesignConfig,
+  targetHub: string,  // e.g., "hub_product" or "adventureworks.hub_product"
+  attributes: DesignerColumnDefinition[],
+  projectPath: string
+): Promise<GeneratedFile> {
+  const { concept, entityName } = config;
+  
+  // Parse target hub - can be "concept.hub_name" or just "hub_name"
+  let targetConcept: string;
+  let targetHubName: string;
+  if (targetHub.includes('.')) {
+    [targetConcept, targetHubName] = targetHub.split('.');
+  } else {
+    targetConcept = concept;
+    targetHubName = targetHub;
+  }
+  
+  // Extract target entity name from hub name (e.g., "hub_product" -> "product")
+  const targetEntity = targetHubName.replace('hub_', '');
+  
+  const satName = `sat_${entityName}`;  // Unique satellite name
+  const hashKeyName = `hk_${targetEntity.toLowerCase()}`;  // Use TARGET hub's hash key!
+  const hashDiffName = `hd_${entityName.toLowerCase()}`;  // Own hash diff for change detection
+  const stagingRef = `${concept}_${entityName}`;
+
+  // Build payload list (lowercase to match staging)
+  const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
+  const payloadConfig = payloadColumns.length === 1
+    ? payloadColumns[0]
+    : `\n    - ${payloadColumns.join('\n    - ')}`;
+
+  const sql = `{#
+    Split-Satellite: ${satName}
+    Parent Hub: ${targetHubName} (existing hub in ${targetConcept})
+    Source: ${stagingRef}
+    Payload: ${attributes.map(a => a.name).join(', ')}
+    
+    This is a Split-Satellite that shares its Hub with other satellites.
+    It uses the existing hub's hash key (${hashKeyName}) as its primary key.
+    
+    Generated by Entity Designer using automate_dv.sat macro
+    @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_satellites/
+#}
+
+{{ config(
+    materialized='incremental',
+    as_columnstore=false,
+    post_hook=[
+        "{{ create_hash_index('${hashKeyName}') }}",
+        "{{ update_satellite_current_flag(this, '${hashKeyName}') }}"
+    ]
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "${stagingRef}"
+src_pk: "${hashKeyName}"
+src_hashdiff: 
+  source_column: "${hashDiffName}"
+  alias: "hashdiff"
+src_payload: ${payloadConfig}
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.sat(
+    src_pk=metadata_dict["src_pk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+`;
+
+  const filePath = path.join(
+    projectPath,
+    'models',
+    'raw_vault',
+    concept,
+    'satellites',
+    `${satName}.sql`
+  );
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  
+  // Write file
+  await fs.writeFile(filePath, sql, 'utf-8');
+
+  return { path: filePath, content: sql, type: 'satellite' };
+}
+
+/**
  * Generate Link SQL file using automate_dv.link macro
  * 
  * Two types of links:
@@ -542,7 +685,8 @@ async function generateLink(
   foreignKey: DesignerColumnDefinition,
   businessKeys: DesignerColumnDefinition[],
   dependentChildKeys: DesignerColumnDefinition[],
-  projectPath: string
+  projectPath: string,
+  allForeignKeys?: DesignerColumnDefinition[]  // To detect duplicate targets
 ): Promise<GeneratedFile> {
   const { concept, entityName } = config;
   const targetHubFull = foreignKey.foreignKeyTarget!;
@@ -560,7 +704,34 @@ async function generateLink(
   // Extract target entity name from hub name (e.g., "hub_country" -> "country")
   const targetEntity = targetHub.replace('hub_', '');
   
-  const linkName = `link_${entityName}_${targetEntity}`;
+  // Check if multiple FKs point to the same target hub
+  // If so, include a suffix from the FK column name to distinguish them
+  let linkSuffix = '';
+  if (allForeignKeys) {
+    const sameTargetFKs = allForeignKeys.filter(fk => fk.foreignKeyTarget === targetHubFull);
+    if (sameTargetFKs.length > 1) {
+      // Multiple FKs to same hub - derive suffix from FK column name
+      // e.g., "ShipToAddressID" -> "ship", "BillToAddressID" -> "bill"
+      const fkName = foreignKey.name.toLowerCase();
+      if (fkName.includes('shipto')) {
+        linkSuffix = '_ship';
+      } else if (fkName.includes('billto')) {
+        linkSuffix = '_bill';
+      } else if (fkName.includes('from')) {
+        linkSuffix = '_from';
+      } else if (fkName.includes('to')) {
+        linkSuffix = '_to';
+      } else {
+        // Fallback: use index
+        const fkIndex = sameTargetFKs.findIndex(fk => fk.name === foreignKey.name);
+        if (fkIndex > 0) {
+          linkSuffix = `_${fkIndex + 1}`;
+        }
+      }
+    }
+  }
+  
+  const linkName = `link_${entityName}_${targetEntity}${linkSuffix}`;
   const linkHashKey = `hk_${linkName.toLowerCase()}`;
   const sourceHashKey = `hk_${entityName.toLowerCase()}`;
   const targetHashKey = `hk_${targetEntity.toLowerCase()}`;

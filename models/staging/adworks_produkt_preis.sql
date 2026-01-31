@@ -1,20 +1,18 @@
 /*
- * Staging Model: adworks_produkt
+ * Staging Model: adworks_produkt_preis
  *
  * Source: ext_adventureworks_saleslt_product
  * Business Key: PRODUCTID
+ * Split-Satellite Target: adworks.hub_produkt
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
  * Hash Keys calculated here (automate_dv pattern):
- *   - hk_produkt (Entity Hash Key)
+ *   - hk_produkt (Split-Satellite Hash Key - points to adworks.hub_produkt)
  */
 
 {%- set hashdiff_columns = [
-    'color',
-    'name',
-    'productnumber',
-    'size',
-    'weight'
+    'listprice',
+    'standardcost'
 ] -%}
 
 WITH source AS (
@@ -40,7 +38,7 @@ staged AS (
                 {%- endfor %}
                 {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
             )
-        ), 2) AS hd_produkt,
+        ), 2) AS hd_produkt_preis,
 
         -- ===========================================
         -- BUSINESS KEY(S)
@@ -50,11 +48,8 @@ staged AS (
         -- ===========================================
         -- PAYLOAD
         -- ===========================================
-        name,
-        productnumber,
-        color,
-        size,
-        weight,
+        standardcost,
+        listprice,
         modifieddate,
 
         -- ===========================================

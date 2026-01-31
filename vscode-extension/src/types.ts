@@ -283,6 +283,11 @@ export interface StagingConfig {
   // When true: No Hub, only Links to existing Hubs
   // Generates combined hk_link with all FK hashes
   isPureLinkEntity?: boolean;
+  
+  // Split-Satellite: Points to existing Hub instead of creating new one
+  // Value: hub name (e.g., 'hub_product') - uses that hub's hash key
+  // When set: No Hub generated, Satellite uses target hub's hk_<entity>
+  splitSatelliteTargetHub?: string;
 }
 
 /**
@@ -333,6 +338,8 @@ export interface DesignerColumnDefinition {
   additionalTypes?: DesignerColumnType[];
   includeInHashDiff: boolean;
   foreignKeyTarget?: string;  // e.g., 'hub_company' for links
+  /** For hub columns: target hub (empty = new hub, 'hub_xyz' = Split-Satellite) */
+  hubTarget?: string;
   nullable?: boolean;
   /** For dependent_child: which link this DCK belongs to */
   dependentChildForLink?: string;
@@ -449,6 +456,8 @@ export interface SavedColumnConfig {
   /** Additional types for multi-target columns (e.g., link column also in satellite) */
   additionalTypes?: string[];
   foreignKeyTarget?: string;
+  /** For hub columns: target hub (empty = new hub, 'hub_xyz' = Split-Satellite) */
+  hubTarget?: string;
   nullable?: boolean;
   /** For dependent_child: which link this DCK belongs to */
   dependentChildForLink?: string;

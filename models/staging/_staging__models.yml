@@ -1,72 +1,5 @@
 version: 2
 models:
-  - name: adventureworks_saleslt_product
-    description: Staging view for saleslt_product from adventureworks
-    config:
-      meta:
-        entity_type: standard
-        source_type: external_table
-        external_table: ext_adventureworks_saleslt_product
-        business_keys:
-          - PRODUCTID
-    columns:
-      - name: hk_saleslt_product
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hd_saleslt_product
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: PRODUCTID
-        description: Business Key
-        tests:
-          - not_null
-      - name: name
-        description: Payload attribute
-      - name: productnumber
-        description: Payload attribute
-      - name: color
-        description: Payload attribute
-      - name: standardcost
-        description: Payload attribute
-      - name: listprice
-        description: Payload attribute
-      - name: size
-        description: Payload attribute
-      - name: weight
-        description: Payload attribute
-      - name: productcategoryid
-        description: Payload attribute
-      - name: productmodelid
-        description: Payload attribute
-      - name: sellstartdate
-        description: Payload attribute
-      - name: sellenddate
-        description: Payload attribute
-      - name: discontinueddate
-        description: Payload attribute
-      - name: thumbnailphoto
-        description: Payload attribute
-      - name: thumbnailphotofilename
-        description: Payload attribute
-      - name: modifieddate
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
   - name: adworks_adresse
     description: Staging view for adresse from adworks
     config:
@@ -272,27 +205,9 @@ models:
         description: Payload attribute
       - name: color
         description: Payload attribute
-      - name: standardcost
-        description: Payload attribute
-      - name: listprice
-        description: Payload attribute
       - name: size
         description: Payload attribute
       - name: weight
-        description: Payload attribute
-      - name: productcategoryid
-        description: Payload attribute
-      - name: productmodelid
-        description: Payload attribute
-      - name: sellstartdate
-        description: Payload attribute
-      - name: sellenddate
-        description: Payload attribute
-      - name: discontinueddate
-        description: Payload attribute
-      - name: thumbnailphoto
-        description: Payload attribute
-      - name: thumbnailphotofilename
         description: Payload attribute
       - name: modifieddate
         description: Payload attribute
@@ -308,3 +223,48 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: adworks_produkt_preis
+    description: Staging view for produkt_preis Split-Satellite (feeds adworks.hub_produkt)
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_product
+        business_keys:
+          - PRODUCTID
+        split_satellite_target_hub: adworks.hub_produkt
+    columns:
+      - name: hk_produkt_preis
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_produkt_preis
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PRODUCTID
+        description: Business Key
+        tests:
+          - not_null
+      - name: standardcost
+        description: Payload attribute
+      - name: listprice
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  

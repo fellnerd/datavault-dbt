@@ -653,6 +653,8 @@ export class EntityDesignerProvider {
             // Use saved value or default to true for satellite columns
             includeInHashDiff,
             foreignKeyTarget: c.foreignKeyTarget,
+            // Split-Satellite: pass target hub for hub columns
+            hubTarget: c.hubTarget,
             dependentChildForLink: c.dependentChildForLink,
             multiActiveSequence: c.multiActiveSequence,
             nullable: c.nullable ?? true

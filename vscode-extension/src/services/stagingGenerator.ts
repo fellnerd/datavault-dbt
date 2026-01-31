@@ -39,7 +39,8 @@ export function generateStagingSql(config: StagingConfig): string {
     includeRunId,
     dependentChildKeys,
     multiActiveKeys,
-    isPureLinkEntity
+    isPureLinkEntity,
+    splitSatelliteTargetHub
   } = config;
 
   // Helper to get the source column name for a target column
@@ -58,6 +59,12 @@ export function generateStagingSql(config: StagingConfig): string {
   const sortedHashDiffColumns = [...hashDiffColumns].sort((a, b) => 
     a.toLowerCase().localeCompare(b.toLowerCase())
   );
+  
+  // For Split-Satellites: Extract target entity name from hub name
+  // e.g., "hub_product" → "product", "adventureworks.hub_product" → "product"
+  const splitSatelliteTargetEntity = splitSatelliteTargetHub 
+    ? splitSatelliteTargetHub.replace('hub_', '').replace(/^.*\./, '')
+    : undefined;
 
   const lines: string[] = [];
 
@@ -68,6 +75,9 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push(` * Source: ${externalTable}`);
   if (businessKeyColumns.length > 0) {
     lines.push(` * Business Key: ${businessKeyColumns.join(', ')}`);
+  }
+  if (splitSatelliteTargetHub) {
+    lines.push(` * Split-Satellite Target: ${splitSatelliteTargetHub}`);
   }
   lines.push(` * Hash Key Separator: '${businessKeySeparator}' (DV 2.1 Standard)`);
   
@@ -107,6 +117,14 @@ export function generateStagingSql(config: StagingConfig): string {
       lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
     }
     lines.push(` *   - hd_${linkName} (Link Satellite Hash Diff)`);
+  } else if (splitSatelliteTargetEntity) {
+    // Split-Satellite: Use target hub's hash key name
+    lines.push(` *   - hk_${splitSatelliteTargetEntity} (Split-Satellite Hash Key - points to ${splitSatelliteTargetHub})`);
+    for (const fk of foreignKeys || []) {
+      const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+      lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
+      lines.push(` *   - hk_link_${splitSatelliteTargetEntity}_${targetEntity} (Link Hash Key)`);
+    }
   } else {
     lines.push(` *   - hk_${entityName} (Entity Hash Key)`);
     for (const fk of foreignKeys || []) {
@@ -171,12 +189,16 @@ export function generateStagingSql(config: StagingConfig): string {
   // ============================================
   // HASH KEY (Entity) - only if BK exists AND not a Pure Link Entity
   // Pure Link Entities have no own Hub, so no entity hash key
+  // Split-Satellites use the target hub's hash key name (hk_<targetEntity>)
   // ============================================
   if (businessKeyColumns.length > 0 && !isPureLinkEntity) {
     lines.push('        -- ===========================================');
     lines.push('        -- HASH KEY (Entity)');
     lines.push('        -- ===========================================');
-    lines.push(generateHashKey(entityName, businessKeyColumns, businessKeySeparator));
+    // For Split-Satellite: use target hub's entity name for hash key (e.g., hk_product)
+    // This ensures the satellite references the existing hub's hash key
+    const hashKeyEntity = splitSatelliteTargetEntity || entityName;
+    lines.push(generateHashKey(hashKeyEntity, businessKeyColumns, businessKeySeparator));
     lines.push('');
   }
   
@@ -215,9 +237,31 @@ export function generateStagingSql(config: StagingConfig): string {
       lines.push(generatePureLinkHashKey(linkName, fkColumns, businessKeySeparator));
     } else {
       // Standard: One link hash per FK
+      // First, count FKs per target hub to detect duplicates
+      const fkCountByTarget: Record<string, number> = {};
+      for (const fk of foreignKeys) {
+        fkCountByTarget[fk.targetHub] = (fkCountByTarget[fk.targetHub] || 0) + 1;
+      }
+      
       for (const fk of foreignKeys) {
         const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
-        const linkName = `link_${entityName}_${targetEntity}`;
+        
+        // Determine suffix if multiple FKs point to same target
+        let linkSuffix = '';
+        if (fkCountByTarget[fk.targetHub] > 1) {
+          const fkName = fk.sourceColumn.toLowerCase();
+          if (fkName.includes('shipto')) {
+            linkSuffix = '_ship';
+          } else if (fkName.includes('billto')) {
+            linkSuffix = '_bill';
+          } else if (fkName.includes('from')) {
+            linkSuffix = '_from';
+          } else if (fkName.includes('to')) {
+            linkSuffix = '_to';
+          }
+        }
+        
+        const linkName = `link_${entityName}_${targetEntity}${linkSuffix}`;
         
         // Check if this link has DCKs
         const linkDCKs = dependentChildKeys?.[fk.targetHub] || [];

@@ -28,6 +28,7 @@ interface YamlModel {
       }>;
       dependent_child_keys?: Record<string, string[]>;
       multi_active_keys?: string[];
+      split_satellite_target_hub?: string;
     };
   };
   columns?: YamlColumnDefinition[];
@@ -184,7 +185,9 @@ export function generateModelYaml(config: StagingConfig): YamlModel {
           }))
         : undefined,
       dependent_child_keys: config.dependentChildKeys,
-      multi_active_keys: config.multiActiveKeys
+      multi_active_keys: config.multiActiveKeys,
+      // Split-Satellite: Document target hub if this staging feeds a Split-Satellite
+      split_satellite_target_hub: config.splitSatelliteTargetHub
     }
   };
 
@@ -195,7 +198,9 @@ export function generateModelYaml(config: StagingConfig): YamlModel {
 
   return {
     name: modelName,
-    description: `Staging view for ${config.entityName} from ${config.concept}`,
+    description: config.splitSatelliteTargetHub 
+      ? `Staging view for ${config.entityName} Split-Satellite (feeds ${config.splitSatelliteTargetHub})`
+      : `Staging view for ${config.entityName} from ${config.concept}`,
     config: { meta: cleanMeta },
     columns: generateStagingColumns(config)
   };

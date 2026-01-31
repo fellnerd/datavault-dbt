@@ -455,15 +455,32 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
   // No own Hub, 2+ FKs to existing Hubs, no DCK
   const isPureLinkEntity = linkCols.length >= 2 && hubCols.length === 0 && dcCols.length === 0;
   
+  // Check if this is a Split-Satellite (all Hub columns target an existing hub)
+  const isSplitSatellite = hubCols.length > 0 && 
+    hubCols.every(c => c.hubTarget && existingHubs.includes(c.hubTarget));
+  
   // DV Rule 1: At least one Business Key required (affects Hub + Satellite)
   // Exception: Pure Dependent Child entities don't need a BK (they have no Hub)
   // Exception: Pure Link Entities (Intersection Tables) don't need a BK
+  // Exception: Split-Satellites use existing Hub's BK
   if (hubCols.length === 0 && !isPureDependentChild && !isPureLinkEntity) {
     errors.push({
       type: 'error',
       message: 'At least one Business Key (Hub) column is required',
       affectsObject: 'hub', // Only blocks Hub generation
     });
+  }
+  
+  // DV Rule 1b: Split-Satellites must all point to the same hub
+  if (isSplitSatellite && hubCols.length > 1) {
+    const targetHubs = new Set(hubCols.map(c => c.hubTarget));
+    if (targetHubs.size > 1) {
+      errors.push({
+        type: 'error',
+        message: 'All Business Key columns must target the same Hub for Split-Satellites',
+        affectsObject: 'hub',
+      });
+    }
   }
   
   // DV Rule 2: Business Keys should not be nullable
@@ -679,6 +696,7 @@ export const App: React.FC = () => {
               additionalTypes,
               includeInHashDiff,
               foreignKeyTarget: saved.foreignKeyTarget,
+              hubTarget: saved.hubTarget,
               dependentChildForLink: saved.dependentChildForLink,
               multiActiveSequence: saved.multiActiveSequence,
               nullable: saved.nullable ?? true,
@@ -775,6 +793,7 @@ export const App: React.FC = () => {
         // Save additionalTypes (e.g., satellite for link+satellite columns)
         ...(c.additionalTypes && c.additionalTypes.length > 0 && { additionalTypes: c.additionalTypes }),
         ...(c.foreignKeyTarget && { foreignKeyTarget: c.foreignKeyTarget }),
+        ...(c.hubTarget && { hubTarget: c.hubTarget }),
         ...(c.dependentChildForLink && { dependentChildForLink: c.dependentChildForLink }),
         ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
         // Save includeInHashDiff for satellite columns (explicit user choice)
@@ -924,6 +943,7 @@ export const App: React.FC = () => {
       columnType: c.columnType,
       ...(c.additionalTypes && c.additionalTypes.length > 0 && { additionalTypes: c.additionalTypes }),
       ...(c.foreignKeyTarget && { foreignKeyTarget: c.foreignKeyTarget }),
+      ...(c.hubTarget && { hubTarget: c.hubTarget }),
       ...(c.dependentChildForLink && { dependentChildForLink: c.dependentChildForLink }),
       ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
       // Include includeInHashDiff for satellite columns
@@ -1225,6 +1245,7 @@ export const App: React.FC = () => {
                       columnType: newTarget,
                       includeInHashDiff: newTarget === 'satellite',
                       foreignKeyTarget: newTarget === 'link' ? selectedColumn.foreignKeyTarget : undefined,
+                      hubTarget: newTarget === 'hub' ? selectedColumn.hubTarget : undefined,
                       dependentChildForLink: newTarget === 'dependent_child' ? selectedColumn.dependentChildForLink : undefined,
                       multiActiveSequence: newTarget === 'multi_active' ? selectedColumn.multiActiveSequence : undefined,
                     });
@@ -1241,6 +1262,28 @@ export const App: React.FC = () => {
                   <option value="ignore">🚫 Ignore</option>
                 </select>
               </div>
+
+              {/* Hub-specific: Target Hub for Split-Satellites */}
+              {selectedColumn.columnType === 'hub' && (
+                <div style={styles.propertyRow}>
+                  <span style={styles.propertyLabel}>Target Hub:</span>
+                  <select
+                    value={selectedColumn.hubTarget || ''}
+                    onChange={(e) => updateColumn(selectedIndex!, { hubTarget: e.target.value || undefined })}
+                    style={styles.select}
+                  >
+                    <option value="">🆕 New Hub (hub_{entityName})</option>
+                    {existingHubs.map(hub => (
+                      <option key={hub} value={hub}>📎 {hub} (Split-Satellite)</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    {selectedColumn.hubTarget 
+                      ? `Split-Satellite: Only Satellite will be generated, using ${selectedColumn.hubTarget}'s hash key`
+                      : 'Default: Creates new Hub + Satellite for this entity'}
+                  </div>
+                </div>
+              )}
 
               {/* Satellite-specific: Include in Hash Diff */}
               {selectedColumn.columnType === 'satellite' && (
