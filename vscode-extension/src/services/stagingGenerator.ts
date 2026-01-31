@@ -128,10 +128,29 @@ export function generateStagingSql(config: StagingConfig): string {
     }
   } else {
     lines.push(` *   - hk_${entityName} (Entity Hash Key)`);
+    
+    // Count FKs per target for suffix generation in header
+    const fkCountByTargetHeader: Record<string, number> = {};
+    const fkIndexByTargetHeader: Record<string, number> = {};
+    for (const fk of foreignKeys || []) {
+      fkCountByTargetHeader[fk.targetHub] = (fkCountByTargetHeader[fk.targetHub] || 0) + 1;
+    }
+    
     for (const fk of foreignKeys || []) {
       const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
-      lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
-      lines.push(` *   - hk_link_${entityName}_${targetEntity} (Link Hash Key)`);
+      
+      // Determine numeric suffix if multiple FKs point to same target
+      let suffix = '';
+      if (fkCountByTargetHeader[fk.targetHub] > 1) {
+        if (fkIndexByTargetHeader[fk.targetHub] === undefined) {
+          fkIndexByTargetHeader[fk.targetHub] = 0;
+        }
+        const idx = fkIndexByTargetHeader[fk.targetHub]++;
+        suffix = `_${idx + 1}`;
+      }
+      
+      lines.push(` *   - hk_${targetEntity}${suffix} (FK Hash Key for ${fk.targetHub} via ${fk.sourceColumn})`);
+      lines.push(` *   - hk_link_${entityName}_${targetEntity}${suffix} (Link Hash Key)`);
     }
   }
   lines.push(' */');
@@ -211,10 +230,29 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('        -- FK HASH KEYS (for Links)');
     lines.push('        -- ===========================================');
     
+    // Count FKs per target hub to detect duplicates (e.g., ShipToAddressID + BillToAddressID → same hub)
+    const fkCountByTarget: Record<string, number> = {};
+    const fkIndexByTarget: Record<string, number> = {};
+    for (const fk of foreignKeys) {
+      fkCountByTarget[fk.targetHub] = (fkCountByTarget[fk.targetHub] || 0) + 1;
+    }
+    
     for (const fk of foreignKeys) {
       const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+      
+      // Determine numeric suffix if multiple FKs point to same target
+      let fkSuffix = '';
+      if (fkCountByTarget[fk.targetHub] > 1) {
+        // Initialize index tracker if needed
+        if (fkIndexByTarget[fk.targetHub] === undefined) {
+          fkIndexByTarget[fk.targetHub] = 0;
+        }
+        const idx = fkIndexByTarget[fk.targetHub]++;
+        fkSuffix = `_${idx + 1}`;
+      }
+      
       // FK Hash Key = hash of the FK source column(s)
-      lines.push(generateHashKey(targetEntity, [fk.sourceColumn], businessKeySeparator));
+      lines.push(generateHashKeyWithSuffix(targetEntity, [fk.sourceColumn], businessKeySeparator, fkSuffix));
     }
     lines.push('');
   }
@@ -249,6 +287,7 @@ export function generateStagingSql(config: StagingConfig): string {
       // Standard: One link hash per FK
       // First, count FKs per target hub to detect duplicates
       const fkCountByTarget: Record<string, number> = {};
+      const fkIndexByTargetForLinks: Record<string, number> = {};
       for (const fk of foreignKeys) {
         fkCountByTarget[fk.targetHub] = (fkCountByTarget[fk.targetHub] || 0) + 1;
       }
@@ -256,13 +295,15 @@ export function generateStagingSql(config: StagingConfig): string {
       for (const fk of foreignKeys) {
         const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
         
-        // Determine suffix if multiple FKs point to same target
+        // Determine numeric suffix if multiple FKs point to same target
         let linkSuffix = '';
         if (fkCountByTarget[fk.targetHub] > 1) {
-          // Use index-based suffix for multiple FKs to same target
-          const sameTargetFKs = foreignKeys.filter(f => f.targetHub === fk.targetHub);
-          const fkIndex = sameTargetFKs.findIndex(f => f.sourceColumn === fk.sourceColumn);
-          linkSuffix = `_${fkIndex + 1}`;
+          // Initialize index tracker if needed
+          if (fkIndexByTargetForLinks[fk.targetHub] === undefined) {
+            fkIndexByTargetForLinks[fk.targetHub] = 0;
+          }
+          const idx = fkIndexByTargetForLinks[fk.targetHub]++;
+          linkSuffix = `_${idx + 1}`;
         }
         
         const linkName = `link_${entityName}_${targetEntity}${linkSuffix}`;
@@ -431,11 +472,26 @@ function generateHashKey(
   businessKeyColumns: string[], 
   separator: string
 ): string {
+  return generateHashKeyWithSuffix(entityName, businessKeyColumns, separator, '');
+}
+
+/**
+ * Generate hash key calculation with optional suffix
+ * Used for multiple FKs pointing to the same hub (e.g., hk_adresse_1, hk_adresse_2)
+ */
+function generateHashKeyWithSuffix(
+  entityName: string, 
+  businessKeyColumns: string[], 
+  separator: string,
+  suffix: string
+): string {
+  const hashKeyName = `hk_${entityName}${suffix}`;
+  
   if (businessKeyColumns.length === 1) {
     // Single column - simple hash
     return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(${businessKeyColumns[0]} AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_${entityName},`;
+        ), 2) AS ${hashKeyName},`;
   }
   
   // Multiple columns - composite hash with separator
@@ -447,7 +503,7 @@ function generateHashKey(
             CONCAT(
                 ${concatParts}
             )
-        ), 2) AS hk_${entityName},`;
+        ), 2) AS ${hashKeyName},`;
 }
 
 /**

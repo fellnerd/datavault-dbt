@@ -114,6 +114,66 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: adworks_kunde_adresse
+    description: Staging view for kunde_adresse from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_customeraddress
+        foreign_keys:
+          - column: customerid
+            target_entity: kunde
+            target_hub: adworks.hub_kunde
+          - column: addressid
+            target_entity: adresse
+            target_hub: adworks.hub_adresse
+    columns:
+      - name: hk_link_kunde_adresse
+        description: Combined Link Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_kunde
+        description: Foreign Key to hub_kunde
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_adresse
+        description: Foreign Key to hub_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_kunde_adresse
+        description: Hash Diff for Link Satellite change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: customerid
+        description: FK to hub_kunde
+        tests:
+          - not_null
+      - name: addressid
+        description: FK to hub_adresse
+        tests:
+          - not_null
+      - name: addresstype
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: adworks_produkt
     description: Staging view for produkt Split-Satellite (feeds adworks.hub_produkt)
     config:
@@ -239,12 +299,12 @@ models:
         data_type: char(64)
         tests:
           - not_null
-      - name: hk_adresse
+      - name: hk_adresse_1
         description: Foreign Key to hub_adresse
         data_type: char(64)
         tests:
           - not_null
-      - name: hk_adresse
+      - name: hk_adresse_2
         description: Foreign Key to hub_adresse
         data_type: char(64)
         tests:

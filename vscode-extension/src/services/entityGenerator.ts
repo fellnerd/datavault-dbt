@@ -739,7 +739,8 @@ async function generateLink(
   const linkName = `link_${entityName}_${targetEntity}${linkSuffix}`;
   const linkHashKey = `hk_${linkName.toLowerCase()}`;
   const sourceHashKey = `hk_${entityName.toLowerCase()}`;
-  const targetHashKey = `hk_${targetEntity.toLowerCase()}`;
+  // Target FK hash key also needs suffix when multiple FKs point to same hub
+  const targetHashKey = `hk_${targetEntity.toLowerCase()}${linkSuffix}`;
   const stagingRef = `${concept}_${entityName}`;
 
   // Determine if this is a DC Link (no source BK, only target FK + DCK)

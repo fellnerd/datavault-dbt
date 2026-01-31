@@ -12,12 +12,12 @@
  *
  * Hash Keys calculated here (automate_dv pattern):
  *   - hk_verkauf (Entity Hash Key)
- *   - hk_kunde (FK Hash Key for adworks.hub_kunde)
+ *   - hk_kunde (FK Hash Key for adworks.hub_kunde via customerid)
  *   - hk_link_verkauf_kunde (Link Hash Key)
- *   - hk_adresse (FK Hash Key for adworks.hub_adresse)
- *   - hk_link_verkauf_adresse (Link Hash Key)
- *   - hk_adresse (FK Hash Key for adworks.hub_adresse)
- *   - hk_link_verkauf_adresse (Link Hash Key)
+ *   - hk_adresse_1 (FK Hash Key for adworks.hub_adresse via shiptoaddressid)
+ *   - hk_link_verkauf_adresse_1 (Link Hash Key)
+ *   - hk_adresse_2 (FK Hash Key for adworks.hub_adresse via billtoaddressid)
+ *   - hk_link_verkauf_adresse_2 (Link Hash Key)
  */
 
 {%- set hashdiff_columns = [
@@ -60,10 +60,10 @@ staged AS (
         ), 2) AS hk_kunde,
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(shiptoaddressid AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_adresse,
+        ), 2) AS hk_adresse_1,
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(billtoaddressid AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_adresse,
+        ), 2) AS hk_adresse_2,
 
         -- ===========================================
         -- LINK HASH KEYS
@@ -81,14 +81,14 @@ staged AS (
                 '^^',
                 ISNULL(CAST(shiptoaddressid AS NVARCHAR(MAX)), '')
             )
-        ), 2) AS hk_link_verkauf_adresse_ship,
+        ), 2) AS hk_link_verkauf_adresse_1,
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 ISNULL(CAST(SALESORDERID AS NVARCHAR(MAX)), ''),
                 '^^',
                 ISNULL(CAST(billtoaddressid AS NVARCHAR(MAX)), '')
             )
-        ), 2) AS hk_link_verkauf_adresse_bill,
+        ), 2) AS hk_link_verkauf_adresse_2,
 
         -- ===========================================
         -- HASH DIFF (Change Detection - Satellite)

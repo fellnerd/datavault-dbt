@@ -1,8 +1,8 @@
 {#
-    Link: link_verkauf_adresse_bill
+    Link: link_verkauf_adresse_1
     Source Hub: hub_verkauf
     Target Hub: adworks.hub_adresse
-    Driving Key: BillToAddressID
+    Driving Key: ShipToAddressID
     Source: adworks_verkauf
     
     Note: In automate_dv, links don't store payload columns.
@@ -16,15 +16,15 @@
 {{ config(
     materialized='incremental',
     as_columnstore=false,
-    post_hook=["{{ create_hash_index('hk_link_verkauf_adresse_bill') }}"]
+    post_hook=["{{ create_hash_index('hk_link_verkauf_adresse_1') }}"]
 ) }}
 
 {%- set yaml_metadata -%}
 source_model: "adworks_verkauf"
-src_pk: "hk_link_verkauf_adresse_bill"
+src_pk: "hk_link_verkauf_adresse_1"
 src_fk: 
     - "hk_verkauf"
-    - "hk_adresse"
+    - "hk_adresse_1"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}

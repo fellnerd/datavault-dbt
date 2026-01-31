@@ -45,6 +45,19 @@ interface YamlSchema {
 export function generateStagingColumns(config: StagingConfig): YamlColumnDefinition[] {
   const columns: YamlColumnDefinition[] = [];
 
+  // Helper function to get numeric suffix for duplicate FK targets
+  function getFkSuffix(sourceColumn: string, targetEntity: string, allFks: typeof config.foreignKeys): string {
+    // Count how many FKs point to the same target entity
+    const sameTargetFks = allFks.filter(fk => fk.targetEntity === targetEntity);
+    if (sameTargetFks.length <= 1) {
+      return ''; // No suffix needed if only one FK to this target
+    }
+    
+    // Use numeric suffix based on position (1-based)
+    const idx = sameTargetFks.findIndex(fk => fk.sourceColumn === sourceColumn);
+    return `_${idx + 1}`;
+  }
+
   // For Pure Link Entity (link_only): No entity hash key, use combined link hash
   if (config.isPureLinkEntity && config.foreignKeys.length >= 2) {
     // Combined Link Hash Key
@@ -57,10 +70,11 @@ export function generateStagingColumns(config: StagingConfig): YamlColumnDefinit
       tests: ['not_null', 'unique']
     });
 
-    // FK Hash Keys for each referenced entity
+    // FK Hash Keys for each referenced entity (with suffix for duplicates)
     for (const fk of config.foreignKeys) {
+      const suffix = getFkSuffix(fk.sourceColumn, fk.targetEntity, config.foreignKeys);
       columns.push({
-        name: `hk_${fk.targetEntity}`,
+        name: `hk_${fk.targetEntity}${suffix}`,
         description: `Foreign Key to hub_${fk.targetEntity}`,
         data_type: 'char(64)',
         tests: ['not_null']
@@ -84,10 +98,11 @@ export function generateStagingColumns(config: StagingConfig): YamlColumnDefinit
       tests: ['not_null', 'unique']
     });
 
-    // FK Hash Keys
+    // FK Hash Keys (with suffix for duplicates)
     for (const fk of config.foreignKeys) {
+      const suffix = getFkSuffix(fk.sourceColumn, fk.targetEntity, config.foreignKeys);
       columns.push({
-        name: `hk_${fk.targetEntity}`,
+        name: `hk_${fk.targetEntity}${suffix}`,
         description: `Foreign Key to hub_${fk.targetEntity}`,
         data_type: 'char(64)',
         tests: ['not_null']
