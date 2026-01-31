@@ -10,8 +10,5 @@ SELECT
   -- Surrogate Key
   ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(issue_status_id AS NVARCHAR(MAX))))) AS dim_vorgang_status_key,
   -- Business Key
-  issue_status_id,
-  -- Attributes
-  issue_status_name,
-  description
+  issue_status_id
 FROM {{ ref('ref_vorgang_status') }}

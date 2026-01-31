@@ -5,6 +5,13 @@ import type { NodeProps } from '@xyflow/react';
 /**
  * Dimension configuration (subset of types.ts for webview)
  */
+interface DimensionAttribute {
+  name: string;           // Target column name (can be renamed)
+  sourceModel: string;    // Source model (e.g., sat_vorgang)
+  sourceColumn: string;   // Original source column name
+  dataType: string;
+}
+
 interface DimensionData {
   name: string;
   concept: string;
@@ -18,12 +25,7 @@ interface DimensionData {
   businessKey: string;
   hashKey?: string;
   includeHashKey: boolean;
-  attributes: Array<{
-    name: string;
-    sourceModel: string;
-    sourceColumn: string;
-    dataType: string;
-  }>;
+  attributes: DimensionAttribute[];
   materialization: 'view' | 'table' | 'incremental';
 }
 
@@ -32,7 +34,23 @@ type DimensionNodeProps = NodeProps & {
 };
 
 /**
+ * Format source reference for display (full model.column)
+ */
+function formatSource(attr: DimensionAttribute): string {
+  if (!attr.sourceModel) return '';
+  if (attr.sourceColumn && attr.sourceColumn !== attr.name) {
+    return `${attr.sourceModel}.${attr.sourceColumn}`;
+  }
+  return attr.sourceModel;
+}
+
+/**
  * Custom node component for Dimensions in the Mart Designer.
+ * 
+ * Features:
+ * - Per-row handles on LEFT side for incoming FK connections from facts
+ * - Source info column showing attribute origin (model.column)
+ * - Compact display with overflow handling (max 5 shown)
  */
 export const DimensionNode = memo(({ data, selected }: DimensionNodeProps) => {
   const config = data as DimensionData;
@@ -43,23 +61,12 @@ export const DimensionNode = memo(({ data, selected }: DimensionNodeProps) => {
   const attributes = allAttributes.filter(attr => attr.name !== config.businessKey);
 
   const skName = `${config.name}_key`;
+  
+  // Find BK attribute for source info
+  const bkAttr = allAttributes.find(attr => attr.name === config.businessKey);
 
   return (
     <div className={`dimension-node ${selected ? 'selected' : ''}`}>
-      {/* Left side handle - for incoming connections from facts */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="dim-in"
-      />
-
-      {/* Right side handle - for outgoing connections to facts */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="dim-out"
-      />
-
       {/* Header */}
       <div className="node-header">
         <span className="node-type">DIM</span>
@@ -67,51 +74,78 @@ export const DimensionNode = memo(({ data, selected }: DimensionNodeProps) => {
         <span className="node-badge">{config.scdType === 'type2' ? 'SCD2' : 'SCD1'}</span>
       </div>
 
-      {/* Body */}
+      {/* Body - Table with 3 columns: Label | Name | Source */}
       <div className="node-body">
-        {/* Surrogate Key - auto-derived from name */}
-        <div className="node-row">
-          <span className="row-label">SK</span>
+        {/* Surrogate Key Row - with LEFT handle for incoming FK connections */}
+        <div className="node-row node-row-with-handle">
+          <Handle
+            type="target"
+            position={Position.Left}
+            id={`col-${skName}`}
+            className="row-handle-left"
+          />
+          <span className="row-label row-label-sk">SK</span>
           <span className="row-value">{skName}</span>
+          <span className="row-source">auto</span>
         </div>
 
-        {/* Business Key - only if set */}
+        {/* Business Key Row - with LEFT handle */}
         {config.businessKey && (
-          <div className="node-row">
-            <span className="row-label">BK</span>
+          <div className="node-row node-row-with-handle">
+            <Handle
+              type="target"
+              position={Position.Left}
+              id={`col-${config.businessKey}`}
+              className="row-handle-left"
+            />
+            <span className="row-label row-label-bk">BK</span>
             <span className="row-value">{config.businessKey}</span>
+            <span className="row-source">{bkAttr ? formatSource(bkAttr) : ''}</span>
           </div>
         )}
 
-        {/* Hash Key - only if enabled and set */}
+        {/* Hash Key Row - with LEFT handle */}
         {config.includeHashKey && config.hashKey && (
-          <div className="node-row">
-            <span className="row-label">HK</span>
+          <div className="node-row node-row-with-handle">
+            <Handle
+              type="target"
+              position={Position.Left}
+              id={`col-${config.hashKey}`}
+              className="row-handle-left"
+            />
+            <span className="row-label row-label-hk">HK</span>
             <span className="row-value">{config.hashKey}</span>
+            <span className="row-source">{config.sourceHub || ''}</span>
           </div>
         )}
 
         {/* Divider if we have attributes */}
         {attributes.length > 0 && <div className="node-divider" />}
 
-        {/* Attributes */}
+        {/* Attributes - each with source info */}
         {attributes.slice(0, 5).map((attr, idx) => (
           <div key={attr.name || idx} className="node-row">
+            <span className="row-label"></span>
             <span className="row-value">{attr.name}</span>
+            <span className="row-source">{formatSource(attr)}</span>
           </div>
         ))}
 
         {/* Show count if more than 5 attributes */}
         {attributes.length > 5 && (
           <div className="node-row node-more">
-            +{attributes.length - 5} more...
+            <span className="row-label"></span>
+            <span className="row-value">+{attributes.length - 5} more...</span>
+            <span className="row-source"></span>
           </div>
         )}
 
         {/* Hint if no attributes yet */}
         {attributes.length === 0 && !config.businessKey && (
           <div className="node-row node-hint">
-            Add attributes from tree
+            <span className="row-label"></span>
+            <span className="row-value">Add attributes from tree</span>
+            <span className="row-source"></span>
           </div>
         )}
       </div>

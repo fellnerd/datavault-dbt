@@ -12,7 +12,8 @@ SELECT
   -- Business Key
   hub_vorgang.issue_id,
   -- Attributes
-  sat_vorgang.summary
+  sat_vorgang.summary,
+  sat_vorgang.issue_key
 FROM {{ ref('hub_vorgang') }} hub_vorgang
 LEFT JOIN {{ ref('sat_vorgang') }} sat_vorgang ON hub_vorgang.hk_vorgang = sat_vorgang.hk_vorgang
 WHERE sat_vorgang.dss_is_current = 'Y'

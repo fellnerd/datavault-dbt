@@ -4,9 +4,9 @@
   )
 }}
 
-{# Final model for dim_vorgang_status - Add custom transformations here #}
+{# Final model for dim_projekt - Add custom transformations here #}
 
 SELECT *
-FROM {{ ref('_base_dim_vorgang_status') }}
+FROM {{ ref('_base_dim_projekt') }}
 
 {# Add your custom filters, transformations, or business logic below #}

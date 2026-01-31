@@ -137,6 +137,48 @@ export function App() {
   const dimensionCount = useMemo(() => nodes.filter(n => n.type === 'dimension').length, [nodes]);
   const factCount = useMemo(() => nodes.filter(n => n.type === 'fact').length, [nodes]);
 
+  // Effect: Update edges to use specific FK handles once they exist
+  // This fixes the timing issue where edges are created before FK handles render
+  useEffect(() => {
+    setEdges((currentEdges) => {
+      let hasChanges = false;
+      const updatedEdges = currentEdges.map((edge) => {
+        // Skip if already using a specific FK handle
+        if (edge.sourceHandle && edge.sourceHandle.startsWith('fk-')) {
+          return edge;
+        }
+        
+        // Find the source fact node
+        const sourceNode = nodes.find(n => n.id === edge.source);
+        if (!sourceNode || sourceNode.type !== 'fact') return edge;
+        
+        // Find the target dimension node
+        const targetNode = nodes.find(n => n.id === edge.target);
+        if (!targetNode || targetNode.type !== 'dimension') return edge;
+        
+        // Get dimension name from target
+        const dimName = (targetNode.data as { name: string }).name;
+        const fkName = `${dimName}_key`;
+        
+        // Check if this FK exists in the fact's dimensionRefs
+        const dimRefs = (sourceNode.data.dimensionRefs || []) as Array<{ foreignKey: string }>;
+        const hasFK = dimRefs.some(ref => ref.foreignKey === fkName);
+        
+        if (hasFK && edge.sourceHandle === 'fact-out') {
+          hasChanges = true;
+          return {
+            ...edge,
+            sourceHandle: `fk-${fkName}`,
+          };
+        }
+        
+        return edge;
+      });
+      
+      return hasChanges ? updatedEdges : currentEdges;
+    });
+  }, [nodes, setEdges]);
+
   // Get position for new nodes
   const getNextNodePosition = useCallback((type: 'dimension' | 'fact'): { x: number; y: number } => {
     const existingNodes = nodes.filter((n) => n.type === type);
@@ -183,20 +225,22 @@ export function App() {
 
       // Create unique edge ID
       const edgeId = `e-${factNode.id}-${dimNode.id}-${Date.now()}`;
+      const skName = `${dimName}_key`;
 
-      // Create edge - use FK-specific handle on fact, dim-in on dimension
+      // Create edge FIRST with general handle (fact-out always exists)
+      // The edge connects fact → dimension visually
       const newEdge: Edge = {
         id: edgeId,
         source: factNode.id,
         target: dimNode.id,
-        sourceHandle: `fk-${fkName}`,
-        targetHandle: 'dim-in',
+        sourceHandle: 'fact-out',          // General handle (always exists)
+        targetHandle: `col-${skName}`,     // SK row handle on dimension
         type: 'smoothstep',
         animated: false,
         style: { strokeWidth: 2 },
       } as Edge;
 
-      // Update fact with dimension reference FIRST (so FK handle exists)
+      // Update fact with dimension reference
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id === factNode!.id) {
@@ -230,7 +274,7 @@ export function App() {
         })
       );
 
-      // Create edge AFTER FK handle exists
+      // Add edge
       setEdges((eds) => addEdge(newEdge, eds));
 
       setIsDirty(true);

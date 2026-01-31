@@ -305,14 +305,14 @@ export function getWebviewContent(
       margin: 10px;
     }
 
-    /* Custom Node Styles - Neutral colors */
+    /* Custom Node Styles - Dynamic width based on content */
     .dimension-node, .fact-node {
       background: var(--vscode-sideBar-background);
       border: 1px solid var(--vscode-panel-border);
       border-radius: 4px;
-      width: 200px;
       min-width: 180px;
-      max-width: 250px;
+      max-width: 350px;
+      width: auto;
       font-size: 12px;
       cursor: grab;
     }
@@ -366,7 +366,7 @@ export function getWebviewContent(
     .node-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       padding: 2px 0;
       font-size: 11px;
     }
@@ -374,20 +374,50 @@ export function getWebviewContent(
     .row-label {
       font-weight: 500;
       opacity: 0.6;
-      min-width: 20px;
+      min-width: 22px;
       font-size: 10px;
+      text-align: center;
     }
+
+    /* Label color coding */
+    .row-label-sk { color: var(--vscode-symbolIcon-keywordForeground); }
+    .row-label-bk { color: var(--vscode-symbolIcon-variableForeground); }
+    .row-label-hk { color: var(--vscode-symbolIcon-classForeground); }
+    .row-label-fk { color: var(--vscode-symbolIcon-referenceForeground); }
+    .row-label-dd { color: var(--vscode-symbolIcon-enumForeground); }
+    .row-label-m { color: var(--vscode-symbolIcon-numberForeground); }
 
     .row-value {
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      min-width: 60px;
+    }
+
+    /* Source info column - shows origin (full model.column) */
+    .row-source {
+      font-size: 9px;
+      opacity: 0.6;
+      white-space: nowrap;
+      font-family: var(--vscode-editor-font-family);
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* FK points to dimension name */
+    .row-source-dim {
+      color: var(--vscode-textLink-foreground);
     }
 
     .row-agg {
       font-size: 9px;
-      opacity: 0.6;
+      opacity: 0.8;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 0 4px;
+      border-radius: 2px;
+      margin-left: 4px;
     }
 
     .node-divider {
@@ -420,11 +450,46 @@ export function getWebviewContent(
       opacity: 1;
     }
 
-    /* Row with handle */
+    /* Header handle - small dot in header for creating new connections */
+    .header-handle-right {
+      right: -4px;
+      top: 14px;
+      width: 8px;
+      height: 8px;
+      background: var(--vscode-button-background);
+      opacity: 0.5;
+    }
+
+    .header-handle-right:hover {
+      opacity: 1;
+    }
+
+    /* Row with handle - positioned relative for absolute handle placement */
     .node-row-with-handle {
       position: relative;
     }
 
+    /* RIGHT side handle (for Fact FK → Dimension) */
+    .row-handle-right {
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+    }
+
+    /* LEFT side handle (for Dimension receiving connections) */
+    .row-handle-left {
+      position: absolute;
+      left: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 6px;
+      height: 6px;
+    }
+
+    /* Legacy: support old .row-handle class */
     .node-row-with-handle .row-handle {
       position: absolute;
       right: -14px;
@@ -748,11 +813,20 @@ export function getWebviewContent(
     }
 
     /* Attributes List */
-    .attributes-list, .measures-list, .dimension-refs-list {
+    .attributes-list, .measures-list, .dimension-refs-list, .dd-list {
       max-height: 200px;
       overflow-y: auto;
       border: 1px solid var(--vscode-input-border);
       border-radius: 4px;
+    }
+
+    .dd-grain-badge {
+      font-size: 9px;
+      padding: 1px 4px;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      border-radius: 3px;
+      margin-left: auto;
     }
 
     .attribute-item, .measure-item, .dim-ref-item {
@@ -766,6 +840,48 @@ export function getWebviewContent(
 
     .attribute-item:last-child, .measure-item:last-child, .dim-ref-item:last-child {
       border-bottom: none;
+    }
+
+    /* Editable attribute/measure items with two rows */
+    .attribute-item-editable, .measure-item-editable {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      font-size: 11px;
+    }
+
+    .attribute-item-editable:last-child, .measure-item-editable:last-child {
+      border-bottom: none;
+    }
+
+    .attr-row-top, .measure-row-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .attr-name-input, .measure-name-input {
+      flex: 1;
+      padding: 4px 6px;
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    .attr-name-input:focus, .measure-name-input:focus {
+      outline: none;
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .attr-source-info, .measure-source-info {
+      font-size: 10px;
+      color: var(--vscode-descriptionForeground);
+      font-family: var(--vscode-editor-font-family);
+      padding-left: 2px;
     }
 
     .attr-name, .measure-name, .ref-fk {

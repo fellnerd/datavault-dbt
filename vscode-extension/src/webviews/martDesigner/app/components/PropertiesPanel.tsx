@@ -130,6 +130,36 @@ export function PropertiesPanel({ node, onUpdate, onClose }: PropertiesPanelProp
     }
   }, [node.id, data, isDimension, onUpdate]);
 
+  // Rename attribute (updates 'name' field, keeps sourceColumn intact)
+  const handleRenameAttribute = useCallback((index: number, newName: string) => {
+    if (isDimension) {
+      const dimData = data as DimensionData;
+      const newAttributes = [...dimData.attributes];
+      newAttributes[index] = { ...newAttributes[index], name: newName };
+      onUpdate(node.id, { attributes: newAttributes });
+    }
+  }, [node.id, data, isDimension, onUpdate]);
+
+  // Rename measure (updates 'name' field, keeps sourceColumn intact)
+  const handleRenameMeasure = useCallback((index: number, newName: string) => {
+    if (!isDimension) {
+      const factData = data as FactData;
+      const newMeasures = [...factData.measures];
+      newMeasures[index] = { ...newMeasures[index], name: newName };
+      onUpdate(node.id, { measures: newMeasures });
+    }
+  }, [node.id, data, isDimension, onUpdate]);
+
+  // Rename degenerate dimension
+  const handleRenameDegenerateDim = useCallback((index: number, newName: string) => {
+    if (!isDimension) {
+      const factData = data as FactData;
+      const newDDs = [...factData.degenerateDimensions];
+      newDDs[index] = { ...newDDs[index], name: newName };
+      onUpdate(node.id, { degenerateDimensions: newDDs });
+    }
+  }, [node.id, data, isDimension, onUpdate]);
+
   // Stop keyboard events from propagating to ReactFlow (so inputs work)
   const stopKeyboardPropagation = (e: React.KeyboardEvent) => {
     e.stopPropagation();
@@ -284,16 +314,26 @@ export function PropertiesPanel({ node, onUpdate, onClose }: PropertiesPanelProp
               </h4>
               <div className="attributes-list">
                 {(data as DimensionData).attributes.map((attr, index) => (
-                  <div key={`${attr.name}-${index}`} className="attribute-item">
-                    <span className="attr-name">{attr.name}</span>
-                    <span className="attr-source">{attr.sourceModel}</span>
-                    <button
-                      className="remove-btn"
-                      onClick={() => handleRemoveAttribute(index)}
-                      title="Remove attribute"
-                    >
-                      ×
-                    </button>
+                  <div key={`${attr.sourceColumn}-${index}`} className="attribute-item-editable">
+                    <div className="attr-row-top">
+                      <input
+                        type="text"
+                        value={attr.name}
+                        onChange={(e) => handleRenameAttribute(index, e.target.value)}
+                        className="attr-name-input"
+                        title="Column name in dimension (rename here)"
+                      />
+                      <button
+                        className="remove-btn"
+                        onClick={() => handleRemoveAttribute(index)}
+                        title="Remove attribute"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="attr-source-info">
+                      ← {attr.sourceModel}.{attr.sourceColumn}
+                    </div>
                   </div>
                 ))}
                 {(data as DimensionData).attributes.length === 0 && (
@@ -386,6 +426,36 @@ export function PropertiesPanel({ node, onUpdate, onClose }: PropertiesPanelProp
               </div>
             </div>
 
+            {/* Degenerate Dimensions */}
+            {(data as FactData).degenerateDimensions.length > 0 && (
+              <div className="property-section">
+                <h4 className="section-title">
+                  Degenerate Dimensions ({(data as FactData).degenerateDimensions.length})
+                </h4>
+                <div className="dd-list">
+                  {(data as FactData).degenerateDimensions.map((dd, index) => (
+                    <div key={`${dd.sourceColumn}-${index}`} className="attribute-item-editable">
+                      <div className="attr-row-top">
+                        <input
+                          type="text"
+                          value={dd.name}
+                          onChange={(e) => handleRenameDegenerateDim(index, e.target.value)}
+                          className="attr-name-input"
+                          title="Column name (rename here)"
+                        />
+                        <span className="dd-grain-badge">
+                          {dd.isPartOfGrain ? 'GRAIN' : ''}
+                        </span>
+                      </div>
+                      <div className="attr-source-info">
+                        ← {dd.sourceModel}.{dd.sourceColumn}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Measures */}
             <div className="property-section">
               <h4 className="section-title">
@@ -393,27 +463,38 @@ export function PropertiesPanel({ node, onUpdate, onClose }: PropertiesPanelProp
               </h4>
               <div className="measures-list">
                 {(data as FactData).measures.map((measure, index) => (
-                  <div key={`${measure.name}-${index}`} className="measure-item">
-                    <span className="measure-name">{measure.name}</span>
-                    <select
-                      value={measure.aggregation || 'SUM'}
-                      onChange={(e) => handleUpdateMeasureAggregation(index, e.target.value)}
-                      className="measure-agg-select"
-                    >
-                      <option value="SUM">SUM</option>
-                      <option value="COUNT">COUNT</option>
-                      <option value="AVG">AVG</option>
-                      <option value="MIN">MIN</option>
-                      <option value="MAX">MAX</option>
-                      <option value="NONE">NONE</option>
-                    </select>
-                    <button
-                      className="remove-btn"
-                      onClick={() => handleRemoveMeasure(index)}
-                      title="Remove measure"
-                    >
-                      ×
-                    </button>
+                  <div key={`${measure.sourceColumn}-${index}`} className="measure-item-editable">
+                    <div className="measure-row-top">
+                      <input
+                        type="text"
+                        value={measure.name}
+                        onChange={(e) => handleRenameMeasure(index, e.target.value)}
+                        className="measure-name-input"
+                        title="Column name in fact (rename here)"
+                      />
+                      <select
+                        value={measure.aggregation || 'SUM'}
+                        onChange={(e) => handleUpdateMeasureAggregation(index, e.target.value)}
+                        className="measure-agg-select"
+                      >
+                        <option value="SUM">SUM</option>
+                        <option value="COUNT">COUNT</option>
+                        <option value="AVG">AVG</option>
+                        <option value="MIN">MIN</option>
+                        <option value="MAX">MAX</option>
+                        <option value="NONE">NONE</option>
+                      </select>
+                      <button
+                        className="remove-btn"
+                        onClick={() => handleRemoveMeasure(index)}
+                        title="Remove measure"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="measure-source-info">
+                      ← {measure.sourceModel}.{measure.sourceColumn}
+                    </div>
                   </div>
                 ))}
                 {(data as FactData).measures.length === 0 && (
