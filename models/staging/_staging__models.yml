@@ -175,7 +175,7 @@ models:
       - name: dss_run_id
         description: dbt run identifier
   - name: adworks_produkt
-    description: Staging view for produkt from adworks
+    description: Staging view for produkt Split-Satellite (feeds adworks.hub_produkt)
     config:
       meta:
         entity_type: standard
@@ -183,6 +183,7 @@ models:
         external_table: ext_adventureworks_saleslt_product
         business_keys:
           - PRODUCTID
+        split_satellite_target_hub: adworks.hub_produkt
     columns:
       - name: hk_produkt
         description: Hash Key (Primary Key)
@@ -203,11 +204,11 @@ models:
         description: Payload attribute
       - name: productnumber
         description: Payload attribute
-      - name: color
-        description: Payload attribute
       - name: size
         description: Payload attribute
       - name: weight
+        description: Payload attribute
+      - name: productmodelid
         description: Payload attribute
       - name: modifieddate
         description: Payload attribute
@@ -348,6 +349,69 @@ models:
       - name: totaldue
         description: Payload attribute
       - name: comment
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_verkauf_detail
+    description: Staging view for verkauf_detail from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_salesorderdetail
+        foreign_keys:
+          - column: salesorderid
+            target_entity: verkauf
+            target_hub: adworks.hub_verkauf
+          - column: productid
+            target_entity: produkt
+            target_hub: adworks.hub_produkt
+        dependent_child_keys:
+          adworks.hub_verkauf:
+            - salesorderdetailid
+    columns:
+      - name: hk_verkauf_detail
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_verkauf
+        description: Foreign Key to hub_verkauf
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_produkt
+        description: Foreign Key to hub_produkt
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_verkauf_detail
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: salesorderdetailid
+        description: Payload attribute
+      - name: orderqty
+        description: Payload attribute
+      - name: unitprice
+        description: Payload attribute
+      - name: unitpricediscount
+        description: Payload attribute
+      - name: linetotal
         description: Payload attribute
       - name: modifieddate
         description: Payload attribute

@@ -284,6 +284,10 @@ export interface StagingConfig {
   // Generates combined hk_link with all FK hashes
   isPureLinkEntity?: boolean;
   
+  // Pure Dependent Child: Entity with no own BK, identified by FKs + DCK
+  // When true with 2+ FKs: Generates ONE combined DC Link + DC Satellite
+  isPureDependentChild?: boolean;
+  
   // Split-Satellite: Points to existing Hub instead of creating new one
   // Value: hub name (e.g., 'hub_product') - uses that hub's hash key
   // When set: No Hub generated, Satellite uses target hub's hk_<entity>

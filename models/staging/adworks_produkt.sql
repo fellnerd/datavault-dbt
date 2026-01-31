@@ -3,15 +3,16 @@
  *
  * Source: ext_adventureworks_saleslt_product
  * Business Key: PRODUCTID
+ * Split-Satellite Target: adworks.hub_produkt
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
  * Hash Keys calculated here (automate_dv pattern):
- *   - hk_produkt (Entity Hash Key)
+ *   - hk_produkt (Split-Satellite Hash Key - points to adworks.hub_produkt)
  */
 
 {%- set hashdiff_columns = [
-    'color',
     'name',
+    'productmodelid',
     'productnumber',
     'size',
     'weight'
@@ -52,9 +53,9 @@ staged AS (
         -- ===========================================
         name,
         productnumber,
-        color,
         size,
         weight,
+        productmodelid,
         modifieddate,
 
         -- ===========================================

@@ -40,6 +40,7 @@ export function generateStagingSql(config: StagingConfig): string {
     dependentChildKeys,
     multiActiveKeys,
     isPureLinkEntity,
+    isPureDependentChild,
     splitSatelliteTargetHub
   } = config;
 
@@ -221,6 +222,7 @@ export function generateStagingSql(config: StagingConfig): string {
   // ============================================
   // LINK HASH KEYS
   // Pure Link Entity: ONE combined hash from all FK columns
+  // Pure DC (multiple FKs): ONE combined hash from all FKs + DCK
   // Standard: One link hash per FK (hk_source + hk_target)
   // ============================================
   if (foreignKeys && foreignKeys.length > 0) {
@@ -235,6 +237,14 @@ export function generateStagingSql(config: StagingConfig): string {
       const fkColumns = foreignKeys.map(fk => fk.sourceColumn);
       lines.push(`        -- Pure Link Entity: Combined hash from all FKs`);
       lines.push(generatePureLinkHashKey(linkName, fkColumns, businessKeySeparator));
+    } else if (isPureDependentChild && foreignKeys.length >= 2 && dependentChildKeys) {
+      // Pure DC with multiple FKs: ONE combined link hash from all FKs + DCK columns
+      const linkName = `link_${entityName}`;
+      const fkColumns = foreignKeys.map(fk => fk.sourceColumn);
+      // Collect all DCK columns (from all target hubs)
+      const allDCKs = Object.values(dependentChildKeys).flat();
+      lines.push(`        -- DC Link: Combined hash from all FKs + DCK columns`);
+      lines.push(generateDCLinkHashKey(linkName, fkColumns, allDCKs, businessKeySeparator));
     } else {
       // Standard: One link hash per FK
       // First, count FKs per target hub to detect duplicates
@@ -298,7 +308,8 @@ export function generateStagingSql(config: StagingConfig): string {
       lines.push('        -- HASH DIFF (Change Detection - Link Satellite)');
       lines.push('        -- ===========================================');
       lines.push(generateHashDiffForLinkSat(linkSatName, sortedHashDiffColumns, hashDiffSeparator));
-    } else {
+    } else if (!isPureDependentChild) {
+      // Standard Satellite (skip if Pure DC - will be handled in DC section)
       lines.push('        -- ===========================================');
       lines.push('        -- HASH DIFF (Change Detection - Satellite)');
       lines.push('        -- ===========================================');
@@ -315,16 +326,31 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('        -- HASH DIFF (DC Satellites)');
     lines.push('        -- ===========================================');
     
-    for (const [targetHub, dcks] of Object.entries(dependentChildKeys)) {
-      const targetEntity = targetHub.replace('hub_', '').replace(/^.*\./, '');
-      const dcSatName = `${entityName}_${targetEntity}_dc`;
+    if (isPureDependentChild && foreignKeys && foreignKeys.length >= 2) {
+      // Pure DC with multiple FKs: ONE combined DC Sat hash diff
+      const dcSatName = `${entityName}_dc`;
+      // Collect all DCK columns
+      const allDCKs = Object.values(dependentChildKeys).flat();
       // DC Sat hash diff = DCK + payload (deduplicated and alphabetically sorted)
-      const allColumns = [...dcks, ...sortedHashDiffColumns];
+      const allColumns = [...allDCKs, ...sortedHashDiffColumns];
       const uniqueColumns = [...new Set(allColumns)]; // Remove duplicates
       const dcHashDiffColumns = uniqueColumns.sort((a, b) => 
         a.toLowerCase().localeCompare(b.toLowerCase())
       );
       lines.push(generateHashDiffForDC(dcSatName, dcHashDiffColumns, hashDiffSeparator));
+    } else {
+      // Standard DC: One DC Sat per target hub
+      for (const [targetHub, dcks] of Object.entries(dependentChildKeys)) {
+        const targetEntity = targetHub.replace('hub_', '').replace(/^.*\./, '');
+        const dcSatName = `${entityName}_${targetEntity}_dc`;
+        // DC Sat hash diff = DCK + payload (deduplicated and alphabetically sorted)
+        const allColumns = [...dcks, ...sortedHashDiffColumns];
+        const uniqueColumns = [...new Set(allColumns)]; // Remove duplicates
+        const dcHashDiffColumns = uniqueColumns.sort((a, b) => 
+          a.toLowerCase().localeCompare(b.toLowerCase())
+        );
+        lines.push(generateHashDiffForDC(dcSatName, dcHashDiffColumns, hashDiffSeparator));
+      }
     }
     lines.push('');
   }
@@ -545,6 +571,31 @@ function generatePureLinkHashKey(
   );
   
   const parts = sortedFkColumns.map(col => `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`);
+  const concatExpr = parts.join(` + '${separator}' + `);
+  
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', ${concatExpr}), 2) AS hk_${linkName},`;
+}
+
+/**
+ * Generate DC Link Hash Key for Dependent Child with multiple FKs
+ * Hash of all FK columns + DCK columns combined
+ * Pattern: hk_link_<entity> = HASH(fk1 ^^ fk2 ^^ dck1 ^^ dck2)
+ * 
+ * Unlike Pure Link Entity, DC Link includes DCK columns in the hash
+ * because DCK is what makes each record unique within the link relationship.
+ */
+function generateDCLinkHashKey(
+  linkName: string, 
+  fkColumns: string[], 
+  dckColumns: string[],
+  separator: string
+): string {
+  // Combine FK and DCK columns, sort alphabetically for consistent hashing
+  const allColumns = [...fkColumns, ...dckColumns].sort((a, b) => 
+    a.toLowerCase().localeCompare(b.toLowerCase())
+  );
+  
+  const parts = allColumns.map(col => `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`);
   const concatExpr = parts.join(` + '${separator}' + `);
   
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', ${concatExpr}), 2) AS hk_${linkName},`;

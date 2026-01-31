@@ -256,10 +256,30 @@ export class EntityDesignerProvider {
     // Load base staging columns for Lambda Vault comparison
     const baseStagingColumns = await this.loadBaseStagingColumns(concept, entityName);
 
+    // Determine which columns to send:
+    // If savedConfig has columns, use those as the PRIMARY source (user's saved config is truth)
+    // Only fall back to externalTable.columns if no saved config exists
+    let columnsToSend = externalTable.columns;
+    
+    if (savedConfig && savedConfig.columns.length > 0) {
+      // Build dataType map from externalTable for enrichment
+      const extDataTypeMap = new Map(
+        externalTable.columns.map(c => [c.name.toLowerCase(), c.dataType])
+      );
+      
+      // Convert saved config columns to ColumnInfo format
+      columnsToSend = savedConfig.columns.map(sc => ({
+        name: sc.sourceName || sc.name,
+        dataType: extDataTypeMap.get((sc.sourceName || sc.name).toLowerCase()) || sc.dataType || 'NVARCHAR(MAX)'
+      }));
+      
+      console.log(`[Entity Designer] Using saved config columns (${columnsToSend.length}) instead of externalTable columns (${externalTable.columns.length})`);
+    }
+
     const initMessage: WebviewInitMessage = {
       type: 'init',
       data: {
-        columns: externalTable.columns,
+        columns: columnsToSend,
         existingHubs: this._existingHubs,
         concept,
         entityName,

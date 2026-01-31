@@ -651,7 +651,84 @@ export const App: React.FC = () => {
           console.log('[Entity Designer] Restoring saved column configuration, saved columns:', data.savedColumns?.length);
         }
         
-        // Convert columns - use saved config if available, otherwise auto-detect
+        // If we have saved columns, use them as the PRIMARY source
+        // This ensures all configured columns are shown, even if the staging model YAML is out of sync
+        if (data.savedColumns && data.savedColumns.length > 0) {
+          console.log('[Entity Designer] Using saved config as primary source');
+          
+          // Build a map of source columns for dataType lookup
+          const sourceColumnMap = new Map(filteredColumns.map(c => [c.name.toLowerCase(), c]));
+          
+          const configuredColumns: ColumnConfig[] = data.savedColumns
+            .filter(saved => 
+              !saved.name.toLowerCase().startsWith('hk_') && 
+              !saved.name.toLowerCase().startsWith('hd_')
+            )
+            .map((saved, index) => {
+              // Get source column for dataType (if available)
+              const sourceCol = sourceColumnMap.get((saved.sourceName || saved.name).toLowerCase());
+              const sourceDataType = sourceCol?.dataType || saved.dataType || 'NVARCHAR(MAX)';
+              
+              // Map columnType
+              let target: DataVaultTarget = 'satellite';
+              if (saved.columnType === 'business_key' || saved.columnType === 'hub') {
+                target = 'hub';
+              } else if (saved.columnType === 'attribute' || saved.columnType === 'satellite') {
+                target = 'satellite';
+              } else if (saved.columnType === 'foreign_key' || saved.columnType === 'link') {
+                target = 'link';
+              } else if (saved.columnType === 'dependent_child') {
+                target = 'dependent_child';
+              } else if (saved.columnType === 'multi_active') {
+                target = 'multi_active';
+              } else if (saved.columnType === 'metadata') {
+                target = 'metadata';
+              } else if (saved.columnType === 'ignore') {
+                target = 'ignore';
+              }
+              
+              const additionalTypes = saved.additionalTypes as DataVaultTarget[] | undefined;
+              const isSatelliteType = target === 'satellite' || additionalTypes?.includes('satellite');
+              const includeInHashDiff = saved.includeInHashDiff !== undefined ? saved.includeInHashDiff : isSatelliteType;
+              
+              return {
+                name: saved.sourceName || saved.name,
+                sourceName: saved.sourceName || saved.name,
+                alias: saved.name,
+                dataType: sourceDataType,
+                columnType: target,
+                additionalTypes,
+                includeInHashDiff,
+                foreignKeyTarget: saved.foreignKeyTarget,
+                hubTarget: saved.hubTarget,
+                dependentChildForLink: saved.dependentChildForLink,
+                multiActiveSequence: saved.multiActiveSequence,
+                nullable: saved.nullable ?? true,
+                position: index,
+              };
+            });
+          
+          setColumns(configuredColumns);
+          
+          // Restore Lambda Vault settings
+          if (data.lambdaVault?.enabled) {
+            setLambdaVaultEnabled(true);
+            setDeltaStagingModel(data.lambdaVault.deltaStagingModel || '');
+          }
+          
+          // Restore available staging models
+          if (data.availableStagingModels) {
+            setAvailableStagingModels(data.availableStagingModels);
+          }
+          
+          if (data.baseStagingColumns) {
+            setBaseStagingColumns(data.baseStagingColumns);
+          }
+          
+          return; // Exit early - we've loaded from saved config
+        }
+        
+        // No saved config - convert columns from source with auto-detection
         // IMPORTANT: dataType from sources.yml (col.dataType) is the Single Source of Truth
         // Only use saved dataType if it was explicitly changed by user (different from source)
         const configuredColumns: ColumnConfig[] = filteredColumns.map((col, index) => {

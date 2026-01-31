@@ -138,6 +138,7 @@ export async function generateDataVaultObjects(
       projectPath,
       config.sourceType,
       isPureLinkEntity,
+      isPureDependentChild,
       splitSatelliteTargetHub
     );
     generatedFiles.push(stagingFile);
@@ -173,6 +174,11 @@ export async function generateDataVaultObjects(
         // Pure Link Entity: Generate ONE combined link connecting all FKs
         const pureLinkFile = await generatePureLink(config, foreignKeys, projectPath);
         generatedFiles.push(pureLinkFile);
+      } else if (isPureDependentChild && foreignKeys.length >= 2) {
+        // Pure DC with multiple FKs: Generate ONE combined link (like Pure Link)
+        // but with DCK in the link hash calculation (in staging)
+        const dcLinkFile = await generateDCLink(config, foreignKeys, dependentChildKeys, projectPath);
+        generatedFiles.push(dcLinkFile);
       } else {
         // Standard: Generate one link per FK
         for (const fk of foreignKeys) {
@@ -192,29 +198,41 @@ export async function generateDataVaultObjects(
 
     // Generate Dependent Child Satellites using automate_dv.sat macro with DCK in payload
     if (effectiveTargets.includes('dc_satellite') && dependentChildKeys.length > 0) {
-      // Group DCKs by their target link
-      const dcksByLink = new Map<string, DesignerColumnDefinition[]>();
-      for (const dck of dependentChildKeys) {
-        if (dck.dependentChildForLink) {
-          const existing = dcksByLink.get(dck.dependentChildForLink) || [];
-          existing.push(dck);
-          dcksByLink.set(dck.dependentChildForLink, existing);
+      if (isPureDependentChild && foreignKeys.length >= 2) {
+        // Pure DC with multiple FKs: ONE DC Satellite on the combined link
+        const dcSatFile = await generateCombinedDCSatellite(
+          config,
+          foreignKeys,
+          dependentChildKeys,
+          attributes,
+          projectPath
+        );
+        generatedFiles.push(dcSatFile);
+      } else {
+        // Group DCKs by their target link
+        const dcksByLink = new Map<string, DesignerColumnDefinition[]>();
+        for (const dck of dependentChildKeys) {
+          if (dck.dependentChildForLink) {
+            const existing = dcksByLink.get(dck.dependentChildForLink) || [];
+            existing.push(dck);
+            dcksByLink.set(dck.dependentChildForLink, existing);
+          }
         }
-      }
 
-      // Generate DC Sat for each link with DCKs
-      for (const [targetHub, dcks] of dcksByLink) {
-        // Find the link FK column for this hub
-        const linkedFK = foreignKeys.find(fk => fk.foreignKeyTarget === targetHub);
-        if (linkedFK) {
-          const dcSatFile = await generateDependentChildSatellite(
-            config, 
-            linkedFK, 
-            dcks, 
-            attributes, 
-            projectPath
-          );
-          generatedFiles.push(dcSatFile);
+        // Generate DC Sat for each link with DCKs
+        for (const [targetHub, dcks] of dcksByLink) {
+          // Find the link FK column for this hub
+          const linkedFK = foreignKeys.find(fk => fk.foreignKeyTarget === targetHub);
+          if (linkedFK) {
+            const dcSatFile = await generateDependentChildSatellite(
+              config, 
+              linkedFK, 
+              dcks, 
+              attributes, 
+              projectPath
+            );
+            generatedFiles.push(dcSatFile);
+          }
         }
       }
     }
@@ -267,6 +285,7 @@ async function generateStaging(
   projectPath: string,
   sourceType?: SourceType,
   isPureLinkEntity?: boolean,
+  isPureDependentChild?: boolean,
   splitSatelliteTargetHub?: string
 ): Promise<GeneratedFile> {
   const { concept, entityName, sourceTable } = config;
@@ -366,6 +385,7 @@ async function generateStaging(
     dependentChildKeys: Object.keys(dckByHub).length > 0 ? dckByHub : undefined,
     multiActiveKeys: multiActiveKeys.length > 0 ? multiActiveKeys.map(m => m.name.toLowerCase()) : undefined,
     isPureLinkEntity: isPureLinkEntity,
+    isPureDependentChild: isPureDependentChild,
     // Split-Satellite: use target hub's entity name for hash key
     splitSatelliteTargetHub: splitSatelliteTargetHub
   };
@@ -1128,6 +1148,216 @@ src_source: "dss_record_source"
   await fs.writeFile(filePath, sql, 'utf-8');
 
   return { path: filePath, content: sql, type: 'link' };
+}
+
+/**
+ * Generate DC Link SQL file for Dependent Child Entities with multiple FKs
+ * 
+ * A DC Link connects multiple Hubs (like Pure Link) but represents a dependent child.
+ * The Link Hash Key = HASH(all FKs + DCK columns)
+ * 
+ * Example: salesorderdetail has SalesOrderID + ProductID + SalesOrderDetailID (DCK)
+ * 
+ * Naming convention: link_<entity> (e.g., link_salesorderdetail)
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_links/
+ */
+async function generateDCLink(
+  config: EntityDesignConfig,
+  foreignKeys: DesignerColumnDefinition[],
+  dependentChildKeys: DesignerColumnDefinition[],
+  projectPath: string
+): Promise<GeneratedFile> {
+  const { concept, entityName } = config;
+  
+  // Build target entities from FKs
+  const targetEntities = foreignKeys.map(fk => {
+    const targetHubFull = fk.foreignKeyTarget!;
+    let targetHub: string;
+    if (targetHubFull.includes('.')) {
+      [, targetHub] = targetHubFull.split('.');
+    } else {
+      targetHub = targetHubFull;
+    }
+    return targetHub.replace('hub_', '');
+  });
+  
+  // Link name: link_<entityName> for DC (e.g., link_salesorderdetail)
+  const linkName = `link_${entityName}`;
+  const linkHashKey = `hk_${linkName}`;
+  const stagingRef = `${concept}_${entityName}`;
+
+  // Build src_fk list - one hash key per FK (referencing existing Hubs)
+  const fkHashKeys = targetEntities.map(entity => `hk_${entity}`);
+  const fkConfig = fkHashKeys.length === 1
+    ? `"${fkHashKeys[0]}"`
+    : `\n    - "${fkHashKeys.join('"\n    - "')}"`;
+  
+  const dckNames = dependentChildKeys.map(d => d.name).join(', ');
+
+  const sql = `{#
+    DC Link (Dependent Child): ${linkName}
+    Connects: ${targetEntities.map(e => 'hub_' + e).join(', ')}
+    DCK Columns: ${dckNames}
+    Source: ${stagingRef}
+    
+    A Dependent Child Link connects multiple Hubs but represents
+    an entity that has no own Business Key (e.g., order line items).
+    
+    The Link Hash Key = HASH(all FKs + DCK columns) - calculated in staging.
+    The actual DCK values are stored in the DC Satellite.
+    
+    Generated by Entity Designer using automate_dv.link macro
+    @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_links/
+#}
+
+{{ config(
+    materialized='incremental',
+    as_columnstore=false,
+    post_hook=[
+        "{{ create_hash_index('${linkHashKey}') }}"
+    ]
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "${stagingRef}"
+src_pk: "${linkHashKey}"
+src_fk: ${fkConfig}
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.link(
+    src_pk=metadata_dict["src_pk"],
+    src_fk=metadata_dict["src_fk"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+`;
+
+  const filePath = path.join(
+    projectPath,
+    'models',
+    'raw_vault',
+    concept,
+    'links',
+    `${linkName}.sql`
+  );
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  
+  // Write file
+  await fs.writeFile(filePath, sql, 'utf-8');
+
+  return { path: filePath, content: sql, type: 'link' };
+}
+
+/**
+ * Generate Combined DC Satellite SQL file for Dependent Child Entities with multiple FKs
+ * 
+ * A DC Satellite sits on a DC Link and stores the DCK values plus attributes.
+ * 
+ * Naming convention: sat_<entity>_dc (e.g., sat_salesorderdetail_dc)
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_dep_child/
+ */
+async function generateCombinedDCSatellite(
+  config: EntityDesignConfig,
+  foreignKeys: DesignerColumnDefinition[],
+  dependentChildKeys: DesignerColumnDefinition[],
+  attributes: DesignerColumnDefinition[],
+  projectPath: string
+): Promise<GeneratedFile> {
+  const { concept, entityName } = config;
+  
+  const linkName = `link_${entityName}`;
+  const dcSatName = `sat_${entityName}_dc`;
+  const linkHashKey = `hk_${linkName}`;
+  const hashDiffName = `hd_${entityName}_dc`;
+  const stagingRef = `${concept}_${entityName}`;
+
+  // DCKs become part of the payload for DC Satellites
+  const dckPayload = dependentChildKeys.map(dck => `"${dck.name.toLowerCase()}"`);
+  
+  // Combine DCKs with regular attributes for payload
+  const attrPayload = attributes.map(a => `"${a.name.toLowerCase()}"`);
+  const allPayload = [...dckPayload, ...attrPayload];
+  const payloadConfig = allPayload.length === 1
+    ? allPayload[0]
+    : `\n    - ${allPayload.join('\n    - ')}`;
+  
+  const dckNames = dependentChildKeys.map(d => d.name).join(', ');
+  const attrNames = attributes.map(a => a.name).join(', ');
+
+  const sql = `{#
+    Dependent Child Satellite: ${dcSatName}
+    Parent Link: ${linkName}
+    DCK Columns: ${dckNames}
+    Payload: ${[...dependentChildKeys, ...attributes].map(a => a.name).join(', ')}
+    Source: ${stagingRef}
+    
+    A Dependent Child Satellite tracks changes to link relationships
+    that require additional keys (DCKs) for uniqueness.
+    The Link Hash Key includes DCK columns (calculated in staging).
+    
+    Generated by Entity Designer using automate_dv.sat macro
+    @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_dep_child/
+#}
+
+{{ config(
+    materialized='incremental',
+    as_columnstore=false,
+    post_hook=[
+        "{{ create_hash_index('${linkHashKey}') }}",
+        "{{ update_satellite_current_flag(this, '${linkHashKey}') }}"
+    ]
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "${stagingRef}"
+src_pk: "${linkHashKey}"
+src_hashdiff: 
+  source_column: "${hashDiffName}"
+  alias: "hashdiff"
+src_payload: ${payloadConfig}
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.sat(
+    src_pk=metadata_dict["src_pk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+`;
+
+  const filePath = path.join(
+    projectPath,
+    'models',
+    'raw_vault',
+    concept,
+    'satellites',
+    `${dcSatName}.sql`
+  );
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  
+  // Write file
+  await fs.writeFile(filePath, sql, 'utf-8');
+
+  return { path: filePath, content: sql, type: 'dc_satellite' };
 }
 
 /**
