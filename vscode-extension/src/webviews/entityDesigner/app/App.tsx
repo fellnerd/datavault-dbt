@@ -451,9 +451,14 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
   // Check if this is a pure Dependent Child entity (no own Hub, only DC Sat)
   const isPureDependentChild = dcCols.length > 0 && hubCols.length === 0 && linkCols.length > 0;
   
+  // Check if this is a Pure Link Entity (Intersection/Bridge Table)
+  // No own Hub, 2+ FKs to existing Hubs, no DCK
+  const isPureLinkEntity = linkCols.length >= 2 && hubCols.length === 0 && dcCols.length === 0;
+  
   // DV Rule 1: At least one Business Key required (affects Hub + Satellite)
   // Exception: Pure Dependent Child entities don't need a BK (they have no Hub)
-  if (hubCols.length === 0 && !isPureDependentChild) {
+  // Exception: Pure Link Entities (Intersection Tables) don't need a BK
+  if (hubCols.length === 0 && !isPureDependentChild && !isPureLinkEntity) {
     errors.push({
       type: 'error',
       message: 'At least one Business Key (Hub) column is required',
@@ -574,6 +579,7 @@ export const App: React.FC = () => {
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [entityName, setEntityName] = useState('');
+  const [concept, setConcept] = useState('');
   const [existingHubs, setExistingHubs] = useState<string[]>([]);
 
   // Lambda Vault state
@@ -606,6 +612,7 @@ export const App: React.FC = () => {
         }> };
         setInitData(data);
         setEntityName(data.entityName);
+        setConcept(data.concept);
         setExistingHubs(data.existingHubs || []);
         
         // Filter out hash columns (hk_*, hd_*) - these are auto-generated
@@ -761,13 +768,14 @@ export const App: React.FC = () => {
         type: 'saveConfig',
         columns: savedColumns,
         entityName: entityName,  // Include entityName for renaming support
+        concept: concept,        // Include concept for target folder
         lambdaVault
       });
       console.log('[Entity Designer] Config auto-saved');
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [columns, entityName, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, vscode]);
+  }, [columns, entityName, concept, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, vscode]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -907,6 +915,14 @@ export const App: React.FC = () => {
       <div style={styles.header}>
         <h1 style={styles.headerTitle}>Entity Designer</h1>
         <div style={styles.headerInfo}>
+          <span><strong>Concept:</strong></span>
+          <input
+            type="text"
+            value={concept}
+            onChange={(e) => setConcept(e.target.value)}
+            style={{ ...styles.input, width: '120px', display: 'inline-block' }}
+          />
+          <span>|</span>
           <span><strong>Entity:</strong></span>
           <input
             type="text"
@@ -914,8 +930,6 @@ export const App: React.FC = () => {
             onChange={(e) => setEntityName(e.target.value)}
             style={{ ...styles.input, width: '140px', display: 'inline-block' }}
           />
-          <span>|</span>
-          <span><strong>Concept:</strong> {initData?.concept}</span>
           <span>|</span>
           <span><strong>Source:</strong> {initData?.sourceTable}</span>
           <span>|</span>
@@ -1165,6 +1179,27 @@ export const App: React.FC = () => {
                   <option value="ignore">🚫 Ignore</option>
                 </select>
               </div>
+
+              {/* Satellite-specific: Include in Hash Diff */}
+              {selectedColumn.columnType === 'satellite' && (
+                <div style={styles.propertyRow}>
+                  <span style={styles.propertyLabel}>Hash Diff:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedColumn.includeInHashDiff ?? true}
+                      onChange={(e) => updateColumn(selectedIndex!, { includeInHashDiff: e.target.checked })}
+                      style={styles.checkbox}
+                    />
+                    <span style={{ fontSize: '11px', color: colors.textMuted }}>
+                      Include in Hash Diff (hd_{entityName})
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    Unchecked = column is in Satellite payload but changes won't trigger new record
+                  </div>
+                </div>
+              )}
 
               {/* Link-specific: Target Hub */}
               {selectedColumn.columnType === 'link' && (

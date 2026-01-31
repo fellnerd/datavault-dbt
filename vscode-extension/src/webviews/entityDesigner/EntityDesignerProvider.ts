@@ -313,7 +313,12 @@ export class EntityDesignerProvider {
         await this.handleGenerate(message.target);
         break;
       case 'saveConfig':
-        await this.handleSaveConfig(message.columns, message.entityName, (message as WebviewSaveConfigMessage).lambdaVault);
+        await this.handleSaveConfig(
+          message.columns, 
+          message.entityName, 
+          (message as WebviewSaveConfigMessage).lambdaVault,
+          (message as any).concept
+        );
         break;
       // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
       case 'update':
@@ -325,10 +330,16 @@ export class EntityDesignerProvider {
   /**
    * Save config to JSON file (Config-First: JSON is Single Source of Truth)
    */
-  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig): Promise<void> {
+  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string): Promise<void> {
     if (!this._projectPath || !this._currentEntity) {
       console.error('[Entity Designer] Cannot save config: missing project path or entity context');
       return;
+    }
+
+    // Update concept if provided (user changed target concept/folder)
+    if (concept && concept !== this._currentEntity.concept) {
+      console.log(`[Entity Designer] Concept changed: ${this._currentEntity.concept} -> ${concept}`);
+      this._currentEntity.concept = concept;
     }
 
     // Update entity name if provided (user renamed the entity)

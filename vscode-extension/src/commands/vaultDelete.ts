@@ -334,3 +334,174 @@ export async function deleteBusinessVaultModel(
     vscode.window.showErrorMessage(`Failed to delete model: ${errorMessage}`);
   }
 }
+
+/**
+ * Delete an entire entity including:
+ * - Staging SQL model
+ * - Staging YAML entry
+ * - All Raw Vault models (Hub, Satellite, Links)
+ * - Raw Vault YAML entries
+ * - Entity Designer JSON config
+ * 
+ * Called from Staging view context menu
+ */
+export async function deleteEntity(
+  treeItem: TreeItemData | undefined,
+  context: VaultDeleteContext
+): Promise<void> {
+  const { projectPath, refreshProject, getCurrentMetadata, log } = context;
+
+  const model: DbtModel | undefined = treeItem?.model;
+  if (!model || model.layer !== 'staging') {
+    vscode.window.showErrorMessage('Please select a Staging model to delete the entity');
+    return;
+  }
+
+  if (!projectPath) {
+    vscode.window.showErrorMessage('No dbt project found');
+    return;
+  }
+
+  const metadata = getCurrentMetadata();
+  if (!metadata) {
+    vscode.window.showErrorMessage('Project metadata not loaded');
+    return;
+  }
+
+  // Extract concept and entity name from staging model
+  // Staging model name format: <concept>_<entity> (e.g., "adworks_kunde")
+  const stagingName = model.name;
+  const concept = model.concept || stagingName.split('_')[0];
+  const entityName = stagingName.replace(`${concept}_`, '');
+
+  log(`Preparing to delete entity: ${entityName} (concept: ${concept})`);
+
+  // Collect all files to delete
+  const filesToDelete: { path: string; type: string }[] = [];
+  const yamlUpdates: { model: DbtModel; type: string }[] = [];
+
+  // 1. Staging SQL
+  if (fs.existsSync(model.filePath)) {
+    filesToDelete.push({ path: model.filePath, type: 'Staging SQL' });
+  }
+  yamlUpdates.push({ model, type: 'Staging YAML' });
+
+  // 2. Find Raw Vault models for this entity
+  const rawVaultModels = metadata.models.filter(m => 
+    m.layer === 'raw_vault' && 
+    m.concept === concept
+  );
+
+  // Hub
+  const hub = rawVaultModels.find(m => m.name === `hub_${entityName}`);
+  if (hub && fs.existsSync(hub.filePath)) {
+    filesToDelete.push({ path: hub.filePath, type: 'Hub' });
+    yamlUpdates.push({ model: hub, type: 'Hub YAML' });
+  }
+
+  // Satellite
+  const sat = rawVaultModels.find(m => m.name === `sat_${entityName}`);
+  if (sat && fs.existsSync(sat.filePath)) {
+    filesToDelete.push({ path: sat.filePath, type: 'Satellite' });
+    yamlUpdates.push({ model: sat, type: 'Satellite YAML' });
+  }
+
+  // Links (any link that contains the entity name)
+  const links = rawVaultModels.filter(m => 
+    m.name.startsWith('link_') && 
+    (m.name.includes(entityName) || m.name.includes(`_${entityName}`))
+  );
+  for (const link of links) {
+    if (fs.existsSync(link.filePath)) {
+      filesToDelete.push({ path: link.filePath, type: 'Link' });
+      yamlUpdates.push({ model: link, type: 'Link YAML' });
+    }
+  }
+
+  // Link Satellites
+  const lsats = rawVaultModels.filter(m => 
+    m.name.startsWith('lsat_') && m.name.includes(entityName)
+  );
+  for (const lsat of lsats) {
+    if (fs.existsSync(lsat.filePath)) {
+      filesToDelete.push({ path: lsat.filePath, type: 'Link Satellite' });
+      yamlUpdates.push({ model: lsat, type: 'Link Satellite YAML' });
+    }
+  }
+
+  // DC Satellites
+  const dcSats = rawVaultModels.filter(m => 
+    m.name.includes(entityName) && m.name.includes('_dc')
+  );
+  for (const dcSat of dcSats) {
+    if (fs.existsSync(dcSat.filePath)) {
+      filesToDelete.push({ path: dcSat.filePath, type: 'DC Satellite' });
+      yamlUpdates.push({ model: dcSat, type: 'DC Satellite YAML' });
+    }
+  }
+
+  // MA Satellites
+  const maSats = rawVaultModels.filter(m => 
+    m.name.includes(entityName) && m.name.includes('_ma')
+  );
+  for (const maSat of maSats) {
+    if (fs.existsSync(maSat.filePath)) {
+      filesToDelete.push({ path: maSat.filePath, type: 'MA Satellite' });
+      yamlUpdates.push({ model: maSat, type: 'MA Satellite YAML' });
+    }
+  }
+
+  // 3. Entity Designer JSON config
+  const configPaths = [
+    path.join(projectPath, '.vscode', 'entity-designer', `${concept}_${entityName}.json`),
+    path.join(projectPath, '.datavault', 'entity-configs', `${concept}_${entityName}.json`),
+  ];
+  for (const configPath of configPaths) {
+    if (fs.existsSync(configPath)) {
+      filesToDelete.push({ path: configPath, type: 'Designer Config' });
+    }
+  }
+
+  // Build confirmation message
+  const fileList = filesToDelete.map(f => `• ${f.type}: ${path.basename(f.path)}`).join('\n');
+  const confirmMessage = `Are you sure you want to delete the entire entity "${entityName}"?\n\n` +
+    `This will delete ${filesToDelete.length} file(s):\n${fileList}\n\n` +
+    `And update ${new Set(yamlUpdates.map(y => y.model._yamlPath || 'YAML')).size} YAML file(s).`;
+
+  const confirmation = await vscode.window.showWarningMessage(
+    confirmMessage,
+    { modal: true },
+    'Delete Entity'
+  );
+
+  if (confirmation !== 'Delete Entity') {
+    return;
+  }
+
+  log(`Deleting entity: ${entityName}`);
+
+  try {
+    // Delete all SQL/JSON files
+    for (const file of filesToDelete) {
+      fs.unlinkSync(file.path);
+      log(`Deleted: ${file.path}`);
+    }
+
+    // Update YAML files
+    for (const update of yamlUpdates) {
+      await removeFromSchemaYaml(projectPath, update.model);
+      log(`Removed from YAML: ${update.model.name}`);
+    }
+
+    vscode.window.showInformationMessage(
+      `Deleted entity "${entityName}": ${filesToDelete.length} files removed`
+    );
+    
+    await refreshProject();
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`Error deleting entity: ${errorMessage}`);
+    vscode.window.showErrorMessage(`Failed to delete entity: ${errorMessage}`);
+  }
+}

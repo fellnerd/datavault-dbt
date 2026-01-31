@@ -38,7 +38,8 @@ export function generateStagingSql(config: StagingConfig): string {
     recordSourceDefault,
     includeRunId,
     dependentChildKeys,
-    multiActiveKeys
+    multiActiveKeys,
+    isPureLinkEntity
   } = config;
 
   // Helper to get the source column name for a target column
@@ -96,11 +97,23 @@ export function generateStagingSql(config: StagingConfig): string {
   
   lines.push(' *');
   lines.push(' * Hash Keys calculated here (automate_dv pattern):');
-  lines.push(` *   - hk_${entityName} (Entity Hash Key)`);
-  for (const fk of foreignKeys || []) {
-    const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
-    lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
-    lines.push(` *   - hk_link_${entityName}_${targetEntity} (Link Hash Key)`);
+  if (isPureLinkEntity && foreignKeys && foreignKeys.length >= 2) {
+    // Pure Link Entity: Combined link hash key
+    const targetEntities = foreignKeys.map(fk => fk.targetHub.replace('hub_', '').replace(/^.*\./, ''));
+    const linkName = targetEntities.join('_');
+    lines.push(` *   - hk_link_${linkName} (Combined Link Hash Key)`);
+    for (const fk of foreignKeys) {
+      const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+      lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
+    }
+    lines.push(` *   - hd_${linkName} (Link Satellite Hash Diff)`);
+  } else {
+    lines.push(` *   - hk_${entityName} (Entity Hash Key)`);
+    for (const fk of foreignKeys || []) {
+      const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+      lines.push(` *   - hk_${targetEntity} (FK Hash Key for ${fk.targetHub})`);
+      lines.push(` *   - hk_link_${entityName}_${targetEntity} (Link Hash Key)`);
+    }
   }
   lines.push(' */');
   lines.push('');
@@ -156,9 +169,10 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push('    SELECT');
   
   // ============================================
-  // HASH KEY (Entity) - only if BK exists
+  // HASH KEY (Entity) - only if BK exists AND not a Pure Link Entity
+  // Pure Link Entities have no own Hub, so no entity hash key
   // ============================================
-  if (businessKeyColumns.length > 0) {
+  if (businessKeyColumns.length > 0 && !isPureLinkEntity) {
     lines.push('        -- ===========================================');
     lines.push('        -- HASH KEY (Entity)');
     lines.push('        -- ===========================================');
@@ -183,53 +197,75 @@ export function generateStagingSql(config: StagingConfig): string {
   }
   
   // ============================================
-  // LINK HASH KEYS (hk_source + hk_target [+ DCK if present])
+  // LINK HASH KEYS
+  // Pure Link Entity: ONE combined hash from all FK columns
+  // Standard: One link hash per FK (hk_source + hk_target)
   // ============================================
   if (foreignKeys && foreignKeys.length > 0) {
     lines.push('        -- ===========================================');
     lines.push('        -- LINK HASH KEYS');
     lines.push('        -- ===========================================');
     
-    for (const fk of foreignKeys) {
-      const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
-      const linkName = `link_${entityName}_${targetEntity}`;
-      
-      // Check if this link has DCKs
-      const linkDCKs = dependentChildKeys?.[fk.targetHub] || [];
-      
-      if (linkDCKs.length > 0) {
-        // Link with DCK: hash = source BK + target FK + DCK columns
-        lines.push(`        -- Link with DCK: ${linkDCKs.join(', ')}`);
-        lines.push(generateLinkHashKeyWithDCK(
-          linkName, 
-          entityName, 
-          targetEntity, 
-          businessKeyColumns,
-          fk.sourceColumn,
-          linkDCKs, 
-          businessKeySeparator
-        ));
-      } else {
-        // Standard Link: hash = source BK + target FK
-        lines.push(generateLinkHashKey(
-          linkName, 
-          businessKeyColumns, 
-          fk.sourceColumn, 
-          businessKeySeparator
-        ));
+    if (isPureLinkEntity) {
+      // Pure Link Entity: Combined link hash key from ALL FK columns
+      const targetEntities = foreignKeys.map(fk => fk.targetHub.replace('hub_', '').replace(/^.*\./, ''));
+      const linkName = `link_${targetEntities.join('_')}`;
+      const fkColumns = foreignKeys.map(fk => fk.sourceColumn);
+      lines.push(`        -- Pure Link Entity: Combined hash from all FKs`);
+      lines.push(generatePureLinkHashKey(linkName, fkColumns, businessKeySeparator));
+    } else {
+      // Standard: One link hash per FK
+      for (const fk of foreignKeys) {
+        const targetEntity = fk.targetHub.replace('hub_', '').replace(/^.*\./, '');
+        const linkName = `link_${entityName}_${targetEntity}`;
+        
+        // Check if this link has DCKs
+        const linkDCKs = dependentChildKeys?.[fk.targetHub] || [];
+        
+        if (linkDCKs.length > 0) {
+          // Link with DCK: hash = source BK + target FK + DCK columns
+          lines.push(`        -- Link with DCK: ${linkDCKs.join(', ')}`);
+          lines.push(generateLinkHashKeyWithDCK(
+            linkName, 
+            entityName, 
+            targetEntity, 
+            businessKeyColumns,
+            fk.sourceColumn,
+            linkDCKs, 
+            businessKeySeparator
+          ));
+        } else {
+          // Standard Link: hash = source BK + target FK
+          lines.push(generateLinkHashKey(
+            linkName, 
+            businessKeyColumns, 
+            fk.sourceColumn, 
+            businessKeySeparator
+          ));
+        }
       }
     }
     lines.push('');
   }
   
   // ============================================
-  // HASH DIFF (regular satellite) - only if we have attributes
+  // HASH DIFF (regular satellite OR link satellite for Pure Link Entity)
   // ============================================
   if (sortedHashDiffColumns.length > 0) {
-    lines.push('        -- ===========================================');
-    lines.push('        -- HASH DIFF (Change Detection - Satellite)');
-    lines.push('        -- ===========================================');
-    lines.push(generateHashDiff(entityName, hashDiffSeparator));
+    if (isPureLinkEntity) {
+      // Link Satellite Hash Diff for Pure Link Entity
+      const targetEntities = foreignKeys?.map(fk => fk.targetHub.replace('hub_', '').replace(/^.*\./, '')) || [];
+      const linkSatName = targetEntities.join('_');
+      lines.push('        -- ===========================================');
+      lines.push('        -- HASH DIFF (Change Detection - Link Satellite)');
+      lines.push('        -- ===========================================');
+      lines.push(generateHashDiffForLinkSat(linkSatName, sortedHashDiffColumns, hashDiffSeparator));
+    } else {
+      lines.push('        -- ===========================================');
+      lines.push('        -- HASH DIFF (Change Detection - Satellite)');
+      lines.push('        -- ===========================================');
+      lines.push(generateHashDiff(entityName, hashDiffSeparator));
+    }
     lines.push('');
   }
   
@@ -453,6 +489,47 @@ function generateHashDiffMA(entityName: string, separator: string): string {
                 {%- if hashdiff_ma_columns | length == 1 %}, ''{%- endif %}
             )
         ), 2) AS hd_${entityName}_ma,`;
+}
+
+/**
+ * Generate Pure Link Hash Key for Intersection/Bridge Tables
+ * Hash of all FK columns combined
+ * Pattern: hk_link_<entity1>_<entity2> = HASH(fk1 ^^ fk2)
+ */
+function generatePureLinkHashKey(
+  linkName: string, 
+  fkColumns: string[], 
+  separator: string
+): string {
+  // Sort FK columns alphabetically for consistent hashing
+  const sortedFkColumns = [...fkColumns].sort((a, b) => 
+    a.toLowerCase().localeCompare(b.toLowerCase())
+  );
+  
+  const parts = sortedFkColumns.map(col => `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`);
+  const concatExpr = parts.join(` + '${separator}' + `);
+  
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', ${concatExpr}), 2) AS hk_${linkName},`;
+}
+
+/**
+ * Generate Hash Diff for Link Satellite
+ * Same as regular hash diff but with link satellite naming convention
+ * Pattern: hd_<entity1>_<entity2>
+ */
+function generateHashDiffForLinkSat(
+  linkSatName: string, 
+  columns: string[],
+  separator: string
+): string {
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                {%- endfor %}
+                {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
+            )
+        ), 2) AS hd_${linkSatName},`;
 }
 
 /**

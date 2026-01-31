@@ -15,6 +15,21 @@ import { StagingConfig, YamlColumnDefinition } from '../types';
 interface YamlModel {
   name: string;
   description?: string;
+  config?: {
+    meta?: {
+      entity_type?: string;
+      source_type?: string;
+      external_table?: string;
+      business_keys?: string[];
+      foreign_keys?: Array<{
+        column: string;
+        target_entity: string;
+        target_hub: string;
+      }>;
+      dependent_child_keys?: Record<string, string[]>;
+      multi_active_keys?: string[];
+    };
+  };
   columns?: YamlColumnDefinition[];
 }
 
@@ -29,33 +44,65 @@ interface YamlSchema {
 export function generateStagingColumns(config: StagingConfig): YamlColumnDefinition[] {
   const columns: YamlColumnDefinition[] = [];
 
-  // Hash Key
-  columns.push({
-    name: `hk_${config.entityName}`,
-    description: 'Hash Key (Primary Key)',
-    data_type: 'char(64)',
-    tests: ['not_null', 'unique']
-  });
-
-  // FK Hash Keys
-  for (const fk of config.foreignKeys) {
+  // For Pure Link Entity (link_only): No entity hash key, use combined link hash
+  if (config.isPureLinkEntity && config.foreignKeys.length >= 2) {
+    // Combined Link Hash Key
+    const targetEntities = config.foreignKeys.map(fk => fk.targetEntity);
+    const linkHashName = `hk_link_${targetEntities.join('_')}`;
     columns.push({
-      name: `hk_${fk.targetEntity}`,
-      description: `Foreign Key to hub_${fk.targetEntity}`,
+      name: linkHashName,
+      description: 'Combined Link Hash Key (Primary Key)',
+      data_type: 'char(64)',
+      tests: ['not_null', 'unique']
+    });
+
+    // FK Hash Keys for each referenced entity
+    for (const fk of config.foreignKeys) {
+      columns.push({
+        name: `hk_${fk.targetEntity}`,
+        description: `Foreign Key to hub_${fk.targetEntity}`,
+        data_type: 'char(64)',
+        tests: ['not_null']
+      });
+    }
+
+    // Link Satellite Hash Diff
+    const hashDiffName = `hd_${targetEntities.join('_')}`;
+    columns.push({
+      name: hashDiffName,
+      description: 'Hash Diff for Link Satellite change detection',
+      data_type: 'char(64)',
+      tests: ['not_null']
+    });
+  } else {
+    // Standard entity: Entity Hash Key
+    columns.push({
+      name: `hk_${config.entityName}`,
+      description: 'Hash Key (Primary Key)',
+      data_type: 'char(64)',
+      tests: ['not_null', 'unique']
+    });
+
+    // FK Hash Keys
+    for (const fk of config.foreignKeys) {
+      columns.push({
+        name: `hk_${fk.targetEntity}`,
+        description: `Foreign Key to hub_${fk.targetEntity}`,
+        data_type: 'char(64)',
+        tests: ['not_null']
+      });
+    }
+
+    // Hash Diff
+    columns.push({
+      name: `hd_${config.entityName}`,
+      description: 'Hash Diff for change detection',
       data_type: 'char(64)',
       tests: ['not_null']
     });
   }
 
-  // Hash Diff
-  columns.push({
-    name: `hd_${config.entityName}`,
-    description: 'Hash Diff for change detection',
-    data_type: 'char(64)',
-    tests: ['not_null']
-  });
-
-  // Business Keys
+  // Business Keys (only for standard entities)
   for (const bk of config.businessKeyColumns) {
     columns.push({
       name: bk,
@@ -64,10 +111,24 @@ export function generateStagingColumns(config: StagingConfig): YamlColumnDefinit
     });
   }
 
+  // FK Columns (for link_only entities, show the source columns)
+  if (config.isPureLinkEntity) {
+    for (const fk of config.foreignKeys) {
+      columns.push({
+        name: fk.sourceColumn,
+        description: `FK to hub_${fk.targetEntity}`,
+        tests: ['not_null']
+      });
+    }
+  }
+
   // Payload columns
   for (const col of config.payloadColumns) {
-    // Skip if already added as business key
+    // Skip if already added as business key or FK
     if (config.businessKeyColumns.includes(col)) {
+      continue;
+    }
+    if (config.foreignKeys.some(fk => fk.sourceColumn === col)) {
       continue;
     }
     columns.push({
@@ -103,13 +164,39 @@ export function generateStagingColumns(config: StagingConfig): YamlColumnDefinit
 
 /**
  * Generate a complete model entry for _staging__models.yml
+ * Includes entity configuration in the meta block for later use by Entity Designer
  */
 export function generateModelYaml(config: StagingConfig): YamlModel {
   const modelName = `${config.concept}_${config.entityName}`;
   
+  // Build meta configuration
+  const meta: YamlModel['config'] = {
+    meta: {
+      entity_type: config.entityType || 'standard',
+      source_type: config.sourceType || 'external_table',
+      external_table: config.externalTable,
+      business_keys: config.businessKeyColumns.length > 0 ? config.businessKeyColumns : undefined,
+      foreign_keys: config.foreignKeys.length > 0 
+        ? config.foreignKeys.map(fk => ({
+            column: fk.sourceColumn,
+            target_entity: fk.targetEntity,
+            target_hub: fk.targetHub
+          }))
+        : undefined,
+      dependent_child_keys: config.dependentChildKeys,
+      multi_active_keys: config.multiActiveKeys
+    }
+  };
+
+  // Clean up undefined values from meta
+  const cleanMeta = Object.fromEntries(
+    Object.entries(meta.meta!).filter(([_, v]) => v !== undefined)
+  );
+
   return {
     name: modelName,
     description: `Staging view for ${config.entityName} from ${config.concept}`,
+    config: { meta: cleanMeta },
     columns: generateStagingColumns(config)
   };
 }

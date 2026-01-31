@@ -1,16 +1,14 @@
 /**
  * Entity Generator Service
  * 
- * Generates Hub, Satellite, and Link SQL files for Data Vault 2.0
+ * Generates Staging View + Hub, Satellite, and Link SQL files for Data Vault 2.0
  * Using automate_dv macros for standardized patterns
  * 
- * Key responsibility: When Links are configured, this service also
- * regenerates the staging view to include all necessary hash keys:
- * - hk_<entity> (Entity Hash Key)
- * - hk_<target> (FK Hash Keys for each link target)
- * - hk_link_<source>_<target> (Link Hash Keys)
- * - hd_<entity> (Hash Diff for regular satellite)
- * - hd_<entity>_<target>_dc (Hash Diff for DC satellites)
+ * Key responsibility: Generate ALL Data Vault objects from Entity Designer configuration:
+ * 1. Staging View with all necessary hash keys
+ * 2. Hub (for standard entities)
+ * 3. Satellite / Link Satellite / DC Satellite / MA Satellite
+ * 4. Links
  * 
  * @see https://automate-dv.readthedocs.io/en/latest/tutorial/
  */
@@ -19,6 +17,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { EntityDesignConfig, DesignerColumnDefinition, GeneratedFile, GenerationResult, StagingConfig, ForeignKeyMapping, SourceType, LambdaVaultConfig } from '../types';
 import { generateStagingSql } from './stagingGenerator';
+import { updateStagingSchemaYaml } from './schemaGenerator';
 
 /**
  * Generate Data Vault objects from entity design configuration
@@ -64,9 +63,16 @@ export async function generateDataVaultObjects(
                                   businessKeys.length === 0 && 
                                   foreignKeys.length > 0;
 
+    // Check if this is a Pure Link Entity (Intersection/Bridge Table)
+    // No own Hub, only FKs to existing Hubs → generate ONE combined link
+    const isPureLinkEntity = foreignKeys.length >= 2 && 
+                              businessKeys.length === 0 && 
+                              dependentChildKeys.length === 0;
+
     // Validate basic requirements
     // Exception: Pure Dependent Child entities don't need a BK (they have no Hub)
-    if (businessKeys.length === 0 && targets.includes('hub') && !isPureDependentChild) {
+    // Exception: Pure Link entities (Intersection Tables) don't need a BK
+    if (businessKeys.length === 0 && targets.includes('hub') && !isPureDependentChild && !isPureLinkEntity) {
       errors.push('At least one Business Key is required for Hub generation');
       return { success: false, files: [], errors };
     }
@@ -84,26 +90,39 @@ export async function generateDataVaultObjects(
       }
     }
 
-    // ============================================
-    // REGENERATE STAGING if Links/DC are configured
-    // ============================================
-    // When we have Links, the staging view needs additional hashes:
-    // - hk_<target> for each FK (so Link can reference it)
-    // - hk_link_<source>_<target> for each Link
-    // - hd_<entity>_<target>_dc for DC Satellites
-    if (foreignKeys.length > 0) {
-      const stagingFile = await regenerateStaging(
-        config,
-        businessKeys,
-        attributes,
-        foreignKeys,
-        dependentChildKeys,
-        multiActiveKeys,
-        projectPath,
-        config.sourceType  // Pass sourceType from config
-      );
-      generatedFiles.push(stagingFile);
+    // For Pure Link Entity: Remove 'hub' from targets, keep satellite (for link satellite)
+    if (isPureLinkEntity) {
+      effectiveTargets = effectiveTargets.filter(t => t !== 'hub');
+      // Ensure we have links
+      if (!effectiveTargets.includes('links')) {
+        effectiveTargets.push('links');
+      }
     }
+
+    // ============================================
+    // GENERATE STAGING VIEW
+    // ============================================
+    // The staging view is always generated from the Entity Designer configuration.
+    // This ensures staging contains all necessary hashes for the modeled vault objects:
+    // - hk_<entity> (Entity's own hash key from BK) - for standard entities
+    // - hk_<target> (FK hash key for each link target)
+    // - hk_link_<source>_<target> (Link hash key for each link)
+    // - hk_link_<entity1>_<entity2> (Combined link hash key for Pure Link Entities)
+    // - hd_<entity> (Hash Diff for regular satellite)
+    // - hd_<entity>_<target>_dc (Hash Diff for DC satellites)
+    // - hd_<entity>_ma (Hash Diff for MA satellites)
+    const stagingFile = await generateStaging(
+      config,
+      businessKeys,
+      attributes,
+      foreignKeys,
+      dependentChildKeys,
+      multiActiveKeys,
+      projectPath,
+      config.sourceType,
+      isPureLinkEntity
+    );
+    generatedFiles.push(stagingFile);
 
     // Generate Hub using automate_dv.hub macro
     if (effectiveTargets.includes('hub') && businessKeys.length > 0) {
@@ -112,22 +131,36 @@ export async function generateDataVaultObjects(
     }
 
     // Generate Satellite using automate_dv.sat macro
+    // For Pure Link Entity: Generate Link Satellite instead of regular Satellite
     if (effectiveTargets.includes('satellite') && attributes.length > 0) {
-      const satFile = await generateSatellite(config, attributes, projectPath);
-      generatedFiles.push(satFile);
+      if (isPureLinkEntity) {
+        // Generate Link Satellite (lsat_) instead of regular Satellite
+        const lsatFile = await generateLinkSatellite(config, foreignKeys, attributes, projectPath);
+        generatedFiles.push(lsatFile);
+      } else {
+        const satFile = await generateSatellite(config, attributes, projectPath);
+        generatedFiles.push(satFile);
+      }
     }
 
     // Generate Links using automate_dv.link macro
     if (effectiveTargets.includes('links') && foreignKeys.length > 0) {
-      for (const fk of foreignKeys) {
-        if (fk.foreignKeyTarget) {
-          // Find DCKs associated with this link
-          const targetEntity = fk.foreignKeyTarget.replace('hub_', '').replace(/^.*\./, '');
-          const linkDCKs = dependentChildKeys.filter(dck => 
-            dck.dependentChildForLink === fk.foreignKeyTarget
-          );
-          const linkFile = await generateLink(config, fk, businessKeys, linkDCKs, projectPath);
-          generatedFiles.push(linkFile);
+      if (isPureLinkEntity) {
+        // Pure Link Entity: Generate ONE combined link connecting all FKs
+        const pureLinkFile = await generatePureLink(config, foreignKeys, projectPath);
+        generatedFiles.push(pureLinkFile);
+      } else {
+        // Standard: Generate one link per FK
+        for (const fk of foreignKeys) {
+          if (fk.foreignKeyTarget) {
+            // Find DCKs associated with this link
+            const targetEntity = fk.foreignKeyTarget.replace('hub_', '').replace(/^.*\./, '');
+            const linkDCKs = dependentChildKeys.filter(dck => 
+              dck.dependentChildForLink === fk.foreignKeyTarget
+            );
+            const linkFile = await generateLink(config, fk, businessKeys, linkDCKs, projectPath);
+            generatedFiles.push(linkFile);
+          }
         }
       }
     }
@@ -186,16 +219,20 @@ export async function generateDataVaultObjects(
 }
 
 /**
- * Regenerate Staging SQL with all required hash keys for Links/DC/MA
+ * Generate Staging SQL with all required hash keys based on Entity Designer configuration
  * 
- * When Links are configured, the staging view needs:
- * - hk_<entity> (Entity's own hash key from BK)
+ * The staging view is derived from the vault object configuration:
+ * - hk_<entity> (Entity's own hash key from BK) - for standard entities
  * - hk_<target> (FK hash key for each link target)
  * - hk_link_<source>_<target> (Link hash key for each link)
+ * - hk_link_<entity1>_<entity2> (Combined link hash key for Pure Link Entities)
  * - hd_<entity> (Hash diff for regular satellite)
  * - hd_<entity>_<target>_dc (Hash diff for DC satellites, if DCK configured)
+ * - hd_<entity1>_<entity2> (Hash diff for Link Satellites on Pure Link Entities)
+ * 
+ * Also updates the _staging__models.yml with the model documentation.
  */
-async function regenerateStaging(
+async function generateStaging(
   config: EntityDesignConfig,
   businessKeys: DesignerColumnDefinition[],
   attributes: DesignerColumnDefinition[],
@@ -203,7 +240,8 @@ async function regenerateStaging(
   dependentChildKeys: DesignerColumnDefinition[],
   multiActiveKeys: DesignerColumnDefinition[],
   projectPath: string,
-  sourceType?: SourceType
+  sourceType?: SourceType,
+  isPureLinkEntity?: boolean
 ): Promise<GeneratedFile> {
   const { concept, entityName, sourceTable } = config;
   
@@ -300,7 +338,8 @@ async function regenerateStaging(
     recordSourceDefault: concept,
     includeRunId: config.columns.some(c => c.name.toLowerCase() === 'dss_run_id'),
     dependentChildKeys: Object.keys(dckByHub).length > 0 ? dckByHub : undefined,
-    multiActiveKeys: multiActiveKeys.length > 0 ? multiActiveKeys.map(m => m.name.toLowerCase()) : undefined
+    multiActiveKeys: multiActiveKeys.length > 0 ? multiActiveKeys.map(m => m.name.toLowerCase()) : undefined,
+    isPureLinkEntity: isPureLinkEntity
   };
   
   // Generate SQL using the staging generator
@@ -317,8 +356,12 @@ async function regenerateStaging(
   // Ensure directory exists
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   
-  // Write file (overwrites existing)
+  // Write SQL file (overwrites existing)
   await fs.writeFile(filePath, sql, 'utf-8');
+  
+  // Update _staging__models.yml with model documentation
+  // This stores the configuration for reference and dbt documentation
+  await updateStagingSchemaYaml(projectPath, stagingConfig);
   
   return { path: filePath, content: sql, type: 'staging' };
 }
@@ -827,6 +870,219 @@ src_source: "dss_record_source"
   await fs.writeFile(filePath, sql, 'utf-8');
 
   return { path: filePath, content: sql, type: 'ma_satellite' };
+}
+
+/**
+ * Generate Pure Link SQL file for Intersection/Bridge Tables
+ * 
+ * A Pure Link Entity is an intersection table that only contains FKs to other Hubs.
+ * Example: customeraddress connects customer and address without its own identity.
+ * 
+ * This generates ONE combined link with multiple src_fk entries.
+ * 
+ * Naming convention: link_<entity1>_<entity2> (e.g., link_kunde_adresse)
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_links/
+ */
+async function generatePureLink(
+  config: EntityDesignConfig,
+  foreignKeys: DesignerColumnDefinition[],
+  projectPath: string
+): Promise<GeneratedFile> {
+  const { concept, entityName } = config;
+  
+  // Build link name from all FK targets (sorted for consistency)
+  const targetEntities = foreignKeys.map(fk => {
+    const targetHubFull = fk.foreignKeyTarget!;
+    let targetHub: string;
+    if (targetHubFull.includes('.')) {
+      [, targetHub] = targetHubFull.split('.');
+    } else {
+      targetHub = targetHubFull;
+    }
+    return targetHub.replace('hub_', '');
+  });
+  
+  // Link name: link_<entity1>_<entity2> (e.g., link_kunde_adresse)
+  const linkName = `link_${targetEntities.join('_')}`;
+  const linkHashKey = `hk_${linkName}`;
+  const stagingRef = `${concept}_${entityName}`;
+
+  // Build src_fk list - one hash key per FK
+  const fkHashKeys = targetEntities.map(entity => `hk_${entity}`);
+  const fkConfig = fkHashKeys.length === 1
+    ? `"${fkHashKeys[0]}"`
+    : `\n    - "${fkHashKeys.join('"\n    - "')}"`;
+
+  const sql = `{#
+    Pure Link (Intersection Table): ${linkName}
+    Connects: ${targetEntities.map(e => `hub_${e}`).join(', ')}
+    Source: ${stagingRef}
+    
+    A Pure Link Entity represents an intersection/bridge table
+    that connects multiple Hubs without having its own identity.
+    The combined FK hash keys form the Link Hash Key.
+    
+    Example: customeraddress connects customer and address
+    
+    Generated by Entity Designer using automate_dv.link macro
+    @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_links/
+#}
+
+{{ config(
+    materialized='incremental',
+    as_columnstore=false,
+    post_hook=[
+        "{{ create_hash_index('${linkHashKey}') }}"
+    ]
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "${stagingRef}"
+src_pk: "${linkHashKey}"
+src_fk: ${fkConfig}
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.link(
+    src_pk=metadata_dict["src_pk"],
+    src_fk=metadata_dict["src_fk"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+`;
+
+  const filePath = path.join(
+    projectPath,
+    'models',
+    'raw_vault',
+    concept,
+    'links',
+    `${linkName}.sql`
+  );
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  
+  // Write file
+  await fs.writeFile(filePath, sql, 'utf-8');
+
+  return { path: filePath, content: sql, type: 'link' };
+}
+
+/**
+ * Generate Link Satellite SQL file for Pure Link Entities
+ * 
+ * A Link Satellite holds the descriptive attributes of a Link relationship.
+ * For example, customeraddress has AddressType as a link attribute.
+ * 
+ * Naming convention: lsat_<link_name> (e.g., lsat_kunde_adresse)
+ * 
+ * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_link_satellites/
+ */
+async function generateLinkSatellite(
+  config: EntityDesignConfig,
+  foreignKeys: DesignerColumnDefinition[],
+  attributes: DesignerColumnDefinition[],
+  projectPath: string
+): Promise<GeneratedFile> {
+  const { concept, entityName } = config;
+  
+  // Build link name from FK targets
+  const targetEntities = foreignKeys.map(fk => {
+    const targetHubFull = fk.foreignKeyTarget!;
+    let targetHub: string;
+    if (targetHubFull.includes('.')) {
+      [, targetHub] = targetHubFull.split('.');
+    } else {
+      targetHub = targetHubFull;
+    }
+    return targetHub.replace('hub_', '');
+  });
+  
+  const linkName = `link_${targetEntities.join('_')}`;
+  const lsatName = `lsat_${targetEntities.join('_')}`;
+  const linkHashKey = `hk_${linkName}`;
+  const hashDiffName = `hd_${targetEntities.join('_')}`;
+  const stagingRef = `${concept}_${entityName}`;
+
+  // Build payload from attributes
+  const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
+  const payloadConfig = payloadColumns.length > 0
+    ? (payloadColumns.length === 1
+      ? payloadColumns[0]
+      : `\n    - ${payloadColumns.join('\n    - ')}`)
+    : '[]';
+
+  const sql = `{#
+    Link Satellite: ${lsatName}
+    Parent Link: ${linkName}
+    Payload: ${attributes.map(a => a.name).join(', ') || '(none)'}
+    Source: ${stagingRef}
+    
+    A Link Satellite holds the descriptive attributes of a Link relationship.
+    The Link Hash Key is the primary key.
+    
+    Example: AddressType describes the customer-address relationship
+    
+    Generated by Entity Designer using automate_dv.sat macro
+    @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_link_satellites/
+#}
+
+{{ config(
+    materialized='incremental',
+    as_columnstore=false,
+    post_hook=[
+        "{{ create_hash_index('${linkHashKey}') }}",
+        "{{ update_satellite_current_flag(this, '${linkHashKey}') }}"
+    ]
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "${stagingRef}"
+src_pk: "${linkHashKey}"
+src_hashdiff: 
+  source_column: "${hashDiffName}"
+  alias: "hashdiff"
+src_payload: ${payloadConfig}
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.sat(
+    src_pk=metadata_dict["src_pk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+`;
+
+  const filePath = path.join(
+    projectPath,
+    'models',
+    'raw_vault',
+    concept,
+    'satellites',
+    `${lsatName}.sql`
+  );
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  
+  // Write file
+  await fs.writeFile(filePath, sql, 'utf-8');
+
+  return { path: filePath, content: sql, type: 'link_satellite' };
 }
 
 /**

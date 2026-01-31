@@ -171,33 +171,15 @@
         "category": "Data Vault"
       },
       {
-        "command": "datavault.createStaging",
-        "title": "Create Staging View",
-        "icon": "$(add)",
-        "category": "Data Vault"
-      },
-      {
-        "command": "datavault.createStagingWizard",
-        "title": "Create Staging View (Wizard)",
-        "icon": "$(wand)",
-        "category": "Data Vault"
-      },
-      {
-        "command": "datavault.validateStaging",
-        "title": "Validate Staging Model",
-        "icon": "$(check)",
-        "category": "Data Vault"
-      },
-      {
-        "command": "datavault.deleteStaging",
-        "title": "Delete Staging View",
-        "icon": "$(trash)",
-        "category": "Data Vault"
-      },
-      {
         "command": "datavault.openEntityDesigner",
         "title": "Design Entity",
         "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteEntity",
+        "title": "Delete Entity (Staging + Vault)",
+        "icon": "$(trash)",
         "category": "Data Vault"
       },
       {
@@ -380,19 +362,15 @@
           "when": "false"
         },
         {
-          "command": "datavault.createStaging",
-          "when": "false"
-        },
-        {
           "command": "datavault.createPersistentStaging",
           "when": "false"
         },
         {
-          "command": "datavault.validateStaging",
+          "command": "datavault.openEntityDesigner",
           "when": "false"
         },
         {
-          "command": "datavault.openEntityDesigner",
+          "command": "datavault.deleteEntity",
           "when": "false"
         },
         {
@@ -429,11 +407,6 @@
         }
       ],
       "view/title": [
-        {
-          "command": "datavault.createStagingWizard",
-          "when": "view == datavault-staging",
-          "group": "navigation@0"
-        },
         {
           "command": "datavault.stageAllExternalSources",
           "when": "view == datavault-sources",
@@ -512,14 +485,14 @@
           "group": "delete@1"
         },
         {
-          "command": "datavault.createStaging",
-          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
-          "group": "staging@1"
-        },
-        {
           "command": "datavault.createPersistentStaging",
           "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
           "group": "staging@0"
+        },
+        {
+          "command": "datavault.openEntityDesigner",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
+          "group": "design@1"
         },
         {
           "command": "datavault.createAllExternalTables",
@@ -532,17 +505,12 @@
           "group": "database@1"
         },
         {
-          "command": "datavault.validateStaging",
-          "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
-          "group": "staging@1"
-        },
-        {
           "command": "datavault.openEntityDesigner",
           "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
           "group": "staging@2"
         },
         {
-          "command": "datavault.deleteStaging",
+          "command": "datavault.deleteEntity",
           "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
           "group": "delete@1"
         },

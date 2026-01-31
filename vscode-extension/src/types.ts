@@ -225,12 +225,24 @@ export interface ForeignKeyMapping {
 export type SourceType = 'external_table' | 'seed' | 'database_table' | 'manual';
 
 /**
+ * Entity type for Data Vault modeling
+ * - standard: Has its own Business Key → Hub + Satellite
+ * - dependent_child: No own BK, identified by parent FK + DCK → Link + DC Satellite
+ * - multi_active: Multiple concurrent values per BK → Hub + MA Satellite
+ * - link_only: Intersection table, no own BK, 2+ FKs → Link + optional Link Satellite
+ */
+export type StagingEntityType = 'standard' | 'dependent_child' | 'multi_active' | 'link_only';
+
+/**
  * Configuration for generating a staging view
  */
 export interface StagingConfig {
   // Entity identification
   concept: string;              // 'adventureworks', 'werkportal'
   entityName: string;           // 'customer', 'company'
+  
+  // Entity type (determines which Data Vault objects will be generated)
+  entityType?: StagingEntityType;  // Default: 'standard'
   
   // Source
   externalTable: string;        // 'ext_adventureworks_customer' or seed name
@@ -266,6 +278,11 @@ export interface StagingConfig {
   // Multi-Active Satellites (MA Sat)
   // CDK columns that distinguish concurrent records (e.g., ['phone_type'])
   multiActiveKeys?: string[];
+  
+  // Pure Link Entity (Intersection/Bridge Table)
+  // When true: No Hub, only Links to existing Hubs
+  // Generates combined hk_link with all FK hashes
+  isPureLinkEntity?: boolean;
 }
 
 /**
@@ -383,7 +400,7 @@ export interface StagingModelInfo {
 export interface GeneratedFile {
   path: string;
   content: string;
-  type: 'hub' | 'satellite' | 'link' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
+  type: 'hub' | 'satellite' | 'link' | 'link_satellite' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
 }
 
 /**

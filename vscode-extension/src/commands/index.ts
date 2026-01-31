@@ -11,28 +11,26 @@ import { ModelDetailsPanel } from '../webviewPanel';
 import { discoverExternalSources } from './discover';
 import { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 import { renameExternalTable, copyExternalTable, disableColumns, deleteExternalTable } from './sourceTableCommands';
-import { createStaging, validateStaging, deleteStaging, createStagingWizard } from './staging';
 import { createRefTable, createRefTableFromPalette } from './refTable';
 import { createPersistentStaging, createPersistentStagingWizard } from './persistentStaging';
 import { createPITTable, createPITTableFromPalette } from './pitTable';
 import { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 import { registerEntityDesignerCommands } from './entityDesigner';
 import { registerDbtCommands } from './dbtCommands';
-import { deleteRawVaultModel, deleteBusinessVaultModel } from './vaultDelete';
+import { deleteRawVaultModel, deleteBusinessVaultModel, deleteEntity } from './vaultDelete';
 import { registerMartDesignerCommands } from './martDesigner';
 
 // Re-export command implementations for use elsewhere
 export { discoverExternalSources } from './discover';
 export { createExternalTable, createAllExternalTables, stageAllExternalSources } from './external';
 export { renameExternalTable, copyExternalTable, disableColumns, deleteExternalTable } from './sourceTableCommands';
-export { createStaging, validateStaging, deleteStaging } from './staging';
 export { createRefTable, createRefTableFromPalette } from './refTable';
 export { createPersistentStaging, createPersistentStagingWizard } from './persistentStaging';
 export { createPITTable, createPITTableFromPalette } from './pitTable';
 export { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 export { registerEntityDesignerCommands } from './entityDesigner';
 export { registerDbtCommands } from './dbtCommands';
-export { deleteRawVaultModel, deleteBusinessVaultModel } from './vaultDelete';
+export { deleteRawVaultModel, deleteBusinessVaultModel, deleteEntity } from './vaultDelete';
 export { registerMartDesignerCommands } from './martDesigner';
 
 /**
@@ -264,63 +262,6 @@ export function registerCommands(
     )
   );
 
-  // Create Staging View Command
-  disposables.push(
-    vscode.commands.registerCommand(
-      'datavault.createStaging',
-      async (treeItem?: TreeItemData) => {
-        await createStaging(treeItem, {
-          projectPath: getCurrentProjectPath(),
-          refreshProject,
-          log
-        });
-      }
-    )
-  );
-
-  // Create Staging Wizard Command (Command Palette accessible)
-  disposables.push(
-    vscode.commands.registerCommand(
-      'datavault.createStagingWizard',
-      async () => {
-        await createStagingWizard({
-          projectPath: getCurrentProjectPath(),
-          refreshProject,
-          getCurrentMetadata,
-          log
-        });
-      }
-    )
-  );
-
-  // Validate Staging Model Command
-  disposables.push(
-    vscode.commands.registerCommand(
-      'datavault.validateStaging',
-      async (treeItem?: TreeItemData) => {
-        await validateStaging(treeItem, {
-          projectPath: getCurrentProjectPath(),
-          refreshProject,
-          log
-        });
-      }
-    )
-  );
-
-  // Delete Staging Model Command
-  disposables.push(
-    vscode.commands.registerCommand(
-      'datavault.deleteStaging',
-      async (treeItem?: TreeItemData) => {
-        await deleteStaging(treeItem, {
-          projectPath: getCurrentProjectPath(),
-          refreshProject,
-          log
-        });
-      }
-    )
-  );
-
   // Create PSA Table Command (context menu on external table)
   disposables.push(
     vscode.commands.registerCommand(
@@ -400,6 +341,21 @@ export function registerCommands(
       'datavault.deleteBusinessVaultModel',
       async (treeItem?: TreeItemData) => {
         await deleteBusinessVaultModel(treeItem, {
+          projectPath: getCurrentProjectPath(),
+          refreshProject,
+          getCurrentMetadata,
+          log
+        });
+      }
+    )
+  );
+
+  // Delete Entity Command (Staging + Raw Vault + Config)
+  disposables.push(
+    vscode.commands.registerCommand(
+      'datavault.deleteEntity',
+      async (treeItem?: TreeItemData) => {
+        await deleteEntity(treeItem, {
           projectPath: getCurrentProjectPath(),
           refreshProject,
           getCurrentMetadata,
