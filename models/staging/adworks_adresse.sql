@@ -19,7 +19,7 @@
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_adventureworks_saleslt_address') }}
+    SELECT * FROM {{ ref('psa_adventureworks_saleslt_address') }}
 ),
 
 staged AS (

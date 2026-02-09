@@ -5,7 +5,7 @@ Multi-tenant Data Vault 2.1 on Azure SQL using dbt Core with `automate_dv` packa
 
 ## Architecture Flow
 ```
-PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table (stg.ext_*) → Staging View (stg.stg_*) → Hub/Sat/Link
+PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table (stg.ext_*) → [PSA optional] → Staging View (stg.stg_*) → Hub/Sat/Link
 ```
 
 ## Schema Naming Convention
@@ -13,6 +13,7 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table (stg.ext_*) 
 | Layer | Folder | Schema | Usage |
 |-------|--------|--------|-------|
 | Staging | `staging/` | `stg` | All sources |
+| PSA (optional) | `staging/psa_*.sql` | `stg` | Persistent Staging Area (cache) |
 | Raw Vault (common) | `raw_vault/_common/` | `vault` | Cross-source objects |
 | Raw Vault (source) | `raw_vault/<concept>/` | `vault_<concept>` | Source-specific objects |
 | Business Vault | `business_vault/` | `vault` | PITs, Bridges |
@@ -20,6 +21,37 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table (stg.ext_*) 
 | Mart (domain) | `mart/<concept>/` | `mart_<concept>` | Domain-specific views |
 
 **Pattern:** `_common` → base schema, `<concept>` → `<base>_<concept>`
+
+## PSA (Persistent Staging Area) Pattern
+Use PSA when External Tables are large and repeatedly accessed. PSA caches data incrementally to avoid expensive OPENROWSET calls.
+
+**Data Flow with PSA:**
+```
+ext_<concept>_<entity> (External Table)
+    ↓
+psa_<concept>_<entity> (Incremental dbt Table - merge/append)
+    ↓
+<concept>_<entity> (Staging View - Hash calculations) ← MUST reference PSA!
+    ↓
+Hub/Sat/Link (Raw Vault)
+```
+
+**Critical:** When a PSA exists, the Staging View must be updated to reference the PSA:
+```sql
+-- WITHOUT PSA (default)
+SELECT * FROM {{ source('staging', 'ext_<concept>_<entity>') }}
+
+-- WITH PSA (after PSA creation)
+SELECT * FROM {{ ref('psa_<concept>_<entity>') }}
+```
+
+**PSA sources.yml entry:**
+```yaml
+- name: <concept>_<entity>    # Without ext_ prefix
+  meta:
+    psa: true                 # Marks as PSA for VS Code extension
+    source_external_table: ext_<concept>_<entity>
+```
 
 ## Critical Constraints (Azure SQL Basic Tier)
 - **Always set** `as_columnstore: false` in incremental models
@@ -38,6 +70,7 @@ dbt run-operation stage_external_sources  # Create/update external tables
 | Object | Pattern | Example |
 |--------|---------|---------|
 | External Table | `stg.ext_<concept>_<entity>` | `stg.ext_werkportal_company` |
+| PSA Table | `stg.psa_<concept>_<entity>` | `stg.psa_adventureworks_saleslt_address` |
 | Staging View | `stg.<concept>_<entity>` | `stg.werkportal_company` |
 | Hub | `vault_<concept>.hub_<entity>` | `vault_werkportal.hub_company` |
 | Satellite | `vault_<concept>.sat_<entity>` | `vault_werkportal.sat_company` |

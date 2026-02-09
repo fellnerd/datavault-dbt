@@ -5,6 +5,7 @@
 | Layer | Ordner | Schema | Verwendung |
 |-------|--------|--------|------------|
 | Staging | `staging/` | `stg` | Alle Quellen |
+| PSA (optional) | `staging/psa_*.sql` | `stg` | Persistent Staging Area (Cache für External Tables) |
 | Raw Vault (common) | `raw_vault/_common/` | `vault` | Quell-übergreifende Objekte |
 | Raw Vault (source) | `raw_vault/<concept>/` | `vault_<concept>` | Quellsystem-spezifische Objekte |
 | Business Vault | `business_vault/` | `vault` | PITs, Bridges |
@@ -12,6 +13,8 @@
 | Mart (domain) | `mart/<concept>/` | `mart_<concept>` | Domain-spezifische Views |
 
 **Pattern:** `_common` → Basis-Schema, `<concept>` → `<basis>_<concept>`
+
+> **PSA (Persistent Staging Area):** Optionaler Cache-Layer für große External Tables. Reduziert OPENROWSET-Aufrufe durch inkrementelle Materialisierung. Staging Views referenzieren dann die PSA statt der External Table. Siehe [DEVELOPER.md](DEVELOPER.md#65-psa-persistent-staging-area-erstellen) für Details.
 
 ## Übersicht
 
@@ -245,6 +248,8 @@ flowchart LR
 
 ## Datenfluss
 
+### Standard-Datenfluss (ohne PSA)
+
 ```mermaid
 sequenceDiagram
     participant PG as PostgreSQL
@@ -263,6 +268,39 @@ sequenceDiagram
     STG->>HUB: INSERT new BKs
     STG->>SAT: INSERT changed records
     STG->>LNK: INSERT new relationships
+```
+
+### Datenfluss mit PSA (Persistent Staging Area)
+
+Bei großen Datenmengen wird eine PSA-Tabelle zwischengeschaltet, um OPENROWSET-Aufrufe zu minimieren:
+
+```mermaid
+sequenceDiagram
+    participant ADLS as ADLS Gen2
+    participant EXT as External Tables
+    participant PSA as PSA (Incremental)
+    participant STG as Staging Views
+    participant VAULT as Raw Vault
+
+    ADLS->>EXT: PolyBase Query
+    EXT->>PSA: Incremental Load (merge/append)
+    Note over PSA: Cached in SQL Table
+    PSA->>STG: Hash Key Berechnung
+    STG->>VAULT: Hub/Sat/Link
+```
+
+**PSA-Konfiguration:**
+- `materialized='incremental'` - Inkrementell laden
+- `incremental_strategy='merge'` - Upsert (oder `append` für Insert-only)
+- `unique_key='<business_key>'` - Für Merge-Strategie erforderlich
+
+**Referenzierung in Staging View:**
+```sql
+-- OHNE PSA (Standard)
+SELECT * FROM {{ source('staging', 'ext_<concept>_<entity>') }}
+
+-- MIT PSA (nach PSA-Erstellung)
+SELECT * FROM {{ ref('psa_<concept>_<entity>') }}
 ```
 
 ## Datenzählung

@@ -1,0 +1,190 @@
+erDiagram
+ %%{init: {'theme': 'base'}}%%
+    HUB_KUNDE {
+        string hk_kunde PK
+        int customerid
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    HUB_ADRESSE {
+        string hk_adresse PK
+        int addressid
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    HUB_PRODUKT {
+        string hk_produkt PK
+        int productid
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    HUB_VERKAUF {
+        string hk_verkauf PK
+        int salesorderid
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_KUNDE {
+        string hk_kunde FK
+        string hashdiff
+        string namestyle
+        string title
+        string firstname
+        string middlename
+        string lastname
+        string suffix
+        string companyname
+        string salesperson
+        string emailaddress
+        string phone
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_ADRESSE {
+        string hk_adresse FK
+        string hashdiff
+        string addressline1
+        string addressline2
+        string city
+        string stateprovince
+        string countryregion
+        string postalcode
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_PRODUKT {
+        string hk_produkt FK
+        string hashdiff
+        string name
+        string productnumber
+        string size
+        decimal weight
+        int productmodelid
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_PRODUKT_PREIS {
+        string hk_produkt FK
+        string hashdiff
+        decimal standardcost
+        decimal listprice
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_VERKAUF {
+        string hk_verkauf FK
+        string hashdiff
+        int revisionnumber
+        datetime orderdate
+        datetime duedate
+        datetime shipdate
+        int status
+        string salesordernumber
+        string accountnumber
+        string shipmethod
+        decimal subtotal
+        decimal taxamt
+        decimal freight
+        decimal totaldue
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    LINK_KUNDE_ADRESSE {
+        string hk_link_kunde_adresse PK
+        string hk_kunde FK
+        string hk_adresse FK
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    LINK_VERKAUF_KUNDE {
+        string hk_link_verkauf_kunde PK
+        string hk_verkauf FK
+        string hk_kunde FK
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    LINK_VERKAUF_ADRESSE_1 {
+        string hk_link PK
+        string hk_verkauf FK
+        string hk_adresse FK
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    LINK_VERKAUF_ADRESSE_2 {
+        string hk_link PK
+        string hk_verkauf FK
+        string hk_adresse FK
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    LINK_VERKAUF_DETAIL {
+        string hk_link_verkauf_detail PK
+        string hk_verkauf FK
+        string hk_produkt FK
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_KUNDE_ADRESSE {
+        string hk_link_kunde_adresse FK
+        string hashdiff
+        string addresstype
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    SAT_VERKAUF_DETAIL_DC {
+        string hk_link_verkauf_detail FK
+        string hashdiff
+        int salesorderdetailid
+        int orderqty
+        decimal unitprice
+        decimal unitpricediscount
+        decimal linetotal
+        datetime modifieddate
+        datetime dss_load_date
+        string dss_record_source
+    }
+
+    HUB_KUNDE ||--o{ SAT_KUNDE : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE : has
+    HUB_PRODUKT ||--o{ SAT_PRODUKT : has
+    HUB_PRODUKT ||--o{ SAT_PRODUKT_PREIS : has
+    HUB_VERKAUF ||--o{ SAT_VERKAUF : has
+
+    HUB_KUNDE ||--o{ LINK_KUNDE_ADRESSE : links
+    HUB_ADRESSE ||--o{ LINK_KUNDE_ADRESSE : links
+
+    HUB_VERKAUF ||--o{ LINK_VERKAUF_KUNDE : links
+    HUB_KUNDE ||--o{ LINK_VERKAUF_KUNDE : links
+
+    HUB_VERKAUF ||--o{ LINK_VERKAUF_ADRESSE_1 : ships
+    HUB_ADRESSE ||--o{ LINK_VERKAUF_ADRESSE_1 : ships
+
+    HUB_VERKAUF ||--o{ LINK_VERKAUF_ADRESSE_2 : bills
+    HUB_ADRESSE ||--o{ LINK_VERKAUF_ADRESSE_2 : bills
+
+    HUB_VERKAUF ||--o{ LINK_VERKAUF_DETAIL : contains
+    HUB_PRODUKT ||--o{ LINK_VERKAUF_DETAIL : contains
+
+    LINK_KUNDE_ADRESSE ||--o{ SAT_KUNDE_ADRESSE : has
+    LINK_VERKAUF_DETAIL ||--o{ SAT_VERKAUF_DETAIL_DC : has
