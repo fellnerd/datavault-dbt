@@ -63,7 +63,7 @@ export async function runDbtOperation(
       .map(([k, v]) => `${k}: '${v}'`)
       .join(', ') + '}';
     
-    const cmdArgs = ['run-operation', macroName, '--args', argsYaml];
+    const cmdArgs = ['--no-use-colors', 'run-operation', macroName, '--args', argsYaml];
     
     log?.(`Running: ${dbtPath} ${cmdArgs.join(' ')}`);
     
@@ -101,8 +101,13 @@ export async function runDbtOperation(
  * Parse dbt output - extract lines after timestamps, filter noise
  */
 function parseDbtOutput(output: string, log?: (msg: string) => void): string[] {
-  // Normalize line endings (Windows uses \r\n)
-  const normalizedOutput = output.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Normalize line endings (Windows uses \r\n) and strip ANSI escape codes
+  const normalizedOutput = output
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // eslint-disable-next-line no-control-regex
+    .replace(/\x1b\[[0-9;]*m/g, '')   // strip ANSI color codes like \x1b[0m
+    .replace(/\[0m/g, '');             // strip bare [0m (sometimes no ESC prefix)
   const lines = normalizedOutput.split('\n');
   const outputLines: string[] = [];
   

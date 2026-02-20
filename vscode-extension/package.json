@@ -719,6 +719,7 @@
   "dependencies": {
     "@xyflow/react": "^12.10.0",
     "glob": "^10.3.10",
+    "js-yaml": "^4.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "vscrui": "^0.3.0",
