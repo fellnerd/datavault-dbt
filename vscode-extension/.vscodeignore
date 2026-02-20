@@ -7,5 +7,5 @@ vsc-extension-quickstart.md
 **/tsconfig.json
 **/.eslintrc.json
 **/*.map
+!**/*.d.ts
 **/*.ts
-node_modules/**
