@@ -296,7 +296,7 @@ dss_load_date_sat   -- Load Date des referenzierten Satellites
 |--------|--------------|
 | **Zweck** | Konsum-Schicht für **BI & Analytics** |
 | **Eigenschaften** | Dimensions- und Faktenmodelle, abgeleitet aus Raw/Business Vault |
-| **Inhalte** | `dim_date`, `dim_company`, `fact_invoice` |
+| **Inhalte** | `dim_date`, `dim_kunde`, `fakt_rechnung` |
 | **Wichtig** | Keine unabhängige Modellierung, keine zusätzliche Historisierung |
 
 ---
@@ -544,9 +544,11 @@ datavault-dbt/
 │   │
 │   └── mart/                   # 📈 Mart Layer (für BI)
 │       ├── _common/            # Schema: mart (geteilte Dimensionen)
-│       │   └── dim_date.sql
+│       │   ├── dim_date.sql
+│       │   └── dim_kunde.sql
 │       └── project/            # Schema: mart_project
-│           └── company_current_v.sql
+│           ├── dim_projekt.sql
+│           └── fakt_projekt.sql
 │
 ├── docs/                       # 📚 Dokumentation
 │   ├── SYSTEM.md

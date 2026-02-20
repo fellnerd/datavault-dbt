@@ -83,6 +83,10 @@ dbt run-operation stage_external_sources  # Create/update external tables
 | Hash Diff | `hd_<entity>` | `hd_company` |
 | DC Hash Diff | `hd_<dc>_<parent>_dc` | `hd_contact_contractor_dc` |
 | Metadata | `dss_*` prefix | `dss_load_date`, `dss_record_source` |
+| Dimension (Common) | `mart.dim_<entity>` | `mart.dim_date`, `mart.dim_kunde` |
+| Dimension (Domain) | `mart_<concept>.dim_<entity>` | `mart_project.dim_projekt` |
+| Faktentabelle (Common) | `mart.fakt_<entity>` | `mart.fakt_rechnung` |
+| Faktentabelle (Domain) | `mart_<concept>.fakt_<entity>` | `mart_project.fakt_projekt` |
 
 ## Dependent Child (DC) Pattern
 Use DC when an entity has **no own stable Business Key** and is identified by parent relationship + DCK columns.
