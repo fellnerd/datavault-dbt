@@ -725,6 +725,7 @@ export const App: React.FC = () => {
             setBaseStagingColumns(data.baseStagingColumns);
           }
           
+          setIsLoading(false);
           return; // Exit early - we've loaded from saved config
         }
         
