@@ -101,6 +101,28 @@ Ein Link verbindet Hubs miteinander - wie ein **Organisationsdiagramm**.
 **Wichtige Links:**
 - `link_company_role` - Welche Rolle hat ein Unternehmen? (Kunde/Lieferant/Auftragnehmer)
 - `link_company_country` - In welchem Land sitzt das Unternehmen?
+- `link_contact_contractor` - Welche Ansprechpartner hat ein Auftragnehmer?
+
+#### 👶 **Dependent Child Satellites** - "Die Abhängigen"
+
+Manchmal existiert ein Objekt nur im Kontext eines anderen - wie ein **Ansprechpartner** der nur durch seine Firma identifiziert werden kann:
+
+```
+        hub_contractor                    
+             │                             
+             └───── link_contact_contractor 
+                           │
+                    sat_contact_contractor_dc
+                    (Name, E-Mail, Telefon des Ansprechpartners)
+```
+
+**Wann wird das verwendet?**
+- Der Ansprechpartner hat keine eigene ID im Quellsystem
+- Er wird durch Name + E-Mail identifiziert (= Dependent Child Keys)
+- Die Attribute hängen am Link, nicht an einem eigenen Hub
+
+**Wichtige DC Satellites:**
+- `sat_contact_contractor_dc` - Ansprechpartner-Details für Auftragnehmer
 
 #### ⏱️ **PIT-Tabellen** - "Der Zeitnavigator"
 
@@ -262,7 +284,7 @@ Bearbeite `models/staging/sources.yml`:
 
 ### Schritt 2: Staging View erstellen
 
-Erstelle `models/staging/stg_neue_entity.sql`:
+Erstelle `models/staging/werkportal_neue_entity.sql`:
 
 ```sql
 {{- config(
@@ -305,7 +327,7 @@ Erstelle `models/raw_vault/hubs/hub_neue_entity.sql`:
     as_columnstore=false
 ) -}}
 
-{%- set source_model = "stg_neue_entity" -%}
+{%- set source_model = "werkportal_neue_entity" -%}
 {%- set src_pk = "hk_neue_entity" -%}
 {%- set src_nk = "id" -%}
 {%- set src_ldts = "dss_load_date" -%}
@@ -331,7 +353,7 @@ Erstelle `models/raw_vault/satellites/sat_neue_entity.sql`:
     as_columnstore=false
 ) -}}
 
-{%- set source_model = "stg_neue_entity" -%}
+{%- set source_model = "werkportal_neue_entity" -%}
 {%- set src_pk = "hk_neue_entity" -%}
 {%- set src_hashdiff = "hd_neue_entity" -%}
 {%- set src_ldts = "dss_load_date" -%}
@@ -355,11 +377,11 @@ Erstelle `models/raw_vault/satellites/sat_neue_entity.sql`:
 dbt run-operation stage_external_sources
 
 # Models bauen (Development)
-dbt run --select stg_neue_entity hub_neue_entity sat_neue_entity
+dbt run --select werkportal_neue_entity hub_neue_entity sat_neue_entity
 
 # Produktion
 dbt run-operation stage_external_sources --target werkportal
-dbt run --select stg_neue_entity hub_neue_entity sat_neue_entity --target werkportal
+dbt run --select werkportal_neue_entity hub_neue_entity sat_neue_entity --target werkportal
 ```
 
 ---
@@ -504,13 +526,13 @@ SELECT COUNT(*) FROM vault.sat_company_client;
 
 | Objekt | Pattern | Beispiel |
 |--------|---------|----------|
-| External Table | `ext_<entity>` | `ext_company_client` |
-| Staging View | `stg_<entity>` | `stg_company_client` |
-| Hub | `hub_<entity>` | `hub_company_client` |
-| Satellite | `sat_<entity>` | `sat_company_client` |
+| External Table | `ext_<concept>_<entity>` | `ext_werkportal_company_client` |
+| Staging View | `<concept>_<entity>` | `werkportal_company` |
+| Hub | `hub_<entity>` | `hub_company` |
+| Satellite | `sat_<entity>` | `sat_company` |
 | Link | `link_<e1>_<e2>` | `link_company_country` |
-| Hash Key | `hk_<entity>` | `hk_company_client` |
-| Hash Diff | `hd_<entity>` | `hd_company_client` |
+| Hash Key | `hk_<entity>` | `hk_company` |
+| Hash Diff | `hd_<entity>` | `hd_company` |
 
 ### 8.3 Änderungen nachvollziehen
 
@@ -539,10 +561,83 @@ ORDER BY dss_load_date DESC;
 
 ---
 
-## 10. Changelog
+## 10. Master Data Services (MDS) Deployment
+
+### 10.1 Deploy über die UI (Commits-Seite)
+
+Der empfohlene Weg für das Deployment von Master Data ist über die **Commits-Seite**:
+
+1. **Navigation:** Öffnen Sie `/commits` in der MDS-Anwendung
+2. **Tab auswählen:** Klicken Sie auf **"Ready to Deploy"** 
+3. **Commit expandieren:** Klicken Sie auf die gewünschte Commit-Karte
+4. **Deploy starten:** Klicken Sie auf **"Deploy to Data Vault"**
+
+### 10.2 Deploy-Dialog
+
+Nach dem Klick auf "Deploy to Data Vault" erscheint ein Dialog mit folgenden Optionen:
+
+| Modus | Beschreibung | Ziel-Tabellen |
+|-------|-------------|---------------|
+| **Load + Master** (empfohlen) | Daten werden geladen UND historisiert (SCD2) | `mds_load.<entity>` → `mds_master.<entity>` |
+| **Nur Load** | Daten werden nur in die Load-Schicht geladen | `mds_load.<entity>` |
+
+**Live-Fortschritt:**
+- Progress-Bar zeigt den Gesamtfortschritt
+- Log-Fenster zeigt dbt-Output in Echtzeit (SSE-Streaming)
+- Erfolgs-/Fehlermeldung am Ende
+
+### 10.3 Deploy-Modi im Detail
+
+#### Load + Master (empfohlen)
+
+```
+mds_stage.staged_record (JSON)
+    ↓ dbt load_<entity>.sql
+mds_load.<entity> (flache Tabelle)
+    ↓ dbt mds_<entity>.sql
+mds_master.<entity> (SCD2 historisiert)
+```
+
+**Status-Updates:**
+- `staged_record.status`: committed → loaded → deployed
+- `commit.status`: approved → loaded → deployed
+- `mds_load.is_processed`: 0 → 1
+
+#### Nur Load
+
+```
+mds_stage.staged_record (JSON)
+    ↓ dbt load_<entity>.sql
+mds_load.<entity> (flache Tabelle)
+```
+
+**Status-Updates:**
+- `staged_record.status`: committed → loaded
+- `commit.status`: approved → loaded
+
+**Anwendungsfall:** Wenn Sie die Master-Tabellen manuell befüllen oder prüfen möchten, bevor die SCD2-Historisierung stattfindet.
+
+### 10.4 Daten nach Deploy prüfen
+
+```sql
+-- Load-Tabelle (Rohdaten)
+SELECT * FROM mds_load.product WHERE is_processed = 0;
+
+-- Master-Tabelle (SCD2)
+SELECT * FROM mds_master.product WHERE is_current = 1;
+
+-- Deployment-Log
+SELECT * FROM mds_load.deployment_log ORDER BY started_at DESC;
+```
+
+---
+
+## 11. Changelog
 
 | Datum | Version | Änderung |
 |-------|---------|----------|
+| 2026-01-11 | 2.1.0 | MDS Deploy-Dialog mit Modus-Auswahl und Live-Streaming |
+| 2026-01-11 | 2.1.0 | Korrektur: mds_load Tabellen heißen `<entity>` (nicht `load_<entity>`) |
 | 2025-12-27 | 2.0.0 | DV 2.1 Optimierung: Ghost Records, PIT-Tabellen, Effectivity Satellites |
 | 2025-12-27 | 2.0.0 | Kundenfreundliche Dokumentation mit Erklärungen für Endanwender |
 | 2025-12-27 | 1.0.0 | Initial Release |
@@ -550,7 +645,36 @@ ORDER BY dss_load_date DESC;
 ---
 
 ## 11. Häufige Fragen (FAQ)
+### Für MDS-Benutzer (Master Data Services)
 
+**F: Wie deploye ich genehmigte Commits?**
+1. Gehen Sie zur Commits-Seite (`/commits`)
+2. Wählen Sie den Tab "Ready to Deploy"
+3. Klicken Sie auf die Commit-Karte
+4. Klicken Sie "Deploy to Data Vault"
+5. Wählen Sie "Load + Master" und bestätigen
+
+**F: Was ist der Unterschied zwischen "Load + Master" und "Nur Load"?**
+- **Load + Master**: Daten werden in `mds_load` geladen UND nach `mds_master` übertragen (mit SCD2-Historisierung)
+- **Nur Load**: Daten werden nur in `mds_load` geladen (für manuelle Weiterverarbeitung)
+
+**F: Der Deploy zeigt "Verbinde mit Log-Stream..." aber es passiert nichts?**
+Prüfen Sie, ob der Worker-Prozess läuft:
+```bash
+# Worker starten
+cd /home/user/projects/datavault-dbt/masterdata
+DBT_TARGET=local DBT_PROJECT_PATH=/home/user/projects/datavault-dbt/masterdata/dbt \
+  npx tsx src/lib/queue/worker.ts
+```
+
+**F: Wo finde ich meine deployed Daten?**
+```sql
+-- In der Load-Schicht (Rohdaten)
+SELECT * FROM mds_load.product;
+
+-- In der Master-Schicht (SCD2 historisiert)
+SELECT * FROM mds_master.product WHERE is_current = 1;
+```
 ### Für Analysten & Endanwender
 
 **F: Wie finde ich den aktuellen Stand eines Unternehmens?**

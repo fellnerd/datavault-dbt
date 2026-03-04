@@ -5,8 +5,7 @@
  */
 
 import { z } from 'zod';
-import * as path from 'path';
-import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { writeFile, getSatellitePath, getRelativePath, fileExists, DEFAULT_CONCEPT } from '../utils/fileOperations.js';
 
 export const createEffSatSchema = z.object({
   entity1: z.string().describe('Erste Entity (z.B. "company")'),
@@ -26,7 +25,7 @@ export async function createEffSat(input: CreateEffSatInput): Promise<string> {
   const hk1 = `hk_${entity1}`;
   const hk2 = `hk_${entity2}`;
   const drivingHk = `hk_${drivingKey}`;
-  const filePath = path.join(PATHS.satellites, `${effSatName}.sql`);
+  const filePath = getSatellitePath(`${entity1}_${entity2}`, DEFAULT_CONCEPT, true);
   
   // Check if file already exists
   if (await fileExists(filePath)) {

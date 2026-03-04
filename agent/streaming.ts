@@ -10,6 +10,7 @@ import chalk from 'chalk';
 import type { Tool } from '@anthropic-ai/sdk/resources/messages.js';
 import { TOOL_HANDLERS } from './tools/index.js';
 import * as conversation from './conversation.js';
+import { DEFAULT_CONCEPT } from './utils/fileOperations.js';
 
 const client = new Anthropic();
 const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
@@ -113,20 +114,21 @@ export async function streamAgentResponse(
                 block.name === 'create_pit' ||
                 block.name === 'create_mart') {
               // Extract file path from input
-              const input = block.input as { name?: string; entity?: string };
+              const input = block.input as { name?: string; entity?: string; concept?: string };
               const name = input.name || input.entity;
+              const concept = input.concept || DEFAULT_CONCEPT;
               if (name) {
                 // Construct likely path based on tool
                 let filePath = '';
                 switch (block.name) {
                   case 'create_hub':
-                    filePath = `models/raw_vault/hubs/hub_${name}.sql`;
+                    filePath = `models/raw_vault/${concept}/hubs/hub_${name}.sql`;
                     break;
                   case 'create_satellite':
-                    filePath = `models/raw_vault/satellites/sat_${name}.sql`;
+                    filePath = `models/raw_vault/${concept}/satellites/sat_${name}.sql`;
                     break;
                   case 'create_link':
-                    filePath = `models/raw_vault/links/link_${name}.sql`;
+                    filePath = `models/raw_vault/${concept}/links/link_${name}.sql`;
                     break;
                   case 'create_staging':
                     filePath = `models/staging/stg_${name}.sql`;

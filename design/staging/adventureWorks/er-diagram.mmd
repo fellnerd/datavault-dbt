@@ -1,0 +1,148 @@
+erDiagram
+    %%{init: {'theme': 'base'}}%%
+    %% Schema: stg - AdventureWorks External Tables (Staging Layer)
+    %% Source: ADLS Gen2 Parquet via External Tables
+    
+    address {
+        int AddressID PK
+        nvarchar AddressLine1
+        nvarchar AddressLine2
+        nvarchar City
+        nvarchar StateProvince
+        nvarchar CountryRegion
+        nvarchar PostalCode
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    customer {
+        int CustomerID PK
+        bit NameStyle
+        nvarchar Title
+        nvarchar FirstName
+        nvarchar MiddleName
+        nvarchar LastName
+        nvarchar Suffix
+        nvarchar CompanyName
+        nvarchar SalesPerson
+        nvarchar EmailAddress
+        nvarchar Phone
+        nvarchar PasswordHash
+        nvarchar PasswordSalt
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    customeraddress {
+        int CustomerID PK
+        int AddressID PK
+        nvarchar AddressType
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    product {
+        int ProductID PK
+        nvarchar Name
+        nvarchar ProductNumber
+        nvarchar Color
+        decimal StandardCost
+        decimal ListPrice
+        nvarchar Size
+        decimal Weight
+        int ProductCategoryID
+        int ProductModelID
+        datetime2 SellStartDate
+        datetime2 SellEndDate
+        datetime2 DiscontinuedDate
+        varbinary ThumbNailPhoto
+        nvarchar ThumbnailPhotoFileName
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    productcategory {
+        int ProductCategoryID PK
+        int ParentProductCategoryID
+        nvarchar Name
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    productdescription {
+        int ProductDescriptionID PK
+        nvarchar Description
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    productmodel {
+        int ProductModelID PK
+        nvarchar Name
+        nvarchar CatalogDescription
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    productmodelproductdescription {
+        int ProductModelID PK
+        int ProductDescriptionID PK
+        nvarchar Culture PK
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    salesorderheader {
+        int SalesOrderID PK
+        int RevisionNumber
+        datetime2 OrderDate
+        datetime2 DueDate
+        datetime2 ShipDate
+        int Status
+        bit OnlineOrderFlag
+        nvarchar SalesOrderNumber
+        nvarchar PurchaseOrderNumber
+        nvarchar AccountNumber
+        int CustomerID
+        int ShipToAddressID
+        int BillToAddressID
+        nvarchar ShipMethod
+        nvarchar CreditCardApprovalCode
+        decimal SubTotal
+        decimal TaxAmt
+        decimal Freight
+        decimal TotalDue
+        nvarchar Comment
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    salesorderdetail {
+        int SalesOrderID PK
+        int SalesOrderDetailID PK
+        int OrderQty
+        int ProductID
+        decimal UnitPrice
+        decimal UnitPriceDiscount
+        decimal LineTotal
+        nvarchar rowguid
+        datetime2 ModifiedDate
+    }
+    
+    %% Relationships
+    customer ||--o{ customeraddress : has
+    address ||--o{ customeraddress : used_in
+    
+    productcategory ||--o{ productcategory : parent_of
+    productcategory ||--o{ product : contains
+    productmodel ||--o{ product : defines
+    
+    productmodel ||--o{ productmodelproductdescription : has
+    productdescription ||--o{ productmodelproductdescription : describes
+    
+    customer ||--o{ salesorderheader : places
+    address ||--o{ salesorderheader : ship_to
+    address ||--o{ salesorderheader : bill_to
+    
+    salesorderheader ||--o{ salesorderdetail : contains
+    product ||--o{ salesorderdetail : ordered_in

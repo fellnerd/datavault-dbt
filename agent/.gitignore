@@ -1,15 +1,17 @@
 # Dependencies
 node_modules/
+dist/
 
 # Environment
 .env
 .env.local
 
-# Build output
-dist/
+# Session
+.agent-session.json
 
-# IDE
-.idea/
+# Data
+data/
+memory/*.db
 
 # Logs
 *.log

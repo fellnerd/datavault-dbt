@@ -12,8 +12,16 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { scanProject } from '../projectScanner.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { 
+  getConceptPaths, 
+  getAvailableConcepts, 
+  PATHS,
+  fileExists 
+} from '../utils/fileOperations.js';
 
-const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 interface ValidateModelInput {
   model?: string;
@@ -158,17 +166,57 @@ export async function validateModel(input: ValidateModelInput): Promise<string> 
 }
 
 async function validateSingleModel(model: string): Promise<ValidationResult> {
+  // Find actual file path by searching all concept directories
+  let filePath: string | null = null;
+  
+  if (model.startsWith('hub_') || model.startsWith('sat_') || 
+      model.startsWith('eff_sat_') || model.startsWith('link_')) {
+    const concepts = await getAvailableConcepts();
+    
+    for (const concept of concepts) {
+      const conceptPaths = getConceptPaths(concept);
+      let testPath: string;
+      
+      if (model.startsWith('hub_')) {
+        testPath = path.join(conceptPaths.hubs, `${model}.sql`);
+      } else if (model.startsWith('sat_') || model.startsWith('eff_sat_')) {
+        testPath = path.join(conceptPaths.satellites, `${model}.sql`);
+      } else if (model.startsWith('link_')) {
+        testPath = path.join(conceptPaths.links, `${model}.sql`);
+      } else {
+        continue;
+      }
+      
+      if (await fileExists(testPath)) {
+        filePath = path.relative(PROJECT_ROOT, testPath);
+        break;
+      }
+    }
+  } else if (model.startsWith('stg_')) {
+    filePath = `models/staging/${model}.sql`;
+  }
+  
+  if (!filePath) {
+    return {
+      model,
+      type: 'unknown',
+      errors: ['Model-Datei nicht gefunden'],
+      warnings: [],
+      passed: false,
+    };
+  }
+  
   if (model.startsWith('hub_')) {
-    return validateHub(model, `models/raw_vault/hubs/${model}.sql`);
+    return validateHub(model, filePath);
   }
   if (model.startsWith('sat_') || model.startsWith('eff_sat_')) {
-    return validateSatellite(model, `models/raw_vault/satellites/${model}.sql`, undefined);
+    return validateSatellite(model, filePath, undefined);
   }
   if (model.startsWith('link_')) {
-    return validateLink(model, `models/raw_vault/links/${model}.sql`, []);
+    return validateLink(model, filePath, []);
   }
   if (model.startsWith('stg_')) {
-    return validateStaging(model, `models/staging/${model}.sql`);
+    return validateStaging(model, filePath);
   }
   
   return {

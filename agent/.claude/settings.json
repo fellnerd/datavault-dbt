@@ -1,0 +1,72 @@
+{
+  "name": "datavault-dbt",
+  "version": "1.0.0",
+  "description": "Data Vault 2.1 dbt Plugin für Claude Code - Azure SQL mit MCP Server",
+  "author": "Data Engineering Team",
+  
+  "mcpServers": {
+    "datavault-agent": {
+      "url": "http://10.0.0.25:3001",
+      "transport": "http",
+      "description": "Data Vault MCP Server mit 28 Tools für dbt und Azure SQL"
+    }
+  },
+  
+  "permissions": {
+    "allowedTools": [
+      "datavault-agent"
+    ],
+    "allowedCommands": [
+      "dbt",
+      "git",
+      "ls",
+      "cat",
+      "grep",
+      "head",
+      "tail"
+    ],
+    "blockedPatterns": [
+      "rm -rf",
+      "sudo",
+      "DROP DATABASE",
+      "TRUNCATE"
+    ]
+  },
+  
+  "context": {
+    "alwaysInclude": [
+      "docs/DEVELOPER.md",
+      "docs/SYSTEM.md",
+      "CLAUDE.md"
+    ],
+    "includeOnDemand": [
+      "docs/MODEL_ARCHITECTURE.md",
+      "docs/MCP_SERVER.md",
+      "docs/USER.md",
+      "LESSONS_LEARNED.md"
+    ]
+  },
+  
+  "defaults": {
+    "schema": {
+      "staging": "stg",
+      "vault": "vault",
+      "mart": "mart_project"
+    },
+    "target": "dev",
+    "hashAlgorithm": "SHA2_256",
+    "hashSeparator": "^^"
+  },
+  
+  "hooks": {
+    "preToolCall": ".claude/hooks/pre-tool-call.md",
+    "postToolCall": ".claude/hooks/post-tool-call.md"
+  },
+  
+  "ui": {
+    "language": "de",
+    "confirmDestructiveActions": true,
+    "showProgressIndicators": true,
+    "interactiveMode": true
+  }
+}

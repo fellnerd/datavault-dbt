@@ -5,8 +5,7 @@
  */
 
 import { z } from 'zod';
-import * as path from 'path';
-import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { writeFile, getLinkPath, getRelativePath, fileExists, DEFAULT_CONCEPT } from '../utils/fileOperations.js';
 
 export const createLinkSchema = z.object({
   entity1: z.string().describe('Erste Entity (z.B. "company")'),
@@ -24,7 +23,7 @@ export async function createLink(input: CreateLinkInput): Promise<string> {
   const linkHashKey = `hk_link_${entity1}_${entity2}`;
   const hk1 = `hk_${entity1}`;
   const hk2 = `hk_${entity2}`;
-  const filePath = path.join(PATHS.links, `${linkName}.sql`);
+  const filePath = getLinkPath(`${entity1}_${entity2}`, DEFAULT_CONCEPT);
   
   // Check if file already exists
   if (await fileExists(filePath)) {

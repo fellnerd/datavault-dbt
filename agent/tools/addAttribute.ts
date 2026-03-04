@@ -5,7 +5,17 @@
  */
 
 import { z } from 'zod';
-import { readFile, writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { 
+  readFile, 
+  writeFile, 
+  PATHS, 
+  getRelativePath, 
+  fileExists,
+  getSatellitePath,
+  DEFAULT_CONCEPT,
+  getAvailableConcepts,
+  getConceptPaths
+} from '../utils/fileOperations.js';
 import * as path from 'path';
 
 export const addAttributeSchema = z.object({
@@ -71,9 +81,19 @@ export async function addAttribute(input: AddAttributeInput): Promise<string> {
     warnings.push(`⚠️ Staging View stg_${entityName}.sql nicht gefunden`);
   }
   
-  // 3. Update satellite
-  const satPath = path.join(PATHS.satellites, `sat_${entityName}.sql`);
-  if (await fileExists(satPath)) {
+  // 3. Update satellite - search in all concept directories
+  let satPath: string | null = null;
+  const concepts = await getAvailableConcepts();
+  
+  for (const concept of concepts) {
+    const testPath = getSatellitePath(entityName, concept);
+    if (await fileExists(testPath)) {
+      satPath = testPath;
+      break;
+    }
+  }
+  
+  if (satPath && await fileExists(satPath)) {
     let satContent = await readFile(satPath);
     
     if (satContent.includes(attributeName)) {

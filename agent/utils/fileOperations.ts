@@ -12,21 +12,121 @@ import { fileURLToPath } from 'url';
 // Get directory of current file
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Project root (two levels up from utils folder: agent/utils -> agent -> project root)
-export const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
+// Project root (three levels up from dist/utils folder: dist/utils -> dist -> agent -> project root)
+// When running from dist/utils/fileOperations.js, we need to go up 3 levels
+export const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
 
+// Default concept for raw vault models (can be overridden via env)
+export const DEFAULT_CONCEPT = process.env.DV_DEFAULT_CONCEPT || 'werkportal';
+
+// ============================================================================
+// Path Configuration
+// ============================================================================
+
+/**
+ * Static paths (don't depend on concept)
+ */
 export const PATHS = {
   models: path.join(PROJECT_ROOT, 'models'),
   staging: path.join(PROJECT_ROOT, 'models', 'staging'),
-  hubs: path.join(PROJECT_ROOT, 'models', 'raw_vault', 'hubs'),
-  satellites: path.join(PROJECT_ROOT, 'models', 'raw_vault', 'satellites'),
-  links: path.join(PROJECT_ROOT, 'models', 'raw_vault', 'links'),
+  rawVault: path.join(PROJECT_ROOT, 'models', 'raw_vault'),
   businessVault: path.join(PROJECT_ROOT, 'models', 'business_vault'),
   mart: path.join(PROJECT_ROOT, 'models', 'mart'),
   seeds: path.join(PROJECT_ROOT, 'seeds'),
   sourcesYml: path.join(PROJECT_ROOT, 'models', 'staging', 'sources.yml'),
   schemaYml: path.join(PROJECT_ROOT, 'models', 'schema.yml'),
+  design: path.join(PROJECT_ROOT, 'design'),
+  docs: path.join(PROJECT_ROOT, 'docs'),
 };
+
+/**
+ * Get paths for a specific concept (source system)
+ * @param concept - The concept name (e.g., 'werkportal', 'adventureworks', '_common')
+ */
+export function getConceptPaths(concept: string = DEFAULT_CONCEPT) {
+  const conceptDir = path.join(PATHS.rawVault, concept);
+  return {
+    root: conceptDir,
+    hubs: path.join(conceptDir, 'hubs'),
+    satellites: path.join(conceptDir, 'satellites'),
+    links: path.join(conceptDir, 'links'),
+  };
+}
+
+/**
+ * Get the file path for a hub
+ */
+export function getHubPath(entityName: string, concept: string = DEFAULT_CONCEPT): string {
+  const paths = getConceptPaths(concept);
+  return path.join(paths.hubs, `hub_${entityName}.sql`);
+}
+
+/**
+ * Get the file path for a satellite
+ */
+export function getSatellitePath(entityName: string, concept: string = DEFAULT_CONCEPT, isEffectivity = false): string {
+  const paths = getConceptPaths(concept);
+  const prefix = isEffectivity ? 'eff_sat_' : 'sat_';
+  return path.join(paths.satellites, `${prefix}${entityName}.sql`);
+}
+
+/**
+ * Get the file path for a link
+ */
+export function getLinkPath(linkName: string, concept: string = DEFAULT_CONCEPT): string {
+  const paths = getConceptPaths(concept);
+  return path.join(paths.links, `link_${linkName}.sql`);
+}
+
+/**
+ * Get the file path for a staging view
+ */
+export function getStagingPath(entityName: string): string {
+  return path.join(PATHS.staging, `stg_${entityName}.sql`);
+}
+
+/**
+ * Get the file path for a PIT table
+ */
+export function getPitPath(entityName: string): string {
+  return path.join(PATHS.businessVault, `pit_${entityName}.sql`);
+}
+
+/**
+ * Get the file path for a mart view
+ */
+export function getMartPath(viewName: string, subdir?: string): string {
+  if (subdir) {
+    return path.join(PATHS.mart, subdir, `${viewName}.sql`);
+  }
+  return path.join(PATHS.mart, `${viewName}.sql`);
+}
+
+/**
+ * Get relative path from absolute path
+ */
+export function getRelativeFromAbsolute(absolutePath: string): string {
+  return path.relative(PROJECT_ROOT, absolutePath);
+}
+
+/**
+ * Get all available concepts (source systems)
+ */
+export async function getAvailableConcepts(): Promise<string[]> {
+  try {
+    const entries = await fs.readdir(PATHS.rawVault, { withFileTypes: true });
+    return entries
+      .filter(e => e.isDirectory())
+      .map(e => e.name)
+      .sort();
+  } catch {
+    return [DEFAULT_CONCEPT];
+  }
+}
+
+// ============================================================================
+// File Operations
+// ============================================================================
 
 /**
  * Ensure a directory exists
@@ -131,3 +231,6 @@ export async function addModelToSchemaYaml(modelDefinition: object): Promise<voi
 export function getRelativePath(absolutePath: string): string {
   return path.relative(PROJECT_ROOT, absolutePath);
 }
+
+// Legacy alias for backward compatibility
+export { getRelativeFromAbsolute as toRelative };

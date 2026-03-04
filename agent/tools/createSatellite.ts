@@ -6,8 +6,7 @@
  */
 
 import { z } from 'zod';
-import * as path from 'path';
-import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { writeFile, getSatellitePath, getRelativePath, fileExists, DEFAULT_CONCEPT } from '../utils/fileOperations.js';
 import { 
   validateSatellite, 
   formatValidationResult 
@@ -34,7 +33,7 @@ export async function createSatellite(input: CreateSatelliteInput): Promise<stri
   const hashKey = `hk_${entityName}`;
   const hashDiff = `hd_${entityName}`;
   const hubRef = parentHub || `hub_${entityName}`;
-  const filePath = path.join(PATHS.satellites, `${satName}.sql`);
+  const filePath = getSatellitePath(entityName, DEFAULT_CONCEPT);
   
   const output: string[] = [];
   

@@ -6,8 +6,7 @@
  */
 
 import { z } from 'zod';
-import * as path from 'path';
-import { writeFile, PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { writeFile, getHubPath, getRelativePath, fileExists, DEFAULT_CONCEPT } from '../utils/fileOperations.js';
 import { validateHub, formatValidationResult } from '../validators/dataVaultRules.js';
 import { checkStagingDependencies, formatDependencyResult } from '../validators/dependencies.js';
 import { resultBox, formatError } from '../ui.js';
@@ -25,7 +24,7 @@ export async function createHub(input: CreateHubInput): Promise<string> {
   
   const hubName = `hub_${entityName}`;
   const hashKey = `hk_${entityName}`;
-  const filePath = path.join(PATHS.hubs, `${hubName}.sql`);
+  const filePath = getHubPath(entityName, DEFAULT_CONCEPT);
   
   const output: string[] = [];
   

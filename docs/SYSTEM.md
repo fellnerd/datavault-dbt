@@ -86,7 +86,7 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 
 | Schema | Inhalt | Beschreibung |
 |--------|--------|--------------|
-| `stg` | External Tables, Staging Views | Rohdaten aus ADLS + Hash-Berechnung |
+| `stg` | ext_<concept>_<entity>, <concept>_<entity> | Rohdaten aus ADLS + Hash-Berechnung (Concept = Quellsystem) |
 | `vault` | Hubs, Satellites, Links | Data Vault 2.1 Objekte |
 | `dv` | (Default) | Nicht verwendet |
 

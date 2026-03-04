@@ -1,0 +1,728 @@
+{
+  "name": "datavault-dbt",
+  "displayName": "Data Vault dbt Explorer",
+  "description": "Visualize and navigate dbt Data Vault 2.1 projects with hierarchical tree views",
+  "version": "0.1.1",
+  "publisher": "datavault",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "dbt",
+    "data-vault",
+    "data-warehouse",
+    "sql"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/dbt_project.yml",
+    "onView:datavault-staging",
+    "onView:datavault-rawvault",
+    "onView:datavault-businessvault",
+    "onView:datavault-mart",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "datavault-explorer",
+          "title": "Data Vault",
+          "icon": "resources/datavault.svg"
+        }
+      ]
+    },
+    "views": {
+      "datavault-explorer": [
+        {
+          "id": "datavault-sources",
+          "name": "Sources",
+          "icon": "$(cloud-download)",
+          "contextualTitle": "Sources - External Tables"
+        },
+        {
+          "id": "datavault-staging",
+          "name": "Staging",
+          "icon": "$(database)",
+          "contextualTitle": "Staging Layer"
+        },
+        {
+          "id": "datavault-rawvault",
+          "name": "Raw Vault",
+          "icon": "$(symbol-structure)",
+          "contextualTitle": "Raw Vault Layer"
+        },
+        {
+          "id": "datavault-businessvault",
+          "name": "Business Vault",
+          "icon": "$(graph)",
+          "contextualTitle": "Business Vault Layer"
+        },
+        {
+          "id": "datavault-mart",
+          "name": "Marts",
+          "icon": "$(pie-chart)",
+          "contextualTitle": "Mart Layer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "datavault.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openModel",
+        "title": "Open Model File",
+        "icon": "$(go-to-file)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.showLineage",
+        "title": "Show Lineage",
+        "icon": "$(git-merge)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.showModelDetails",
+        "title": "Show Model Details",
+        "icon": "$(info)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.selectProject",
+        "title": "Select dbt Project",
+        "icon": "$(folder-opened)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openYamlDefinition",
+        "title": "Open YAML Definition",
+        "icon": "$(symbol-file)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.copyModelName",
+        "title": "Copy Model Name",
+        "icon": "$(copy)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.copyRefSyntax",
+        "title": "Copy as ref() Syntax",
+        "icon": "$(code)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.discoverSources",
+        "title": "Discover External Sources",
+        "icon": "$(search)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createExternalTable",
+        "title": "Create External Table",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.renameExternalTable",
+        "title": "Rename Table",
+        "icon": "$(edit)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.copyExternalTable",
+        "title": "Copy Table",
+        "icon": "$(copy)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.disableColumns",
+        "title": "Disable Columns",
+        "icon": "$(eye-closed)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteExternalTable",
+        "title": "Delete Table",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createAllExternalTables",
+        "title": "Create External Tables for Source",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.stageAllExternalSources",
+        "title": "Stage All External Sources",
+        "icon": "$(run-all)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openEntityDesigner",
+        "title": "Design Entity",
+        "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openEntityDesignerFromConfig",
+        "title": "Open Entity Designer from Config",
+        "icon": "$(json)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteEntity",
+        "title": "Delete Entity (Staging + Vault)",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtRunFullRefresh",
+        "title": "dbt: Full Refresh (Recreate)",
+        "icon": "$(refresh)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtRun",
+        "title": "dbt: Run Models",
+        "icon": "$(play)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtSeed",
+        "title": "dbt: Load Seeds",
+        "icon": "$(table)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtBuild",
+        "title": "dbt: Build (Seeds + Models + Tests)",
+        "icon": "$(run-all)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtTest",
+        "title": "dbt: Test Models",
+        "icon": "$(beaker)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.dbtCompile",
+        "title": "dbt: Compile (Preview SQL)",
+        "icon": "$(file-code)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createPersistentStaging",
+        "title": "Create PSA Table",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createRefTable",
+        "title": "Create Reference Table",
+        "icon": "$(list-unordered)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createPITTable",
+        "title": "Create PIT Table",
+        "icon": "$(history)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createBridgeTable",
+        "title": "Create Bridge Table",
+        "icon": "$(git-merge)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteRawVaultModel",
+        "title": "Delete Raw Vault Model",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.deleteBusinessVaultModel",
+        "title": "Delete Business Vault Model",
+        "icon": "$(trash)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.createGroup",
+        "title": "Create Group",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addToGroup",
+        "title": "Add to Group",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.removeFromGroup",
+        "title": "Remove from Group",
+        "icon": "$(remove)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openMartDesigner",
+        "title": "Open Mart Designer",
+        "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addAsDimension",
+        "title": "Add as Dimension",
+        "icon": "$(symbol-class)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addAsFact",
+        "title": "Add as Fact",
+        "icon": "$(symbol-event)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addAttributesToNode",
+        "title": "Add Attributes to Node",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addColumnToNode",
+        "title": "Add Column to Node",
+        "icon": "$(add)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.useAsSource",
+        "title": "Use as Source",
+        "icon": "$(database)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.addSeedAsDimension",
+        "title": "Add Seed as Reference Dimension",
+        "icon": "$(list-unordered)",
+        "category": "Data Vault"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "datavault.deleteRawVaultModel",
+          "when": "false"
+        },
+        {
+          "command": "datavault.deleteBusinessVaultModel",
+          "when": "false"
+        },
+        {
+          "command": "datavault.openModel",
+          "when": "false"
+        },
+        {
+          "command": "datavault.showLineage",
+          "when": "false"
+        },
+        {
+          "command": "datavault.showModelDetails",
+          "when": "false"
+        },
+        {
+          "command": "datavault.openYamlDefinition",
+          "when": "false"
+        },
+        {
+          "command": "datavault.copyModelName",
+          "when": "false"
+        },
+        {
+          "command": "datavault.copyRefSyntax",
+          "when": "false"
+        },
+        {
+          "command": "datavault.createExternalTable",
+          "when": "false"
+        },
+        {
+          "command": "datavault.createAllExternalTables",
+          "when": "false"
+        },
+        {
+          "command": "datavault.createPersistentStaging",
+          "when": "false"
+        },
+        {
+          "command": "datavault.openEntityDesigner",
+          "when": "false"
+        },
+        {
+          "command": "datavault.deleteEntity",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addToGroup",
+          "when": "false"
+        },
+        {
+          "command": "datavault.removeFromGroup",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addAsDimension",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addAsFact",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addAttributesToNode",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addColumnToNode",
+          "when": "false"
+        },
+        {
+          "command": "datavault.useAsSource",
+          "when": "false"
+        },
+        {
+          "command": "datavault.addSeedAsDimension",
+          "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "datavault.openEntityDesignerFromConfig",
+          "when": "resourceFilename =~ /\\.json$/ && resourcePath =~ /entity-designer/",
+          "group": "datavault@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "datavault.stageAllExternalSources",
+          "when": "view == datavault-sources",
+          "group": "navigation@0"
+        },
+        {
+          "command": "datavault.discoverSources",
+          "when": "view == datavault-sources",
+          "group": "navigation@1"
+        },
+        {
+          "command": "datavault.openMartDesigner",
+          "when": "view == datavault-mart",
+          "group": "navigation@0"
+        },
+        {
+          "command": "datavault.refresh",
+          "when": "view =~ /^datavault-/",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "datavault.openModel",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
+          "group": "navigation@1"
+        },
+        {
+          "command": "datavault.openYamlDefinition",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "datavault.showLineage",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "datavault.showModelDetails",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
+          "group": "navigation@4"
+        },
+        {
+          "command": "datavault.copyModelName",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
+          "group": "copy@1"
+        },
+        {
+          "command": "datavault.copyRefSyntax",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^model-/",
+          "group": "copy@2"
+        },
+        {
+          "command": "datavault.createExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "database@1"
+        },
+        {
+          "command": "datavault.renameExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "edit@1"
+        },
+        {
+          "command": "datavault.copyExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "edit@2"
+        },
+        {
+          "command": "datavault.disableColumns",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "edit@3"
+        },
+        {
+          "command": "datavault.deleteExternalTable",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "delete@1"
+        },
+        {
+          "command": "datavault.createPersistentStaging",
+          "when": "view == datavault-sources && viewItem =~ /^external_table(-in-group)?$/",
+          "group": "staging@0"
+        },
+        {
+          "command": "datavault.openEntityDesigner",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
+          "group": "design@1"
+        },
+        {
+          "command": "datavault.createAllExternalTables",
+          "when": "view == datavault-sources && viewItem == concept",
+          "group": "database@1"
+        },
+        {
+          "command": "datavault.createAllExternalTables",
+          "when": "view == datavault-sources && viewItem =~ /^(group|groupAll)$/",
+          "group": "database@1"
+        },
+        {
+          "command": "datavault.openEntityDesigner",
+          "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
+          "group": "staging@2"
+        },
+        {
+          "command": "datavault.deleteEntity",
+          "when": "view == datavault-staging && viewItem =~ /^model-staging(-in-group)?$/",
+          "group": "delete@1"
+        },
+        {
+          "command": "datavault.createRefTable",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
+          "group": "reference@1"
+        },
+        {
+          "command": "datavault.createPITTable",
+          "when": "view == datavault-rawvault && viewItem =~ /^model-hub(-in-group)?$/",
+          "group": "businessvault@1"
+        },
+        {
+          "command": "datavault.createBridgeTable",
+          "when": "view == datavault-rawvault && viewItem =~ /^model-link(-in-group)?$/",
+          "group": "businessvault@2"
+        },
+        {
+          "command": "datavault.deleteRawVaultModel",
+          "when": "view == datavault-rawvault && viewItem =~ /^model-/",
+          "group": "delete@1"
+        },
+        {
+          "command": "datavault.deleteBusinessVaultModel",
+          "when": "view == datavault-businessvault && viewItem =~ /^model-/",
+          "group": "delete@1"
+        },
+        {
+          "command": "datavault.addToGroup",
+          "when": "view =~ /^datavault-/ && viewItem =~ /^(model-|external_table|psa_table)/",
+          "group": "groups@1"
+        },
+        {
+          "command": "datavault.removeFromGroup",
+          "when": "view =~ /^datavault-/ && viewItem =~ /(-in-group|external_table-in-group|psa_table-in-group)$/",
+          "group": "groups@2"
+        },
+        {
+          "command": "datavault.addAttributesToNode",
+          "when": "view =~ /^datavault-(rawvault|businessvault|staging|sources)$/ && viewItem =~ /^model-/ && datavault.martDesignerOpen && datavault.nodeSelected",
+          "group": "mart@1"
+        },
+        {
+          "command": "datavault.addColumnToNode",
+          "when": "view =~ /^datavault-/ && viewItem == column && datavault.martDesignerOpen && datavault.nodeSelected",
+          "group": "mart@4"
+        },
+        {
+          "command": "datavault.useAsSource",
+          "when": "view == datavault-businessvault && viewItem =~ /^model-(pit|bridge)(-in-group)?$/ && datavault.martDesignerOpen && datavault.nodeSelected",
+          "group": "mart@5"
+        },
+        {
+          "command": "datavault.addSeedAsDimension",
+          "when": "view == datavault-mart && viewItem =~ /^(seed|seed-in-group)$/ && datavault.martDesignerOpen",
+          "group": "mart@1"
+        },
+        {
+          "command": "datavault.openMartDesigner",
+          "when": "view == datavault-mart && viewItem == concept",
+          "group": "navigation@0"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Data Vault dbt Explorer",
+      "properties": {
+        "datavault.projectPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to dbt_project.yml (auto-detected if empty)"
+        },
+        "datavault.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh when files change"
+        },
+        "datavault.refreshDebounceMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Debounce time in milliseconds for auto-refresh"
+        },
+        "datavault.dbtPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to dbt executable (auto-detected in .venv if empty)"
+        },
+        "datavault.lastDiscoverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Last used folder path for Discover (saved automatically)"
+        },
+        "datavault.lastDeltaDiscoverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Last used folder path for Delta Discover (saved automatically)"
+        },
+        "datavault.staging.businessKeySeparator": {
+          "type": "string",
+          "default": "^^",
+          "description": "Separator for composite business keys (DV 2.1 standard: ^^)"
+        },
+        "datavault.staging.hashDiffSeparator": {
+          "type": "string",
+          "default": "^^",
+          "description": "Separator for hash diff columns (DV 2.1 standard: ^^)"
+        },
+        "datavault.staging.nullPlaceholder": {
+          "type": "string",
+          "default": "",
+          "description": "Placeholder for NULL values in hash calculations"
+        },
+        "datavault.groups": {
+          "type": "array",
+          "scope": "resource",
+          "default": [],
+          "markdownDescription": "Custom groups for organizing models in tree views. Each group appears under its concept in the specified layer.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "concept",
+              "layer",
+              "models"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name of the group",
+                "order": 1
+              },
+              "concept": {
+                "type": "string",
+                "description": "Concept this group belongs to (e.g., 'werkportal', 'adventureworks')",
+                "order": 2
+              },
+              "layer": {
+                "type": "string",
+                "enum": [
+                  "sources",
+                  "staging",
+                  "raw_vault",
+                  "business_vault",
+                  "mart"
+                ],
+                "enumDescriptions": [
+                  "Sources/External Tables tree view",
+                  "Staging tree view",
+                  "Raw Vault tree view",
+                  "Business Vault tree view",
+                  "Mart tree view"
+                ],
+                "description": "Which tree view this group appears in",
+                "order": 3
+              },
+              "models": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true,
+                "description": "Model names in this group (e.g., 'hub_company', 'sat_contractor')",
+                "order": 4
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile && npm run build:webview",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:webview": "node esbuild.webview.mjs --production",
+    "watch:webview": "node esbuild.webview.mjs --watch",
+    "build:all": "npm run compile && npm run build:webview",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.27.2",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.10.0",
+    "glob": "^10.3.10",
+    "js-yaml": "^4.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "vscrui": "^0.3.0",
+    "yaml": "^2.3.4"
+  }
+}

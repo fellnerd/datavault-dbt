@@ -532,6 +532,16 @@ export class AgentDatabase {
   }
 
   /**
+   * Get all indexed document paths (for orphan cleanup)
+   */
+  getAllIndexedDocuments(): string[] {
+    const results = this.db.prepare(`
+      SELECT DISTINCT source_file FROM doc_chunks ORDER BY source_file
+    `).all() as Array<{ source_file: string }>;
+    return results.map(r => r.source_file);
+  }
+
+  /**
    * Get chunk statistics grouped by source file
    */
   getChunkStats(): Array<{ source_file: string; chunks: number }> {

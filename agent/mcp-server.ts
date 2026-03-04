@@ -352,6 +352,75 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // ============== Server Startup ==============
 
 export function startMCPServer(): void {
+  // Check transport mode
+  const transport = process.env.MCP_TRANSPORT || 'http';
+  
+  if (transport === 'stdio') {
+    // STDIO Transport for VS Code MCP
+    startStdioServer();
+  } else {
+    // HTTP Transport (default)
+    startHttpServer();
+  }
+}
+
+async function startStdioServer(): Promise<void> {
+  const server = new Server(
+    {
+      name: 'datavault-dbt-agent',
+      version: '1.0.0',
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
+
+  // List tools handler
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return {
+      tools: convertToMCPTools(),
+    };
+  });
+
+  // Call tool handler
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    
+    try {
+      const result = await executeTool(name, args || {});
+      return {
+        content: [
+          {
+            type: 'text',
+            text: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Error: ${errorMsg}`,
+          } as TextContent,
+        ],
+        isError: true,
+      };
+    }
+  });
+
+  // Connect via stdio
+  const stdioTransport = new StdioServerTransport();
+  await server.connect(stdioTransport);
+  
+  // Log to stderr (stdout is for MCP protocol)
+  console.error('Data Vault MCP Server running in stdio mode');
+}
+
+function startHttpServer(): void {
   // Re-initialize tokens (in case env changed)
   initializeTokens();
   

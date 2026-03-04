@@ -12,12 +12,19 @@ import chalk from 'chalk';
 import ora from 'ora';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { type MenuAction, ACTION_DESCRIPTIONS } from './menu.js';
 import { getAllTools, executeTool } from './tools/index.js';
 import { getSystemPrompt } from './context/systemPrompt.js';
 import { extractCommands, showFollowUpMenu } from './followUp.js';
 import * as ui from './ui.js';
 import * as conversation from './conversation.js';
+import { 
+  PATHS, 
+  getConceptPaths, 
+  getAvailableConcepts,
+  DEFAULT_CONCEPT 
+} from './utils/fileOperations.js';
 import {
   runMartWizard,
   runHubWizard,
@@ -32,8 +39,10 @@ import {
 const client = new Anthropic();
 
 const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-20250514';
-// PROJECT_ROOT should be the parent directory (dbt project root), not the agent directory
-const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(process.cwd(), '..');
+// Get directory of current file and compute PROJECT_ROOT
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// PROJECT_ROOT: 2 levels up from dist/ (dist -> agent -> project)
+const PROJECT_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '..', '..');
 
 /**
  * Browse project objects - show existing structure
@@ -75,16 +84,16 @@ async function browseProjectObjects(): Promise<void> {
 
   const dirMap: Record<string, string> = {
     all: 'models',
-    hubs: 'models/raw_vault/hubs',
-    satellites: 'models/raw_vault/satellites',
-    links: 'models/raw_vault/links',
+    hubs: 'models/raw_vault',  // Will search all concept subdirs
+    satellites: 'models/raw_vault',
+    links: 'models/raw_vault',
     staging: 'models/staging',
     mart: 'models/mart',
     seeds: 'seeds',
   };
 
   const targetDir = dirMap[selected];
-  const recursive = selected === 'all' || selected === 'mart';
+  const recursive = true;  // Always recursive to find files in concept subdirs
 
   try {
     const result = await listDirectoryForBrowse(targetDir, recursive, deploymentStatus);
@@ -116,17 +125,24 @@ async function browseProjectObjects(): Promise<void> {
 async function deployModels(): Promise<string> {
   const deploymentStatus = await loadDeploymentStatus();
   
-  // Collect all SQL models
+  // Collect all SQL models from all concept directories
   const allModels: { name: string; path: string; status: 'deployed' | 'pending' | 'failed' }[] = [];
   
-  const modelDirs = [
+  // Get all concept directories dynamically
+  const concepts = await getAvailableConcepts();
+  const modelDirs: string[] = [
     'models/staging',
-    'models/raw_vault/hubs',
-    'models/raw_vault/satellites',
-    'models/raw_vault/links',
-    'models/business_vault',
-    'models/mart',
   ];
+  
+  // Add all concept-specific directories
+  for (const concept of concepts) {
+    modelDirs.push(`models/raw_vault/${concept}/hubs`);
+    modelDirs.push(`models/raw_vault/${concept}/satellites`);
+    modelDirs.push(`models/raw_vault/${concept}/links`);
+  }
+  
+  modelDirs.push('models/business_vault');
+  modelDirs.push('models/mart');
   
   for (const dir of modelDirs) {
     const fullPath = path.join(PROJECT_ROOT, dir);
@@ -900,22 +916,58 @@ async function fixValidationErrors(
   
   // Read the created files
   const fileContents: Record<string, string> = {};
-  const { readFile: readFileContent, PATHS } = await import('./utils/fileOperations.js');
+  const { readFile: readFileContent, PATHS, getAvailableConcepts } = await import('./utils/fileOperations.js');
   const path = await import('path');
+  const fs = await import('fs/promises');
+  
+  const concepts = await getAvailableConcepts();
   
   for (const filename of createdFiles) {
-    let filePath: string;
+    let filePath: string | null = null;
+    
     if (filename.startsWith('stg_')) {
       filePath = path.join(PATHS.staging, filename);
     } else if (filename.startsWith('hub_')) {
-      filePath = path.join(PATHS.hubs, filename);
-    } else if (filename.startsWith('sat_')) {
-      filePath = path.join(PATHS.satellites, filename);
+      // Search in all concept directories
+      for (const concept of concepts) {
+        const candidatePath = path.join(PATHS.rawVault, concept, 'hubs', filename);
+        try {
+          await fs.access(candidatePath);
+          filePath = candidatePath;
+          break;
+        } catch {
+          // Try next concept
+        }
+      }
+    } else if (filename.startsWith('sat_') || filename.startsWith('eff_sat_')) {
+      // Search in all concept directories
+      for (const concept of concepts) {
+        const candidatePath = path.join(PATHS.rawVault, concept, 'satellites', filename);
+        try {
+          await fs.access(candidatePath);
+          filePath = candidatePath;
+          break;
+        } catch {
+          // Try next concept
+        }
+      }
     } else if (filename.startsWith('link_')) {
-      filePath = path.join(PATHS.links, filename);
+      // Search in all concept directories
+      for (const concept of concepts) {
+        const candidatePath = path.join(PATHS.rawVault, concept, 'links', filename);
+        try {
+          await fs.access(candidatePath);
+          filePath = candidatePath;
+          break;
+        } catch {
+          // Try next concept
+        }
+      }
     } else {
       continue;
     }
+    
+    if (!filePath) continue;
     
     try {
       const content = await readFileContent(filePath);
@@ -1512,19 +1564,20 @@ Please proceed with the task.`,
         
         // Track created files for undo functionality
         if (toolUse.name.startsWith('create_')) {
-          const toolInput = toolUse.input as { name?: string; entity?: string };
+          const toolInput = toolUse.input as { name?: string; entity?: string; concept?: string };
           const name = toolInput.name || toolInput.entity;
+          const concept = toolInput.concept || DEFAULT_CONCEPT;
           if (name) {
             let filePath = '';
             switch (toolUse.name) {
               case 'create_hub':
-                filePath = `models/raw_vault/hubs/hub_${name}.sql`;
+                filePath = `models/raw_vault/${concept}/hubs/hub_${name}.sql`;
                 break;
               case 'create_satellite':
-                filePath = `models/raw_vault/satellites/sat_${name}.sql`;
+                filePath = `models/raw_vault/${concept}/satellites/sat_${name}.sql`;
                 break;
               case 'create_link':
-                filePath = `models/raw_vault/links/link_${name}.sql`;
+                filePath = `models/raw_vault/${concept}/links/link_${name}.sql`;
                 break;
               case 'create_staging':
                 filePath = `models/staging/stg_${name}.sql`;
@@ -1533,7 +1586,7 @@ Please proceed with the task.`,
                 filePath = `seeds/ref_${name}.csv`;
                 break;
               case 'create_eff_sat':
-                filePath = `models/raw_vault/satellites/eff_sat_${name}.sql`;
+                filePath = `models/raw_vault/${concept}/satellites/eff_sat_${name}.sql`;
                 break;
               case 'create_pit':
                 filePath = `models/business_vault/pit_${name}.sql`;

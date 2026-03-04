@@ -16,6 +16,7 @@ import { createEffSat, createEffSatTool } from './createEffSat.js';
 import { createPIT, createPITTool } from './createPIT.js';
 import { createMart, createMartTool } from './createMart.js';
 import { createBridge, createBridgeTool } from './createBridge.js';
+import { createStaticTable, createStaticTableTool } from './createStaticTable.js';
 
 // Modification Tools
 import { addTests, addTestsTool } from './addTests.js';
@@ -35,6 +36,12 @@ import { readProjectFile, readFileTool } from './readFile.js';
 import { listProjectFiles, listFilesTool } from './listFiles.js';
 import { handleRunCommand, runCommandTool } from './runCommand.js';
 
+// Database Tools (Read-Only)
+import { databaseTools } from './database/index.js';
+
+// Parquet Explorer Tools
+import { parquetTools } from './parquetExplorer.js';
+
 // Tool definitions for Claude API
 export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
   // Data Vault Creation
@@ -47,6 +54,7 @@ export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
   createPITTool,
   createMartTool,
   createBridgeTool,
+  createStaticTableTool,
   // Modification
   addTestsTool,
   addAttributeTool,
@@ -62,6 +70,18 @@ export const TOOL_DEFINITIONS: Anthropic.Messages.Tool[] = [
   readFileTool,
   listFilesTool,
   runCommandTool,
+  // Database (Read-Only)
+  databaseTools.db_test_connection.tool,
+  databaseTools.db_list_schemas.tool,
+  databaseTools.db_list_tables.tool,
+  databaseTools.db_describe_table.tool,
+  databaseTools.db_preview_data.tool,
+  databaseTools.db_run_query.tool,
+  databaseTools.db_get_row_counts.tool,
+  // Parquet Explorer
+  parquetTools.list_parquet_files.tool,
+  parquetTools.get_parquet_schema.tool,
+  parquetTools.get_parquet_data.tool,
 ];
 
 // Tool execution handlers
@@ -78,6 +98,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   create_pit: (input) => createPIT(input as Parameters<typeof createPIT>[0]),
   create_mart: (input) => createMart(input as Parameters<typeof createMart>[0]),
   create_bridge: (input) => createBridge(input as Parameters<typeof createBridge>[0]),
+  create_static_table: (input) => createStaticTable(input as Parameters<typeof createStaticTable>[0]),
   // Modification
   add_tests: (input) => addTests(input as Parameters<typeof addTests>[0]),
   add_attribute: (input) => addAttribute(input as Parameters<typeof addAttribute>[0]),
@@ -93,6 +114,18 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   read_file: (input) => readProjectFile(input as Parameters<typeof readProjectFile>[0]),
   list_files: (input) => listProjectFiles(input as Parameters<typeof listProjectFiles>[0]),
   run_command: (input) => handleRunCommand(input as Parameters<typeof handleRunCommand>[0]),
+  // Database (Read-Only)
+  db_test_connection: (input) => databaseTools.db_test_connection.handler(input as { target?: string }),
+  db_list_schemas: (input) => databaseTools.db_list_schemas.handler(input as { target?: string }),
+  db_list_tables: (input) => databaseTools.db_list_tables.handler(input as { schema: string; type?: 'tables' | 'views' | 'all'; target?: string }),
+  db_describe_table: (input) => databaseTools.db_describe_table.handler(input as { schema: string; table: string; target?: string }),
+  db_preview_data: (input) => databaseTools.db_preview_data.handler(input as { schema: string; table: string; limit?: number; columns?: string[]; where?: string; target?: string }),
+  db_run_query: (input) => databaseTools.db_run_query.handler(input as { query: string; target?: string }),
+  db_get_row_counts: (input) => databaseTools.db_get_row_counts.handler(input as { target?: string }),
+  // Parquet Explorer
+  list_parquet_files: (input) => parquetTools.list_parquet_files.handler(input as { folder_path: string }),
+  get_parquet_schema: (input) => parquetTools.get_parquet_schema.handler(input as { folder_path: string; file_name: string }),
+  get_parquet_data: (input) => parquetTools.get_parquet_data.handler(input as { folder_path: string; file_name: string; limit?: number }),
 };
 
 /**
