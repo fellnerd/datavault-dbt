@@ -1,0 +1,227 @@
+{
+  "concept": "adworks",
+  "entityName": "saleslt_salesorderheader",
+  "sourceTable": "ext_adventureworks_saleslt_salesorderheader",
+  "columns": [
+    {
+      "name": "SalesOrderID",
+      "sourceName": "SalesOrderID",
+      "dataType": "INT",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "RevisionNumber",
+      "sourceName": "RevisionNumber",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "OrderDate",
+      "sourceName": "OrderDate",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DueDate",
+      "sourceName": "DueDate",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ShipDate",
+      "sourceName": "ShipDate",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "Status",
+      "sourceName": "Status",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "OnlineOrderFlag",
+      "sourceName": "OnlineOrderFlag",
+      "dataType": "BIT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SalesOrderNumber",
+      "sourceName": "SalesOrderNumber",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "PurchaseOrderNumber",
+      "sourceName": "PurchaseOrderNumber",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "AccountNumber",
+      "sourceName": "AccountNumber",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CustomerID",
+      "sourceName": "CustomerID",
+      "dataType": "INT",
+      "columnType": "link",
+      "foreignKeyTarget": "adworks.hub_kunde",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "ShipToAddressID",
+      "sourceName": "ShipToAddressID",
+      "dataType": "INT",
+      "columnType": "link",
+      "foreignKeyTarget": "adworks.hub_adresse",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "BillToAddressID",
+      "sourceName": "BillToAddressID",
+      "dataType": "INT",
+      "columnType": "link",
+      "foreignKeyTarget": "adworks.hub_adresse",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "ShipMethod",
+      "sourceName": "ShipMethod",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CreditCardApprovalCode",
+      "sourceName": "CreditCardApprovalCode",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SubTotal",
+      "sourceName": "SubTotal",
+      "dataType": "DECIMAL(38,10)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "TaxAmt",
+      "sourceName": "TaxAmt",
+      "dataType": "DECIMAL(38,10)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "Freight",
+      "sourceName": "Freight",
+      "dataType": "DECIMAL(38,10)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "TotalDue",
+      "sourceName": "TotalDue",
+      "dataType": "DECIMAL(38,10)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "Comment",
+      "sourceName": "Comment",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "rowguid",
+      "sourceName": "rowguid",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "ignore",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "ModifiedDate",
+      "sourceName": "ModifiedDate",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2026-01-31T19:29:43.685Z"
+}

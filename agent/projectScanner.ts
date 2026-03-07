@@ -7,9 +7,12 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-// Project root is parent of agent directory
-const PROJECT_ROOT = path.resolve(process.cwd(), '..');
+// Get directory of current file and compute PROJECT_ROOT
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// PROJECT_ROOT: 3 levels up from dist/ (dist -> agent -> project)
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 // ============================================================================
 // Types
@@ -93,110 +96,149 @@ export async function scanProject(): Promise<ProjectMetadata> {
 }
 
 /**
- * Scan for Hubs
+ * Scan for Hubs - scans all concept subdirectories
  */
 async function scanHubs(): Promise<HubInfo[]> {
-  const hubDir = path.join(PROJECT_ROOT, 'models', 'raw_vault', 'hubs');
+  const rawVaultDir = path.join(PROJECT_ROOT, 'models', 'raw_vault');
   const hubs: HubInfo[] = [];
 
   try {
-    const files = await fs.readdir(hubDir);
+    // Get all concept directories (werkportal, adventureworks, _common, etc.)
+    const concepts = await fs.readdir(rawVaultDir, { withFileTypes: true });
     
-    for (const file of files) {
-      if (!file.endsWith('.sql')) continue;
+    for (const concept of concepts) {
+      if (!concept.isDirectory()) continue;
       
-      const fullName = file.replace('.sql', '');
-      const name = fullName.replace('hub_', '');
-      const filePath = path.join('models', 'raw_vault', 'hubs', file);
+      const hubDir = path.join(rawVaultDir, concept.name, 'hubs');
       
-      // Try to extract business key from SQL
-      const sqlContent = await fs.readFile(path.join(hubDir, file), 'utf-8');
-      const businessKey = extractBusinessKey(sqlContent);
+      try {
+        const files = await fs.readdir(hubDir);
+        
+        for (const file of files) {
+          if (!file.endsWith('.sql')) continue;
+          
+          const fullName = file.replace('.sql', '');
+          const name = fullName.replace('hub_', '');
+          const filePath = path.join('models', 'raw_vault', concept.name, 'hubs', file);
+          
+          // Try to extract business key from SQL
+          const sqlContent = await fs.readFile(path.join(hubDir, file), 'utf-8');
+          const businessKey = extractBusinessKey(sqlContent);
 
-      hubs.push({
-        name,
-        fullName,
-        filePath,
-        businessKey,
-        satellites: [], // Will be populated later
-      });
+          hubs.push({
+            name,
+            fullName,
+            filePath,
+            businessKey,
+            satellites: [], // Will be populated later
+          });
+        }
+      } catch (error) {
+        // hubs directory doesn't exist for this concept
+      }
     }
   } catch (error) {
-    // Directory doesn't exist
+    // raw_vault directory doesn't exist
   }
 
   return hubs;
 }
 
 /**
- * Scan for Satellites
+ * Scan for Satellites - scans all concept subdirectories
  */
 async function scanSatellites(): Promise<SatelliteInfo[]> {
-  const satDir = path.join(PROJECT_ROOT, 'models', 'raw_vault', 'satellites');
+  const rawVaultDir = path.join(PROJECT_ROOT, 'models', 'raw_vault');
   const satellites: SatelliteInfo[] = [];
 
   try {
-    const files = await fs.readdir(satDir);
+    // Get all concept directories (werkportal, adventureworks, _common, etc.)
+    const concepts = await fs.readdir(rawVaultDir, { withFileTypes: true });
     
-    for (const file of files) {
-      if (!file.endsWith('.sql')) continue;
+    for (const concept of concepts) {
+      if (!concept.isDirectory()) continue;
       
-      const fullName = file.replace('.sql', '');
-      const isEffectivity = fullName.startsWith('eff_sat_');
-      const name = fullName.replace('eff_sat_', '').replace('sat_', '');
-      const filePath = path.join('models', 'raw_vault', 'satellites', file);
+      const satDir = path.join(rawVaultDir, concept.name, 'satellites');
       
-      // Try to extract parent hub from SQL
-      const sqlContent = await fs.readFile(path.join(satDir, file), 'utf-8');
-      const parentHub = extractParentHub(sqlContent);
-      const attributes = extractAttributes(sqlContent);
+      try {
+        const files = await fs.readdir(satDir);
+        
+        for (const file of files) {
+          if (!file.endsWith('.sql')) continue;
+          
+          const fullName = file.replace('.sql', '');
+          const isEffectivity = fullName.startsWith('eff_sat_');
+          const name = fullName.replace('eff_sat_', '').replace('sat_', '');
+          const filePath = path.join('models', 'raw_vault', concept.name, 'satellites', file);
+          
+          // Try to extract parent hub from SQL
+          const sqlContent = await fs.readFile(path.join(satDir, file), 'utf-8');
+          const parentHub = extractParentHub(sqlContent);
+          const attributes = extractAttributes(sqlContent);
 
-      satellites.push({
-        name,
-        fullName,
-        filePath,
-        parentHub,
-        attributes,
-        isEffectivity,
-      });
+          satellites.push({
+            name,
+            fullName,
+            filePath,
+            parentHub,
+            attributes,
+            isEffectivity,
+          });
+        }
+      } catch (error) {
+        // satellites directory doesn't exist for this concept
+      }
     }
   } catch (error) {
-    // Directory doesn't exist
+    // raw_vault directory doesn't exist
   }
 
   return satellites;
 }
 
 /**
- * Scan for Links
+ * Scan for Links - scans all concept subdirectories
  */
 async function scanLinks(): Promise<LinkInfo[]> {
-  const linkDir = path.join(PROJECT_ROOT, 'models', 'raw_vault', 'links');
+  const rawVaultDir = path.join(PROJECT_ROOT, 'models', 'raw_vault');
   const links: LinkInfo[] = [];
 
   try {
-    const files = await fs.readdir(linkDir);
+    // Get all concept directories (werkportal, adventureworks, _common, etc.)
+    const concepts = await fs.readdir(rawVaultDir, { withFileTypes: true });
     
-    for (const file of files) {
-      if (!file.endsWith('.sql')) continue;
+    for (const concept of concepts) {
+      if (!concept.isDirectory()) continue;
       
-      const fullName = file.replace('.sql', '');
-      const name = fullName.replace('link_', '');
-      const filePath = path.join('models', 'raw_vault', 'links', file);
+      const linkDir = path.join(rawVaultDir, concept.name, 'links');
       
-      // Try to extract connected hubs from SQL
-      const sqlContent = await fs.readFile(path.join(linkDir, file), 'utf-8');
-      const connectedHubs = extractConnectedHubs(sqlContent);
+      try {
+        const files = await fs.readdir(linkDir);
+        
+        for (const file of files) {
+          if (!file.endsWith('.sql')) continue;
+          
+          const fullName = file.replace('.sql', '');
+          const name = fullName.replace('link_', '');
+          const filePath = path.join('models', 'raw_vault', concept.name, 'links', file);
+          
+          // Try to extract connected hubs from SQL
+          const sqlContent = await fs.readFile(path.join(linkDir, file), 'utf-8');
+          const connectedHubs = extractConnectedHubs(sqlContent);
 
-      links.push({
-        name,
-        fullName,
-        filePath,
-        connectedHubs,
-      });
+          links.push({
+            name,
+            fullName,
+            filePath,
+            connectedHubs,
+          });
+        }
+      } catch (error) {
+        // links directory doesn't exist for this concept
+      }
     }
   } catch (error) {
-    // Directory doesn't exist
+    // raw_vault directory doesn't exist
   }
 
   return links;

@@ -1,5 +1,21 @@
 # Data Vault 2.1 - Model Architecture
 
+## Schema-Naming-Konvention
+
+| Layer | Ordner | Schema | Verwendung |
+|-------|--------|--------|------------|
+| Staging | `staging/` | `stg` | Alle Quellen |
+| PSA (optional) | `staging/psa_*.sql` | `stg` | Persistent Staging Area (Cache für External Tables) |
+| Raw Vault (common) | `raw_vault/_common/` | `vault` | Quell-übergreifende Objekte |
+| Raw Vault (source) | `raw_vault/<concept>/` | `vault_<concept>` | Quellsystem-spezifische Objekte |
+| Business Vault | `business_vault/` | `vault` | PITs, Bridges |
+| Mart (common) | `mart/_common/` | `mart` | Geteilte Dimensionen |
+| Mart (domain) | `mart/<concept>/` | `mart_<concept>` | Domain-spezifische Views |
+
+**Pattern:** `_common` → Basis-Schema, `<concept>` → `<basis>_<concept>`
+
+> **PSA (Persistent Staging Area):** Optionaler Cache-Layer für große External Tables. Reduziert OPENROWSET-Aufrufe durch inkrementelle Materialisierung. Staging Views referenzieren dann die PSA statt der External Table. Siehe [DEVELOPER.md](DEVELOPER.md#65-psa-persistent-staging-area-erstellen) für Details.
+
 ## Übersicht
 
 ```mermaid
@@ -9,27 +25,28 @@ flowchart TB
         ext_contractor[ext_company_contractor]
         ext_supplier[ext_company_supplier]
         ext_countries[ext_countries]
+        ext_aw_customer[ext_aw_customer]
     end
 
-    subgraph Staging["📋 Staging Views (stg.*)"]
-        stg_company[stg_company<br/>UNION ALL + Hash Keys]
-        stg_country[stg_country<br/>Hash Keys]
+    subgraph Staging["📋 Staging Views (stg.<concept>_<entity>)"]
+        werkportal_company[werkportal_company<br/>UNION ALL + Hash Keys]
+        werkportal_country[werkportal_country<br/>Hash Keys]
+        adventureworks_customer[adventureworks_customer<br/>Hash Keys]
     end
 
-    subgraph Hubs["🔑 Hubs (vault.hub_*)"]
+    subgraph Werkportal["🔑 Raw Vault: Werkportal (vault_werkportal.*)"]
         hub_company[hub_company<br/>22.457 Records]
         hub_country[hub_country<br/>242 Records]
-    end
-
-    subgraph Satellites["📊 Satellites (vault.sat_*)"]
-        sat_company[sat_company<br/>Gemeinsame Attribute]
-        sat_country[sat_country<br/>name]
-        sat_client_ext[sat_company_client_ext<br/>freistellungsbescheinigung]
-    end
-
-    subgraph Links["🔗 Links (vault.link_*)"]
-        link_role[link_company_role<br/>22.457 Records]
+        sat_company[sat_company]
+        sat_country[sat_country]
+        sat_client_ext[sat_company_client_ext]
+        link_role[link_company_role]
         link_country[link_company_country]
+    end
+
+    subgraph AdventureWorks["🔑 Raw Vault: AdventureWorks (vault_adventureworks.*)"]
+        hub_customer[hub_customer]
+        sat_customer[sat_customer]
     end
 
     subgraph Reference["📚 Reference Data"]
@@ -37,25 +54,26 @@ flowchart TB
     end
 
     %% Source to Staging
-    ext_client --> stg_company
-    ext_contractor --> stg_company
-    ext_supplier --> stg_company
-    ext_countries --> stg_country
+    ext_client --> werkportal_company
+    ext_contractor --> werkportal_company
+    ext_supplier --> werkportal_company
+    ext_countries --> werkportal_country
+    ext_aw_customer --> adventureworks_customer
 
-    %% Staging to Hubs
-    stg_company --> hub_company
-    stg_country --> hub_country
+    %% Staging to Werkportal
+    werkportal_company --> hub_company
+    werkportal_country --> hub_country
+    werkportal_company --> sat_company
+    werkportal_company --> sat_client_ext
+    werkportal_country --> sat_country
+    werkportal_company --> link_role
+    werkportal_company --> link_country
 
-    %% Staging to Satellites
-    stg_company --> sat_company
-    stg_company --> sat_client_ext
-    stg_country --> sat_country
+    %% Staging to AdventureWorks
+    adventureworks_customer --> hub_customer
+    adventureworks_customer --> sat_customer
 
-    %% Staging to Links
-    stg_company --> link_role
-    stg_company --> link_country
-
-    %% Hub relationships
+    %% Relationships
     hub_company -.->|FK| sat_company
     hub_company -.->|FK| sat_client_ext
     hub_company -.->|FK| link_role
@@ -63,12 +81,14 @@ flowchart TB
     hub_country -.->|FK| sat_country
     hub_country -.->|FK| link_country
     ref_role -.->|FK| link_role
+    hub_customer -.->|FK| sat_customer
 ```
 
 ## Entity Relationship Diagram
 
 ```mermaid
 erDiagram
+    %% Werkportal Entities
     hub_company ||--o{ sat_company : "has attributes"
     hub_company ||--o| sat_company_client_ext : "has client attributes"
     hub_company ||--o{ link_company_role : "has roles"
@@ -79,12 +99,29 @@ erDiagram
     
     ref_role ||--o{ link_company_role : "defines"
 
+    %% AdventureWorks Entities
+    hub_customer ||--o{ sat_customer : "has attributes"
+
+    %% Dependent Child Pattern (Contractor → Contact)
+    hub_contractor ||--o{ sat_contractor : "has attributes"
+    hub_contractor ||--o{ link_contact_contractor : "has contacts"
+    link_contact_contractor ||--o{ sat_contact_contractor_dc : "has DC attributes"
+
     hub_company {
         char64 hk_company PK "SHA256(object_id + source_table)"
         bigint object_id "Business Key"
         varchar source_table "wp_company_client/contractor/supplier"
         datetime2 dss_load_date
         varchar dss_record_source
+        ___ ___ "Schema: vault_werkportal"
+    }
+
+    hub_contractor {
+        char64 hk_contractor PK "SHA256(company_contractor)"
+        bigint company_contractor "Business Key"
+        datetime2 dss_load_date
+        varchar dss_record_source
+        ___ ___ "Schema: vault_werkportal"
     }
 
     hub_country {
@@ -92,6 +129,15 @@ erDiagram
         bigint object_id "Business Key"
         datetime2 dss_load_date
         varchar dss_record_source
+        ___ ___ "Schema: vault_werkportal"
+    }
+
+    hub_customer {
+        char64 hk_customer PK "SHA256(CustomerID)"
+        int CustomerID "Business Key"
+        datetime2 dss_load_date
+        varchar dss_record_source
+        ___ ___ "Schema: vault_adventureworks"
     }
 
     sat_company {
@@ -140,9 +186,69 @@ erDiagram
         varchar role_name
         varchar role_description
     }
+
+    sat_contractor {
+        char64 hk_contractor FK
+        char64 hd_contractor "Hash Diff"
+        varchar name
+        varchar short_name
+        varchar email
+        varchar phone
+        varchar city
+        datetime2 dss_load_date
+        ___ ___ "Schema: vault_werkportal"
+    }
+
+    link_contact_contractor {
+        char64 hk_link_contact_contractor PK "HASH(company_contractor + name + email1)"
+        char64 hk_contractor FK
+        datetime2 dss_load_date
+        varchar dss_record_source
+        ___ ___ "Pure DC Link - nur 1 FK"
+    }
+
+    sat_contact_contractor_dc {
+        char64 hk_link_contact_contractor FK "Referenziert Link, nicht Hub"
+        char64 hd_contact_contractor_dc "Hash Diff"
+        varchar name "DCK"
+        varchar email1 "DCK"
+        varchar phone
+        varchar function
+        datetime2 dss_load_date
+        ___ ___ "DC Satellite - DCK im Payload"
+    }
+```
+
+## Dependent Child Pattern
+
+Das **Dependent Child (DC)** Pattern wird verwendet für Entities ohne eigenen stabilen Business Key:
+
+```mermaid
+flowchart LR
+    subgraph "Standard Pattern"
+        H1[Hub A] --> L1[Link] --> H2[Hub B]
+        L1 --> S1[Link Sat]
+    end
+    
+    subgraph "DC Pattern (Pure)"
+        H3[Hub Parent] --> L2[DC Link<br/>HASH = FK + DCK]
+        L2 --> S2[DC Satellite<br/>DCK im Payload]
+    end
+```
+
+**Beispiel: Contact als Dependent Child von Contractor**
+
+| Objekt | PK | FK | Beschreibung |
+|--------|----|----|--------------|
+| `hub_contractor` | `hk_contractor` | - | Parent Hub |
+| `link_contact_contractor` | `hk_link = HASH(company_contractor ^^ name ^^ email1)` | `hk_contractor` | Pure DC Link (nur 1 FK) |
+| `sat_contact_contractor_dc` | - | `hk_link_contact_contractor` | DCK (name, email1) im Payload |
+
 ```
 
 ## Datenfluss
+
+### Standard-Datenfluss (ohne PSA)
 
 ```mermaid
 sequenceDiagram
@@ -162,6 +268,39 @@ sequenceDiagram
     STG->>HUB: INSERT new BKs
     STG->>SAT: INSERT changed records
     STG->>LNK: INSERT new relationships
+```
+
+### Datenfluss mit PSA (Persistent Staging Area)
+
+Bei großen Datenmengen wird eine PSA-Tabelle zwischengeschaltet, um OPENROWSET-Aufrufe zu minimieren:
+
+```mermaid
+sequenceDiagram
+    participant ADLS as ADLS Gen2
+    participant EXT as External Tables
+    participant PSA as PSA (Incremental)
+    participant STG as Staging Views
+    participant VAULT as Raw Vault
+
+    ADLS->>EXT: PolyBase Query
+    EXT->>PSA: Incremental Load (merge/append)
+    Note over PSA: Cached in SQL Table
+    PSA->>STG: Hash Key Berechnung
+    STG->>VAULT: Hub/Sat/Link
+```
+
+**PSA-Konfiguration:**
+- `materialized='incremental'` - Inkrementell laden
+- `incremental_strategy='merge'` - Upsert (oder `append` für Insert-only)
+- `unique_key='<business_key>'` - Für Merge-Strategie erforderlich
+
+**Referenzierung in Staging View:**
+```sql
+-- OHNE PSA (Standard)
+SELECT * FROM {{ source('staging', 'ext_<concept>_<entity>') }}
+
+-- MIT PSA (nach PSA-Erstellung)
+SELECT * FROM {{ ref('psa_<concept>_<entity>') }}
 ```
 
 ## Datenzählung

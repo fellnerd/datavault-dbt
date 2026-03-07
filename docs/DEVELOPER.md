@@ -7,24 +7,321 @@
 
 ---
 
+TEST RUN INDEX: 2
+
 ## 📑 Inhaltsverzeichnis
 
-1. [Quick Reference](#-quick-reference)
-2. [Projektstruktur](#-projektstruktur)
-3. [Neues Attribut hinzufügen](#-neues-attribut-hinzufügen)
-4. [Neue Entity erstellen (Komplett)](#-neue-entity-erstellen-komplett)
-5. [Einzelne Objekte erstellen](#-einzelne-objekte-erstellen)
-   - [Hub erstellen](#51-hub-erstellen)
-   - [Satellite erstellen](#52-satellite-erstellen)
-   - [Link erstellen](#53-link-erstellen)
-   - [Reference Table erstellen](#54-reference-table-erstellen)
-   - [Effectivity Satellite erstellen](#55-effectivity-satellite-erstellen)
-   - [PIT Table erstellen](#56-pit-table-erstellen)
-6. [Mart View erstellen](#-mart-view-erstellen)
-7. [Tests hinzufügen](#-tests-hinzufügen)
-8. [Deployment Workflow](#-deployment-workflow)
-9. [Troubleshooting](#-troubleshooting)
-10. [Checklisten](#-checklisten)
+1. [Data Vault 2.0 Leitfaden](#-data-vault-20-leitfaden)
+2. [Quick Reference](#-quick-reference)
+3. [Projektstruktur](#-projektstruktur)
+4. [Neues Attribut hinzufügen](#-neues-attribut-hinzufügen)
+5. [Neue Entity erstellen (Komplett)](#-neue-entity-erstellen-komplett)
+6. [Einzelne Objekte erstellen](#-einzelne-objekte-erstellen)
+   - [Hub erstellen](#61-hub-erstellen)
+   - [Satellite erstellen](#62-satellite-erstellen)
+   - [Link erstellen](#63-link-erstellen)
+   - [Reference Table erstellen](#64-reference-table-erstellen)
+   - [PSA (Persistent Staging Area) erstellen](#65-psa-persistent-staging-area-erstellen)
+   - [Effectivity Satellite erstellen](#65-effectivity-satellite-erstellen)
+   - [PIT Table erstellen](#66-pit-table-erstellen)
+7. [Mart View erstellen](#-mart-view-erstellen)
+8. [Tests hinzufügen](#-tests-hinzufügen)
+9. [Deployment Workflow](#-deployment-workflow)
+10. [Troubleshooting](#-troubleshooting)
+11. [Checklisten](#-checklisten)
+
+---
+
+## 📖 Data Vault 2.0 Leitfaden
+
+> **Wann**, **Warum** und **Wie** werden Data Vault Objekte verwendet?
+
+### Grundprinzip
+
+Data Vault trennt strikt zwischen:
+
+| Aspekt | Frage | Objekt |
+|--------|-------|--------|
+| **Identität** | Was existiert? | Hub |
+| **Beziehung** | Wie hängt etwas zusammen? | Link |
+| **Historie** | Wie hat es sich über Zeit verändert? | Satellite |
+
+**Ziele:** Auditierbarkeit, Historisierung, Skalierbarkeit, Entkopplung von Quelle & Reporting
+
+---
+
+### Entscheidungslogik
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Gibt es einen stabilen Business Key?                          │
+│  └─ JA → HUB                                                    │
+│                                                                 │
+│  Ändern sich Attribute über Zeit?                               │
+│  └─ JA → SATELLITE                                              │
+│                                                                 │
+│  Beschreibt es eine Beziehung zwischen Objekten?                │
+│  └─ JA → LINK                                                   │
+│  └─ Hat die Beziehung eigene Attribute? → LINK SATELLITE        │
+│                                                                 │
+│  Mehrere Werte ohne eigene Identität (z.B. Telefonnummern)?     │
+│  └─ JA → DEPENDENT CHILD SATELLITE                              │
+│                                                                 │
+│  Mehrere Werte gleichzeitig gültig (z.B. mehrere Rollen)?       │
+│  └─ JA → MULTI-ACTIVE SATELLITE                                 │
+│                                                                 │
+│  Stabile Lookup-Werte (Länder, Status)?                         │
+│  └─ JA → REFERENCE TABLE (kein Hub!)                            │
+│                                                                 │
+│  Performance-Problem bei Zeitabfragen?                          │
+│  └─ JA → PIT TABLE                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Hub
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Repräsentiert **Business Keys**, identifiziert fachliche Objekte eindeutig |
+| **Wann?** | Es gibt einen stabilen, fachlichen Schlüssel |
+| **Beispiele** | MitarbeiterNr, KundenNr, VertragsNr, Projekt-ID |
+| **Eigenschaften** | Keine fachlichen Attribute, keine Historie, ein Eintrag pro BK |
+| **Schlüssel** | Hash Key (technisch), Business Key bleibt erhalten |
+
+```sql
+-- Struktur
+hk_<entity>         -- Hash Key (PK)
+<business_key>      -- Business Key (z.B. object_id)
+dss_load_date       -- Ladezeitpunkt
+dss_record_source   -- Quelle
+```
+
+---
+
+### Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Trägt **Attribute und Historie** |
+| **Wann?** | Attribute ändern sich über Zeit, Historisierung ist relevant |
+| **Best Practice** | 1 Thema = 1 Satellite, nach Änderungsfrequenz schneiden |
+| **Historisierung** | Jede fachliche Änderung = neuer Datensatz |
+
+```sql
+-- Struktur
+hk_<entity>         -- Hash Key (FK zum Hub)
+dss_load_date       -- Ladezeitpunkt (Teil des PK)
+hd_<entity>         -- Hash Diff (Änderungserkennung)
+<attribute_1>       -- Fachliche Attribute
+<attribute_n>       
+dss_is_current      -- 'Y' = aktuell, 'N' = historisch
+dss_end_date        -- Gültigkeitsende (NULL = aktuell)
+```
+
+**Varianten:**
+
+| Typ | Wann verwenden? | Beispiel |
+|-----|-----------------|----------|
+| **Standard Satellite** | Normale Attribute | `sat_company` |
+| **Dependent Child (DC)** | Entity ohne eigene Identität, identifiziert über Parent-Beziehung + DCK | `sat_contact_contractor_dc` |
+| **Multi-Active (MA)** | Mehrere gleichzeitig gültige Werte | Mitarbeiter mit mehreren Rollen |
+| **Extension Satellite** | Zusätzliche Attribute für Teilmenge | `sat_company_client_ext` (nur für Clients) |
+
+---
+
+### Dependent Child (DC) Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Erfasst Entities **ohne eigenen stabilen Business Key** |
+| **Wann?** | Entity existiert nur im Kontext eines Parent (z.B. Ansprechpartner zu Firma) |
+| **Identifikation** | Parent-FK + Dependent Child Keys (DCK) bilden zusammen den logischen Schlüssel |
+| **Struktur** | DC Satellite hängt am **Link**, nicht am Hub |
+
+**Beispiel: Contact als Dependent Child von Contractor**
+
+```
+                hub_contractor
+                      │
+                      │ hk_contractor
+                      │
+              link_contact_contractor
+              (hk_link = HASH(FK + DCK))
+                      │
+                      │ hk_link_contact_contractor
+                      │
+            sat_contact_contractor_dc
+            (DCK: name, email1 im Payload)
+```
+
+**Staging für DC Pattern:**
+```sql
+-- Alle Hashes werden im Staging berechnet (automate_dv Best Practice)
+hk_contractor                -- FK Hash zum Parent Hub
+hk_link_contact_contractor   -- Link Hash = HASH(company_contractor ^^ name ^^ email1)
+hd_contact_contractor_dc     -- Hashdiff für Änderungserkennung
+```
+
+**Link Model (nur 1 FK für Pure DC):**
+```yaml
+src_pk: "hk_link_contact_contractor"
+src_fk: "hk_contractor"  # Nur Parent-FK, kein zweiter Hub
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+```
+
+**DC Satellite Model:**
+```yaml
+src_pk: "hk_link_contact_contractor"  # Referenziert Link, nicht Hub
+src_hashdiff: 
+  source_column: "hd_contact_contractor_dc"
+  alias: "HASHDIFF"
+src_payload:
+  - "name"       # DCK Column
+  - "email1"     # DCK Column
+  - "phone"      # Weitere Attribute
+  - "..."
+```
+
+---
+
+### Multi-Active (MA) Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Erfasst **mehrere gleichzeitig gültige Werte** |
+| **Wann?** | Entity hat multiple aktive Zustände (z.B. mehrere Rollen) |
+| **Eigenschaften** | Zusätzliches Attribut als Teil des PK zur Unterscheidung |
+
+---
+
+### Link
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Modelliert **Beziehungen zwischen Hubs** |
+| **Wann?** | n:m- oder 1:n-Beziehungen, Beziehung ist fachlich relevant |
+| **Beispiele** | Mitarbeiter ↔ Projekt, Kunde ↔ Vertrag, Company ↔ Country |
+| **Eigenschaften** | Enthält nur Schlüssel der beteiligten Hubs, keine Attribute |
+
+```sql
+-- Struktur (Standard Link)
+hk_link_<e1>_<e2>   -- Link Hash Key (PK)
+hk_<entity_1>       -- FK zu Hub 1
+hk_<entity_2>       -- FK zu Hub 2
+dss_load_date       -- Ladezeitpunkt
+dss_record_source   -- Quelle
+```
+
+**Link-Varianten:**
+
+| Typ | FKs | Hash-Berechnung | Beispiel |
+|-----|-----|-----------------|----------|
+| **Standard Link** | 2+ Hub-FKs | `HASH(FK1 ^^ FK2)` | `link_company_country` |
+| **DC Link (Pure)** | 1 Hub-FK | `HASH(FK ^^ DCK1 ^^ DCK2)` | `link_contact_contractor` |
+| **DC Link (Hybrid)** | 2 Hub-FKs + DC | `HASH(FK1 ^^ FK2 ^^ DCK)` | Contact mit eigenem Hub + Parent |
+
+---
+
+### Link Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Attribute, die **die Beziehung** beschreiben |
+| **Wann?** | Attribute gelten für die Beziehung, nicht für das Objekt |
+| **Beispiele** | Rolle eines Mitarbeiters im Projekt, Vertragsstatus |
+
+---
+
+### Effectivity Satellite
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Trackt **Gültigkeitszeiträume** von Beziehungen |
+| **Wann?** | Beziehungen können enden und wieder beginnen |
+| **Beispiele** | Company-Country Zuordnung über Zeit |
+
+```sql
+-- Struktur
+hk_link_<e1>_<e2>   -- FK zum Link (PK)
+dss_start_date      -- Beginn der Gültigkeit (PK)
+dss_end_date        -- Ende (NULL = aktiv)
+dss_is_active       -- 'Y' = aktiv, 'N' = beendet
+```
+
+---
+
+### Reference Table
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Stabile, kleine **Lookup-Tabellen** |
+| **Wann?** | Kaum Änderungen, keine Historisierung nötig |
+| **Beispiele** | Länder, Währungen, Statuscodes, Rollen |
+| **Regeln** | Nicht historisieren, nicht als Satellite, nicht übermodellieren |
+
+```sql
+-- Beispiel: ref_role (als dbt Seed)
+role_code           -- PK (CLIENT, CONTRACTOR, SUPPLIER)
+role_name           -- Anzeigename
+role_description    -- Beschreibung
+```
+
+---
+
+### PIT Table (Point-in-Time)
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | **Performance-Optimierung** für "As-of"-Abfragen |
+| **Wann?** | Viele Satellites, komplexe zeitbezogene Joins, BI-Performance kritisch |
+| **Eigenschaften** | Rein technisch, keine fachlichen Attribute |
+| **Wichtig** | **Kein Pflichtbestandteil** – nur bei Bedarf einsetzen! |
+
+```sql
+-- Struktur
+hk_<entity>         -- FK zum Hub
+snapshot_date       -- Zeitpunkt
+hk_sat_<name>       -- Verweis auf gültigen Satellite-Zustand
+dss_load_date_sat   -- Load Date des referenzierten Satellites
+```
+
+---
+
+### Information Mart
+
+| Aspekt | Beschreibung |
+|--------|--------------|
+| **Zweck** | Konsum-Schicht für **BI & Analytics** |
+| **Eigenschaften** | Dimensions- und Faktenmodelle, abgeleitet aus Raw/Business Vault |
+| **Inhalte** | `dim_date`, `dim_kunde`, `fakt_rechnung` |
+| **Wichtig** | Keine unabhängige Modellierung, keine zusätzliche Historisierung |
+
+---
+
+### ❌ Häufige Fehlannahmen
+
+| Falsch | Richtig |
+|--------|---------|
+| Hubs sind historisiert | Hubs haben nur Ladezeitpunkt, keine fachliche Historie |
+| Alles braucht einen Hub | Lookup-Werte → Reference Table |
+| PIT ist Pflicht | PIT nur bei Performance-Bedarf |
+| Referenztabellen in Satellites | Reference Tables sind eigenständig |
+| Information Mart ist eigenes DWH | Mart ist nur View-Schicht auf Vault |
+
+---
+
+### 📌 Merksatz
+
+> **Hubs identifizieren.**  
+> **Satellites historisieren.**  
+> **Links verbinden.**  
+> **Dependent Children ergänzen.**  
+> **Multi-Active gilt parallel.**  
+> **PIT beschleunigt.**  
+> **Information Marts erklären.**
 
 ---
 
@@ -40,13 +337,39 @@ cd ~/projects/datavault-dbt && source .venv/bin/activate
 dbt debug
 
 # Models bauen
-dbt run                              # Alle Models
-dbt run --select hub_company         # Einzelnes Model
-dbt run --select +sat_company+       # Model mit Abhängigkeiten
-dbt run --full-refresh               # Alles neu bauen
+dbt run                                              # Alle Models
+dbt run --select raw_vault.werkportal.hub_company    # Einzelnes Model (empfohlen)
+dbt run --select +raw_vault.werkportal.sat_company+  # Model mit Abhängigkeiten
+dbt run --full-refresh                               # Alles neu bauen
 
-# External Tables aktualisieren
+# External Tables erstellen / aktualisieren
+# Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_werkportal_company)
+
+## Option 1: ALLE External Tables (Standard)
 dbt run-operation stage_external_sources
+# oder einzelne Tabelle (Format: staging.<table_name>)
+dbt run-operation stage_external_sources --args 'select: staging.ext_jira_project'
+# Full Refresh (DROP + CREATE, bei Schema-Änderungen)
+dbt run-operation stage_external_sources --vars 'ext_full_refresh: true'
+# Full Refresh für einzelne Tabelle
+dbt run-operation stage_external_sources --args 'select: staging.ext_jira_project' --vars 'ext_full_refresh: true'
+
+# Source view erstellen
+dbt run --select jira_project
+
+## Option 2: EINZELNE neue Tabelle (optimiert)
+# Nur die neue ext_jira_project erstellen (schneller)
+dbt run-operation create_external_table \
+  --args 'table_name: ext_jira_project'
+
+## Option 3: Explorieren (ohne zu erstellen)
+# Parquet-Dateien in ADLS erkunden
+dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'
+dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet"}'
+dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'
+
+# Source view erstellen
+dbt run --select adventureworks_customer
 
 # Tests
 dbt test                             # Alle Tests
@@ -60,16 +383,114 @@ dbt compile --select model_name
 cat target/compiled/datavault/models/path/to/model.sql
 ```
 
+### dbt Selektoren (Model Selection)
+
+> **Wichtig:** Verwende immer den **vollständigen Pfad**, da Model-Namen (z.B. `hub_contacts`) in mehreren Concepts existieren können!
+
+```bash
+# ❌ Vermeiden - wählt ALLE hub_company in allen Concepts
+dbt run --select hub_company
+
+# ✅ Empfohlen - spezifischer Pfad
+dbt run --select raw_vault.werkportal.hub_company
+
+# ✅ Pfad-Pattern für einzelne Datei
+dbt run --select path:models/raw_vault/werkportal/hubs/hub_company.sql
+```
+
+**Selektor-Syntax:**
+
+| Selektor | Beschreibung | Beispiel |
+|----------|--------------|----------|
+| `raw_vault.werkportal.hub_company` | Pfad-basiert (Ordnerstruktur) | Empfohlen für einzelne Models |
+| `raw_vault.werkportal` | Alle Models eines Concepts | Für Concept-Deployment |
+| `staging.werkportal_*` | Wildcard-Pattern | Alle Werkportal-Staging Views |
+| `+model_name` | Model inkl. Upstream-Dependencies | `+hub_company` baut erst Staging |
+| `model_name+` | Model inkl. Downstream-Dependents | `hub_company+` baut auch Satellites |
+| `+model_name+` | Beides | Vollständige Dependency-Chain |
+| `tag:static` | Nach Tag | Alle statischen Tabellen |
+
+**Pfad-Mapping:**
+
+```
+models/
+├── staging/                    → staging.*
+├── raw_vault/
+│   ├── werkportal/            → raw_vault.werkportal.*
+│   │   ├── hubs/              → raw_vault.werkportal.hub_*
+│   │   └── satellites/        → raw_vault.werkportal.sat_*
+│   └── adventureworks/        → raw_vault.adventureworks.*
+├── business_vault/            → business_vault.*
+└── mart/
+    └── project/               → mart.project.*
+```
+
+**Kombinierte Selektoren:**
+
+```bash
+# Staging + Hub + Satellite für eine Entity
+dbt run --select raw_vault.werkportal.hub_company raw_vault.werkportal.sat_company
+
+# Oder mit Upstream-Dependencies (baut auch Staging automatisch)
+dbt run --select +raw_vault.werkportal.hub_company +raw_vault.werkportal.sat_company
+
+# Alle Werkportal Raw Vault Models
+dbt run --select raw_vault.werkportal
+
+# Nur Hubs eines Concepts
+dbt run --select raw_vault.werkportal.hub_*
+```
+
 ### Wichtige Dateien
 
 | Datei | Zweck | Link |
 |-------|-------|------|
 | `dbt_project.yml` | Projektkonfiguration | [öffnen](../dbt_project.yml) |
-| `models/staging/sources.yml` | External Tables Definition | [öffnen](../models/staging/sources.yml) |
+| `models/staging/sources.yml` | External Tables Definition (`ext_<concept>_<entity>`) | [öffnen](../models/staging/sources.yml) |
 | `models/schema.yml` | Tests & Dokumentation | [öffnen](../models/schema.yml) |
 | `macros/generate_schema_name.sql` | Schema-Naming | [öffnen](../macros/generate_schema_name.sql) |
 | `macros/satellite_current_flag.sql` | Current Flag Macro | [öffnen](../macros/satellite_current_flag.sql) |
 | `macros/ghost_records.sql` | Ghost Records | [öffnen](../macros/ghost_records.sql) |
+
+### Parquet-Exploration Macros
+
+Für die Analyse von Parquet-Dateien in ADLS Gen2 stehen drei Macros zur Verfügung:
+
+| Macro | Zweck | Befehl |
+|-------|-------|--------|
+| `list_parquet_files` | Alle Dateien in einem ADLS-Ordner auflisten | `dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'` |
+| `get_parquet_schema` | Schema einer Datei als YAML für sources.yml ausgeben | `dbt run-operation get_parquet_schema --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet"}'` |
+| `get_parquet_data` | Beispieldaten einer Datei anzeigen | `dbt run-operation get_parquet_data --args '{"folder_path": "jira/sql", "file_name": "Platform.Api_Project.parquet", "limit": 5}'` |
+
+### External Table Macros (Optimiert)
+
+Neue Macros für **selektive** External Table Erstellung (nicht alle auf einmal):
+
+| Macro | Zweck | Befehl |
+|-------|-------|--------|
+| `create_external_table` | Erstellt nur EINE neue Tabelle basierend auf sources.yml | `dbt run-operation create_external_table --args '{"table_name": "ext_jira_project"}'` |
+| `stage_external_sources` | Standard dbt-external-tables: Erstellt ALLE Tabellen (idempotent) | `dbt run-operation stage_external_sources` |
+
+**Best Practice:**
+- **Neue Tabelle?** → `create_external_table` (schneller, nur eine)
+- **Alle Tabellen?** → `stage_external_sources` (vollständig, sicher)
+
+
+**Typischer Workflow für neue Datenquelle:**
+```bash
+# 1. Verfügbare Dateien anzeigen
+dbt run-operation list_parquet_files --args '{"folder_path": "neue_quelle/ordner"}'
+
+# 2. Schema einer Datei als YAML generieren (direkt in sources.yml kopierbar)
+dbt run-operation get_parquet_schema --args '{"folder_path": "neue_quelle/ordner", "file_name": "Datei.parquet"}'
+
+# 3. Optional: Beispieldaten prüfen
+dbt run-operation get_parquet_data --args '{"folder_path": "neue_quelle/ordner", "file_name": "Datei.parquet", "limit": 3}'
+```
+
+**Voraussetzungen:**
+- External Data Source `StageFileSystem` muss in der Datenbank existieren
+- ADLS Gen2 Container muss über PolyBase/OPENROWSET erreichbar sein
 
 ---
 
@@ -92,29 +513,42 @@ datavault-dbt/
 ├── models/
 │   ├── schema.yml              # 📋 Tests & Dokumentation
 │   │
-│   ├── staging/                # 📥 Staging Layer
+│   ├── staging/                # 📥 Schema: stg
 │   │   ├── sources.yml         #    External Table Definitionen
-│   │   ├── stg_company.sql     #    Staging View
-│   │   └── stg_country.sql
+│   │   ├── werkportal_company.sql     #    Staging Views
+│   │   └── werkportal_country.sql
 │   │
 │   ├── raw_vault/              # 🏛️ Raw Vault Layer
-│   │   ├── hubs/
-│   │   │   ├── hub_company.sql
-│   │   │   └── hub_country.sql
-│   │   ├── satellites/
-│   │   │   ├── sat_company.sql
-│   │   │   ├── sat_country.sql
-│   │   │   ├── sat_company_client_ext.sql
-│   │   │   └── eff_sat_company_country.sql
-│   │   └── links/
-│   │       ├── link_company_role.sql
-│   │       └── link_company_country.sql
+│   │   ├── _common/            # Schema: vault (source-übergreifend)
+│   │   │   ├── hubs/
+│   │   │   ├── satellites/
+│   │   │   └── links/
+│   │   ├── werkportal/         # Schema: vault_werkportal
+│   │   │   ├── hubs/
+│   │   │   │   ├── hub_company.sql
+│   │   │   │   └── hub_country.sql
+│   │   │   ├── satellites/
+│   │   │   │   ├── sat_company.sql
+│   │   │   │   └── eff_sat_company_country.sql
+│   │   │   └── links/
+│   │   │       └── link_company_country.sql
+│   │   └── adventureworks/     # Schema: vault_adventureworks
+│   │       ├── hubs/
+│   │       │   └── hub_customer.sql
+│   │       ├── satellites/
+│   │       │   └── sat_customer.sql
+│   │       └── links/
 │   │
-│   ├── business_vault/         # 📊 Business Vault Layer
+│   ├── business_vault/         # 📊 Schema: vault (PITs, Bridges)
 │   │   └── pit_company.sql
 │   │
 │   └── mart/                   # 📈 Mart Layer (für BI)
-│       └── (Views für Reporting)
+│       ├── _common/            # Schema: mart (geteilte Dimensionen)
+│       │   ├── dim_date.sql
+│       │   └── dim_kunde.sql
+│       └── project/            # Schema: mart_project
+│           ├── dim_projekt.sql
+│           └── fakt_projekt.sql
 │
 ├── docs/                       # 📚 Dokumentation
 │   ├── SYSTEM.md
@@ -141,7 +575,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 ```yaml
 # Finde die External Table und füge die Spalte hinzu
-- name: ext_company_client
+- name: ext_werkportal_company
   columns:
     # ... bestehende Spalten ...
     - name: tax_number          # ← NEU
@@ -150,7 +584,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 #### Schritt 2: Staging View erweitern
 
-📄 **Datei:** [models/staging/stg_company.sql](../models/staging/stg_company.sql)
+📄 **Datei:** [models/staging/werkportal_company.sql](../models/staging/werkportal_company.sql)
 
 ```sql
 -- 1. Füge Spalte zur SELECT-Liste hinzu
@@ -160,7 +594,7 @@ client_source AS (
         -- ... bestehende Spalten ...
         tax_number,              -- ← NEU
         -- ...
-    FROM {{ source('staging', 'ext_company_client') }}
+    FROM {{ source('staging', 'ext_werkportal_company') }}
 ),
 
 -- 2. Falls im Hash Diff: Füge zur hashdiff_columns Liste hinzu
@@ -185,7 +619,7 @@ WITH source_data AS (
         tax_number,              -- ← NEU
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_company') }}
+    FROM {{ ref('werkportal_company') }}
     WHERE hk_company IS NOT NULL
 ),
 -- ... Rest bleibt gleich ...
@@ -198,7 +632,7 @@ WITH source_data AS (
 dbt run-operation stage_external_sources
 
 # Satellite neu bauen (full-refresh wegen Schemaänderung!)
-dbt run --full-refresh --select stg_company sat_company
+dbt run --full-refresh --select werkportal_company sat_company
 
 # Tests ausführen
 dbt test --select sat_company
@@ -222,7 +656,7 @@ Eine komplett neue Entity soll ins Data Vault (z.B. `product` aus einer neuen Qu
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. External Table    →  2. Staging View  →  3. Hub             │
 │        ↓                                          ↓              │
-│  sources.yml               stg_product.sql      hub_product.sql │
+│  sources.yml               werkportal_product.sql      hub_product.sql │
 │                                   ↓                    ↓         │
 │                            4. Satellite         5. Link          │
 │                            sat_product.sql      link_*.sql       │
@@ -246,7 +680,7 @@ sources:
       # ═══════════════════════════════════════════
       # NEU: Product
       # ═══════════════════════════════════════════
-      - name: ext_product
+      - name: ext_werkportal_product
         external:
           location: "werkportal/postgres/public.wp_product.parquet"
           file_format: ParquetFormat
@@ -273,11 +707,11 @@ sources:
 
 ### Schritt 2: Staging View erstellen
 
-📄 **Neue Datei:** `models/staging/stg_product.sql`
+📄 **Neue Datei:** `models/staging/werkportal_product.sql`
 
 ```sql
 /*
- * Staging Model: stg_product
+ * Staging Model: werkportal_product
  * 
  * Bereitet Product-Daten für das Data Vault vor.
  * Hash Key Separator: '^^' (DV 2.1 Standard)
@@ -291,7 +725,7 @@ sources:
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_product') }}
+    SELECT * FROM {{ source('staging', 'ext_werkportal_product') }}
 ),
 
 staged AS (
@@ -370,14 +804,14 @@ WITH source_data AS (
         object_id,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_product') }}
+    FROM {{ ref('werkportal_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
 {% if is_incremental() %}
-existing_hubs AS (
+existing_hubs AS {
     SELECT hk_product FROM {{ this }}
-),
+},
 {% endif %}
 
 new_records AS (
@@ -432,7 +866,7 @@ WITH source_data AS (
         description,
         price,
         category_id
-    FROM {{ ref('stg_product') }}
+    FROM {{ ref('werkportal_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
@@ -472,53 +906,128 @@ SELECT
 FROM new_records
 ```
 
-### Schritt 5: Tests hinzufügen
+### Schritt 5: Schema YAML erstellen (WICHTIG!)
 
-📄 **Datei:** [models/schema.yml](../models/schema.yml)
+⚠️ **Jedes Model MUSS in einer Schema YAML-Datei dokumentiert werden!**
+
+Die VS Code Extension und dbt-Dokumentation verwenden diese Dateien für Spalten-Metadaten.
+
+#### Datei-Namenskonvention
+
+| Layer | Datei | Speicherort |
+|-------|------|-------------|
+| Staging | `_staging__models.yml` | `models/staging/` |
+| Raw Vault | `_<concept>__models.yml` | `models/raw_vault/<concept>/` |
+| Business Vault | `_business_vault__models.yml` | `models/business_vault/` |
+| Mart | `_<concept>__models.yml` | `models/mart/<concept>/` |
+
+#### Vorlage
+
+📄 **Datei:** `models/raw_vault/<concept>/_<concept>__models.yml`
 
 ```yaml
+version: 2
+
 models:
-  # ... bestehende Models ...
-  
   # ═══════════════════════════════════════════
-  # Product
+  # Staging: Product
   # ═══════════════════════════════════════════
-  - name: stg_product
+  - name: <concept>_product
+    description: Staging view for product with hash calculations
     columns:
       - name: hk_product
+        description: Hash Key (Primary Key)
+        data_type: char(64)
         tests:
           - not_null
       - name: object_id
+        description: Business Key from source
+        data_type: bigint
+        tests:
+          - not_null
+      - name: name
+        description: Product name
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
         tests:
           - not_null
 
+  # ═══════════════════════════════════════════
+  # Hub: Product
+  # ═══════════════════════════════════════════
   - name: hub_product
+    description: Hub containing unique product business keys
     columns:
       - name: hk_product
+        description: Hash Key (Primary Key)
+        data_type: char(64)
         tests:
           - unique
           - not_null
       - name: object_id
+        description: Business Key
+        data_type: bigint
         tests:
           - not_null
       - name: dss_load_date
+        description: First load timestamp
+        data_type: datetime2(7)
         tests:
           - not_null
       - name: dss_record_source
+        description: Data source
+        data_type: varchar(100)
         tests:
           - not_null
 
+  # ═══════════════════════════════════════════
+  # Satellite: Product
+  # ═══════════════════════════════════════════
   - name: sat_product
+    description: Satellite with product descriptive attributes
     columns:
       - name: hk_product
+        description: Hash Key (Foreign Key to Hub)
+        data_type: char(64)
         tests:
           - not_null
           - relationships:
               to: ref('hub_product')
               field: hk_product
       - name: hd_product
+        description: Hash Diff for change detection
+        data_type: char(64)
         tests:
           - not_null
+      - name: name
+        description: Product name
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Data source
+        data_type: varchar(100)
+```
+
+#### Spalten aus Datenbank generieren
+
+Mit VS Code Copilot und MSSQL MCP können Spaltendefinitionen aus bestehenden Views generiert werden:
+
+```sql
+SELECT c.name, t.name AS data_type, c.max_length, c.precision, c.scale, c.is_nullable
+FROM sys.views v
+JOIN sys.columns c ON v.object_id = c.object_id
+JOIN sys.types t ON c.user_type_id = t.user_type_id
+WHERE SCHEMA_NAME(v.schema_id) = 'stg' AND v.name = '<view_name>'
+ORDER BY c.column_id;
 ```
 
 ### Schritt 6: Deployment
@@ -526,12 +1035,14 @@ models:
 ```bash
 # 1. External Table erstellen
 dbt run-operation stage_external_sources
+# oder einzelne Tabelle
+dbt run-operation stage_external_sources --args 'select: staging.ext_werkportal_product'
 
-# 2. Alle neuen Models bauen
-dbt run --select stg_product hub_product sat_product
+# 2. Alle neuen Models bauen (mit Upstream-Dependencies)
+dbt run --select +raw_vault.werkportal.hub_product +raw_vault.werkportal.sat_product
 
 # 3. Tests ausführen
-dbt test --select stg_product hub_product sat_product
+dbt test --select raw_vault.werkportal.hub_product raw_vault.werkportal.sat_product
 
 # 4. Ghost Records hinzufügen (optional)
 # → Macro in ghost_records.sql erweitern
@@ -560,7 +1071,7 @@ WITH source_data AS (
         <business_key_columns>,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_<entity>') }}
+    FROM {{ ref('<concept>_<entity>') }}
     WHERE hk_<entity> IS NOT NULL
 ),
 
@@ -614,7 +1125,7 @@ WITH source_data AS (
         dss_record_source,
         -- Payload Spalten hier
         <payload_columns>
-    FROM {{ ref('stg_<entity>') }}
+    FROM {{ ref('<concept>_<entity>') }}
     WHERE hk_<entity> IS NOT NULL
 ),
 
@@ -665,7 +1176,7 @@ WITH source_data AS (
         hk_<entity2>,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('stg_<source>') }}
+    FROM {{ ref('<concept>_<source>') }}
     WHERE hk_<entity1> IS NOT NULL
       AND hk_<entity2> IS NOT NULL
 ),
@@ -693,7 +1204,7 @@ SELECT * FROM new_records
 **Wichtig:** Der Link Hash Key muss im Staging berechnet werden:
 
 ```sql
--- In stg_<source>.sql
+-- In <concept>_<source>.sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
     CONCAT(
         ISNULL(CAST(<entity1_bk> AS NVARCHAR(MAX)), ''),
@@ -741,6 +1252,162 @@ dbt seed --select ref_<name>
 
 ---
 
+### 5.5 PSA (Persistent Staging Area) erstellen
+
+> **Zweck:** PSA cached Daten aus External Tables (PolyBase/OPENROWSET) in einer inkrementellen SQL-Tabelle, um wiederholte teure Zugriffe auf ADLS zu vermeiden.
+
+#### Wann PSA verwenden?
+
+| Szenario | Empfehlung |
+|----------|------------|
+| Kleine Parquet-Dateien, schnelle Abfragen | ❌ Keine PSA nötig |
+| Große Datenmengen, häufige dbt runs | ✅ PSA verwenden |
+| Merge/Upsert-Logik erforderlich | ✅ PSA verwenden |
+| Inkrementelle Verarbeitung | ✅ PSA verwenden |
+
+#### Datenfluss mit PSA
+
+```
+ext_<concept>_<entity> (External Table - PolyBase)
+    ↓
+psa_<concept>_<entity> (PSA - Incremental dbt Table) ← NEUER LAYER
+    ↓
+<concept>_<entity> (Staging View - Hash-Berechnungen)
+    ↓
+Hub/Satellite/Link (Raw Vault)
+```
+
+**Wichtig:** Die Staging View muss angepasst werden, um die PSA statt der External Table zu referenzieren!
+
+#### Schritt 1: PSA-Tabelle erstellen
+
+📄 **Neue Datei:** `models/staging/psa_<concept>_<entity>.sql`
+
+```sql
+/*
+ * Persistent Staging Area: psa_<concept>_<entity>
+ * 
+ * Source: ext_<concept>_<entity>
+ * Strategy: merge
+ * Unique Key: <business_key>
+ * Incremental Column: dss_load_date
+ * 
+ * Purpose: Persists external table data to avoid repeated OPENROWSET calls.
+ *          Staging views (hash calculation) should reference this PSA table.
+ */
+
+{{ config(
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='<business_key>',
+    as_columnstore=false
+) }}
+
+SELECT
+    <business_key>,
+    <alle_spalten>,
+    dss_record_source,
+    dss_load_date,
+    dss_run_id,
+    dss_stage_timestamp,
+    dss_source_file_name
+
+FROM {{ source('staging', 'ext_<concept>_<entity>') }}
+
+{% if is_incremental() %}
+WHERE dss_load_date > (SELECT COALESCE(MAX(dss_load_date), '1900-01-01') FROM {{ this }})
+{% endif %}
+```
+
+**Incremental Strategy Optionen:**
+
+| Strategy | Beschreibung | Unique Key erforderlich? |
+|----------|--------------|-------------------------|
+| `merge` | Update bei Match, Insert bei neuem Record | ✅ Ja |
+| `append` | Nur neue Records einfügen (kein Update) | ❌ Nein |
+
+#### Schritt 2: sources.yml aktualisieren
+
+📄 **Datei:** `models/staging/sources.yml`
+
+Füge einen Eintrag für die PSA-Tabelle hinzu mit `meta.psa: true`:
+
+```yaml
+      # PSA für Entity
+      - name: <concept>_<entity>    # Ohne ext_ Prefix
+        description: Persistent Staging Area for ext_<concept>_<entity>
+        meta:
+          psa: true                 # Markiert als PSA für Tree View
+          source_external_table: ext_<concept>_<entity>
+        columns:
+          - name: <business_key>
+            data_type: BIGINT
+          # ... weitere Spalten
+```
+
+#### Schritt 3: Staging View anpassen (KRITISCH!)
+
+⚠️ **Die bestehende Staging View muss angepasst werden, um die PSA zu referenzieren!**
+
+📄 **Datei:** `models/staging/<concept>_<entity>.sql`
+
+```sql
+-- VORHER:
+WITH source AS (
+    SELECT * FROM {{ source('staging', 'ext_<concept>_<entity>') }}
+),
+
+-- NACHHER:
+WITH source AS (
+    SELECT * FROM {{ ref('psa_<concept>_<entity>') }}
+),
+```
+
+**Warum diese Änderung?**
+- Die Hash-Berechnungen (hk_*, hd_*) erfolgen weiterhin in der Staging View
+- Aber die Datenquelle ist jetzt die PSA-Tabelle statt der External Table
+- Das reduziert teure OPENROWSET-Aufrufe bei jedem dbt run
+
+#### Schritt 4: Schema YAML dokumentieren
+
+📄 **Datei:** `models/staging/_staging__models.yml`
+
+```yaml
+  - name: psa_<concept>_<entity>
+    description: "Persistent Staging Area for <entity>. Caches data from ext_<concept>_<entity>."
+    columns:
+      - name: <business_key>
+        description: Business Key / Unique Identifier
+        data_type: bigint
+        tests:
+          - not_null
+      # ... weitere Spalten dokumentieren
+```
+
+#### Schritt 5: Deployment
+
+```bash
+# 1. PSA erstellen (lädt alle Daten)
+dbt run --select psa_<concept>_<entity>
+
+# 2. Staging View anpassen (s.o.)
+
+# 3. Alle abhängigen Models neu bauen
+dbt run --select +<concept>_<entity>+
+```
+
+#### VS Code Extension
+
+Die VS Code Extension bietet den Befehl "Create PSA Table" im Kontextmenü der External Tables.
+Dieser erstellt automatisch:
+- Die PSA SQL-Datei
+- Den sources.yml Eintrag
+- Die Schema YAML Dokumentation
+
+⚠️ **Die Staging View muss manuell angepasst werden!** Die Extension ändert nur die PSA, nicht die referenzierende Staging View.
+
+---
+
 ### 5.5 Effectivity Satellite erstellen
 
 📄 **Vorlage:** [models/raw_vault/satellites/eff_sat_company_country.sql](../models/raw_vault/satellites/eff_sat_company_country.sql)
@@ -764,7 +1431,7 @@ WITH source_data AS (
         hk_link_<entity1>_<entity2>,
         dss_load_date AS dss_start_date,
         dss_record_source
-    FROM {{ ref('stg_<source>') }}
+    FROM {{ ref('<concept>_<source>') }}
 ),
 
 {% if is_incremental() %}
@@ -794,7 +1461,236 @@ FROM new_records
 
 ---
 
-### 5.6 PIT Table erstellen
+### 5.6 Dependent Child Satellite (DC Sat) erstellen
+
+Ein **Dependent Child Satellite** wird verwendet, wenn ein Link zusätzliche Schlüsselspalten (DCK - Dependent Child Keys) benötigt, um Zeilen auf einer feineren Granularität zu unterscheiden.
+
+**Anwendungsfälle:**
+- Bestellpositionen (Order → Product + Positionsnummer)
+- Kontaktadressen (Person → AddressType + Adresse)
+- Telefonnummern (Company → PhoneType + Nummer)
+
+#### Staging-View Anforderungen
+
+Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten:
+
+```sql
+-- Beispiel: werkportal_order_item.sql (mit DCK: line_item_no)
+
+{%- set hashdiff_columns = ['quantity', 'unit_price', 'discount'] -%}
+{%- set hashdiff_dc_columns = ['line_item_no', 'quantity', 'unit_price', 'discount'] -%}
+
+WITH source AS (
+    SELECT * FROM {{ source('staging', 'ext_werkportal_order_item') }}
+),
+
+staged AS (
+    SELECT
+        -- HASH KEY (Entity)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(order_id AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_order_item,
+        
+        -- LINK HASH KEY (Order → Product + DCK)
+        -- Enthält DCK für DC Sat Eindeutigkeit
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ISNULL(CAST(order_id AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(product_id AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(line_item_no AS NVARCHAR(MAX)), '')  -- DCK
+            )
+        ), 2) AS hk_link_order_product,
+        
+        -- HASH DIFF (Standard Satellite)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_order_item,
+        
+        -- HASH DIFF (DC Satellite - inkl. DCK)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_dc_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_order_product_dc,
+        
+        -- Business Keys + Payload + Metadata
+        order_id,
+        product_id,
+        line_item_no,  -- DCK
+        quantity,
+        unit_price,
+        discount,
+        dss_record_source,
+        dss_load_date
+    FROM source
+)
+
+SELECT * FROM staged
+```
+
+#### DC Satellite Model
+
+```sql
+-- sat_order_product_dc.sql
+{{ config(
+    materialized='incremental',
+    as_columnstore=false
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "werkportal_order_item"
+src_pk: "hk_link_order_product"
+src_hashdiff: 
+  source_column: "hd_order_product_dc"
+  alias: "hashdiff"
+src_payload:
+    - "line_item_no"
+    - "quantity"
+    - "unit_price"
+    - "discount"
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.sat(
+    src_pk=metadata_dict["src_pk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+```
+
+---
+
+### 5.7 Multi-Active Satellite (MA Sat) erstellen
+
+Ein **Multi-Active Satellite** erlaubt **mehrere gleichzeitig gültige Werte** für denselben Business Key.
+
+> **VS Code Extension:** Im Entity Designer Spalten als `📚 Multi-Active Key` markieren.
+> MA Satellites werden automatisch beim Klick auf "Generate Satellites" oder "Generate All" erstellt.
+> **Wichtig:** MA Sat benötigt mindestens eine Hub-Spalte (Business Key) - im Gegensatz zu DC Sat.
+
+**Anwendungsfälle:**
+- Mehrere Telefonnummern pro Kunde (phone_type unterscheidet)
+- Mehrere Rollen pro Mitarbeiter (role unterscheidet)
+- Mehrere Adressen pro Person (address_type unterscheidet)
+
+#### Staging-View Anforderungen
+
+```sql
+-- Beispiel: werkportal_employee_phone.sql (mit CDK: phone_type)
+
+{%- set hashdiff_columns = ['phone_number', 'is_primary'] -%}
+{%- set hashdiff_ma_columns = ['phone_type', 'phone_number', 'is_primary'] -%}
+
+WITH source AS (
+    SELECT * FROM {{ source('staging', 'ext_werkportal_employee_phone') }}
+),
+
+staged AS (
+    SELECT
+        -- HASH KEY (Entity)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(employee_id AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_employee,
+        
+        -- HASH DIFF (für regulären Satellite)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_employee,
+        
+        -- HASH DIFF (MA Satellite - inkl. CDK)
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_ma_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                {%- endfor %}
+            )
+        ), 2) AS hd_employee_ma,
+        
+        -- Business Key + CDK + Payload + Metadata
+        employee_id,
+        phone_type,      -- CDK (Child Dependent Key)
+        phone_number,
+        is_primary,
+        dss_record_source,
+        dss_load_date
+    FROM source
+)
+
+SELECT * FROM staged
+```
+
+#### MA Satellite Model
+
+```sql
+-- sat_employee_ma.sql
+{{ config(
+    materialized='incremental',
+    as_columnstore=false
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "werkportal_employee_phone"
+src_pk: "hk_employee"
+src_cdk:
+    - "phone_type"
+src_hashdiff: 
+  source_column: "hd_employee_ma"
+  alias: "hashdiff"
+src_payload:
+    - "phone_number"
+    - "is_primary"
+src_eff: "dss_load_date"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.ma_sat(
+    src_pk=metadata_dict["src_pk"],
+    src_cdk=metadata_dict["src_cdk"],
+    src_hashdiff=metadata_dict["src_hashdiff"],
+    src_payload=metadata_dict["src_payload"],
+    src_eff=metadata_dict["src_eff"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
+) }}
+```
+
+#### Unterschied DC Sat vs MA Sat
+
+| Aspekt | DC Sat | MA Sat |
+|--------|--------|--------|
+| **Parent** | Link | Hub |
+| **Hash Key** | Link Hash + DCK | Hub Hash |
+| **Uniqueness** | Link + DCK + Zeit | Hub + CDK + Zeit |
+| **automate_dv Macro** | `sat` | `ma_sat` |
+| **Anwendung** | Zeilen auf Link-Ebene | Mehrere Werte pro Entity |
+
+---
+
+### 5.8 PIT Table erstellen
 
 📄 **Vorlage:** [models/business_vault/pit_company.sql](../models/business_vault/pit_company.sql)
 
@@ -943,6 +1839,158 @@ models:
 
 ```bash
 dbt run --select v_company_current
+```
+
+---
+
+## 📦 Static Tables (Persistierte Marts)
+
+### Übersicht
+
+Static Tables sind persistierte Tabellen im Mart-Layer mit folgenden Eigenschaften:
+
+| Eigenschaft | Beschreibung |
+|-------------|--------------|
+| **Schema** | `mart_static` |
+| **Materialisierung** | `incremental` mit MERGE-Strategie |
+| **Index** | Non-Clustered auf Hash Key |
+| **Change Detection** | via `last_updated` (MAX aus Satellite Load Dates) |
+| **Tag** | `static` für Batch-Updates |
+
+### Wann Static Table vs. View?
+
+| Kriterium | View | Static Table |
+|-----------|------|--------------|
+| Daten-Aktualität | Real-time | Refresh bei `dbt run` |
+| Komplexität | 1-2 JOINs | Viele JOINs |
+| Abfrage-Häufigkeit | Selten | Häufig (BI-Dashboards) |
+| Performance | Gut | Sehr gut (Index) |
+| Speicher | Kein | Tabelle + Index |
+
+### Static Table erstellen
+
+📄 **Neue Datei:** `models/mart/tables/<name>.sql`
+
+**Beispiel: Aktuelle Firmendaten (persistiert)**
+
+```sql
+/*
+ * Static Table: company_current
+ * Schema: mart_static
+ * 
+ * Persistierte Tabelle mit aktuellen Firmendaten.
+ * Inkrementelle Updates via MERGE auf hk_company.
+ */
+
+{{ config(
+    materialized='incremental',
+    unique_key='hk_company',
+    incremental_strategy='merge',
+    merge_update_columns=['name', 'city', 'street', 'last_updated'],
+    as_columnstore=false,
+    tags=['static'],
+    post_hook=[
+        "{{ create_hash_index('hk_company') }}"
+    ]
+) }}
+
+WITH source_data AS (
+    SELECT
+        -- Hash Key
+        h.hk_company,
+        h.object_id,
+        
+        -- Payload
+        s.name,
+        s.city,
+        s.street,
+        
+        -- Metadata
+        h.dss_load_date AS hub_load_date,
+        s.dss_load_date AS last_updated
+
+    FROM {{ ref('hub_company') }} h
+
+    -- Aktuelle Satellite-Daten
+    LEFT JOIN {{ ref('sat_company') }} s
+        ON h.hk_company = s.hk_company
+        AND s.dss_is_current = 'Y'
+
+    -- Ghost Records ausschließen
+    WHERE h.object_id > 0
+)
+
+SELECT * FROM source_data
+{% if is_incremental() %}
+WHERE last_updated > (SELECT MAX(last_updated) FROM {{ this }})
+{% endif %}
+```
+
+### Index Macros
+
+Die folgenden Macros stehen für Index-Erstellung zur Verfügung:
+
+| Macro | Beschreibung |
+|-------|--------------|
+| `create_hash_index(column)` | Non-Clustered Index auf einer Spalte |
+| `create_composite_index([col1, col2])` | Index auf mehreren Spalten |
+| `drop_and_create_index(column)` | Index neu erstellen (bei Schema-Änderungen) |
+
+**Verwendung als post_hook:**
+
+```sql
+{{ config(
+    post_hook=[
+        "{{ create_hash_index('hk_company') }}",
+        "{{ create_composite_index(['hk_company', 'hk_project']) }}"
+    ]
+) }}
+```
+
+### Deployment
+
+```bash
+# Initial Load (Full Refresh) - ERSTE AUSFÜHRUNG
+dbt run --select company_current --full-refresh
+
+# Inkrementelles Update
+dbt run --select company_current
+
+# Alle Static Tables aktualisieren
+dbt run --select tag:static
+
+# Full Refresh für alle Static Tables (z.B. wöchentlich)
+dbt run --select tag:static --full-refresh
+```
+
+### Index verifizieren
+
+```sql
+-- Index prüfen
+SELECT 
+    i.name AS index_name,
+    i.type_desc,
+    c.name AS column_name
+FROM sys.indexes i
+JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+WHERE i.object_id = OBJECT_ID('mart_static.company_current')
+```
+
+### CLI Command
+
+```bash
+# Mit Agent
+/create-static-table company_current
+
+# Mit MCP Tool
+Tool: create_static_table
+Args: {
+  "tableName": "company_current",
+  "description": "Aktuelle Firmendaten für BI",
+  "baseHub": "hub_company",
+  "satellites": [{"name": "sat_company", "columns": ["*"], "currentOnly": true}]
+}
 ```
 
 ---
@@ -1155,7 +2203,7 @@ dbt debug
 
 ```
 □ External Table in sources.yml definiert
-□ Staging View erstellt (stg_<entity>.sql)
+□ Staging View erstellt (<concept>_<entity>.sql)
   □ Hash Key berechnet
   □ Hash Diff berechnet (falls Satellite)
   □ Metadata-Spalten gemappt
@@ -1165,8 +2213,8 @@ dbt debug
 □ Link erstellt (falls Beziehung)
 □ Tests in schema.yml hinzugefügt
 □ dbt run-operation stage_external_sources
-□ dbt run --select stg_* hub_* sat_*
-□ dbt test
+□ dbt run --select +raw_vault.<concept>.hub_<entity> +raw_vault.<concept>.sat_<entity>
+□ dbt test --select raw_vault.<concept>
 □ Ghost Records erweitert (optional)
 □ Dokumentation aktualisiert
 ```
@@ -1179,7 +2227,7 @@ dbt debug
 □ Spalte in Hash Diff (falls getrackt)
 □ Spalte in Satellite hinzugefügt
 □ dbt run-operation stage_external_sources
-□ dbt run --full-refresh --select stg_* sat_*
+□ dbt run --full-refresh --select <concept>_* sat_*
 □ dbt test
 ```
 

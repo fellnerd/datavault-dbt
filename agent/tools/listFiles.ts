@@ -11,7 +11,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 
 export const listFilesSchema = z.object({
-  directory: z.string().describe('Relativer Pfad zum Verzeichnis (z.B. "models/raw_vault/hubs")'),
+  directory: z.string().describe('Relativer Pfad zum Verzeichnis (z.B. "models" oder "models/raw_vault/werkportal/hubs")'),
   recursive: z.boolean().optional().describe('Wenn true, listet auch Unterverzeichnisse (max 3 Ebenen)'),
 });
 

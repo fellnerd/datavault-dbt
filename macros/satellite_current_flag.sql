@@ -3,6 +3,7 @@
  * 
  * Wiederverwendbarer Post-Hook für dss_is_current Flag Management.
  * Setzt alte Einträge auf 'N' wenn neue Einträge hinzugefügt werden.
+ * Fügt die Spalten automatisch hinzu falls sie noch nicht existieren.
  *
  * Parameter:
  *   - satellite_table: Vollqualifizierter Tabellenname (z.B. {{ this }})
@@ -10,26 +11,60 @@
  */
 
 {% macro update_satellite_current_flag(satellite_table, hash_key_column) %}
-    UPDATE {{ satellite_table }} 
-    SET dss_is_current = 'N',
-        dss_end_date = (
-            SELECT MIN(s2.dss_load_date) 
-            FROM {{ satellite_table }} s2 
-            WHERE s2.{{ hash_key_column }} = {{ satellite_table }}.{{ hash_key_column }}
-              AND s2.dss_load_date > {{ satellite_table }}.dss_load_date
-        )
-    WHERE dss_is_current = 'Y' 
-      AND {{ hash_key_column }} IN (
-          SELECT {{ hash_key_column }} 
-          FROM {{ satellite_table }} 
-          GROUP BY {{ hash_key_column }} 
-          HAVING COUNT(*) > 1
-      )
-      AND dss_load_date < (
-          SELECT MAX(dss_load_date) 
-          FROM {{ satellite_table }} t2 
-          WHERE t2.{{ hash_key_column }} = {{ satellite_table }}.{{ hash_key_column }}
-      )
+    {% set table_name = satellite_table %}
+    {% set hash_col = hash_key_column %}
+
+    -- Add columns if they don't exist (idempotent)
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.columns
+        WHERE object_id = OBJECT_ID('{{ table_name }}')
+          AND name = 'dss_is_current'
+    )
+    BEGIN
+        ALTER TABLE {{ table_name }} ADD dss_is_current CHAR(1) NULL;
+    END;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM sys.columns
+        WHERE object_id = OBJECT_ID('{{ table_name }}')
+          AND name = 'dss_end_date'
+    )
+    BEGIN
+        ALTER TABLE {{ table_name }} ADD dss_end_date DATETIME2(7) NULL;
+    END;
+
+    -- Update flags using dynamic SQL (after columns exist)
+    DECLARE @sql NVARCHAR(MAX);
+    SET @sql = N'
+        -- Set all records to current initially (for new records without flag)
+        UPDATE {{ table_name }}
+        SET dss_is_current = ''Y''
+        WHERE dss_is_current IS NULL;
+
+        -- Mark old records as not current
+        UPDATE t1
+        SET dss_is_current = ''N'',
+            dss_end_date = (
+                SELECT MIN(s2.dss_load_date)
+                FROM {{ table_name }} s2
+                WHERE s2.{{ hash_col }} = t1.{{ hash_col }}
+                  AND s2.dss_load_date > t1.dss_load_date
+            )
+        FROM {{ table_name }} t1
+        WHERE t1.dss_is_current = ''Y''
+          AND t1.{{ hash_col }} IN (
+              SELECT {{ hash_col }}
+              FROM {{ table_name }}
+              GROUP BY {{ hash_col }}
+              HAVING COUNT(*) > 1
+          )
+          AND t1.dss_load_date < (
+              SELECT MAX(t2.dss_load_date)
+              FROM {{ table_name }} t2
+              WHERE t2.{{ hash_col }} = t1.{{ hash_col }}
+          )
+    ';
+    EXEC sp_executesql @sql;
 {% endmacro %}
 
 

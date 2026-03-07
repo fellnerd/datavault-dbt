@@ -1,176 +1,30 @@
 version: 2
-
 sources:
   - name: staging
-    description: "External Tables über PolyBase (Parquet aus ADLS)"
+    description: External Tables via PolyBase (Parquet from ADLS)
     database: "{{ target.database }}"
     schema: stg
-    
-    # ===========================================
-    # dbt-external-tables Konfiguration
-    # ===========================================
-    # Docs: https://github.com/dbt-labs/dbt-external-tables
-    # Ausführen: dbt run-operation stage_external_sources
-    # ===========================================
-    
     tables:
-      - name: ext_company_client
-        description: "Werkportal Company Client - External Table"
+      - name: ext_jira_customers
+        description: Auto-generated from Customers.parquet
         external:
-          location: "werkportal/postgres/public.wp_company_client.parquet"
+          location: jira/sql2/Customers.parquet
           file_format: ParquetFormat
           data_source: StageFileSystem
         columns:
-          - name: object_id
+          - name: SERVICE_DESK_ID
             data_type: BIGINT
-            description: "Business Key - Primärschlüssel aus Quellsystem"
-            tests:
-              - not_null
-          - name: date_created
-            data_type: DATETIME2
-          - name: date_updated
-            data_type: DATETIME2
-          - name: subscription
+          - name: PROJECT_KEY
             data_type: NVARCHAR(4000)
-          - name: name
+          - name: CUSTOMER_ACCOUNT_ID
             data_type: NVARCHAR(4000)
-          - name: state
+          - name: CUSTOMER_NAME
             data_type: NVARCHAR(4000)
-          - name: citycode
+          - name: IS_ACTIVE
+            data_type: BIT
+          - name: TIMEZONE
             data_type: NVARCHAR(4000)
-          - name: city
-            data_type: NVARCHAR(4000)
-          - name: website
-            data_type: NVARCHAR(4000)
-          - name: street
-            data_type: NVARCHAR(4000)
-          - name: province
-            data_type: NVARCHAR(4000)
-          - name: credit_rating
-            data_type: NVARCHAR(4000)
-          - name: country
-            data_type: BIGINT
-            description: "FK zu countries"
-          - name: employeecount
-            data_type: "NUMERIC(38,0)"
-          - name: email
-            data_type: NVARCHAR(4000)
-          - name: commission_fee
-            data_type: NVARCHAR(4000)
-          - name: phone
-            data_type: NVARCHAR(4000)
-          - name: mobile
-            data_type: NVARCHAR(4000)
-          - name: mobile2
-            data_type: NVARCHAR(4000)
-          - name: bic
-            data_type: NVARCHAR(4000)
-          - name: fax
-            data_type: NVARCHAR(4000)
-          - name: iban
-            data_type: NVARCHAR(4000)
-          - name: description
-            data_type: NVARCHAR(4000)
-          - name: org_type
-            data_type: BIGINT
-          - name: uid
-            data_type: NVARCHAR(4000)
-          - name: freistellungsbescheinigung
-            data_type: DATETIME2
-          - name: dss_record_source
-            data_type: NVARCHAR(4000)
-            description: "Datenquelle"
-          - name: dss_load_date
-            data_type: NVARCHAR(4000)
-            description: "Ladedatum"
-          - name: dss_run_id
-            data_type: NVARCHAR(4000)
-            description: "Pipeline Run ID"
-          - name: dss_stage_timestamp
-            data_type: NVARCHAR(4000)
-          - name: dss_source_file_name
-            data_type: NVARCHAR(4000)
-
-      # ===========================================
-      # TODO: Weitere External Tables
-      # ===========================================
-      
-      - name: ext_countries
-        description: "Werkportal Countries - External Table"
-        external:
-          location: "werkportal/postgres/public.wp_countries.parquet"
-          file_format: ParquetFormat
-          data_source: StageFileSystem
-        columns:
-          - name: object_id
-            data_type: BIGINT
-            description: "Business Key"
-          - name: name
-            data_type: NVARCHAR(4000)
-          - name: dss_record_source
-            data_type: NVARCHAR(4000)
-          - name: dss_load_date
-            data_type: NVARCHAR(4000)
-          - name: dss_run_id
-            data_type: NVARCHAR(4000)
-
-      - name: ext_company_contractor
-        description: "Werkportal Company Contractor - External Table"
-        external:
-          location: "werkportal/postgres/public.wp_company_contractor.parquet"
-          file_format: ParquetFormat
-          data_source: StageFileSystem
-        columns:
-          - name: object_id
-            data_type: BIGINT
-            description: "Business Key"
-          - name: date_created
-            data_type: DATETIME2
-          - name: date_updated
-            data_type: DATETIME2
-          - name: subscription
-            data_type: NVARCHAR(4000)
-          - name: name
-            data_type: NVARCHAR(4000)
-          - name: state
-            data_type: NVARCHAR(4000)
-          - name: citycode
-            data_type: NVARCHAR(4000)
-          - name: city
-            data_type: NVARCHAR(4000)
-          - name: website
-            data_type: NVARCHAR(4000)
-          - name: street
-            data_type: NVARCHAR(4000)
-          - name: province
-            data_type: NVARCHAR(4000)
-          - name: credit_rating
-            data_type: NVARCHAR(4000)
-          - name: country
-            data_type: BIGINT
-          - name: employeecount
-            data_type: "NUMERIC(38,18)"
-          - name: email
-            data_type: NVARCHAR(4000)
-          - name: commission_fee
-            data_type: NVARCHAR(4000)
-          - name: phone
-            data_type: NVARCHAR(4000)
-          - name: mobile
-            data_type: NVARCHAR(4000)
-          - name: mobile2
-            data_type: NVARCHAR(4000)
-          - name: bic
-            data_type: NVARCHAR(4000)
-          - name: fax
-            data_type: NVARCHAR(4000)
-          - name: iban
-            data_type: NVARCHAR(4000)
-          - name: description
-            data_type: NVARCHAR(4000)
-          - name: org_type
-            data_type: BIGINT
-          - name: uid
+          - name: CUSTOMER_EMAIL
             data_type: NVARCHAR(4000)
           - name: dss_record_source
             data_type: NVARCHAR(4000)
@@ -182,64 +36,110 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
-
-      - name: ext_company_supplier
-        description: "Werkportal Company Supplier - External Table"
+      - name: ext_jira_issues
+        description: Auto-generated from Issues.parquet
         external:
-          location: "werkportal/postgres/public.wp_company_supplier.parquet"
+          location: jira/sql2/Issues.parquet
           file_format: ParquetFormat
           data_source: StageFileSystem
         columns:
-          - name: object_id
+          - name: ISSUE_ID
             data_type: BIGINT
-            description: "Business Key"
-          - name: date_created
+          - name: ISSUE_KEY
+            data_type: NVARCHAR(10)
+          - name: ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: ISSUE_TYPE_NAME
+            data_type: NVARCHAR(50)
+          - name: ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: SUMMARY
+            data_type: NVARCHAR(MAX)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(MAX)
+          - name: PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: WATCHERS
+            data_type: BIGINT
+          - name: WORK_RATIO
+            data_type: BIGINT
+          - name: VOTES
+            data_type: BIGINT
+          - name: RESOLUTION
+            data_type: NVARCHAR(4000)
+          - name: PROJECT_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_NAME
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_NAME
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_NAME
+            data_type: NVARCHAR(4000)
+          - name: ENVIRONMENT
+            data_type: NVARCHAR(4000)
+          - name: CREATED
             data_type: DATETIME2
-          - name: date_updated
+          - name: UPDATED
             data_type: DATETIME2
-          - name: subscription
+          - name: DUE_DATE
+            data_type: DATETIME2
+          - name: RESOLUTION_DATE
+            data_type: DATETIME2
+          - name: LAST_VIEWED
+            data_type: DATETIME2
+          - name: SECURITY_LEVEL_NAME
             data_type: NVARCHAR(4000)
-          - name: name
-            data_type: NVARCHAR(4000)
-          - name: state
-            data_type: NVARCHAR(4000)
-          - name: citycode
-            data_type: NVARCHAR(4000)
-          - name: city
-            data_type: NVARCHAR(4000)
-          - name: website
-            data_type: NVARCHAR(4000)
-          - name: street
-            data_type: NVARCHAR(4000)
-          - name: province
-            data_type: NVARCHAR(4000)
-          - name: credit_rating
-            data_type: NVARCHAR(4000)
-          - name: country
+          - name: STATUS_CATEGORY_CHANGE_DATE
+            data_type: DATETIME2
+          - name: TIME_SPENT
             data_type: BIGINT
-          - name: employeecount
-            data_type: "NUMERIC(38,18)"
-          - name: email
-            data_type: NVARCHAR(4000)
-          - name: commission_fee
-            data_type: NVARCHAR(4000)
-          - name: phone
-            data_type: NVARCHAR(4000)
-          - name: mobile
-            data_type: NVARCHAR(4000)
-          - name: mobile2
-            data_type: NVARCHAR(4000)
-          - name: bic
-            data_type: NVARCHAR(4000)
-          - name: fax
-            data_type: NVARCHAR(4000)
-          - name: iban
-            data_type: NVARCHAR(4000)
-          - name: description
-            data_type: NVARCHAR(4000)
-          - name: org_type
+          - name: TIME_SPENT_WITH_SUBTASKS
             data_type: BIGINT
-          - name: uid
+          - name: ORIGINAL_ESTIMATE
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: BUSINESS_TIME_SPENT
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_TIME_SPENT_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_KEY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_SUMMARY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_TYPE_NAME
+            data_type: NVARCHAR(4000)
+          - name: PARENT_PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_STATUS_NAME
             data_type: NVARCHAR(4000)
           - name: dss_record_source
             data_type: NVARCHAR(4000)
@@ -251,84 +151,820 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
-      # ===========================================
-      # Project (Projekte/Aufträge)
-      # ===========================================
-      - name: ext_project
-        description: "Werkportal Project Overview - External Table"
+      - name: jira_issues
+        description: Persistent Staging Area for ext_jira_issues
+        meta:
+          psa: true
+          source_external_table: ext_jira_issues
+        columns:
+          - name: ISSUE_ID
+            data_type: BIGINT
+          - name: ISSUE_KEY
+            data_type: NVARCHAR(10)
+          - name: ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: ISSUE_TYPE_NAME
+            data_type: NVARCHAR(50)
+          - name: ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: SUMMARY
+            data_type: NVARCHAR(MAX)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(MAX)
+          - name: PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: WATCHERS
+            data_type: BIGINT
+          - name: WORK_RATIO
+            data_type: BIGINT
+          - name: VOTES
+            data_type: BIGINT
+          - name: RESOLUTION
+            data_type: NVARCHAR(4000)
+          - name: PROJECT_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CURRENT_ASSIGNEE_NAME
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: CREATOR_NAME
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: REPORTER_NAME
+            data_type: NVARCHAR(4000)
+          - name: ENVIRONMENT
+            data_type: NVARCHAR(4000)
+          - name: CREATED
+            data_type: DATETIME2
+          - name: UPDATED
+            data_type: DATETIME2
+          - name: DUE_DATE
+            data_type: DATETIME2
+          - name: RESOLUTION_DATE
+            data_type: DATETIME2
+          - name: LAST_VIEWED
+            data_type: DATETIME2
+          - name: SECURITY_LEVEL_NAME
+            data_type: NVARCHAR(4000)
+          - name: STATUS_CATEGORY_CHANGE_DATE
+            data_type: DATETIME2
+          - name: TIME_SPENT
+            data_type: BIGINT
+          - name: TIME_SPENT_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE
+            data_type: BIGINT
+          - name: ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE
+            data_type: BIGINT
+          - name: REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: BIGINT
+          - name: BUSINESS_TIME_SPENT
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_TIME_SPENT_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_ORIGINAL_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE
+            data_type: NVARCHAR(4000)
+          - name: BUSINESS_REMAINING_ESTIMATE_WITH_SUBTASKS
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_KEY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_SUMMARY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_TYPE_NAME
+            data_type: NVARCHAR(4000)
+          - name: PARENT_PRIORITY
+            data_type: NVARCHAR(4000)
+          - name: PARENT_ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: PARENT_ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_issuestatuses
+        description: Auto-generated from IssueStatuses.parquet
         external:
-          location: "werkportal/postgres/public.wp_project_overview.parquet"
+          location: jira/sql2/IssueStatuses.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ISSUE_STATUS_ID
+            data_type: BIGINT
+          - name: ISSUE_STATUS_NAME
+            data_type: NVARCHAR(4000)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(4000)
+          - name: CATEGORY
+            data_type: NVARCHAR(4000)
+          - name: ICON_URL
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_TYPE
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_ID
+            data_type: BIGINT
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_issuetypes
+        description: Auto-generated from IssueTypes.parquet
+        external:
+          location: jira/sql2/IssueTypes.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ISSUE_TYPE_ID
+            data_type: BIGINT
+          - name: ISSUE_TYPE_NAME
+            data_type: NVARCHAR(4000)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(4000)
+          - name: IS_SUBTASK
+            data_type: BIT
+          - name: ICON_URL
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_TYPE
+            data_type: NVARCHAR(4000)
+          - name: SCOPE_ID
+            data_type: BIGINT
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_labels
+        description: Auto-generated from Labels.parquet
+        external:
+          location: jira/sql2/Labels.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: NAME
+            data_type: NVARCHAR(4000)
+          - name: ISSUE_ID
+            data_type: BIGINT
+          - name: ISSUE_KEY
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_jira_projects
+        description: Auto-generated from Projects.parquet
+        external:
+          location: jira/sql2/Projects.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: PROJECT_ID
+            data_type: BIGINT
+          - name: PROJECT_KEY
+            data_type: NVARCHAR(10)
+          - name: NAME
+            data_type: NVARCHAR(255)
+          - name: URL
+            data_type: NVARCHAR(500)
+          - name: DESCRIPTION
+            data_type: NVARCHAR(4000)
+          - name: CATEGORY
+            data_type: NVARCHAR(100)
+          - name: TYPE
+            data_type: NVARCHAR(100)
+          - name: STYLE
+            data_type: NVARCHAR(4000)
+          - name: IS_PRIVATE
+            data_type: BIT
+          - name: LEAD_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: LEAD_NAME
+            data_type: NVARCHAR(4000)
+          - name: TOTAL_ISSUE_COUNT
+            data_type: BIGINT
+          - name: LAST_ISSUE_UPDATE_TIME
+            data_type: DATETIME2
+          - name: IS_ARCHIVED
+            data_type: BIT
+          - name: ARCHIVED_DATE
+            data_type: DATETIME2
+          - name: ARCHIVED_BY_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: ARCHIVED_BY_NAME
+            data_type: NVARCHAR(4000)
+          - name: IS_DELETED
+            data_type: BIT
+          - name: DELETED_DATE
+            data_type: DATETIME2
+          - name: RETENTION_TILL_DATE
+            data_type: DATETIME2
+          - name: DELETED_BY_ACCOUNT_ID
+            data_type: NVARCHAR(4000)
+          - name: DELETED_BY_NAME
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_werkportal_public_wp_invoices
+        description: Auto-generated from public.wp_invoices.parquet
+        external:
+          location: werkportal/postgres/public.wp_invoices.parquet
           file_format: ParquetFormat
           data_source: StageFileSystem
         columns:
           - name: object_id
             data_type: BIGINT
-            description: "Business Key - Primärschlüssel aus Quellsystem"
-            tests:
-              - not_null
-          - name: user_created
-            data_type: NVARCHAR(4000)
           - name: date_created
             data_type: DATETIME2
-          - name: user_updated
-            data_type: NVARCHAR(4000)
           - name: date_updated
             data_type: DATETIME2
           - name: subscription
             data_type: NVARCHAR(4000)
           - name: name
             data_type: NVARCHAR(4000)
-            description: "Projektname"
           - name: state
             data_type: NVARCHAR(4000)
-            description: "Projektstatus"
-          - name: begin
+          - name: deductions_description
+            data_type: NVARCHAR(4000)
+          - name: gross
+            data_type: BIT
+          - name: invoicing_period_year
+            data_type: DECIMAL(38,10)
+          - name: project
+            data_type: BIGINT
+          - name: invoice_date
             data_type: DATETIME2
-            description: "Projektbeginn"
-          - name: location
-            data_type: NVARCHAR(4000)
-            description: "Projektstandort"
-          - name: price
-            data_type: NUMERIC(38,18)
-            description: "Projektpreis"
-          - name: commission
-            data_type: NUMERIC(38,18)
-            description: "Provision"
-          - name: end
+          - name: date_payed
             data_type: DATETIME2
-            description: "Projektende"
-          - name: work_begin
-            data_type: NVARCHAR(4000)
-          - name: author_email
-            data_type: NVARCHAR(4000)
           - name: description
             data_type: NVARCHAR(4000)
-          - name: price_units_value
+          - name: advance_payment
+            data_type: BIT
+          - name: date_payed_internally
+            data_type: DATETIME2
+          - name: payed
             data_type: NVARCHAR(4000)
-          - name: commission_units_value
-            data_type: NVARCHAR(4000)
-          - name: details
-            data_type: NVARCHAR(4000)
-          - name: user
-            data_type: BIGINT
-            description: "FK zu User"
-          - name: provision_charged_state
-            data_type: NVARCHAR(4000)
-          - name: contractor_count
-            data_type: INT
-            description: "Anzahl Contractors"
-          - name: client
-            data_type: BIGINT
-            description: "FK zu Company Client"
           - name: contractor
             data_type: BIGINT
-            description: "FK zu Company Contractor"
+          - name: client
+            data_type: BIGINT
+          - name: sum_goal
+            data_type: DECIMAL(38,10)
+          - name: credit_period
+            data_type: DECIMAL(38,10)
+          - name: deductions
+            data_type: DECIMAL(38,10)
+          - name: sum_payed
+            data_type: DECIMAL(38,10)
+          - name: hours_worked
+            data_type: DECIMAL(38,10)
+          - name: subtractions
+            data_type: DECIMAL(38,10)
+          - name: credit_rating_check
+            data_type: DECIMAL(38,10)
+          - name: discount
+            data_type: DECIMAL(38,10)
+          - name: ordering
+            data_type: DECIMAL(38,10)
+          - name: createdby
+            data_type: NVARCHAR(4000)
           - name: member
             data_type: NVARCHAR(4000)
-          - name: hidden
+          - name: pay_target_date
+            data_type: DATETIME2
+          - name: u_amount
+            data_type: DECIMAL(38,10)
+          - name: comission_amount
+            data_type: DECIMAL(38,10)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_werkportal_api_invoice_delta
+        description: Wildcard External Table - reads ALL Parquet files from werkportal/api/invoice/delta/
+        external:
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+          location: werkportal/api/invoice/delta/
+        columns:
+          - name: advance_payment
             data_type: BIT
-          - name: is_contracting
+          - name: client_name
+            data_type: NVARCHAR(4000)
+          - name: client_object_id
+            data_type: NVARCHAR(4000)
+          - name: comission_amount
+            data_type: FLOAT
+          - name: contractor_name
+            data_type: NVARCHAR(4000)
+          - name: contractor_object_id
+            data_type: NVARCHAR(4000)
+          - name: createdby_name
+            data_type: NVARCHAR(4000)
+          - name: createdby_object_id
+            data_type: NVARCHAR(4000)
+          - name: credit_period
+            data_type: FLOAT
+          - name: credit_rating_check
+            data_type: FLOAT
+          - name: date_created
+            data_type: NVARCHAR(4000)
+          - name: date_updated
+            data_type: NVARCHAR(4000)
+          - name: deductions
+            data_type: FLOAT
+          - name: deductions_description
+            data_type: NVARCHAR(4000)
+          - name: description
+            data_type: NVARCHAR(4000)
+          - name: discount
+            data_type: FLOAT
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+          - name: gross
             data_type: BIT
+          - name: hours_worked
+            data_type: FLOAT
+          - name: invoice_date
+            data_type: NVARCHAR(4000)
+          - name: invoicing_period_year
+            data_type: FLOAT
+          - name: member_email
+            data_type: NVARCHAR(4000)
+          - name: member_name
+            data_type: NVARCHAR(4000)
+          - name: member_object_id
+            data_type: NVARCHAR(4000)
+          - name: name
+            data_type: NVARCHAR(4000)
+          - name: object_id
+            data_type: NVARCHAR(4000)
+          - name: ordering
+            data_type: FLOAT
+          - name: pay_target_date
+            data_type: NVARCHAR(4000)
+          - name: payed
+            data_type: NVARCHAR(4000)
+          - name: project_name
+            data_type: NVARCHAR(4000)
+          - name: project_object_id
+            data_type: NVARCHAR(4000)
+          - name: state
+            data_type: NVARCHAR(4000)
+          - name: subscription_name
+            data_type: NVARCHAR(4000)
+          - name: subscription_object_id
+            data_type: NVARCHAR(4000)
+          - name: subtractions
+            data_type: FLOAT
+          - name: sum_goal
+            data_type: FLOAT
+          - name: sum_payed
+            data_type: FLOAT
+          - name: u_amount
+            data_type: FLOAT
+      - name: ext_adventureworks_saleslt_address
+        description: Auto-generated from SalesLT.Address.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.Address.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: AddressID
+            data_type: INT
+          - name: AddressLine1
+            data_type: NVARCHAR(4000)
+          - name: AddressLine2
+            data_type: NVARCHAR(4000)
+          - name: City
+            data_type: NVARCHAR(4000)
+          - name: StateProvince
+            data_type: NVARCHAR(4000)
+          - name: CountryRegion
+            data_type: NVARCHAR(4000)
+          - name: PostalCode
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: adventureworks_saleslt_address
+        description: Persistent Staging Area for ext_adventureworks_saleslt_address
+        meta:
+          psa: true
+          source_external_table: ext_adventureworks_saleslt_address
+        columns:
+          - name: AddressID
+            data_type: INT
+          - name: AddressLine1
+            data_type: NVARCHAR(4000)
+          - name: AddressLine2
+            data_type: NVARCHAR(4000)
+          - name: City
+            data_type: NVARCHAR(4000)
+          - name: StateProvince
+            data_type: NVARCHAR(4000)
+          - name: CountryRegion
+            data_type: NVARCHAR(4000)
+          - name: PostalCode
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_customer
+        description: Auto-generated from SalesLT.Customer.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.Customer.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: CustomerID
+            data_type: INT
+          - name: NameStyle
+            data_type: BIT
+          - name: Title
+            data_type: NVARCHAR(4000)
+          - name: FirstName
+            data_type: NVARCHAR(4000)
+          - name: MiddleName
+            data_type: NVARCHAR(4000)
+          - name: LastName
+            data_type: NVARCHAR(4000)
+          - name: Suffix
+            data_type: NVARCHAR(4000)
+          - name: CompanyName
+            data_type: NVARCHAR(4000)
+          - name: SalesPerson
+            data_type: NVARCHAR(4000)
+          - name: EmailAddress
+            data_type: NVARCHAR(4000)
+          - name: Phone
+            data_type: NVARCHAR(4000)
+          - name: PasswordHash
+            data_type: NVARCHAR(4000)
+          - name: PasswordSalt
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_customeraddress
+        description: Auto-generated from SalesLT.CustomerAddress.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.CustomerAddress.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: CustomerID
+            data_type: INT
+          - name: AddressID
+            data_type: INT
+          - name: AddressType
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_product
+        description: Auto-generated from SalesLT.Product.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.Product.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ProductID
+            data_type: INT
+          - name: Name
+            data_type: NVARCHAR(4000)
+          - name: ProductNumber
+            data_type: NVARCHAR(4000)
+          - name: Color
+            data_type: NVARCHAR(4000)
+          - name: StandardCost
+            data_type: DECIMAL(38,10)
+          - name: ListPrice
+            data_type: DECIMAL(38,10)
+          - name: Size
+            data_type: NVARCHAR(4000)
+          - name: Weight
+            data_type: DECIMAL(38,10)
+          - name: ProductCategoryID
+            data_type: INT
+          - name: ProductModelID
+            data_type: INT
+          - name: SellStartDate
+            data_type: DATETIME2
+          - name: SellEndDate
+            data_type: DATETIME2
+          - name: DiscontinuedDate
+            data_type: DATETIME2
+          - name: ThumbNailPhoto
+            data_type: VARBINARY(MAX)
+          - name: ThumbnailPhotoFileName
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_productcategory
+        description: Auto-generated from SalesLT.ProductCategory.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.ProductCategory.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ProductCategoryID
+            data_type: INT
+          - name: ParentProductCategoryID
+            data_type: INT
+          - name: Name
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_productdescription
+        description: Auto-generated from SalesLT.ProductDescription.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.ProductDescription.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ProductDescriptionID
+            data_type: INT
+          - name: Description
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_productmodel
+        description: Auto-generated from SalesLT.ProductModel.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.ProductModel.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ProductModelID
+            data_type: INT
+          - name: Name
+            data_type: NVARCHAR(4000)
+          - name: CatalogDescription
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_productmodelproductdescription
+        description: Auto-generated from SalesLT.ProductModelProductDescription.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.ProductModelProductDescription.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: ProductModelID
+            data_type: INT
+          - name: ProductDescriptionID
+            data_type: INT
+          - name: Culture
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_salesorderdetail
+        description: Auto-generated from SalesLT.SalesOrderDetail.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.SalesOrderDetail.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: SalesOrderID
+            data_type: INT
+          - name: SalesOrderDetailID
+            data_type: INT
+          - name: OrderQty
+            data_type: INT
+          - name: ProductID
+            data_type: INT
+          - name: UnitPrice
+            data_type: DECIMAL(38,10)
+          - name: UnitPriceDiscount
+            data_type: DECIMAL(38,10)
+          - name: LineTotal
+            data_type: DECIMAL(38,10)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)
+      - name: ext_adventureworks_saleslt_salesorderheader
+        description: Auto-generated from SalesLT.SalesOrderHeader.parquet
+        external:
+          location: adventureworks/sqlserver/SalesLT.SalesOrderHeader.parquet
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: SalesOrderID
+            data_type: INT
+          - name: RevisionNumber
+            data_type: INT
+          - name: OrderDate
+            data_type: DATETIME2
+          - name: DueDate
+            data_type: DATETIME2
+          - name: ShipDate
+            data_type: DATETIME2
+          - name: Status
+            data_type: INT
+          - name: OnlineOrderFlag
+            data_type: BIT
+          - name: SalesOrderNumber
+            data_type: NVARCHAR(4000)
+          - name: PurchaseOrderNumber
+            data_type: NVARCHAR(4000)
+          - name: AccountNumber
+            data_type: NVARCHAR(4000)
+          - name: CustomerID
+            data_type: INT
+          - name: ShipToAddressID
+            data_type: INT
+          - name: BillToAddressID
+            data_type: INT
+          - name: ShipMethod
+            data_type: NVARCHAR(4000)
+          - name: CreditCardApprovalCode
+            data_type: NVARCHAR(4000)
+          - name: SubTotal
+            data_type: DECIMAL(38,10)
+          - name: TaxAmt
+            data_type: DECIMAL(38,10)
+          - name: Freight
+            data_type: DECIMAL(38,10)
+          - name: TotalDue
+            data_type: DECIMAL(38,10)
+          - name: Comment
+            data_type: NVARCHAR(4000)
+          - name: rowguid
+            data_type: NVARCHAR(4000)
+          - name: ModifiedDate
+            data_type: DATETIME2
           - name: dss_record_source
             data_type: NVARCHAR(4000)
           - name: dss_load_date

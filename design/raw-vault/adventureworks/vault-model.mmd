@@ -1,0 +1,379 @@
+erDiagram
+    %%{init: {'theme': 'base'}}%%
+    %% Data Vault 2.0 Model: AdventureWorks SalesLT
+    %% Schema: vault_adworks
+    %% Format: type attribute "ext_table.Column"
+    
+    %% ========================================
+    %% HUBS (Business Keys)
+    %% ========================================
+    
+    HUB_CUSTOMER {
+        char64 hk_kunde PK "computed"
+        int customerid "ext_adventureworks_saleslt_customer.CustomerID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    HUB_ADDRESS {
+        char64 hk_address PK "computed"
+        int addressid "ext_adventureworks_saleslt_address.AddressID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    HUB_PRODUCT {
+        char64 hk_product PK "computed"
+        int productid "ext_adventureworks_saleslt_product.ProductID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    HUB_PRODUCTCATEGORY {
+        char64 hk_productcategory PK "computed"
+        int productcategoryid "ext_adventureworks_saleslt_productcategory.ProductCategoryID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    HUB_SALESORDER {
+        char64 hk_salesorder PK "computed"
+        int salesorderid "ext_adventureworks_saleslt_salesorderheader.SalesOrderID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    %% ========================================
+    %% LINKS (Relationships)
+    %% ========================================
+    
+    LINK_CUSTOMER_ADDRESS {
+        char64 hk_link_customer_address PK "computed"
+        char64 hk_kunde FK "ext_adventureworks_saleslt_customeraddress.CustomerID"
+        char64 hk_address FK "ext_adventureworks_saleslt_customeraddress.AddressID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    LINK_SALESORDER_CUSTOMER {
+        char64 hk_link_salesorder_customer PK "computed"
+        char64 hk_salesorder FK "ext_adventureworks_saleslt_salesorderheader.SalesOrderID"
+        char64 hk_kunde FK "ext_adventureworks_saleslt_salesorderheader.CustomerID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    LINK_SALESORDER_ADDRESS_SHIP {
+        char64 hk_link_salesorder_address_ship PK "computed"
+        char64 hk_salesorder FK "ext_adventureworks_saleslt_salesorderheader.SalesOrderID"
+        char64 hk_address FK "ext_adventureworks_saleslt_salesorderheader.ShipToAddressID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    LINK_SALESORDER_ADDRESS_BILL {
+        char64 hk_link_salesorder_address_bill PK "computed"
+        char64 hk_salesorder FK "ext_adventureworks_saleslt_salesorderheader.SalesOrderID"
+        char64 hk_address FK "ext_adventureworks_saleslt_salesorderheader.BillToAddressID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    LINK_PRODUCT_CATEGORY {
+        char64 hk_link_product_category PK "computed"
+        char64 hk_product FK "ext_adventureworks_saleslt_product.ProductID"
+        char64 hk_productcategory FK "ext_adventureworks_saleslt_product.ProductCategoryID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    LINK_PRODUCTCATEGORY_PARENT {
+        char64 hk_link_productcategory_parent PK "computed"
+        char64 hk_productcategory_child FK "ext_adventureworks_saleslt_productcategory.ProductCategoryID"
+        char64 hk_productcategory_parent FK "ext_adventureworks_saleslt_productcategory.ParentProductCategoryID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    LINK_SALESORDERDETAIL {
+        char64 hk_link_salesorderdetail PK "computed"
+        char64 hk_salesorder FK "ext_adventureworks_saleslt_salesorderdetail.SalesOrderID"
+        char64 hk_product FK "ext_adventureworks_saleslt_salesorderdetail.ProductID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    
+    %% ========================================
+    %% SATELLITES (Descriptive Attributes)
+    %% ========================================
+    
+    SAT_CUSTOMER {
+        char64 hk_kunde FK "computed"
+        char64 hashdiff "computed"
+        nvarchar firstname "ext_adventureworks_saleslt_customer.FirstName"
+        nvarchar lastname "ext_adventureworks_saleslt_customer.LastName"
+        nvarchar middlename "ext_adventureworks_saleslt_customer.MiddleName"
+        nvarchar title "ext_adventureworks_saleslt_customer.Title"
+        nvarchar suffix "ext_adventureworks_saleslt_customer.Suffix"
+        bit namestyle "ext_adventureworks_saleslt_customer.NameStyle"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_CUSTOMER_CONTACT {
+        char64 hk_kunde FK "computed"
+        char64 hashdiff "computed"
+        nvarchar emailaddress "ext_adventureworks_saleslt_customer.EmailAddress"
+        nvarchar phone "ext_adventureworks_saleslt_customer.Phone"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_CUSTOMER_COMPANY {
+        char64 hk_kunde FK "computed"
+        char64 hashdiff "computed"
+        nvarchar companyname "ext_adventureworks_saleslt_customer.CompanyName"
+        nvarchar salesperson "ext_adventureworks_saleslt_customer.SalesPerson"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_CUSTOMER_AUTH {
+        char64 hk_kunde FK "computed"
+        char64 hashdiff "computed"
+        nvarchar passwordhash "ext_adventureworks_saleslt_customer.PasswordHash"
+        nvarchar passwordsalt "ext_adventureworks_saleslt_customer.PasswordSalt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_ADDRESS {
+        char64 hk_address FK "computed"
+        char64 hashdiff "computed"
+        nvarchar addressline1 "ext_adventureworks_saleslt_address.AddressLine1"
+        nvarchar addressline2 "ext_adventureworks_saleslt_address.AddressLine2"
+        nvarchar city "ext_adventureworks_saleslt_address.City"
+        nvarchar stateprovince "ext_adventureworks_saleslt_address.StateProvince"
+        nvarchar countryregion "ext_adventureworks_saleslt_address.CountryRegion"
+        nvarchar postalcode "ext_adventureworks_saleslt_address.PostalCode"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_PRODUCT {
+        char64 hk_product FK "computed"
+        char64 hashdiff "computed"
+        nvarchar name "ext_adventureworks_saleslt_product.Name"
+        nvarchar productnumber "ext_adventureworks_saleslt_product.ProductNumber"
+        nvarchar color "ext_adventureworks_saleslt_product.Color"
+        nvarchar size "ext_adventureworks_saleslt_product.Size"
+        decimal weight "ext_adventureworks_saleslt_product.Weight"
+        int productmodelid "ext_adventureworks_saleslt_product.ProductModelID"
+        nvarchar productmodelname "ext_adventureworks_saleslt_productmodel.Name"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_PRODUCT_PRICING {
+        char64 hk_product FK "computed"
+        char64 hashdiff "computed"
+        money standardcost "ext_adventureworks_saleslt_product.StandardCost"
+        money listprice "ext_adventureworks_saleslt_product.ListPrice"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_PRODUCT_LIFECYCLE {
+        char64 hk_product FK "computed"
+        char64 hashdiff "computed"
+        datetime2 sellstartdate "ext_adventureworks_saleslt_product.SellStartDate"
+        datetime2 sellenddate "ext_adventureworks_saleslt_product.SellEndDate"
+        datetime2 discontinueddate "ext_adventureworks_saleslt_product.DiscontinuedDate"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_PRODUCT_MEDIA {
+        char64 hk_product FK "computed"
+        char64 hashdiff "computed"
+        varbinary thumbnailphoto "ext_adventureworks_saleslt_product.ThumbNailPhoto"
+        nvarchar thumbnailphotofilename "ext_adventureworks_saleslt_product.ThumbnailPhotoFileName"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_PRODUCT_DESCRIPTION_MA {
+        char64 hk_product FK "computed"
+        char64 hashdiff "computed"
+        nvarchar culture "ext_adventureworks_saleslt_productmodelproductdescription.Culture"
+        nvarchar description "ext_adventureworks_saleslt_productdescription.Description"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_PRODUCTCATEGORY {
+        char64 hk_productcategory FK "computed"
+        char64 hashdiff "computed"
+        nvarchar name "ext_adventureworks_saleslt_productcategory.Name"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_SALESORDER {
+        char64 hk_salesorder FK "computed"
+        char64 hashdiff "computed"
+        tinyint revisionnumber "ext_adventureworks_saleslt_salesorderheader.RevisionNumber"
+        datetime2 orderdate "ext_adventureworks_saleslt_salesorderheader.OrderDate"
+        datetime2 duedate "ext_adventureworks_saleslt_salesorderheader.DueDate"
+        datetime2 shipdate "ext_adventureworks_saleslt_salesorderheader.ShipDate"
+        tinyint status "ext_adventureworks_saleslt_salesorderheader.Status"
+        bit onlineorderflag "ext_adventureworks_saleslt_salesorderheader.OnlineOrderFlag"
+        nvarchar salesordernumber "ext_adventureworks_saleslt_salesorderheader.SalesOrderNumber"
+        nvarchar purchaseordernumber "ext_adventureworks_saleslt_salesorderheader.PurchaseOrderNumber"
+        nvarchar accountnumber "ext_adventureworks_saleslt_salesorderheader.AccountNumber"
+        nvarchar shipmethod "ext_adventureworks_saleslt_salesorderheader.ShipMethod"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_SALESORDER_PAYMENT {
+        char64 hk_salesorder FK "computed"
+        char64 hashdiff "computed"
+        nvarchar creditcardapprovalcode "ext_adventureworks_saleslt_salesorderheader.CreditCardApprovalCode"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_SALESORDER_TOTALS {
+        char64 hk_salesorder FK "computed"
+        char64 hashdiff "computed"
+        money subtotal "ext_adventureworks_saleslt_salesorderheader.SubTotal"
+        money taxamt "ext_adventureworks_saleslt_salesorderheader.TaxAmt"
+        money freight "ext_adventureworks_saleslt_salesorderheader.Freight"
+        money totaldue "ext_adventureworks_saleslt_salesorderheader.TotalDue"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_SALESORDER_COMMENT {
+        char64 hk_salesorder FK "computed"
+        char64 hashdiff "computed"
+        nvarchar comment "ext_adventureworks_saleslt_salesorderheader.Comment"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    SAT_SALESORDERDETAIL_DC {
+        char64 hk_link_salesorderdetail FK "computed"
+        char64 hashdiff "computed"
+        smallint salesorderdetailid "ext_adventureworks_saleslt_salesorderdetail.SalesOrderDetailID"
+        smallint orderqty "ext_adventureworks_saleslt_salesorderdetail.OrderQty"
+        money unitprice "ext_adventureworks_saleslt_salesorderdetail.UnitPrice"
+        money unitpricediscount "ext_adventureworks_saleslt_salesorderdetail.UnitPriceDiscount"
+        money linetotal "ext_adventureworks_saleslt_salesorderdetail.LineTotal"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    LSAT_CUSTOMER_ADDRESS {
+        char64 hk_link_customer_address FK "computed"
+        char64 hashdiff "computed"
+        nvarchar addresstype "ext_adventureworks_saleslt_customeraddress.AddressType"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+    }
+    
+    %% ========================================
+    %% REFERENCE TABLES
+    %% ========================================
+    
+    REF_SALESORDER_STATUS {
+        int status_id PK "seed"
+        nvarchar status_name "seed"
+        nvarchar status_description "seed"
+    }
+    
+    REF_ADDRESS_TYPE {
+        int addresstype_id PK "seed"
+        nvarchar addresstype_name "seed"
+    }
+    
+    REF_CULTURE {
+        nvarchar culture_code PK "seed"
+        nvarchar culture_name "seed"
+    }
+    
+    %% ========================================
+    %% RELATIONSHIPS
+    %% ========================================
+    
+    %% Hub to Satellites
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER : has
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER_CONTACT : has
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER_COMPANY : has
+    HUB_CUSTOMER ||--o{ SAT_CUSTOMER_AUTH : has
+    
+    HUB_ADDRESS ||--o{ SAT_ADDRESS : has
+    
+    HUB_PRODUCT ||--o{ SAT_PRODUCT : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_PRICING : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_LIFECYCLE : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_MEDIA : has
+    HUB_PRODUCT ||--o{ SAT_PRODUCT_DESCRIPTION_MA : has
+    
+    HUB_PRODUCTCATEGORY ||--o{ SAT_PRODUCTCATEGORY : has
+    
+    HUB_SALESORDER ||--o{ SAT_SALESORDER : has
+    HUB_SALESORDER ||--o{ SAT_SALESORDER_PAYMENT : has
+    HUB_SALESORDER ||--o{ SAT_SALESORDER_TOTALS : has
+    HUB_SALESORDER ||--o{ SAT_SALESORDER_COMMENT : has
+    
+    %% Hubs to Links
+    HUB_CUSTOMER ||--o{ LINK_CUSTOMER_ADDRESS : references
+    HUB_ADDRESS ||--o{ LINK_CUSTOMER_ADDRESS : references
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDER_CUSTOMER : references
+    HUB_CUSTOMER ||--o{ LINK_SALESORDER_CUSTOMER : references
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDER_ADDRESS_SHIP : references
+    HUB_ADDRESS ||--o{ LINK_SALESORDER_ADDRESS_SHIP : references
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDER_ADDRESS_BILL : references
+    HUB_ADDRESS ||--o{ LINK_SALESORDER_ADDRESS_BILL : references
+    
+    HUB_PRODUCT ||--o{ LINK_PRODUCT_CATEGORY : references
+    HUB_PRODUCTCATEGORY ||--o{ LINK_PRODUCT_CATEGORY : references
+    
+    HUB_PRODUCTCATEGORY ||--o{ LINK_PRODUCTCATEGORY_PARENT : child
+    HUB_PRODUCTCATEGORY ||--o{ LINK_PRODUCTCATEGORY_PARENT : parent
+    
+    HUB_SALESORDER ||--o{ LINK_SALESORDERDETAIL : references
+    HUB_PRODUCT ||--o{ LINK_SALESORDERDETAIL : references
+    
+    %% Links to Link Satellites
+    LINK_CUSTOMER_ADDRESS ||--o{ LSAT_CUSTOMER_ADDRESS : has
+    
+    %% Links to Dependent Child Satellites
+    LINK_SALESORDERDETAIL ||--o{ SAT_SALESORDERDETAIL_DC : has
+    
+    %% Reference Table Relationships (informational only)
+    SAT_SALESORDER }o--|| REF_SALESORDER_STATUS : uses
+    LSAT_CUSTOMER_ADDRESS }o--|| REF_ADDRESS_TYPE : uses
+    SAT_PRODUCT_DESCRIPTION_MA }o--|| REF_CULTURE : uses

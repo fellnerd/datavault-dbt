@@ -17,7 +17,7 @@ clean-targets:
 
 seeds:
   datavault:
-    +schema: vault
+    +schema: seed
 
 vars:
   # Hash-Algorithmus: MD5 (16 Byte) oder SHA (32 Byte)
@@ -32,11 +32,11 @@ vars:
 # ===========================================
 # SCHEMA NAMING CONVENTION
 # ===========================================
-# [vault].[hub_<entity>]         - Hubs
-# [vault].[sat_<entity>]         - Satellites
-# [vault].[link_<entity>]        - Links
-# [stg].[stg_<entity>]           - Staging Views
-# [mart_<context>].[<object>_v]  - Information Mart Views
+# [stg].[stg_<entity>]                    - Staging Views
+# [vault].[hub|sat|link_<entity>]         - Übergreifende Vault Objekte (_common)
+# [vault_<concept>].[hub|sat|link_<ent>]  - Quellsystem-spezifische Vault Objekte
+# [mart].[<object>]                       - Übergreifende Mart Objekte (_common)
+# [mart_<concept>].[<object>]             - Domain-spezifische Mart Objekte
 
 models:
   datavault:
@@ -44,33 +44,55 @@ models:
       +schema: stg
       +materialized: view
     raw_vault:
-      hubs:
-        +schema: vault
+      # ===== COMMON (Schema: vault) =====
+      # Übergreifende Objekte aus mehreren Quellen
+      _common:
+        hubs:
+          +schema: vault
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
+        satellites:
+          +schema: vault
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
+        links:
+          +schema: vault
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
+      # ===== WERKPORTAL (Schema: vault_werkportal) =====
+      werkportal:
+        +schema: vault_werkportal
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
-      satellites:
-        +schema: vault
+        +on_schema_change: append_new_columns
+      # ===== JIRA (Schema: vault_jira) =====
+      jira:
+        +schema: vault_jira
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
-      links:
-        +schema: vault
+        +on_schema_change: append_new_columns
+      adworks:
+        +schema: vault_adworks
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false
+        +on_schema_change: append_new_columns
     business_vault:
       +schema: vault
       +materialized: table
-      +as_columnstore: false
     mart:
-      project:
-        +schema: mart_project
-        +materialized: view
-      # Weitere Business Contexts hier hinzufügen:
-      # finance:
-      #   +schema: mart_finance
-      #   +materialized: view
-      # hr:
-      #   +schema: mart_hr
-      #   +materialized: view
+      # ===== COMMON (Schema: mart) =====
+      _common:
+        +schema: mart
+        +materialized: table
+        +as_columnstore: false
+      # ===== JIRA (Schema: mart_jira) =====
+      jira:
+        +schema: mart_jira
+        +materialized: table
+        +as_columnstore: false

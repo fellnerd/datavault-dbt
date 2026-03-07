@@ -7,7 +7,15 @@
 import { z } from 'zod';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { PATHS, getRelativePath, fileExists, readFile, writeFile } from '../utils/fileOperations.js';
+import { 
+  PATHS, 
+  getRelativePath, 
+  fileExists, 
+  readFile, 
+  writeFile,
+  getConceptPaths,
+  getAvailableConcepts 
+} from '../utils/fileOperations.js';
 import { resultBox, formatError } from '../ui.js';
 import type Anthropic from '@anthropic-ai/sdk';
 
@@ -49,24 +57,54 @@ Der vollständige neue Inhalt der Datei muss übergeben werden.`,
 };
 
 /**
- * Find the file path for a model
+ * Find the file path for a model by searching all concept directories
  */
-function findModelPath(modelName: string): string | null {
+async function findModelPath(modelName: string): Promise<string | null> {
   const normalizedName = modelName.replace(/\.sql$/, '');
   
-  // Determine path based on prefix
+  // Staging - fixed location
   if (normalizedName.startsWith('stg_')) {
-    return path.join(PATHS.staging, `${normalizedName}.sql`);
-  } else if (normalizedName.startsWith('hub_')) {
-    return path.join(PATHS.hubs, `${normalizedName}.sql`);
-  } else if (normalizedName.startsWith('sat_') || normalizedName.startsWith('eff_sat_')) {
-    return path.join(PATHS.satellites, `${normalizedName}.sql`);
-  } else if (normalizedName.startsWith('link_')) {
-    return path.join(PATHS.links, `${normalizedName}.sql`);
-  } else if (normalizedName.startsWith('pit_') || normalizedName.startsWith('bridge_')) {
-    return path.join(PATHS.businessVault, `${normalizedName}.sql`);
-  } else if (normalizedName.endsWith('_v') || normalizedName.endsWith('_view')) {
-    // Mart views - need to search subdirectories
+    const stagingPath = path.join(PATHS.staging, `${normalizedName}.sql`);
+    if (await fileExists(stagingPath)) return stagingPath;
+    return null;
+  }
+  
+  // Business Vault - fixed location
+  if (normalizedName.startsWith('pit_') || normalizedName.startsWith('bridge_')) {
+    const bvPath = path.join(PATHS.businessVault, `${normalizedName}.sql`);
+    if (await fileExists(bvPath)) return bvPath;
+    return null;
+  }
+  
+  // Raw Vault objects - search in all concept directories
+  if (normalizedName.startsWith('hub_') || 
+      normalizedName.startsWith('sat_') || 
+      normalizedName.startsWith('eff_sat_') ||
+      normalizedName.startsWith('link_')) {
+    
+    const concepts = await getAvailableConcepts();
+    
+    for (const concept of concepts) {
+      const conceptPaths = getConceptPaths(concept);
+      let testPath: string;
+      
+      if (normalizedName.startsWith('hub_')) {
+        testPath = path.join(conceptPaths.hubs, `${normalizedName}.sql`);
+      } else if (normalizedName.startsWith('sat_') || normalizedName.startsWith('eff_sat_')) {
+        testPath = path.join(conceptPaths.satellites, `${normalizedName}.sql`);
+      } else if (normalizedName.startsWith('link_')) {
+        testPath = path.join(conceptPaths.links, `${normalizedName}.sql`);
+      } else {
+        continue;
+      }
+      
+      if (await fileExists(testPath)) return testPath;
+    }
+    return null;
+  }
+  
+  // Mart views - search in subdirectories
+  if (normalizedName.endsWith('_v') || normalizedName.endsWith('_view')) {
     return null; // Will be handled separately
   }
   
@@ -82,11 +120,11 @@ export async function editModel(input: EditModelInput): Promise<string> {
   const output: string[] = [];
   
   // Find the file path
-  let filePath = findModelPath(modelName);
+  let filePath = await findModelPath(modelName);
   
   // For mart views, try to find in subdirectories
   if (!filePath) {
-    const martDirs = ['customer', 'project', 'reporting', 'operations'];
+    const martDirs = ['_common', 'customer', 'project', 'reporting', 'operations'];
     for (const dir of martDirs) {
       const testPath = path.join(PATHS.mart, dir, `${modelName}.sql`);
       if (await fileExists(testPath)) {

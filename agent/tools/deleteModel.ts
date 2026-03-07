@@ -7,7 +7,13 @@
 import { z } from 'zod';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { PATHS, getRelativePath, fileExists } from '../utils/fileOperations.js';
+import { 
+  PATHS, 
+  getRelativePath, 
+  fileExists,
+  getConceptPaths,
+  getAvailableConcepts 
+} from '../utils/fileOperations.js';
 import { resultBox, formatError } from '../ui.js';
 import type Anthropic from '@anthropic-ai/sdk';
 
@@ -40,27 +46,45 @@ Verwende dieses Tool nur wenn der User explizit um Löschung gebeten hat.`,
 };
 
 /**
- * Find all possible paths for a model
+ * Find all possible paths for a model by searching all concept directories
  */
 async function findModelPaths(modelName: string): Promise<string[]> {
   const normalizedName = modelName.replace(/\.sql$/, '');
   const possiblePaths: string[] = [];
   
-  // Add paths based on prefix
+  // Staging - fixed location
   if (normalizedName.startsWith('stg_')) {
     possiblePaths.push(path.join(PATHS.staging, `${normalizedName}.sql`));
-  } else if (normalizedName.startsWith('hub_')) {
-    possiblePaths.push(path.join(PATHS.hubs, `${normalizedName}.sql`));
-  } else if (normalizedName.startsWith('sat_') || normalizedName.startsWith('eff_sat_')) {
-    possiblePaths.push(path.join(PATHS.satellites, `${normalizedName}.sql`));
-  } else if (normalizedName.startsWith('link_')) {
-    possiblePaths.push(path.join(PATHS.links, `${normalizedName}.sql`));
-  } else if (normalizedName.startsWith('pit_') || normalizedName.startsWith('bridge_')) {
+  }
+  
+  // Business Vault - fixed location
+  if (normalizedName.startsWith('pit_') || normalizedName.startsWith('bridge_')) {
     possiblePaths.push(path.join(PATHS.businessVault, `${normalizedName}.sql`));
   }
   
+  // Raw Vault objects - search in all concept directories
+  if (normalizedName.startsWith('hub_') || 
+      normalizedName.startsWith('sat_') || 
+      normalizedName.startsWith('eff_sat_') ||
+      normalizedName.startsWith('link_')) {
+    
+    const concepts = await getAvailableConcepts();
+    
+    for (const concept of concepts) {
+      const conceptPaths = getConceptPaths(concept);
+      
+      if (normalizedName.startsWith('hub_')) {
+        possiblePaths.push(path.join(conceptPaths.hubs, `${normalizedName}.sql`));
+      } else if (normalizedName.startsWith('sat_') || normalizedName.startsWith('eff_sat_')) {
+        possiblePaths.push(path.join(conceptPaths.satellites, `${normalizedName}.sql`));
+      } else if (normalizedName.startsWith('link_')) {
+        possiblePaths.push(path.join(conceptPaths.links, `${normalizedName}.sql`));
+      }
+    }
+  }
+  
   // For mart views, check subdirectories
-  const martDirs = ['customer', 'project', 'reporting', 'operations'];
+  const martDirs = ['_common', 'customer', 'project', 'reporting', 'operations'];
   for (const dir of martDirs) {
     possiblePaths.push(path.join(PATHS.mart, dir, `${normalizedName}.sql`));
   }

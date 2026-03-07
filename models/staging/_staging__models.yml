@@ -1,0 +1,479 @@
+version: 2
+models:
+  - name: adworks_adresse
+    description: Staging view for adresse from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_address
+        business_keys:
+          - ADDRESSID
+    columns:
+      - name: hk_adresse
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_adresse
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: ADDRESSID
+        description: Business Key
+        tests:
+          - not_null
+      - name: addressline1
+        description: Payload attribute
+      - name: addressline2
+        description: Payload attribute
+      - name: city
+        description: Payload attribute
+      - name: stateprovince
+        description: Payload attribute
+      - name: countryregion
+        description: Payload attribute
+      - name: postalcode
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_kunde
+    description: Staging view for kunde from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_customer
+        business_keys:
+          - CUSTOMERID
+    columns:
+      - name: hk_kunde
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kunde
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: CUSTOMERID
+        description: Business Key
+        tests:
+          - not_null
+      - name: namestyle
+        description: Payload attribute
+      - name: title
+        description: Payload attribute
+      - name: firstname
+        description: Payload attribute
+      - name: middlename
+        description: Payload attribute
+      - name: lastname
+        description: Payload attribute
+      - name: suffix
+        description: Payload attribute
+      - name: companyname
+        description: Payload attribute
+      - name: salesperson
+        description: Payload attribute
+      - name: emailaddress
+        description: Payload attribute
+      - name: phone
+        description: Payload attribute
+      - name: passwordhash
+        description: Payload attribute
+      - name: passwordsalt
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_kunde_adresse
+    description: Staging view for kunde_adresse from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_customeraddress
+        foreign_keys:
+          - column: customerid
+            target_entity: kunde
+            target_hub: adworks.hub_kunde
+          - column: addressid
+            target_entity: adresse
+            target_hub: adworks.hub_adresse
+    columns:
+      - name: hk_link_kunde_adresse
+        description: Combined Link Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_kunde
+        description: Foreign Key to hub_kunde
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_adresse
+        description: Foreign Key to hub_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_kunde_adresse
+        description: Hash Diff for Link Satellite change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: customerid
+        description: FK to hub_kunde
+        tests:
+          - not_null
+      - name: addressid
+        description: FK to hub_adresse
+        tests:
+          - not_null
+      - name: addresstype
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_produkt
+    description: Staging view for produkt Split-Satellite (feeds adworks.hub_produkt)
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_product
+        business_keys:
+          - PRODUCTID
+        split_satellite_target_hub: adworks.hub_produkt
+    columns:
+      - name: hk_produkt
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_produkt
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PRODUCTID
+        description: Business Key
+        tests:
+          - not_null
+      - name: name
+        description: Payload attribute
+      - name: productnumber
+        description: Payload attribute
+      - name: size
+        description: Payload attribute
+      - name: weight
+        description: Payload attribute
+      - name: productmodelid
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_produkt_preis
+    description: Staging view for produkt_preis Split-Satellite (feeds adworks.hub_produkt)
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_product
+        business_keys:
+          - PRODUCTID
+        split_satellite_target_hub: adworks.hub_produkt
+    columns:
+      - name: hk_produkt_preis
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_produkt_preis
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PRODUCTID
+        description: Business Key
+        tests:
+          - not_null
+      - name: standardcost
+        description: Payload attribute
+      - name: listprice
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_verkauf
+    description: Staging view for verkauf from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_salesorderheader
+        business_keys:
+          - SALESORDERID
+        foreign_keys:
+          - column: customerid
+            target_entity: kunde
+            target_hub: adworks.hub_kunde
+          - column: shiptoaddressid
+            target_entity: adresse
+            target_hub: adworks.hub_adresse
+          - column: billtoaddressid
+            target_entity: adresse
+            target_hub: adworks.hub_adresse
+    columns:
+      - name: hk_verkauf
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_kunde
+        description: Foreign Key to hub_kunde
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_adresse_1
+        description: Foreign Key to hub_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_adresse_2
+        description: Foreign Key to hub_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_verkauf
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: SALESORDERID
+        description: Business Key
+        tests:
+          - not_null
+      - name: revisionnumber
+        description: Payload attribute
+      - name: orderdate
+        description: Payload attribute
+      - name: duedate
+        description: Payload attribute
+      - name: shipdate
+        description: Payload attribute
+      - name: status
+        description: Payload attribute
+      - name: onlineorderflag
+        description: Payload attribute
+      - name: salesordernumber
+        description: Payload attribute
+      - name: purchaseordernumber
+        description: Payload attribute
+      - name: accountnumber
+        description: Payload attribute
+      - name: shipmethod
+        description: Payload attribute
+      - name: creditcardapprovalcode
+        description: Payload attribute
+      - name: subtotal
+        description: Payload attribute
+      - name: taxamt
+        description: Payload attribute
+      - name: freight
+        description: Payload attribute
+      - name: totaldue
+        description: Payload attribute
+      - name: comment
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: adworks_verkauf_detail
+    description: Staging view for verkauf_detail from adworks
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_adventureworks_saleslt_salesorderdetail
+        foreign_keys:
+          - column: salesorderid
+            target_entity: verkauf
+            target_hub: adworks.hub_verkauf
+          - column: productid
+            target_entity: produkt
+            target_hub: adworks.hub_produkt
+        dependent_child_keys:
+          adworks.hub_verkauf:
+            - salesorderdetailid
+    columns:
+      - name: hk_verkauf_detail
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_verkauf
+        description: Foreign Key to hub_verkauf
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_produkt
+        description: Foreign Key to hub_produkt
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_verkauf_detail
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: salesorderdetailid
+        description: Payload attribute
+      - name: orderqty
+        description: Payload attribute
+      - name: unitprice
+        description: Payload attribute
+      - name: unitpricediscount
+        description: Payload attribute
+      - name: linetotal
+        description: Payload attribute
+      - name: modifieddate
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: psa_adventureworks_saleslt_address
+    description: |-
+      Persistent Staging Area for saleslt_address.
+      Source: ext_adventureworks_saleslt_address
+      Strategy: merge
+    columns:
+      - name: AddressID
+        description: AddressID
+        data_type: int
+        tests:
+          - not_null
+      - name: AddressLine1
+        description: AddressLine1
+        data_type: nvarchar(4000)
+      - name: AddressLine2
+        description: AddressLine2
+        data_type: nvarchar(4000)
+      - name: City
+        description: City
+        data_type: nvarchar(4000)
+      - name: StateProvince
+        description: StateProvince
+        data_type: nvarchar(4000)
+      - name: CountryRegion
+        description: CountryRegion
+        data_type: nvarchar(4000)
+      - name: PostalCode
+        description: PostalCode
+        data_type: nvarchar(4000)
+      - name: rowguid
+        description: rowguid
+        data_type: nvarchar(4000)
+      - name: ModifiedDate
+        description: ModifiedDate
+        data_type: datetime2
+      - name: dss_record_source
+        description: dss_record_source
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: dss_load_date
+        data_type: nvarchar(4000)
+      - name: dss_run_id
+        description: dss_run_id
+        data_type: nvarchar(4000)
+      - name: dss_stage_timestamp
+        description: dss_stage_timestamp
+        data_type: nvarchar(4000)
+      - name: dss_source_file_name
+        description: dss_source_file_name
+        data_type: nvarchar(4000)

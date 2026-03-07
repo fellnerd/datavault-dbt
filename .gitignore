@@ -9,7 +9,9 @@ __pycache__/
 *.pyc
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/entity-designer/
+!.vscode/mart-designer/
 *.swp
 
 # OS
@@ -20,3 +22,6 @@ profiles.yml
 
 # Agent session files
 agent/.agent-session.json
+masterdata/*.tsbuildinfo
+masterdata/next-env.d.ts
+masterdata/npm-debug.log*
