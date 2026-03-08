@@ -1,0 +1,24 @@
+[
+  {
+    "event": "postSaveFile",
+    "description": "Validate EWB staging model consistency after saving a staging SQL file",
+    "pattern": "models/staging/ewb_*.sql",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Die Datei {file} wurde gespeichert. Prüfe folgende Punkte und melde Probleme:\n\n1. **Reserved Keywords:** Sind alle SQL Reserved Keywords escaped? Prüfe auf: PLAN, LEVEL, KEY, STATUS, TYPE, ORDER, GROUP, INDEX, BEFORE, AFTER (müssen in eckigen Klammern stehen)\n2. **5-Block-Struktur:** Hat die Datei alle 5 Blöcke? (Header-Kommentar, hashdiff_columns, source CTE, staged CTE, SELECT)\n3. **APPSTR in hashdiff:** Sind VARBINARY-Spalten (APPSTRx) fälschlicherweise in hashdiff_columns?\n4. **Metadata-Spalten:** Sind dss_record_source, dss_load_date, dss_start_date, dss_create_date vorhanden?\n5. **Hash-Pattern:** Werden HASHBYTES('SHA2_256', ...) korrekt verwendet?\n\nWenn alles OK: 'Staging-Validation bestanden ✅'\nBei Problemen: Liste die Fehler auf und schlage Korrekturen vor."
+      }
+    ]
+  },
+  {
+    "event": "postSaveFile",
+    "description": "Lint dbt model after saving any SQL file in models/",
+    "pattern": "models/**/*.sql",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Die Datei {file} wurde gespeichert. Führe einen schnellen Lint-Check durch:\n\n1. **Schema-Konvention:** Stimmt der config-Block? (materialized, as_columnstore, post_hook)\n2. **Hash-Pattern:** Werden Hash Keys korrekt berechnet (CONVERT(CHAR(64), HASHBYTES(...), 2))?\n3. **Metadata-Spalten:** Sind die DSS-Pflichtfelder vorhanden (dss_load_date, dss_record_source)?\n4. **post_hook:** Bei Vault-Modellen: create_hash_index vorhanden? Bei Satellites: update_satellite_current_flag?\n5. **automate_dv:** Bei Vault-Modellen: Wird fromyaml() korrekt verwendet?\n\nWenn alles OK: 'dbt-Lint bestanden ✅'\nBei Problemen: Liste die Fehler auf."
+      }
+    ]
+  }
+]

@@ -8,6 +8,11 @@
  * Hash Keys calculated here:
  *   - hk_ewb_fibu_fhe (Entity Hash Key)
  *   - hd_ewb_fibu_fhe (Hash Diff für Satellite)
+ *
+ * Developer: Daniel Fellner, MSc
+ * Company:   ppmc analytics ag
+ * Contact:   office@ppmcag.com
+ * Version:   2026-03-09 V1.0 Initialversion
  */
 
 {%- set hashdiff_columns = [

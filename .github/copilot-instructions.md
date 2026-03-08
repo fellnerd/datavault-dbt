@@ -293,11 +293,74 @@ models/
     └── project/                → mart_project
 ```
 
+## EWB / Abacus Quellsystem
+
+### Kontext
+EWB (Energie Wasser Bern) liefert Daten aus dem Abacus ERP-System als Parquet-Dateien via ADF in den ADLS `stage-fs` Container. Diese werden über External Tables → Staging Views → Raw Vault geladen.
+
+### Naming
+| Objekt | Pattern | Beispiel |
+|--------|---------|---------|
+| External Table | `stg.ext_ewb_<modul>_<tabelle>_<suffix>` | `stg.ext_ewb_fibu_fhe_main` |
+| Staging View | `stg.ewb_<modul>_<tabelle>_<suffix>` | `stg.ewb_fibu_fhe_main` |
+| Hash Key | `hk_ewb_<modul>_<tabelle>` | `hk_ewb_fibu_fhe` |
+| Hash Diff | `hd_ewb_<modul>_<tabelle>` | `hd_ewb_fibu_fhe` |
+| Hub | `vault_ewb.hub_<entity>` | `vault_ewb.hub_fibu_fhe` |
+| Satellite | `vault_ewb.sat_<entity>` | `vault_ewb.sat_fibu_fhe` |
+| Link | `vault_ewb.link_<e1>_<e2>` | `vault_ewb.link_beleg_lieferant` |
+
+### Parquet-Pfad
+```
+stage-fs/ewb/abacus/<MODUL>.<TABELLE>.<SUFFIX>.parquet
+```
+Beispiel: `ewb/abacus/FIBU.FHE.Main.parquet`
+
+### Abacus Module
+| Modul | Inhalt | Pilot-Tabellen |
+|-------|--------|----------------|
+| FIBU | Finanzbuchhaltung | GL (E22–E26), FHE |
+| KRED | Kreditoren | KBL, KVL, KBS + 19 weitere |
+| DEBI | Debitoren | ~25 Tabellen |
+| LOHN | Lohnbuchhaltung | LEN, LTC + 9 weitere |
+| PROJ | Projektverwaltung | NPO, NTC, NTB, NSA, NTR, PST, PRT + 16 weitere |
+| PUBL | Stammdaten | ADR, KST + 3 weitere |
+| ADRE | Adressen | ACO, ADX, AFD + 10 weitere |
+| SHOP | Shop | JDV, JDX |
+
+### Type-Mapping Regeln (Parquet → SQL Server)
+| Parquet-Typ | SQL Server Typ | ⚠️ Achtung |
+|-------------|---------------|-------------|
+| `numeric(38,18)` | `DECIMAL(38,18)` | Nicht 38,10 — das `get_parquet_schema` Macro hat einen Bug |
+| `binary` / `byte_array` | `VARBINARY(8000)` | Nur APPSTR-Spalten, nicht NVARCHAR! |
+| `utf8` / `string` | `NVARCHAR(4000)` | Standard für Text |
+| `int32` / `int64` | `INT` / `BIGINT` | Wie erwartet |
+| `boolean` | `BIT` | Wie erwartet |
+| `date` | `DATE` | Wie erwartet |
+| `timestamp` | `DATETIME2` | Wie erwartet |
+
+### Reserved Keywords (SQL Server)
+Diese Spalten **müssen** in eckige Klammern escaped werden:
+- `[PLAN]`, `[LEVEL]`, `[KEY]`, `[STATUS]`, `[TYPE]`, `[ORDER]`, `[GROUP]`, `[INDEX]`, `[BEFORE]`, `[AFTER]`
+
+### Default-Werte
+- `dss_record_source`: `'ewb_abacus'`
+- Vault-Schema: `vault_ewb`
+
+### Goldenes Referenz-Beispiel
+Das erste vollständig implementierte EWB Staging-Modell ist [ewb_fibu_fhe_main.sql](models/staging/ewb_fibu_fhe_main.sql). Es dient als Vorlage für alle weiteren EWB Staging-Views.
+
+## Projektdokumentation & Scope
+- [Projektdokumentation](../azure-environment/docs/projektdokumentation.md) — Phasen, Scope, ADF-Pipelines, 19 Pilot-Tabellen
+- [Redesign-Konzept](../azure-environment/docs/analysis/ewb-redesign-concept.md) — Ziel-Architektur, Methodik
+- [Synapse-Vergleich](../azure-environment/docs/analysis/synapse-vergleich-analyse.md) — Bestehendes View-Inventar (Referenz für Validierung)
+- [Developer Guide](../azure-environment/docs/dv21-konzept/DEVELOPER.md) — Data Vault 2.1 Development Principles
+
 ## Key Files
 - [dbt_project.yml](dbt_project.yml) - Model configs, schema assignments
 - [models/staging/sources.yml](models/staging/sources.yml) - External table definitions (dbt-external-tables)
 - [models/staging/_staging__models.yml](models/staging/_staging__models.yml) - Staging model documentation with columns
 - [models/raw_vault/werkportal/_werkportal__models.yml](models/raw_vault/werkportal/_werkportal__models.yml) - Werkportal vault documentation
+- [models/raw_vault/adworks/_adworks__models.yml](models/raw_vault/adworks/_adworks__models.yml) - Adworks vault documentation (Referenz-Pattern)
 - [macros/generate_schema_name.sql](macros/generate_schema_name.sql) - Strips default schema prefix
 - [docs/DEVELOPER.md](docs/DEVELOPER.md) - Full developer guide
 - [docs/MODEL_ARCHITECTURE.md](docs/MODEL_ARCHITECTURE.md) - Data model documentation
