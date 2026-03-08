@@ -1,0 +1,138 @@
+-- =============================================================================
+-- SETUP SCRIPT: EWB Datenbanken (datavault / datavault-dev / datavault-test)
+-- =============================================================================
+-- Ausführen in Azure Data Studio oder SSMS
+-- Server : sql-analytics-ewb-001.database.windows.net
+-- Admin  : sqladmin
+--
+-- Dieses Skript EINMAL pro Datenbank ausführen (DB wechseln, dann erneut laufen).
+-- Reihenfolge: datavault-dev → datavault-test → datavault (Prod zuletzt)
+--
+-- Voraussetzung:
+--   SAS-Token für Storage Account "analyticsstoraccount001", Container "stage-fs"
+--   Berechtigungen: rl (read + list)
+--   Generieren:
+--     az storage container generate-sas \
+--       --account-name analyticsstoraccount001 --name stage-fs \
+--       --permissions rl --expiry 2027-01-01 \
+--       --account-key $(az storage account keys list ...) -o tsv
+--
+-- SAS-Token (ohne führendes '?') als :SAS_TOKEN Variable setzen oder manuell einsetzen
+-- =============================================================================
+
+-- Zieldatenbank setzen (ggf. manuell wechseln wenn USE nicht unterstützt)
+-- USE [datavault-dev];
+-- GO
+
+-- =============================================================================
+-- 1. SCHEMAS
+-- =============================================================================
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'stg')
+    EXEC('CREATE SCHEMA stg');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'vault_ewb')
+    EXEC('CREATE SCHEMA vault_ewb');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'mart_ewb')
+    EXEC('CREATE SCHEMA mart_ewb');
+GO
+
+-- =============================================================================
+-- 2. MASTER KEY
+-- =============================================================================
+IF NOT EXISTS (
+    SELECT 1 FROM sys.symmetric_keys WHERE name = '##MS_DatabaseMasterKey##'
+)
+    CREATE MASTER KEY ENCRYPTION BY PASSWORD = 'EWB-MK-2026!xZ9q';
+GO
+
+-- =============================================================================
+-- 3. DATABASE SCOPED CREDENTIAL (SAS Token)
+-- =============================================================================
+-- SAS-Token generieren (einmalig, Ablauf z.B. 1 Jahr):
+--   az storage container generate-sas --account-name analyticsstoraccount001
+--     --name stage-fs --permissions rl --expiry 2027-01-01
+--     --account-key $(az storage account keys list -g arg-analytics-ewb-01
+--       --account-name analyticsstoraccount001 --query '[0].value' -o tsv) -o tsv
+--
+-- !! <SAS_TOKEN> unten durch den generierten Token ersetzen (ohne '?') !!
+IF NOT EXISTS (
+    SELECT 1 FROM sys.database_scoped_credentials WHERE name = 'ewb_stage_fs_sas'
+)
+    CREATE DATABASE SCOPED CREDENTIAL ewb_stage_fs_sas
+        WITH IDENTITY = 'SHARED ACCESS SIGNATURE',
+        SECRET = '<SAS_TOKEN>';
+GO
+
+-- =============================================================================
+-- 4. EXTERNAL FILE FORMAT (Parquet / Snappy)
+-- =============================================================================
+IF NOT EXISTS (
+    SELECT 1 FROM sys.external_file_formats WHERE name = 'ParquetFormat'
+)
+    CREATE EXTERNAL FILE FORMAT ParquetFormat
+        WITH (
+            FORMAT_TYPE = PARQUET,
+            DATA_COMPRESSION = 'org.apache.hadoop.io.compress.SnappyCodec'
+        );
+GO
+
+-- =============================================================================
+-- 5. EXTERNAL DATA SOURCE: StageFileSystem
+-- =============================================================================
+-- Zeigt auf Container "stage-fs" im Storage Account "analyticsstoraccount001"
+-- Format: adls://<account>.dfs.core.windows.net/<container>
+-- (Azure SQL Database Enterprise Edition unterstützt das adls://-Schema mit
+--  SAS-Credential; abfss:// und https://blob... funktionieren NICHT)
+-- Name "StageFileSystem" ist der einheitliche Name für alle Konzepte (Jira,
+-- Werkportal, AdventureWorks, EWB) – muss in allen DBs identisch heissen.
+IF NOT EXISTS (
+    SELECT 1 FROM sys.external_data_sources WHERE name = 'StageFileSystem'
+)
+    CREATE EXTERNAL DATA SOURCE StageFileSystem
+        WITH (
+            LOCATION = 'adls://analyticsstoraccount001.dfs.core.windows.net/stage-fs',
+            CREDENTIAL = ewb_stage_fs_sas
+        );
+GO
+
+-- =============================================================================
+-- 6. VALIDIERUNG
+-- =============================================================================
+SELECT 'Schema'       AS [Typ], name AS [Name] FROM sys.schemas
+    WHERE name IN ('stg', 'vault_ewb', 'mart_ewb')
+UNION ALL
+SELECT 'Credential',  name FROM sys.database_scoped_credentials
+    WHERE name = 'ewb_stage_fs_sas'
+UNION ALL
+SELECT 'File Format', name FROM sys.external_file_formats
+    WHERE name = 'ParquetFormat'
+UNION ALL
+SELECT 'Data Source', name FROM sys.external_data_sources
+    WHERE name = 'StageFileSystem';
+GO
+
+-- =============================================================================
+-- 7. VERBINDUNGSTEST: OPENROWSET (optional)
+-- =============================================================================
+-- Führe nach dem Setup aus um Parquet-Files zu prüfen:
+--
+-- SELECT TOP 5 r.filepath(1) AS file_name
+-- FROM OPENROWSET(
+--     BULK 'ewb/abacus/*.parquet',
+--     DATA_SOURCE = 'StageFileSystem',
+--     FORMAT = 'PARQUET'
+-- ) AS r;
+--
+-- Erwartet: Zeilen mit file_name = 'FIBU.FHE.Main' o.ä.
+-- GO
+
+PRINT '✅ EWB Basis-Setup abgeschlossen.';
+PRINT 'Nächste Schritte:';
+PRINT '  1. export DBT_EWB_SQL_PASSWORD=<Passwort>';
+PRINT '  2. cd datavault-dbt';
+PRINT '  3. dbt debug --target ewb-dev';
+PRINT '  4. dbt run-operation stage_external_sources --target ewb-dev';
+GO

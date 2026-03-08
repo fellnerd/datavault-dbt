@@ -975,3 +975,141 @@ sources:
             data_type: NVARCHAR(4000)
           - name: dss_source_file_name
             data_type: NVARCHAR(4000)
+      # ===== EWB / ABACUS =====
+      - name: ext_ewb_fibu_fhe_main
+        description: "Auto-generated from FIBU.FHE.Main.parquet"
+        external:
+          location: "ewb/abacus/FIBU.FHE.Main.parquet"
+          file_format: ParquetFormat
+          data_source: StageFileSystem
+        columns:
+          - name: RECNUM
+            data_type: DECIMAL(38,18)
+          - name: PLAN
+            data_type: DECIMAL(38,18)
+          - name: VARIANTE
+            data_type: DECIMAL(38,18)
+          - name: LEVEL
+            data_type: DECIMAL(38,18)
+          - name: ID
+            data_type: DECIMAL(38,18)
+          - name: TYP
+            data_type: DECIMAL(38,18)
+          - name: REF_LEVEL
+            data_type: DECIMAL(38,18)
+          - name: REF_ID
+            data_type: DECIMAL(38,18)
+          - name: REF_TYP
+            data_type: DECIMAL(38,18)
+          - name: BOTTOM
+            data_type: DECIMAL(38,18)
+          - name: FONTID
+            data_type: DECIMAL(38,18)
+          - name: BEFORE
+            data_type: DECIMAL(38,18)
+          - name: AFTER
+            data_type: DECIMAL(38,18)
+          - name: BOLDSW
+            data_type: DECIMAL(38,18)
+          - name: ULINESW
+            data_type: DECIMAL(38,18)
+          - name: ITALICSW
+            data_type: DECIMAL(38,18)
+          - name: SUPPRESS
+            data_type: DECIMAL(38,18)
+          - name: NONUM
+            data_type: DECIMAL(38,18)
+          - name: FORMFEED
+            data_type: DECIMAL(38,18)
+          - name: INDENT
+            data_type: DECIMAL(38,18)
+          - name: NODEFAULT
+            data_type: DECIMAL(38,18)
+          - name: DECIMALS
+            data_type: DECIMAL(38,18)
+          - name: SYSSW1
+            data_type: DECIMAL(38,18)
+          - name: SYSSW2
+            data_type: DECIMAL(38,18)
+          - name: SYSSW3
+            data_type: DECIMAL(38,18)
+          - name: SYSSW4
+            data_type: DECIMAL(38,18)
+          - name: SYSDAT1
+            data_type: DATETIME2
+          - name: SYSDAT2
+            data_type: DATETIME2
+          - name: APPSW1
+            data_type: DECIMAL(38,18)
+          - name: APPSW2
+            data_type: DECIMAL(38,18)
+          - name: APPSW3
+            data_type: DECIMAL(38,18)
+          - name: APPSW4
+            data_type: DECIMAL(38,18)
+          - name: APPSW5
+            data_type: DECIMAL(38,18)
+          - name: APPSW6
+            data_type: DECIMAL(38,18)
+          - name: APPSW7
+            data_type: DECIMAL(38,18)
+          - name: APPSW8
+            data_type: DECIMAL(38,18)
+          - name: APPSW9
+            data_type: DECIMAL(38,18)
+          - name: APPSW10
+            data_type: DECIMAL(38,18)
+          - name: APPNUM1
+            data_type: DECIMAL(38,18)
+          - name: APPNUM2
+            data_type: DECIMAL(38,18)
+          - name: APPNUM3
+            data_type: DECIMAL(38,18)
+          - name: APPNUM4
+            data_type: DECIMAL(38,18)
+          - name: APPNUM5
+            data_type: DECIMAL(38,18)
+          - name: APPNUM6
+            data_type: DECIMAL(38,18)
+          - name: APPSTR
+            data_type: VARBINARY(8000)
+          - name: APPDAT1
+            data_type: DATETIME2
+          - name: APPDAT2
+            data_type: DATETIME2
+          - name: CREUSER
+            data_type: NVARCHAR(4000)
+          - name: MUTUSER
+            data_type: NVARCHAR(4000)
+          - name: CREDAT
+            data_type: DATETIME2
+          - name: MUTDAT
+            data_type: DATETIME2
+          - name: ZUONR
+            data_type: DECIMAL(38,18)
+          - name: ID_ASCII
+            data_type: NVARCHAR(4000)
+          - name: IDTYP_ASCII
+            data_type: NVARCHAR(4000)
+          - name: ENTERPRISE
+            data_type: DECIMAL(38,18)
+          - name: GUID
+            data_type: NVARCHAR(4000)
+          - name: APPGUID1
+            data_type: NVARCHAR(4000)
+          - name: APPGUID2
+            data_type: NVARCHAR(4000)
+          - name: APPGUID3
+            data_type: NVARCHAR(4000)
+          - name: "timestamp_landing-zone"
+            data_type: NVARCHAR(4000)
+          - name: dss_record_source
+            data_type: NVARCHAR(4000)
+          - name: dss_load_date
+            data_type: NVARCHAR(4000)
+          - name: dss_run_id
+            data_type: NVARCHAR(4000)
+          - name: dss_stage_timestamp
+            data_type: NVARCHAR(4000)
+          - name: dss_source_file_name
+            data_type: NVARCHAR(4000)

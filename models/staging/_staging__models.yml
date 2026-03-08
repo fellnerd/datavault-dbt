@@ -477,3 +477,160 @@ models:
       - name: dss_source_file_name
         description: dss_source_file_name
         data_type: nvarchar(4000)
+
+  # ===== EWB / ABACUS =====
+  - name: ewb_fibu_fhe_main
+    description: Staging view for FIBU.FHE.Main from Abacus EWB
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_fibu_fhe_main
+        business_keys:
+          - RECNUM
+    columns:
+      - name: hk_ewb_fibu_fhe
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_ewb_fibu_fhe
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: RECNUM
+        description: Business Key (Datensatznummer)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PLAN
+        description: Payload attribute
+      - name: VARIANTE
+        description: Payload attribute
+      - name: LEVEL
+        description: Payload attribute
+      - name: ID
+        description: Payload attribute
+      - name: TYP
+        description: Payload attribute
+      - name: REF_LEVEL
+        description: Payload attribute
+      - name: REF_ID
+        description: Payload attribute
+      - name: REF_TYP
+        description: Payload attribute
+      - name: BOTTOM
+        description: Payload attribute
+      - name: FONTID
+        description: Payload attribute
+      - name: BEFORE
+        description: Payload attribute
+      - name: AFTER
+        description: Payload attribute
+      - name: BOLDSW
+        description: Payload attribute
+      - name: ULINESW
+        description: Payload attribute
+      - name: ITALICSW
+        description: Payload attribute
+      - name: SUPPRESS
+        description: Payload attribute
+      - name: NONUM
+        description: Payload attribute
+      - name: FORMFEED
+        description: Payload attribute
+      - name: INDENT
+        description: Payload attribute
+      - name: NODEFAULT
+        description: Payload attribute
+      - name: DECIMALS
+        description: Payload attribute
+      - name: SYSSW1
+        description: Payload attribute
+      - name: SYSSW2
+        description: Payload attribute
+      - name: SYSSW3
+        description: Payload attribute
+      - name: SYSSW4
+        description: Payload attribute
+      - name: SYSDAT1
+        description: Payload attribute
+      - name: SYSDAT2
+        description: Payload attribute
+      - name: APPSW1
+        description: Payload attribute
+      - name: APPSW2
+        description: Payload attribute
+      - name: APPSW3
+        description: Payload attribute
+      - name: APPSW4
+        description: Payload attribute
+      - name: APPSW5
+        description: Payload attribute
+      - name: APPSW6
+        description: Payload attribute
+      - name: APPSW7
+        description: Payload attribute
+      - name: APPSW8
+        description: Payload attribute
+      - name: APPSW9
+        description: Payload attribute
+      - name: APPSW10
+        description: Payload attribute
+      - name: APPNUM1
+        description: Payload attribute
+      - name: APPNUM2
+        description: Payload attribute
+      - name: APPNUM3
+        description: Payload attribute
+      - name: APPNUM4
+        description: Payload attribute
+      - name: APPNUM5
+        description: Payload attribute
+      - name: APPNUM6
+        description: Payload attribute
+      - name: APPSTR
+        description: Payload attribute (binary)
+        data_type: varbinary(8000)
+      - name: APPDAT1
+        description: Payload attribute
+      - name: APPDAT2
+        description: Payload attribute
+      - name: CREUSER
+        description: Created by user
+      - name: MUTUSER
+        description: Last modified by user
+      - name: CREDAT
+        description: Creation date
+      - name: MUTDAT
+        description: Last modification date
+      - name: ZUONR
+        description: Payload attribute
+      - name: ID_ASCII
+        description: Payload attribute
+      - name: IDTYP_ASCII
+        description: Payload attribute
+      - name: ENTERPRISE
+        description: Payload attribute
+      - name: GUID
+        description: Payload attribute
+      - name: APPGUID1
+        description: Payload attribute
+      - name: APPGUID2
+        description: Payload attribute
+      - name: APPGUID3
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
