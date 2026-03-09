@@ -608,6 +608,31 @@
           "default": "",
           "description": "Path to dbt executable (auto-detected in .venv if empty)"
         },
+        "datavault.dbtTarget": {
+          "type": "string",
+          "default": "dev",
+          "description": "dbt target to use for run-operation commands (e.g. dev, staging, prod)"
+        },
+        "datavault.storage.accountName": {
+          "type": "string",
+          "default": "",
+          "description": "Azure Storage account name for Parquet file discovery"
+        },
+        "datavault.storage.containerName": {
+          "type": "string",
+          "default": "",
+          "description": "Azure Storage container name for Parquet file discovery"
+        },
+        "datavault.storage.dataSource": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the SQL External Data Source (e.g. StageFileSystem)"
+        },
+        "datavault.storage.fileFormat": {
+          "type": "string",
+          "default": "ParquetFormat",
+          "description": "Name of the SQL External File Format (e.g. ParquetFormat)"
+        },
         "datavault.lastDiscoverPath": {
           "type": "string",
           "default": "",

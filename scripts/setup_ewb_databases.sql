@@ -31,12 +31,16 @@ IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'stg')
     EXEC('CREATE SCHEMA stg');
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'vault_ewb')
-    EXEC('CREATE SCHEMA vault_ewb');
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'vault')
+    EXEC('CREATE SCHEMA vault');
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'mart_ewb')
-    EXEC('CREATE SCHEMA mart_ewb');
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'bv')
+    EXEC('CREATE SCHEMA bv');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'mart')
+    EXEC('CREATE SCHEMA mart');
 GO
 
 -- =============================================================================
@@ -102,7 +106,7 @@ GO
 -- 6. VALIDIERUNG
 -- =============================================================================
 SELECT 'Schema'       AS [Typ], name AS [Name] FROM sys.schemas
-    WHERE name IN ('stg', 'vault_ewb', 'mart_ewb')
+    WHERE name IN ('stg', 'vault', 'bv', 'mart')
 UNION ALL
 SELECT 'Credential',  name FROM sys.database_scoped_credentials
     WHERE name = 'ewb_stage_fs_sas'

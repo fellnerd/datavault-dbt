@@ -44,8 +44,8 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 │  Server: sql-datavault-weu-001.database.windows.net                         │
 │                                                                             │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │ Vault (Dev)     │  │ Vault_Werkportal│  │ Vault_EWB       │             │
-│  │ Shared Dev DB   │  │ Produktion      │  │ Produktion      │             │
+│  │ Vault (Dev)     │  │ Vault_Werkportal│  │ datavault       │             │
+│  │ Shared Dev DB   │  │ Produktion      │  │ Produktion EWB  │             │
 │  ├─────────────────┤  ├─────────────────┤  ├─────────────────┤             │
 │  │ [stg] Schema    │  │ [stg] Schema    │  │ [stg] Schema    │             │
 │  │  └ ext_*        │  │  └ ext_*        │  │  └ ext_*        │             │
@@ -78,7 +78,7 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 | SQL Server | `sql-datavault-weu-001` | Hosting aller Vault-Datenbanken |
 | SQL Database | `Vault` | Shared Development |
 | SQL Database | `Vault_Werkportal` | Produktion Mandant Werkportal |
-| SQL Database | `Vault_EWB` | Produktion Mandant EWB (Template) |
+| SQL Database | `datavault` | Produktion EWB |
 | Storage Account | `synplaygrounddatalake` | ADLS Gen2 für Parquet-Dateien |
 | Container | `stage-fs` | Staging-Bereich für Quelldaten |
 
@@ -171,7 +171,7 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 └────────┬──────────┴──────────┬───────────┴──────┬───┘
          ▼                     ▼                  ▼
    ┌──────────┐         ┌───────────────┐   ┌─────────┐
-   │  Vault   │         │Vault_Werkportal│  │Vault_EWB│
+   │  Vault   │         │Vault_Werkportal│  │datavault│
    │  (Dev)   │         │   (Prod)       │  │ (Prod)  │
    └──────────┘         └───────────────┘   └─────────┘
 ```
@@ -182,7 +182,7 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 |--------|-----------|------------|
 | `dev` | Vault | Shared Development (Default) |
 | `werkportal` | Vault_Werkportal | Produktion Werkportal |
-| `ewb` | Vault_EWB | Produktion EWB |
+| `ewb` | datavault | Produktion EWB |
 
 ---
 

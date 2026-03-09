@@ -31,25 +31,18 @@ instructions: |
   ```
 
   ### 3. Vault-Verzeichnis sicherstellen
+  EWB Modelle werden im `_common` Ordner abgelegt (Schema: `vault`):
   ```
-  models/raw_vault/ewb/
+  models/raw_vault/_common/
   ├── hubs/
   ├── satellites/
   ├── links/
-  └── _ewb__models.yml
+  └── _common__models.yml
   ```
-  Prüfe ob `dbt_project.yml` den `ewb:` Block unter `raw_vault:` hat:
-  ```yaml
-  raw_vault:
-    ewb:
-      +schema: vault_ewb
-      +materialized: incremental
-      +incremental_strategy: append
-      +as_columnstore: false
-  ```
+  Das Schema `vault` ist bereits in `dbt_project.yml` unter `_common:` konfiguriert — kein separater `ewb:` Block erforderlich.
 
   ### 4. Hub erstellen
-  Datei: `models/raw_vault/ewb/hubs/hub_<entity>.sql`
+  Datei: `models/raw_vault/_common/hubs/hub_<entity>.sql`
   Pattern (analog `hub_kunde.sql`):
   ```sql
   {#

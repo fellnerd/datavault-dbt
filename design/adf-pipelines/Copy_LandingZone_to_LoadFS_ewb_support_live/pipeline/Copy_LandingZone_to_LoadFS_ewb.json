@@ -1,0 +1,304 @@
+{
+    "name": "Copy_LandingZone_to_LoadFS_ewb",
+    "properties": {
+        "description": "Kopiert Parquet-Dateien aus landing-zone nach load-fs mit historisierten Pfaden (basierend auf Copy_AdventureWorksLT2025). Parameter cw_source bestimmt den Modulkontext im Zielpfad.",
+        "activities": [
+            {
+                "name": "ForEach_Tables",
+                "type": "ForEach",
+                "dependsOn": [],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@pipeline().parameters.cw_items",
+                        "type": "Expression"
+                    },
+                    "isSequential": false,
+                    "batchCount": 5,
+                    "activities": [
+                        {
+                            "name": "Copy_LandingZone_to_LoadFS",
+                            "type": "Copy",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [
+                                {
+                                    "name": "Source",
+                                    "value": "@concat('landing-zone/', item().source.folder, '/', item().source.file)"
+                                },
+                                {
+                                    "name": "Destination",
+                                    "value": "@concat('load-fs/', pipeline().parameters.cw_business_concept, '/', pipeline().parameters.cw_source, '/historized/.../', item().destination.fileName)"
+                                }
+                            ],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "ParquetSource",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSReadSettings",
+                                        "recursive": false,
+                                        "enablePartitionDiscovery": false
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetReadSettings"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "ParquetSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false,
+                                "validateDataConsistency": false,
+                                "translator": {
+                                    "type": "TabularTranslator",
+                                    "typeConversion": true,
+                                    "typeConversionSettings": {
+                                        "allowDataTruncation": true,
+                                        "treatBooleanAsNumber": false
+                                    }
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "GenericParquetDataset_ewb",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "cw_fileSystem": "landing-zone",
+                                        "cw_folderPath": {
+                                            "value": "@item().source.folder",
+                                            "type": "Expression"
+                                        },
+                                        "cw_fileName": {
+                                            "value": "@item().source.file",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "GenericParquetDataset_ewb",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "cw_fileSystem": "load-fs",
+                                        "cw_folderPath": {
+                                            "value": "@concat(pipeline().parameters.cw_business_concept, '/', pipeline().parameters.cw_source, '/historized/', formatDateTime(utcNow(), 'yyyy/MM/dd'), '/', pipeline().RunId)",
+                                            "type": "Expression"
+                                        },
+                                        "cw_fileName": {
+                                            "value": "@item().destination.fileName",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "cw_items": {
+                "type": "Array",
+                "defaultValue": [
+                    {
+                        "source": {
+                            "folder": "FIBU/GL",
+                            "file": "E22.parquet"
+                        },
+                        "destination": {
+                            "fileName": "FIBU.GL.E22.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "FIBU/GL",
+                            "file": "E23.parquet"
+                        },
+                        "destination": {
+                            "fileName": "FIBU.GL.E23.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "FIBU/GL",
+                            "file": "E24.parquet"
+                        },
+                        "destination": {
+                            "fileName": "FIBU.GL.E24.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "FIBU/GL",
+                            "file": "E25.parquet"
+                        },
+                        "destination": {
+                            "fileName": "FIBU.GL.E25.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "FIBU/GL",
+                            "file": "E26.parquet"
+                        },
+                        "destination": {
+                            "fileName": "FIBU.GL.E26.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "FIBU/FHE",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "FIBU.FHE.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "KRED/KBL",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "KRED.KBL.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "KRED/KVL",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "KRED.KVL.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "KRED/KBS",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "KRED.KBS.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/NPO",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.NPO.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/NTC",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.NTC.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/NTB",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.NTB.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/NSA",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.NSA.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/NTR",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.NTR.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/PST",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.PST.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PROJ/PRT",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PROJ.PRT.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "LOHN/LEN",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "LOHN.LEN.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "LOHN/LTC",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "LOHN.LTC.Main.parquet"
+                        }
+                    },
+                    {
+                        "source": {
+                            "folder": "PUBL/ADR",
+                            "file": "Main.parquet"
+                        },
+                        "destination": {
+                            "fileName": "PUBL.ADR.Main.parquet"
+                        }
+                    }
+                ]
+            },
+            "cw_source": {
+                "type": "string",
+                "defaultValue": "abacus"
+            },
+            "cw_business_concept": {
+                "type": "string",
+                "defaultValue": "ewb"
+            }
+        },
+        "folder": {
+            "name": "load-fs_ewb"
+        },
+        "annotations": [],
+        "lastPublishTime": "2026-03-04T19:25:25Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

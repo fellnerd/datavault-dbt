@@ -19,7 +19,7 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → Staging 
 |--------|-----------|------------|
 | `dev` | Vault | Entwicklung |
 | `werkportal` | Vault_Werkportal | Produktion (Tenant 1) |
-| `ewb` | Vault_EWB | Produktion (Tenant 2, geplant) |
+| `ewb` | datavault | Produktion EWB |
 
 ---
 

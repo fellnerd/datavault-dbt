@@ -195,17 +195,7 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 - Erlaubt mehrere gleichzeitig gültige Werte pro Hash Key
 
 ## dbt_project.yml Konfiguration
-Stelle sicher, dass der `ewb:` Block existiert:
-```yaml
-models:
-  datavault:
-    raw_vault:
-      ewb:
-        +schema: vault_ewb
-        +materialized: incremental
-        +incremental_strategy: append
-        +as_columnstore: false
-```
+EWB-Modelle werden im `_common` Ordner abgelegt und nutzen Schema `vault` (bereits in `dbt_project.yml` unter `_common:` konfiguriert).
 
 ## Schema-YAML Template (`_ewb__models.yml`)
 ```yaml

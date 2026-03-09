@@ -29,6 +29,10 @@ vars:
   # Record Source Spalte
   record_source: 'dss_record_source'
 
+  # SAS Token für list_parquet_files (stage-fs Container, Permissions: rl)
+  # Setzen via: export STAGE_FS_SAS="se=...&sp=rl&sv=...&sr=c&sig=..."
+  stage_fs_sas: "{{ env_var('STAGE_FS_SAS', '') }}"
+
 # ===========================================
 # SCHEMA NAMING CONVENTION
 # ===========================================

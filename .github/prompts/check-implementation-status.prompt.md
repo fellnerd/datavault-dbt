@@ -21,7 +21,7 @@ models/raw_vault/ewb/links/        → EWB Links
 Verbinde zu `sql-analytics-ewb-001.database.windows.net` (datavault-dev):
 ```sql
 -- Schemas
-SELECT name FROM sys.schemas WHERE name IN ('stg', 'vault_ewb', 'mart_ewb')
+SELECT name FROM sys.schemas WHERE name IN ('stg', 'vault', 'bv', 'mart')
 
 -- External Tables
 SELECT name FROM sys.external_tables WHERE name LIKE 'ext_ewb_%'
@@ -30,7 +30,7 @@ SELECT name FROM sys.external_tables WHERE name LIKE 'ext_ewb_%'
 SELECT name FROM sys.views WHERE SCHEMA_NAME(schema_id) = 'stg' AND name LIKE 'ewb_%'
 
 -- Vault Objects
-SELECT name, type_desc FROM sys.objects WHERE SCHEMA_NAME(schema_id) = 'vault_ewb'
+SELECT name, type_desc FROM sys.objects WHERE SCHEMA_NAME(schema_id) = 'vault'
 
 -- Row Counts
 SELECT SCHEMA_NAME(t.schema_id) AS [schema], t.name, p.rows

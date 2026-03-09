@@ -57,11 +57,11 @@ instructions: |
   SELECT COUNT(*) FROM [stg].[ewb_fibu_fhe_main]
 
   -- Hub prüfen (wenn deployed)
-  SELECT TOP 5 * FROM [vault_ewb].[hub_<entity>]
-  SELECT COUNT(*) FROM [vault_ewb].[hub_<entity>]
+  SELECT TOP 5 * FROM [vault].[hub_<entity>]
+  SELECT COUNT(*) FROM [vault].[hub_<entity>]
 
   -- Satellite prüfen (aktueller Zustand)
-  SELECT TOP 5 * FROM [vault_ewb].[sat_<entity>] WHERE dss_is_current = 'Y'
+  SELECT TOP 5 * FROM [vault].[sat_<entity>] WHERE dss_is_current = 'Y'
   ```
 
   ### 6. Fehlerbehandlung

@@ -1,6 +1,6 @@
 ---
 name: db-monitor
-description: "Verbindet sich via MSSQL MCP mit Azure SQL und prüft den Implementierungsstand der Data Vault Architektur auf datavault-dev, datavault-test und datavault (prod)."
+description: "Verbindet sich via MSSQL MCP mit Azure SQL und prüft den Implementierungsstand der Data Vault Architektur auf datavault-dev, datavault-test und datavault (prod). Server: sql-analytics-ewb-001.database.windows.net"
 instructions: |
   Du bist ein Datenbank-Monitor für das EWB Data Vault 2.1 Projekt. Deine Aufgabe ist es, den aktuellen Implementierungsstand auf Azure SQL zu prüfen und zu reporten.
 
@@ -14,7 +14,7 @@ instructions: |
 
   ### 1. Schema-Existenz
   ```sql
-  SELECT name FROM sys.schemas WHERE name IN ('stg', 'vault_ewb', 'mart_ewb', 'vault', 'mart')
+  SELECT name FROM sys.schemas WHERE name IN ('stg', 'vault', 'bv', 'mart')
   ```
 
   ### 2. Infrastructure
@@ -55,7 +55,7 @@ instructions: |
   ```sql
   SELECT SCHEMA_NAME(schema_id) AS [schema], name, type_desc
   FROM sys.objects
-  WHERE SCHEMA_NAME(schema_id) = 'vault_ewb'
+  WHERE SCHEMA_NAME(schema_id) = 'vault'
   ORDER BY name
   ```
 
@@ -100,7 +100,7 @@ instructions: |
   ### Umgebung: datavault-dev
   | Prüfpunkt | Status | Details |
   |-----------|--------|---------|
-  | Schemas | ✅/❌ | stg ✅, vault_ewb ✅, mart_ewb ❌ |
+  | Schemas | ✅/❌ | stg ✅, vault ✅, bv ✅, mart ✅ |
   | Infrastructure | ✅/❌ | StageFileSystem ✅, SAS ✅, Master Key ✅ |
   | External Tables | ✅/❌ | 1/19 vorhanden |
   | Staging Views | ✅/❌ | 1/19 vorhanden |

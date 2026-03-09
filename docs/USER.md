@@ -259,7 +259,7 @@ dbt run-operation stage_external_sources --target werkportal
 |--------|-----------|--------|
 | `dev` (Standard) | Vault | `dbt run` |
 | `werkportal` | Vault_Werkportal | `dbt run --target werkportal` |
-| `ewb` | Vault_EWB | `dbt run --target ewb` |
+| `ewb` | datavault | `dbt run --target ewb` |
 
 ---
 

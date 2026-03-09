@@ -44,11 +44,40 @@ npm run package
 
 ## Konfiguration
 
+### Allgemeine Settings
+
 | Setting | Default | Beschreibung |
 |---------|---------|--------------|
 | `datavault.projectPath` | `""` | Pfad zu dbt_project.yml (Auto-Detect wenn leer) |
 | `datavault.autoRefresh` | `true` | Automatischer Refresh bei Dateiänderungen |
 | `datavault.refreshDebounceMs` | `1000` | Debounce Zeit in ms |
+| `datavault.dbtPath` | `""` | Pfad zum dbt-Binary (Auto-Detect im `.venv` wenn leer) |
+| `datavault.dbtTarget` | `"dev"` | dbt Target für `run-operation` Befehle (z.B. `dev`, `staging`, `prod`) |
+
+### Azure Storage / Parquet Discovery
+
+Für die **Discover External Sources** Funktion (Parquet-Dateien aus Azure Storage als External Tables anlegen) müssen folgende Settings konfiguriert werden:
+
+| Setting | Default | Beschreibung |
+|---------|---------|--------------|
+| `datavault.storage.accountName` | `""` | Azure Storage Account Name |
+| `datavault.storage.containerName` | `""` | Azure Storage Container Name |
+| `datavault.storage.dataSource` | `""` | Name der SQL External Data Source (erzeugt via `CREATE EXTERNAL DATA SOURCE`) |
+| `datavault.storage.fileFormat` | `"ParquetFormat"` | Name des SQL External File Format (erzeugt via `CREATE EXTERNAL FILE FORMAT`) |
+
+Die Werte werden am besten in `.vscode/settings.json` im Projektordner gespeichert, damit sie für alle Teammitglieder gelten:
+
+```json
+{
+  "datavault.dbtTarget": "dev",
+  "datavault.storage.accountName": "mystorageaccount",
+  "datavault.storage.containerName": "mycontainer",
+  "datavault.storage.dataSource": "MyDataSource",
+  "datavault.storage.fileFormat": "ParquetFormat"
+}
+```
+
+> **Voraussetzung:** `az login` muss aktiv sein, damit `az storage blob list` auf den Storage Account zugreifen kann.
 
 ## Verwendung
 
