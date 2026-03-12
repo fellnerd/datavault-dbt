@@ -281,7 +281,7 @@ export class DbtProjectParser {
   ): Promise<DbtModel | null> {
     const layer = yamlDef._layer || 'staging';
     
-    // For staging models, extract concept from model name (e.g., werkportal_company -> werkportal)
+    // For staging models, extract concept from model name (e.g., jira_company -> jira)
     // For other layers, use the concept from the YAML path
     let concept = yamlDef._concept || '_common';
     if (layer === 'staging') {
@@ -839,13 +839,13 @@ export class DbtProjectParser {
                 // Extract concept from location or name
                 let concept = '_common';
                 if (table.external?.location) {
-                  // Parse location like "werkportal/postgres/public.wp_company_client.parquet"
+                  // Parse location like "jira/postgres/public.wp_company_client.parquet"
                   const locationParts = table.external.location.split('/');
                   if (locationParts.length > 0) {
                     concept = locationParts[0].toLowerCase();
                   }
                 } else if (table.name.startsWith('ext_')) {
-                  // Extract from name like "ext_werkportal_company"
+                  // Extract from name like "ext_jira_company"
                   const nameParts = table.name.substring(4).split('_');
                   if (nameParts.length > 1) {
                     concept = nameParts[0].toLowerCase();

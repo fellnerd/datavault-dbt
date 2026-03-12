@@ -411,10 +411,10 @@ sources:
             data_type: "NVARCHAR(4000)"
           - name: "dss_source_file_name"
             data_type: "NVARCHAR(4000)"
-      - name: "ext_werkportal_public_wp_invoices"
+      - name: "ext_jira_public_wp_invoices"
         description: "Auto-generated from public.wp_invoices.parquet"
         external:
-          location: "werkportal/postgres/public.wp_invoices.parquet"
+          location: "jira/postgres/public.wp_invoices.parquet"
           file_format: "ParquetFormat"
           data_source: "StageFileSystem"
         columns:
@@ -492,12 +492,12 @@ sources:
             data_type: "NVARCHAR(4000)"
           - name: "dss_source_file_name"
             data_type: "NVARCHAR(4000)"
-      - name: "ext_werkportal_api_invoice_delta"
-        description: "Wildcard External Table - reads ALL Parquet files from werkportal/api/invoice/delta/"
+      - name: "ext_jira_api_invoice_delta"
+        description: "Wildcard External Table - reads ALL Parquet files from jira/api/invoice/delta/"
         external:
           file_format: "ParquetFormat"
           data_source: "StageFileSystem"
-          location: "werkportal/api/invoice/delta/"
+          location: "jira/api/invoice/delta/"
         columns:
           - name: "advance_payment"
             data_type: "BIT"

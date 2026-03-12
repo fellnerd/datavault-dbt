@@ -102,13 +102,13 @@ Die Werte werden am besten in `.vscode/settings.json` im Projektordner gespeiche
 ```
 📁 Data Vault
 ├── 📂 Staging (stg)
-│   ├── 📂 Werkportal
-│   │   ├── 📥 werkportal_company
-│   │   └── 📥 werkportal_country
+│   ├── 📂 Jira
+│   │   ├── 📥 jira_company
+│   │   └── 📥 jira_country
 │   └── 📂 Adventureworks
 │       └── 📥 adventureworks_customer
 ├── 📂 Raw Vault
-│   ├── 📂 Werkportal (vault_werkportal)
+│   ├── 📂 Jira (vault_jira)
 │   │   ├── 🔑 Hubs
 │   │   │   ├── hub_company
 │   │   │   └── hub_country

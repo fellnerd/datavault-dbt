@@ -182,15 +182,17 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 9. März 2026)
+### 5.1 Implementierungsfortschritt (Stand 12. März 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
 | External Tables | 19 | 19 | 100% (datavault-dev) |
 | Staging-Views | 1 | 19 | 5% |
-| Hubs | 0 | ~8 | 0% |
-| Satellites | 0 | ~14 | 0% |
-| Links | 0 | ~5 | 0% |
+| Hubs | 0 | 10 (+2 Ghost) | 0% |
+| Satellites | 0 | 14 | 0% |
+| Links | 0 | 11 | 0% |
+
+**Implementierungsplan:** `design/raw-vault/_common/implementierungsplan.md` (erstellt 12. März 2026, basierend auf Synapse-Analyse)
 
 ### 5.2 Staging-Layer (stg.ewb_*)
 
@@ -248,6 +250,24 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 | `dbt_project.yml` | EWB-Modelle nutzen `_common` (Schema: `vault`, `as_columnstore: false`) | Erstellt (9. März 2026) |
 | `models/staging/ewb_fibu_fhe_main.sql` | Referenz-Staging-View (5-Block-Struktur, VARBINARY-Pattern) | Erstellt |
 | `models/staging/sources.yml` | Alle 19 External Tables `ext_ewb_*` konfiguriert | Erstellt (9. März 2026) |
+
+---
+
+### 5.5 Offene Design-Fragen (Meeting-Vorbereitung)
+
+Diese drei Fragen müssen vor dem Implementierungsstart Wave 2/3 mit EWB geklärt werden. Vollständige technische Analyse: `design/raw-vault/_common/implementierungsplan.md` Abschnitt 7.
+
+| # | Frage | Betrifft | Wave |
+|---|---|---|---|
+| F1 | Kann dieselbe Belegnummer (`BELEGNR`) auf mehreren Konten (`KONTO`) erscheinen (Soll/Haben-Buchung)? | Datenbankstruktur für 890.449 Buchungszeilen | 2 |
+| F2 | Was bedeutet das Feld `CODE` in PROJ.NSA — Mitarbeiterkürzel, Leistungsart oder Kostenstelle? Und: über welches Feld wird der Personenbezug hergestellt? | Person-Verlinkung für Stundenbuchungen (63.755 Zeilen) | 3 |
+| F3 | Kommen Leistungsarten (PROJ.NTR) auch aus anderen Systemen (z.B. IDMS)? Ist Historisierung der Bezeichnungen nötig? | Einfache Lookup-Tabelle vs. vollständiger Hub+Satellite | 1 |
+
+**Hintergrund F1:** Bei Soll/Haben-Buchung auf mehreren Konten pro Beleg → BK = `BELEGNR||KONTO` (jede Zeile ist eigene Hub-Instanz). Falls `BELEGNR` eindeutig pro Konto → BK = `BELEGNR` mit separatem `hub_konto`. Die Antwort bestimmt die gesamte FIBU-Modellierung.
+
+**Hintergrund F2:** Die Rohdaten (`stg.ext_ewb_proj_nsa_main`) enthalten `PROJNR` (Projektbezug vorhanden ✅). Spalten `PRONR` und `SATZID` existieren **nicht**. PROJ.NSA ist eine aggregierte Periodenauswertung (`PROJNR + CODE + PERIYEAR + PERIMONTH + GB`) — kein direktes Personalfeld sichtbar. Synapse `Projekt.Stunden` joined NSA mit PUBL.ADR, aber über welches Feld ist unklar. Falls kein Personenbezug ableitbar: `link_stundenbuchung_person` entfällt.
+
+**Hintergrund F3:** NTR-Tabelle hat < 100 Einträge und ändert sich selten. Wenn nur Abacus-Quelle → einfache `ref_leistungsart` (dbt Seed, kein Hash-Join). Wenn Multi-Source oder Historisierung → `hub_leistungsart + sat_leistungsart`.
 
 ---
 

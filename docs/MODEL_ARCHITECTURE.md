@@ -29,12 +29,12 @@ flowchart TB
     end
 
     subgraph Staging["📋 Staging Views (stg.<concept>_<entity>)"]
-        werkportal_company[werkportal_company<br/>UNION ALL + Hash Keys]
-        werkportal_country[werkportal_country<br/>Hash Keys]
+        jira_company[jira_company<br/>UNION ALL + Hash Keys]
+        jira_country[jira_country<br/>Hash Keys]
         adventureworks_customer[adventureworks_customer<br/>Hash Keys]
     end
 
-    subgraph Werkportal["🔑 Raw Vault: Werkportal (vault_werkportal.*)"]
+    subgraph Jira["🔑 Raw Vault: Jira (vault_jira.*)"]
         hub_company[hub_company<br/>22.457 Records]
         hub_country[hub_country<br/>242 Records]
         sat_company[sat_company]
@@ -54,20 +54,20 @@ flowchart TB
     end
 
     %% Source to Staging
-    ext_client --> werkportal_company
-    ext_contractor --> werkportal_company
-    ext_supplier --> werkportal_company
-    ext_countries --> werkportal_country
+    ext_client --> jira_company
+    ext_contractor --> jira_company
+    ext_supplier --> jira_company
+    ext_countries --> jira_country
     ext_aw_customer --> adventureworks_customer
 
-    %% Staging to Werkportal
-    werkportal_company --> hub_company
-    werkportal_country --> hub_country
-    werkportal_company --> sat_company
-    werkportal_company --> sat_client_ext
-    werkportal_country --> sat_country
-    werkportal_company --> link_role
-    werkportal_company --> link_country
+    %% Staging to Jira
+    jira_company --> hub_company
+    jira_country --> hub_country
+    jira_company --> sat_company
+    jira_company --> sat_client_ext
+    jira_country --> sat_country
+    jira_company --> link_role
+    jira_company --> link_country
 
     %% Staging to AdventureWorks
     adventureworks_customer --> hub_customer
@@ -88,7 +88,7 @@ flowchart TB
 
 ```mermaid
 erDiagram
-    %% Werkportal Entities
+    %% Jira Entities
     hub_company ||--o{ sat_company : "has attributes"
     hub_company ||--o| sat_company_client_ext : "has client attributes"
     hub_company ||--o{ link_company_role : "has roles"
@@ -113,7 +113,7 @@ erDiagram
         varchar source_table "wp_company_client/contractor/supplier"
         datetime2 dss_load_date
         varchar dss_record_source
-        ___ ___ "Schema: vault_werkportal"
+        ___ ___ "Schema: vault_jira"
     }
 
     hub_contractor {
@@ -121,7 +121,7 @@ erDiagram
         bigint company_contractor "Business Key"
         datetime2 dss_load_date
         varchar dss_record_source
-        ___ ___ "Schema: vault_werkportal"
+        ___ ___ "Schema: vault_jira"
     }
 
     hub_country {
@@ -129,7 +129,7 @@ erDiagram
         bigint object_id "Business Key"
         datetime2 dss_load_date
         varchar dss_record_source
-        ___ ___ "Schema: vault_werkportal"
+        ___ ___ "Schema: vault_jira"
     }
 
     hub_customer {
@@ -196,7 +196,7 @@ erDiagram
         varchar phone
         varchar city
         datetime2 dss_load_date
-        ___ ___ "Schema: vault_werkportal"
+        ___ ___ "Schema: vault_jira"
     }
 
     link_contact_contractor {

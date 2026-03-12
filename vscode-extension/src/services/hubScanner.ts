@@ -4,7 +4,7 @@ import * as fs from 'fs';
 
 /**
  * Scan the project for existing hub models
- * Returns a list of hub names with concept like ['werkportal.hub_company', 'adventureworks.hub_customer', ...]
+ * Returns a list of hub names with concept like ['jira.hub_company', 'adventureworks.hub_customer', ...]
  */
 export async function scanForExistingHubs(projectPath: string): Promise<string[]> {
   const hubs: string[] = [];
@@ -23,7 +23,7 @@ export async function scanForExistingHubs(projectPath: string): Promise<string[]
     for (const filePath of hubFiles) {
       const fileName = path.basename(filePath, '.sql');
       if (fileName.startsWith('hub_')) {
-        // Extract concept from path (e.g., models/raw_vault/werkportal/hubs/hub_company.sql -> werkportal)
+        // Extract concept from path (e.g., models/raw_vault/jira/hubs/hub_company.sql -> jira)
         const pathParts = filePath.split(path.sep);
         const hubsIndex = pathParts.indexOf('hubs');
         const concept = hubsIndex > 0 ? pathParts[hubsIndex - 1] : '_common';
@@ -97,7 +97,7 @@ export async function parseHubFile(filePath: string): Promise<HubFileInfo | null
     const content = fs.readFileSync(filePath, 'utf-8');
     const fileName = path.basename(filePath, '.sql');
     
-    // Extract concept from path (e.g., models/raw_vault/werkportal/hubs/hub_company.sql -> werkportal)
+    // Extract concept from path (e.g., models/raw_vault/jira/hubs/hub_company.sql -> jira)
     const pathParts = filePath.split(path.sep);
     const hubsIndex = pathParts.indexOf('hubs');
     const concept = hubsIndex > 0 ? pathParts[hubsIndex - 1] : '_common';

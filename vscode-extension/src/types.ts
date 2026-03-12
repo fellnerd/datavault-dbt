@@ -85,7 +85,7 @@ export interface DbtModel {
   columns: ColumnInfo[];
   refs: string[];        // Referenced models (from ref())
   sources: string[];     // Referenced sources (from source())
-  concept: string;       // Business concept (e.g., 'werkportal', '_common')
+  concept: string;       // Business concept (e.g., 'jira', '_common')
   layer: 'staging' | 'raw_vault' | 'business_vault' | 'mart';
   description?: string;
   _yamlPath?: string;    // Path to the YAML schema file
@@ -178,7 +178,7 @@ export interface ProjectMetadata {
  */
 export interface GroupConfig {
   name: string;           // Display name of the group
-  concept: string;        // Concept this group belongs to (e.g., 'werkportal')
+  concept: string;        // Concept this group belongs to (e.g., 'jira')
   layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart';  // Which tree view
   models: string[];       // Model names in this group
 }
@@ -238,7 +238,7 @@ export type StagingEntityType = 'standard' | 'dependent_child' | 'multi_active' 
  */
 export interface StagingConfig {
   // Entity identification
-  concept: string;              // 'adventureworks', 'werkportal'
+  concept: string;              // 'adventureworks', 'jira'
   entityName: string;           // 'customer', 'company'
   
   // Entity type (determines which Data Vault objects will be generated)
@@ -247,7 +247,7 @@ export interface StagingConfig {
   // Source
   externalTable: string;        // 'ext_adventureworks_customer' or seed name
   sourceType?: SourceType;      // Type of source (default: 'external_table')
-  psaModelName?: string;        // For PSA sources: the dbt model name (e.g., 'psa_werkportal_company')
+  psaModelName?: string;        // For PSA sources: the dbt model name (e.g., 'psa_jira_company')
   
   // Business Key
   businessKeyColumns: string[];
@@ -355,7 +355,7 @@ export interface DesignerColumnDefinition {
  * Configuration for Entity Designer
  */
 export interface EntityDesignConfig {
-  concept: string;              // e.g., 'werkportal'
+  concept: string;              // e.g., 'jira'
   entityName: string;           // e.g., 'contacts'
   sourceTable: string;          // External Table or Staging view name
   sourceType?: SourceType;      // Type of source (seed, external_table, etc.)
@@ -387,7 +387,7 @@ export interface LambdaColumnMapping {
 export interface LambdaVaultConfig {
   /** Whether Lambda Vault is enabled for this entity */
   enabled: boolean;
-  /** Name of the delta staging model (e.g., 'werkportal_rechnung_delta') */
+  /** Name of the delta staging model (e.g., 'jira_rechnung_delta') */
   deltaStagingModel: string;
   /** Column mappings for columns with different names between base and delta */
   columnMappings: LambdaColumnMapping[];
@@ -397,9 +397,9 @@ export interface LambdaVaultConfig {
  * Info about a staging model for Lambda Vault dropdown
  */
 export interface StagingModelInfo {
-  /** Model name (e.g., 'werkportal_rechnung_delta') */
+  /** Model name (e.g., 'jira_rechnung_delta') */
   name: string;
-  /** Concept/source (e.g., 'werkportal') */
+  /** Concept/source (e.g., 'jira') */
   concept: string;
   /** Column names in the staging model */
   columns: string[];
@@ -580,7 +580,7 @@ export interface DimensionAttribute {
  */
 export interface DimensionConfig {
   name: string;                    // e.g., 'dim_company'
-  concept: string;                 // e.g., 'werkportal'
+  concept: string;                 // e.g., 'jira'
 
   // Source configuration
   sourceType: DimensionSourceType; // 'hub' | 'pit' | 'seed' | 'static'
@@ -650,7 +650,7 @@ export interface FactMeasure {
  */
 export interface FactConfig {
   name: string;                    // fact_orders
-  concept: string;                 // werkportal
+  concept: string;                 // jira
 
   // Source configuration
   sourceLink?: string;             // link_order

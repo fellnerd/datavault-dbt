@@ -9,10 +9,10 @@ on:
       target:
         description: 'Production target to deploy'
         required: true
-        default: 'werkportal'
+        default: 'jira'
         type: choice
         options:
-          - werkportal
+          - jira
           - ewb
 
 env:
@@ -55,7 +55,7 @@ jobs:
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "target=${{ inputs.target }}" >> $GITHUB_OUTPUT
           else
-            echo "target=werkportal" >> $GITHUB_OUTPUT
+            echo "target=jira" >> $GITHUB_OUTPUT
           fi
 
       - name: Create profiles.yml
@@ -63,14 +63,14 @@ jobs:
           mkdir -p $DBT_PROFILES_DIR
           cat > $DBT_PROFILES_DIR/profiles.yml << 'EOF'
           datavault:
-            target: werkportal
+            target: jira
             outputs:
-              werkportal:
+              jira:
                 type: sqlserver
                 driver: 'ODBC Driver 18 for SQL Server'
                 server: sql-datavault-weu-001.database.windows.net
                 port: 1433
-                database: Vault_Werkportal
+                database: Vault_Jira
                 schema: dv
                 authentication: cli
                 encrypt: true

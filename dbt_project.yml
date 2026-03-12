@@ -66,9 +66,9 @@ models:
           +materialized: incremental
           +incremental_strategy: append
           +on_schema_change: append_new_columns
-      # ===== WERKPORTAL (Schema: vault_werkportal) =====
-      werkportal:
-        +schema: vault_werkportal
+      # ===== WERKPORTAL (Schema: vault_jira) =====
+      jira:
+        +schema: vault_jira
         +materialized: incremental
         +incremental_strategy: append
         +as_columnstore: false

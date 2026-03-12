@@ -81,7 +81,7 @@ GO
 -- (Azure SQL Database unterstützt das adls://-Schema; abfss:// und
 --  https://blob... funktionieren NICHT)
 -- Name "StageFileSystem" ist der einheitliche Name für alle Konzepte
--- (Werkportal, AdventureWorks, EWB) – muss in allen DBs identisch heissen.
+-- (Jira, AdventureWorks, EWB) – muss in allen DBs identisch heissen.
 IF NOT EXISTS (
     SELECT 1 FROM sys.external_data_sources WHERE name = 'StageFileSystem'
 )

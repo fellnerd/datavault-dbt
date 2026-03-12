@@ -50,7 +50,7 @@ dbt run --target ewb        # production
 | External Tables | `stg` | `staging/` (sources.yml) | External |
 | Staging Views | `stg` | `models/staging/` | View |
 | Raw Vault (EWB + common) | `vault` | `models/raw_vault/_common/` | Incremental (append) |
-| Raw Vault (Werkportal) | `vault_werkportal` | `models/raw_vault/werkportal/` | Incremental (append) |
+| Raw Vault (Jira) | `vault_jira` | `models/raw_vault/jira/` | Incremental (append) |
 | Business Vault (PITs, bridges) | `vault` | `models/business_vault/` | Table |
 | Mart | `mart` | `models/mart/_common/` | Table |
 

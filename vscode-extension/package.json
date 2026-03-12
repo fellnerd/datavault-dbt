@@ -680,7 +680,7 @@
               },
               "concept": {
                 "type": "string",
-                "description": "Concept this group belongs to (e.g., 'werkportal', 'adventureworks')",
+                "description": "Concept this group belongs to (e.g., 'jira', 'adventureworks')",
                 "order": 2
               },
               "layer": {

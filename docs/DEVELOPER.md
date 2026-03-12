@@ -338,12 +338,12 @@ dbt debug
 
 # Models bauen
 dbt run                                              # Alle Models
-dbt run --select raw_vault.werkportal.hub_company    # Einzelnes Model (empfohlen)
-dbt run --select +raw_vault.werkportal.sat_company+  # Model mit Abhängigkeiten
+dbt run --select raw_vault.jira.hub_company    # Einzelnes Model (empfohlen)
+dbt run --select +raw_vault.jira.sat_company+  # Model mit Abhängigkeiten
 dbt run --full-refresh                               # Alles neu bauen
 
 # External Tables erstellen / aktualisieren
-# Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_werkportal_company)
+# Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_jira_company)
 
 ## Option 1: ALLE External Tables (Standard)
 dbt run-operation stage_external_sources
@@ -392,19 +392,19 @@ cat target/compiled/datavault/models/path/to/model.sql
 dbt run --select hub_company
 
 # ✅ Empfohlen - spezifischer Pfad
-dbt run --select raw_vault.werkportal.hub_company
+dbt run --select raw_vault.jira.hub_company
 
 # ✅ Pfad-Pattern für einzelne Datei
-dbt run --select path:models/raw_vault/werkportal/hubs/hub_company.sql
+dbt run --select path:models/raw_vault/jira/hubs/hub_company.sql
 ```
 
 **Selektor-Syntax:**
 
 | Selektor | Beschreibung | Beispiel |
 |----------|--------------|----------|
-| `raw_vault.werkportal.hub_company` | Pfad-basiert (Ordnerstruktur) | Empfohlen für einzelne Models |
-| `raw_vault.werkportal` | Alle Models eines Concepts | Für Concept-Deployment |
-| `staging.werkportal_*` | Wildcard-Pattern | Alle Werkportal-Staging Views |
+| `raw_vault.jira.hub_company` | Pfad-basiert (Ordnerstruktur) | Empfohlen für einzelne Models |
+| `raw_vault.jira` | Alle Models eines Concepts | Für Concept-Deployment |
+| `staging.jira_*` | Wildcard-Pattern | Alle Jira-Staging Views |
 | `+model_name` | Model inkl. Upstream-Dependencies | `+hub_company` baut erst Staging |
 | `model_name+` | Model inkl. Downstream-Dependents | `hub_company+` baut auch Satellites |
 | `+model_name+` | Beides | Vollständige Dependency-Chain |
@@ -416,9 +416,9 @@ dbt run --select path:models/raw_vault/werkportal/hubs/hub_company.sql
 models/
 ├── staging/                    → staging.*
 ├── raw_vault/
-│   ├── werkportal/            → raw_vault.werkportal.*
-│   │   ├── hubs/              → raw_vault.werkportal.hub_*
-│   │   └── satellites/        → raw_vault.werkportal.sat_*
+│   ├── jira/            → raw_vault.jira.*
+│   │   ├── hubs/              → raw_vault.jira.hub_*
+│   │   └── satellites/        → raw_vault.jira.sat_*
 │   └── adventureworks/        → raw_vault.adventureworks.*
 ├── business_vault/            → business_vault.*
 └── mart/
@@ -429,16 +429,16 @@ models/
 
 ```bash
 # Staging + Hub + Satellite für eine Entity
-dbt run --select raw_vault.werkportal.hub_company raw_vault.werkportal.sat_company
+dbt run --select raw_vault.jira.hub_company raw_vault.jira.sat_company
 
 # Oder mit Upstream-Dependencies (baut auch Staging automatisch)
-dbt run --select +raw_vault.werkportal.hub_company +raw_vault.werkportal.sat_company
+dbt run --select +raw_vault.jira.hub_company +raw_vault.jira.sat_company
 
-# Alle Werkportal Raw Vault Models
-dbt run --select raw_vault.werkportal
+# Alle Jira Raw Vault Models
+dbt run --select raw_vault.jira
 
 # Nur Hubs eines Concepts
-dbt run --select raw_vault.werkportal.hub_*
+dbt run --select raw_vault.jira.hub_*
 ```
 
 ### Wichtige Dateien
@@ -515,15 +515,15 @@ datavault-dbt/
 │   │
 │   ├── staging/                # 📥 Schema: stg
 │   │   ├── sources.yml         #    External Table Definitionen
-│   │   ├── werkportal_company.sql     #    Staging Views
-│   │   └── werkportal_country.sql
+│   │   ├── jira_company.sql     #    Staging Views
+│   │   └── jira_country.sql
 │   │
 │   ├── raw_vault/              # 🏛️ Raw Vault Layer
 │   │   ├── _common/            # Schema: vault (source-übergreifend)
 │   │   │   ├── hubs/
 │   │   │   ├── satellites/
 │   │   │   └── links/
-│   │   ├── werkportal/         # Schema: vault_werkportal
+│   │   ├── jira/         # Schema: vault_jira
 │   │   │   ├── hubs/
 │   │   │   │   ├── hub_company.sql
 │   │   │   │   └── hub_country.sql
@@ -575,7 +575,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 ```yaml
 # Finde die External Table und füge die Spalte hinzu
-- name: ext_werkportal_company
+- name: ext_jira_company
   columns:
     # ... bestehende Spalten ...
     - name: tax_number          # ← NEU
@@ -584,7 +584,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 #### Schritt 2: Staging View erweitern
 
-📄 **Datei:** [models/staging/werkportal_company.sql](../models/staging/werkportal_company.sql)
+📄 **Datei:** [models/staging/jira_company.sql](../models/staging/jira_company.sql)
 
 ```sql
 -- 1. Füge Spalte zur SELECT-Liste hinzu
@@ -594,7 +594,7 @@ client_source AS (
         -- ... bestehende Spalten ...
         tax_number,              -- ← NEU
         -- ...
-    FROM {{ source('staging', 'ext_werkportal_company') }}
+    FROM {{ source('staging', 'ext_jira_company') }}
 ),
 
 -- 2. Falls im Hash Diff: Füge zur hashdiff_columns Liste hinzu
@@ -619,7 +619,7 @@ WITH source_data AS (
         tax_number,              -- ← NEU
         dss_load_date,
         dss_record_source
-    FROM {{ ref('werkportal_company') }}
+    FROM {{ ref('jira_company') }}
     WHERE hk_company IS NOT NULL
 ),
 -- ... Rest bleibt gleich ...
@@ -632,7 +632,7 @@ WITH source_data AS (
 dbt run-operation stage_external_sources
 
 # Satellite neu bauen (full-refresh wegen Schemaänderung!)
-dbt run --full-refresh --select werkportal_company sat_company
+dbt run --full-refresh --select jira_company sat_company
 
 # Tests ausführen
 dbt test --select sat_company
@@ -656,7 +656,7 @@ Eine komplett neue Entity soll ins Data Vault (z.B. `product` aus einer neuen Qu
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. External Table    →  2. Staging View  →  3. Hub             │
 │        ↓                                          ↓              │
-│  sources.yml               werkportal_product.sql      hub_product.sql │
+│  sources.yml               jira_product.sql      hub_product.sql │
 │                                   ↓                    ↓         │
 │                            4. Satellite         5. Link          │
 │                            sat_product.sql      link_*.sql       │
@@ -680,9 +680,9 @@ sources:
       # ═══════════════════════════════════════════
       # NEU: Product
       # ═══════════════════════════════════════════
-      - name: ext_werkportal_product
+      - name: ext_jira_product
         external:
-          location: "werkportal/postgres/public.wp_product.parquet"
+          location: "jira/postgres/public.wp_product.parquet"
           file_format: ParquetFormat
         columns:
           - name: object_id
@@ -707,11 +707,11 @@ sources:
 
 ### Schritt 2: Staging View erstellen
 
-📄 **Neue Datei:** `models/staging/werkportal_product.sql`
+📄 **Neue Datei:** `models/staging/jira_product.sql`
 
 ```sql
 /*
- * Staging Model: werkportal_product
+ * Staging Model: jira_product
  * 
  * Bereitet Product-Daten für das Data Vault vor.
  * Hash Key Separator: '^^' (DV 2.1 Standard)
@@ -725,7 +725,7 @@ sources:
 ] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_product') }}
+    SELECT * FROM {{ source('staging', 'ext_jira_product') }}
 ),
 
 staged AS (
@@ -769,7 +769,7 @@ staged AS (
         -- ===========================================
         -- METADATA
         -- ===========================================
-        COALESCE(dss_record_source, 'werkportal') AS dss_record_source,
+        COALESCE(dss_record_source, 'jira') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
         dss_run_id
         
@@ -804,7 +804,7 @@ WITH source_data AS (
         object_id,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('werkportal_product') }}
+    FROM {{ ref('jira_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
@@ -866,7 +866,7 @@ WITH source_data AS (
         description,
         price,
         category_id
-    FROM {{ ref('werkportal_product') }}
+    FROM {{ ref('jira_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
@@ -1036,13 +1036,13 @@ ORDER BY c.column_id;
 # 1. External Table erstellen
 dbt run-operation stage_external_sources
 # oder einzelne Tabelle
-dbt run-operation stage_external_sources --args 'select: staging.ext_werkportal_product'
+dbt run-operation stage_external_sources --args 'select: staging.ext_jira_product'
 
 # 2. Alle neuen Models bauen (mit Upstream-Dependencies)
-dbt run --select +raw_vault.werkportal.hub_product +raw_vault.werkportal.sat_product
+dbt run --select +raw_vault.jira.hub_product +raw_vault.jira.sat_product
 
 # 3. Tests ausführen
-dbt test --select raw_vault.werkportal.hub_product raw_vault.werkportal.sat_product
+dbt test --select raw_vault.jira.hub_product raw_vault.jira.sat_product
 
 # 4. Ghost Records hinzufügen (optional)
 # → Macro in ghost_records.sql erweitern
@@ -1475,13 +1475,13 @@ Ein **Dependent Child Satellite** wird verwendet, wenn ein Link zusätzliche Sch
 Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten:
 
 ```sql
--- Beispiel: werkportal_order_item.sql (mit DCK: line_item_no)
+-- Beispiel: jira_order_item.sql (mit DCK: line_item_no)
 
 {%- set hashdiff_columns = ['quantity', 'unit_price', 'discount'] -%}
 {%- set hashdiff_dc_columns = ['line_item_no', 'quantity', 'unit_price', 'discount'] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_order_item') }}
+    SELECT * FROM {{ source('staging', 'ext_jira_order_item') }}
 ),
 
 staged AS (
@@ -1546,7 +1546,7 @@ SELECT * FROM staged
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "werkportal_order_item"
+source_model: "jira_order_item"
 src_pk: "hk_link_order_product"
 src_hashdiff: 
   source_column: "hd_order_product_dc"
@@ -1592,13 +1592,13 @@ Ein **Multi-Active Satellite** erlaubt **mehrere gleichzeitig gültige Werte** f
 #### Staging-View Anforderungen
 
 ```sql
--- Beispiel: werkportal_employee_phone.sql (mit CDK: phone_type)
+-- Beispiel: jira_employee_phone.sql (mit CDK: phone_type)
 
 {%- set hashdiff_columns = ['phone_number', 'is_primary'] -%}
 {%- set hashdiff_ma_columns = ['phone_type', 'phone_number', 'is_primary'] -%}
 
 WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_employee_phone') }}
+    SELECT * FROM {{ source('staging', 'ext_jira_employee_phone') }}
 ),
 
 staged AS (
@@ -1649,7 +1649,7 @@ SELECT * FROM staged
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "werkportal_employee_phone"
+source_model: "jira_employee_phone"
 src_pk: "hk_employee"
 src_cdk:
     - "phone_type"
@@ -2066,7 +2066,7 @@ Das Projekt verwendet **GitHub Actions** für automatisiertes Deployment. Der Se
 |----------|---------|-------|
 | **CI** | PR nach main/dev | Validierung (compile + test) |
 | **Deploy Dev** | Push auf main / manual | Deployment nach Vault (Dev) |
-| **Deploy Prod** | Tag v* / manual + Approval | Deployment nach Vault_Werkportal |
+| **Deploy Prod** | Tag v* / manual + Approval | Deployment nach Vault_Jira |
 | **Docs** | Push auf main / manual | dbt docs → GitHub Pages |
 
 #### Workflow manuell ausführen
@@ -2076,7 +2076,7 @@ Das Projekt verwendet **GitHub Actions** für automatisiertes Deployment. Der Se
 gh workflow run deploy-dev.yml --ref main
 
 # Deploy Prod manuell triggern (erfordert Approval!)
-gh workflow run deploy-prod.yml --ref main -f target=werkportal
+gh workflow run deploy-prod.yml --ref main -f target=jira
 
 # Docs generieren
 gh workflow run docs.yml --ref main
@@ -2132,7 +2132,7 @@ gh pr merge <pr-number> --squash
 # 7. Für Prod: Tag erstellen oder manuell triggern
 git tag v1.0.0 && git push origin v1.0.0
 # ODER
-gh workflow run deploy-prod.yml --ref main -f target=werkportal
+gh workflow run deploy-prod.yml --ref main -f target=jira
 # → Approval in GitHub erforderlich!
 ```
 
@@ -2144,23 +2144,23 @@ gh workflow run deploy-prod.yml --ref main -f target=werkportal
 # ╚═══════════════════════════════════════════════════════╝
 
 # 1. External Tables in Prod erstellen/aktualisieren
-dbt run-operation stage_external_sources --target werkportal
+dbt run-operation stage_external_sources --target jira
 
 # 2. Seeds laden (falls geändert)
-dbt seed --target werkportal
+dbt seed --target jira
 
 # 3. Models deployen
-dbt run --target werkportal
+dbt run --target jira
 
 # 4. Tests in Prod
-dbt test --target werkportal
+dbt test --target jira
 ```
 
 ### Full Refresh (Schema-Änderungen)
 
 ```bash
 # Bei Spaltenänderungen: Full Refresh erforderlich!
-dbt run --full-refresh --target werkportal
+dbt run --full-refresh --target jira
 ```
 
 ---
@@ -2250,7 +2250,7 @@ dbt debug
 | CI läuft nicht | Prüfen ob Änderungen in `models/`, `macros/`, etc. (Path Filter!) |
 | Profile not found | `profile:` in dbt_project.yml muss mit profiles.yml übereinstimmen |
 | Runner offline | `sudo systemctl restart actions.runner.fellnerd-datavault-dbt.dbt-runner-vm` |
-| Prod-Tests fehlen | `dbt seed --target werkportal` ausführen |
+| Prod-Tests fehlen | `dbt seed --target jira` ausführen |
 | Azure Login failed | Service Principal Secret ggf. abgelaufen, neu generieren |
 
 ---

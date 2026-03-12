@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TB
     subgraph Sources["🗄️ Quellsysteme"]
-        PG[(PostgreSQL<br/>werkportal)]
+        PG[(PostgreSQL<br/>jira)]
         AW[(SQL Server<br/>AdventureWorks)]
         API[/REST API<br/>Tempo/]
     end
@@ -70,8 +70,8 @@ flowchart TB
 
 | Quelle | Pipeline | Ziel-Pfad | Frequenz |
 |--------|----------|-----------|----------|
-| werkportal.company_client | pl_werkportal | `/raw/werkportal/company_client/` | Daily |
-| werkportal.countries | pl_werkportal | `/raw/werkportal/countries/` | Daily |
+| jira.company_client | pl_jira | `/raw/jira/company_client/` | Daily |
+| jira.countries | pl_jira | `/raw/jira/countries/` | Daily |
 | AdventureWorks.Customer | pl_adventureworks | `/raw/aw/customer/` | Daily |
 
 ### 2. ADLS → Staging

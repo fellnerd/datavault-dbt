@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TB
     subgraph Sources["🗄️ Quellsysteme"]
-        WP[(werkportal<br/>PostgreSQL)]
+        WP[(jira<br/>PostgreSQL)]
         AW[(AdventureWorks<br/>SQL Server)]
         TEMPO[(Tempo<br/>API)]
     end
@@ -16,7 +16,7 @@ flowchart TB
     
     subgraph Storage["☁️ ADLS Gen2"]
         direction TB
-        P1[/werkportal/*.parquet/]
+        P1[/jira/*.parquet/]
         P2[/adventureworks/*.parquet/]
         P3[/tempo/*.parquet/]
     end
@@ -29,7 +29,7 @@ flowchart TB
     SYN --> P3
 ```
 
-## Quellsystem: werkportal (PostgreSQL)
+## Quellsystem: jira (PostgreSQL)
 
 | Quelltabelle | Staging View | Hub | Satellite |
 |--------------|--------------|-----|-----------|

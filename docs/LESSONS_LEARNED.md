@@ -232,7 +232,7 @@ Statt: Timestamp-basierter Vergleich
 |---------|--------|----------------|
 | Hash Keys (SHA2_256) | ✅ | `HASHBYTES()` mit CHAR(64) |
 | Hash Diff für Change Detection | ✅ | `hd_*` Spalten in Satellites |
-| Hash Separator '^^' | ✅ | Composite Keys in werkportal_company |
+| Hash Separator '^^' | ✅ | Composite Keys in jira_company |
 | dss_load_date Metadata | ✅ | Alle Vault-Objekte |
 | dss_record_source | ✅ | Quellsystem-Tracking |
 | dss_is_current Flag | ✅ | Satellites mit Post-Hook |
@@ -277,7 +277,7 @@ Statt: Timestamp-basierter Vergleich
 |----------|-------|---------|----------|
 | **CI** | `.github/workflows/ci.yml` | PR nach main/dev + Path Filter | dbt compile + dbt test |
 | **Deploy Dev** | `.github/workflows/deploy-dev.yml` | Push auf main + manual | dbt run → Vault DB |
-| **Deploy Prod** | `.github/workflows/deploy-prod.yml` | Tag v* + manual + Approval | dbt run → Vault_Werkportal |
+| **Deploy Prod** | `.github/workflows/deploy-prod.yml` | Tag v* + manual + Approval | dbt run → Vault_Jira |
 | **Docs** | `.github/workflows/docs.yml` | Push auf main + manual | dbt docs → GitHub Pages |
 
 ### Path Filter Konfiguration
@@ -299,13 +299,13 @@ Workflows werden **nur** bei Änderungen an folgenden Pfaden getriggert:
 
 ### CI/CD Lessons Learned
 
-1. **Profile-Name muss übereinstimmen:** `profiles.yml` Profile-Name muss mit `dbt_project.yml` → `profile:` übereinstimmen (`datavault`, nicht `datavault_werkportal`)
+1. **Profile-Name muss übereinstimmen:** `profiles.yml` Profile-Name muss mit `dbt_project.yml` → `profile:` übereinstimmen (`datavault`, nicht `datavault_jira`)
 
 2. **DBT_PROFILES_DIR beachten:** Wenn `DBT_PROFILES_DIR` gesetzt ist, muss `profiles.yml` dort erstellt werden, nicht in `~/.dbt/`
 
 3. **GitHub Pages vorher aktivieren:** Docs-Workflow schlägt fehl, wenn GitHub Pages nicht aktiviert ist
 
-4. **Seeds in Prod:** `ref_role` Seed existiert nur in Dev - bei Prod-Deployment müssen Seeds mit `dbt seed --target werkportal` geladen werden
+4. **Seeds in Prod:** `ref_role` Seed existiert nur in Dev - bei Prod-Deployment müssen Seeds mit `dbt seed --target jira` geladen werden
 
 5. **Runner Version:** Aktuelle Runner-Version dynamisch ermitteln statt hardcoden
 

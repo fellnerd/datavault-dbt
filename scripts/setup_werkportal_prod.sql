@@ -1,9 +1,9 @@
 -- =====================================================
--- SETUP SCRIPT: Vault_Werkportal (Produktion)
+-- SETUP SCRIPT: Vault_Jira (Produktion)
 -- =====================================================
 -- Ausführen in Azure Data Studio oder Azure Portal
 -- Verbindung: sql-datavault-weu-001.database.windows.net
--- Datenbank: Vault_Werkportal
+-- Datenbank: Vault_Jira
 -- =====================================================
 
 -- 1. SCHEMAS ERSTELLEN
@@ -56,7 +56,7 @@ GO
 
 -- 6. EXTERNAL TABLE: ext_company_client
 -- =====================================================
--- Pfad anpassen: /werkportal/company_client/*.parquet
+-- Pfad anpassen: /jira/company_client/*.parquet
 IF NOT EXISTS (SELECT 1 FROM sys.external_tables WHERE name = 'ext_company_client' AND schema_id = SCHEMA_ID('stg'))
     CREATE EXTERNAL TABLE [stg].[ext_company_client] (
         [object_id] INT,
@@ -76,7 +76,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.external_tables WHERE name = 'ext_company_clien
         [dss_run_id] NVARCHAR(100)
     )
     WITH (
-        LOCATION = '/werkportal/company_client/',
+        LOCATION = '/jira/company_client/',
         DATA_SOURCE = adls_source,
         FILE_FORMAT = ParquetFormat
     );
@@ -91,4 +91,4 @@ FROM sys.external_tables t
 JOIN sys.schemas s ON t.schema_id = s.schema_id;
 GO
 
-PRINT '✅ Setup abgeschlossen. Jetzt dbt run --target werkportal ausführen.'
+PRINT '✅ Setup abgeschlossen. Jetzt dbt run --target jira ausführen.'

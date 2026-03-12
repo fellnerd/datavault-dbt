@@ -8,7 +8,7 @@ Dieses Projekt implementiert eine virtualisierte Data Vault 2.1 Architektur als 
 ## ARCHITEKTUR
 
 ### Komponenten
-- **Source:** PostgreSQL (werkportal) → Synapse Pipeline → ADLS Gen2 Parquet
+- **Source:** PostgreSQL (jira) → Synapse Pipeline → ADLS Gen2 Parquet
 - **Staging:** Azure SQL External Tables (PolyBase) → `[stg].[ext_*]`
 - **Transformation:** dbt Core auf Linux VM (10.0.0.25)
 - **Target:** Azure SQL Database (`sql-datavault-weu-001.database.windows.net`)
@@ -34,12 +34,12 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View
 ## NAMENSKONVENTIONEN
 
 ### Tabellen/Views
-- Hub: `vault_<concept>.hub_<entity>` (z.B. `vault_werkportal.hub_company`)
-- Satellite: `vault_<concept>.sat_<entity>` (z.B. `vault_werkportal.sat_company`)
-- Link: `vault_<concept>.link_<entity1>_<entity2>` (z.B. `vault_werkportal.link_company_country`)
+- Hub: `vault_<concept>.hub_<entity>` (z.B. `vault_jira.hub_company`)
+- Satellite: `vault_<concept>.sat_<entity>` (z.B. `vault_jira.sat_company`)
+- Link: `vault_<concept>.link_<entity1>_<entity2>` (z.B. `vault_jira.link_company_country`)
 - Common Hub: `vault.hub_<entity>` (quell-übergreifend integriert)
-- Staging View: `stg.<concept>_<entity>` (z.B. `stg.werkportal_company`)
-- External Table: `stg.ext_<concept>_<entity>` (z.B. `stg.ext_werkportal_company`)
+- Staging View: `stg.<concept>_<entity>` (z.B. `stg.jira_company`)
+- External Table: `stg.ext_<concept>_<entity>` (z.B. `stg.ext_jira_company`)
 
 ### Spalten
 - Hash Key: `hk_<entity>` (SHA2_256, CHAR(64))
@@ -59,7 +59,7 @@ dbt deps           # Packages installieren
 dbt compile        # SQL generieren (ohne Ausführung)
 dbt run            # Alle Models ausführen
 dbt run --select hub_company         # Einzelnes Model
-dbt run --select raw_vault.werkportal  # Alle Werkportal Models
+dbt run --select raw_vault.jira  # Alle Jira Models
 dbt test           # Tests ausführen
 ```
 
