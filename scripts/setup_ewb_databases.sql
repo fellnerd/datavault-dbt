@@ -9,15 +9,10 @@
 -- Reihenfolge: datavault-dev → datavault-test → datavault (Prod zuletzt)
 --
 -- Voraussetzung:
---   SAS-Token für Storage Account "analyticsstoraccount001", Container "stage-fs"
---   Berechtigungen: rl (read + list)
---   Generieren:
---     az storage container generate-sas \
---       --account-name analyticsstoraccount001 --name stage-fs \
---       --permissions rl --expiry 2027-01-01 \
---       --account-key $(az storage account keys list ...) -o tsv
---
--- SAS-Token (ohne führendes '?') als :SAS_TOKEN Variable setzen oder manuell einsetzen
+--   Managed Identity der Azure SQL-Instanz muss Storage Blob Data Reader
+--   auf Container "stage-fs" in Storage Account "analyticsstoraccount001" haben.
+--   (RBAC via Azure Portal / az role assignment create)
+--   Kein SAS-Token erforderlich.
 -- =============================================================================
 
 -- Zieldatenbank setzen (ggf. manuell wechseln wenn USE nicht unterstützt)
@@ -53,21 +48,16 @@ IF NOT EXISTS (
 GO
 
 -- =============================================================================
--- 3. DATABASE SCOPED CREDENTIAL (SAS Token)
+-- 3. DATABASE SCOPED CREDENTIAL (Managed Identity)
 -- =============================================================================
--- SAS-Token generieren (einmalig, Ablauf z.B. 1 Jahr):
---   az storage container generate-sas --account-name analyticsstoraccount001
---     --name stage-fs --permissions rl --expiry 2027-01-01
---     --account-key $(az storage account keys list -g arg-analytics-ewb-01
---       --account-name analyticsstoraccount001 --query '[0].value' -o tsv) -o tsv
---
--- !! <SAS_TOKEN> unten durch den generierten Token ersetzen (ohne '?') !!
+-- Verwendet die Managed Identity der Azure SQL-Instanz für den Storage-Zugriff.
+-- Kein Secret / SAS-Token erforderlich.
+-- Voraussetzung: RBAC Storage Blob Data Reader auf Container "stage-fs" vergeben.
 IF NOT EXISTS (
-    SELECT 1 FROM sys.database_scoped_credentials WHERE name = 'ewb_stage_fs_sas'
+    SELECT 1 FROM sys.database_scoped_credentials WHERE name = 'managed_identity'
 )
-    CREATE DATABASE SCOPED CREDENTIAL ewb_stage_fs_sas
-        WITH IDENTITY = 'SHARED ACCESS SIGNATURE',
-        SECRET = '<SAS_TOKEN>';
+    CREATE DATABASE SCOPED CREDENTIAL managed_identity
+        WITH IDENTITY = 'Managed Service Identity';
 GO
 
 -- =============================================================================
@@ -88,17 +78,17 @@ GO
 -- =============================================================================
 -- Zeigt auf Container "stage-fs" im Storage Account "analyticsstoraccount001"
 -- Format: adls://<account>.dfs.core.windows.net/<container>
--- (Azure SQL Database Enterprise Edition unterstützt das adls://-Schema mit
---  SAS-Credential; abfss:// und https://blob... funktionieren NICHT)
--- Name "StageFileSystem" ist der einheitliche Name für alle Konzepte (Jira,
--- Werkportal, AdventureWorks, EWB) – muss in allen DBs identisch heissen.
+-- (Azure SQL Database unterstützt das adls://-Schema; abfss:// und
+--  https://blob... funktionieren NICHT)
+-- Name "StageFileSystem" ist der einheitliche Name für alle Konzepte
+-- (Werkportal, AdventureWorks, EWB) – muss in allen DBs identisch heissen.
 IF NOT EXISTS (
     SELECT 1 FROM sys.external_data_sources WHERE name = 'StageFileSystem'
 )
     CREATE EXTERNAL DATA SOURCE StageFileSystem
         WITH (
             LOCATION = 'adls://analyticsstoraccount001.dfs.core.windows.net/stage-fs',
-            CREDENTIAL = ewb_stage_fs_sas
+            CREDENTIAL = managed_identity
         );
 GO
 
@@ -109,7 +99,7 @@ SELECT 'Schema'       AS [Typ], name AS [Name] FROM sys.schemas
     WHERE name IN ('stg', 'vault', 'bv', 'mart')
 UNION ALL
 SELECT 'Credential',  name FROM sys.database_scoped_credentials
-    WHERE name = 'ewb_stage_fs_sas'
+    WHERE name = 'managed_identity'
 UNION ALL
 SELECT 'File Format', name FROM sys.external_file_formats
     WHERE name = 'ParquetFormat'
@@ -133,7 +123,7 @@ GO
 -- Erwartet: Zeilen mit file_name = 'FIBU.FHE.Main' o.ä.
 -- GO
 
-PRINT '✅ EWB Basis-Setup abgeschlossen.';
+PRINT 'EWB Basis-Setup abgeschlossen.';
 PRINT 'Nächste Schritte:';
 PRINT '  1. export DBT_EWB_SQL_PASSWORD=<Passwort>';
 PRINT '  2. cd datavault-dbt';
