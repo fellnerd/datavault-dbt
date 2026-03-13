@@ -1,6 +1,6 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 13. März 2026  
 **Agenten:** synapse-validator + vault-architect  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects)
 
@@ -23,6 +23,26 @@ Die Synapse `structured-tables` Views dienen als Referenz. Alle DV-Objekte müss
 
 > **Architektur-Entscheidung:** Der neue Data Vault liest direkt aus `landing-zone` (via `stage-fs`), nicht aus `structured-tables`. Die DV-Schicht leitet die Transformationslogik eigenständig ab.
 
+### 1b. Business-Logik-Extraktion (13. März 2026)
+
+Aus der ADF-Pipeline `structured-tables Daily` (Orchestrator: Finance + Projekt + Manual Data → PowerBI Refresh) wurden die SQL-Transformationen aller 7 Views vollständig extrahiert (→ `docs/synapse-structured-tables-logic.md`).
+
+**Kernerkenntnisse:**
+
+| Synapse View | Transformations-Komplexität | DV-Zuordnung |
+|---|---|---|
+| Finance.Buchungen | **Hoch** — 4-way UNION ALL mit Vorzeichen-Logik, MWST-Anpassung, KTO/GKTO-Tausch | → Mart View |
+| Finance.Belege | Mittel — LEFT JOIN KBL + KVL (`BELNR = DOCUMENTNR`) | → Link + Mart View |
+| Finance.Kunden | Niedrig — Einfacher SELECT aus KBL, **kein DISTINCT** (denormalisiert) | → **Kein eigener Hub** — Stammdaten aus PUBL.ADR |
+| Projekt.Personal | Mittel — ADR + LEN mit 3-stufiger Deduplizierung, Mitarbeiter-Filter | → Mart View (Filter = Business-Logik) |
+| Projekt.Stunden | **Hoch** — PROJNR = PersonalNr (⚠️), INNER JOIN ADR, Datum-Konstruktion | → Mart View |
+| Projekt.Projekt | Mittel — 4-way LEFT JOIN inkl. 2× Sharepoint-Tabellen | → Mart View (Sharepoint = Enrichment) |
+| Projekt.Abteilung | Niedrig — LEN + LTC mit `GROUP=1` Filter, DISTINCT | → Mart View |
+
+Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Manual Data landingzone`-Pipeline als Direktkopien (ohne Transformation) geladen werden: Budget, Konten, Kostenstellen, Zugangsrechte, Forecast, ActualForecast.
+
+> **Fazit:** Die structured-tables Views enthalten erhebliche Business-Logik (Vorzeichen, Filter, Joins, Deduplizierung). Diese gehört in die **Mart-Schicht**, nicht ins Raw Vault. Das Raw Vault bildet die Abacus-Quellen 1:1 ab; die Mart Views replizieren dann die Synapse-Logik.
+
 ---
 
 ## 2. Hubs
@@ -34,6 +54,7 @@ Die Synapse `structured-tables` Views dienen als Referenz. Alle DV-Objekte müss
 | `hub_kreditorenbeleg` | Belegnummer | `BELEGNR` | `ewb_kred_kbl_main` | `hk_ewb_kred_kbl` | P2 |
 | `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_ewb_kred_kvl` | P3 |
 | `hub_kreditor` | Lieferantennummer | `LIEFNR` | `ewb_kred_kbs_main` | `hk_ewb_kred_kbs` | P1 |
+| `hub_adresse` | Adressnummer | `ADRESSNR` | `ewb_publ_adr_main` | `hk_ewb_publ_adr` | P1 |
 | `hub_projekt` | Projektnummer | `PRONR` | `ewb_proj_npo_main` | `hk_ewb_proj_npo` | P1 |
 | `hub_projekttaetigkeit` | Projekt + Positionsnr | `PRONR\|\|POSNR` | `ewb_proj_ntc_main` | `hk_ewb_proj_ntc` | P3 |
 | `hub_stundenbuchung` | Perioden-Zeile ⁴ | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB` | `ewb_proj_nsa_main` | `hk_ewb_proj_nsa` | P3 |
@@ -42,11 +63,13 @@ Die Synapse `structured-tables` Views dienen als Referenz. Alle DV-Objekte müss
 
 > ¹ Klärungsbedarf → Offene Frage F1  
 > ² Alternativ Reference Table → Offene Frage F3  
-> ⁴ BK und Personenbezug ungeklärt → Offene Frage F2 (tatsächliche NSA-Spalten abgeklärt: Spaltename ist `PROJNR` nicht `PRONR`, kein `SATZID`, kein direktes Personalfeld)
+> ⁴ BK beinhaltet `PROJNR` — **ACHTUNG: `PROJNR` in NSA = PersonalNr (nicht ProjektNr!)** Synapse `Projekt.Stunden` castet `PROJNR` zu `PersonalNr` und joint via `PROJNR = LOHNNR` auf `PUBL.ADR`. BK-Semantik: `PersonalNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`. Siehe F2 (teilweise gelöst).
+
+**Hinweis `hub_adresse`** (neu): `PUBL.ADR` ist die zentrale Stammdaten-Quelle für Personen, Kunden und Adressen. Die Synapse-View `Finance.Kunden` extrahiert KNR/ADRID direkt aus `KRED.KBL` (Transaktionsdaten, kein DISTINCT) — das ist **keine valide Stammdaten-Quelle**. Kundeninformationen sollen im DV aus `hub_adresse` / `sat_adresse` kommen, nicht aus einem dedizierten "hub_kunde" basierend auf KBL.
 
 **Ghost-Record-Hubs** (kein dedizierter Pilot-Source, werden über FK-Spalten der GL befüllt):
-- `hub_konto` — BK aus `FIBU.GL.KONTNR`
-- `hub_kostenstelle` — BK aus `FIBU.GL.KOSTNR`
+- `hub_konto` — BK aus `FIBU.GL.KONTNR` (Stammdaten via Sharepoint `Finance.Konten` verfügbar → Lücke #4 gelöst)
+- `hub_kostenstelle` — BK aus `FIBU.GL.KOSTNR` (Stammdaten via Sharepoint `Finance.Kostenstellen` verfügbar → Lücke #4 gelöst)
 
 ---
 
@@ -84,10 +107,15 @@ Die Synapse `structured-tables` Views dienen als Referenz. Alle DV-Objekte müss
 | `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl_e2x` | P3 |
 | `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl_e2x` | P3 |
 | `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 |
-| `link_stundenbuchung_projekt` | `hub_stundenbuchung` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
-| `link_stundenbuchung_person` | `hub_stundenbuchung` ↔ `hub_person` | Nein | `ewb_proj_nsa_main` | P3 |
+| `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 |
+| `link_stundenbuchung_person` ⁶ | `hub_stundenbuchung` ↔ `hub_person` | Nein | `ewb_proj_nsa_main` | P3 |
+| `link_stundenbuchung_projekt` ⁷ | `hub_stundenbuchung` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
 | `link_stundenbuchung_leistungsart` | `hub_stundenbuchung` ↔ `hub_leistungsart` | Nein | `ewb_proj_nsa_main` | P3 |
 | `link_projekttaetigkeit_projekt` | `hub_projekttaetigkeit` ↔ `hub_projekt` | Nein | `ewb_proj_ntc_main` | P3 |
+
+> ⁵ **Neu (13.3.2026):** Aus Synapse `Finance.Belege` abgeleitet: `KBL.BELNR = KVL.DOCUMENTNR`. Dieser JOIN bildet die natürliche Beziehung Beleg↔Zahlung ab.  
+> ⁶ **Bestätigt (13.3.2026):** `NSA.PROJNR = ADR.LOHNNR` — Synapse `Projekt.Stunden` joint NSA mit PUBL.ADR via `PROJNR = LOHNNR` (INNER JOIN). Da `PROJNR` in NSA die PersonalNr speichert, ist dieser Link direkt ableitbar. FK: `NSA.PROJNR` → `ADR.LOHNNR` → `hub_person`.  
+> ⁷ **Klärungsbedarf:** Da `PROJNR` in NSA die PersonalNr ist (nicht ProjektNr), ist ein direkter `link_stundenbuchung_projekt` aus NSA allein **nicht möglich**. Projektzuordnung könnte ggf. über `PROJ.NTC` oder eine andere Quelle erfolgen — noch zu klären.
 
 ---
 
@@ -108,7 +136,7 @@ Die Synapse `structured-tables` Views dienen als Referenz. Alle DV-Objekte müss
 
 ### Wave 2 — Transaktionsobjekte
 
-**Voraussetzung:** Wave 1 deployed, Ghost-Record-Pattern für `hub_konto` / `hub_kostenstelle` geklärt (→ F1)
+**Voraussetzung:** Wave 1 deployed (F1 gelöst ✅ — Composite BK `DKBELEGNUMMER||KTO` bestätigt)
 
 **Staging:**
 - `ewb_fibu_fhe_main` (bereits vorhanden ✅)
@@ -166,34 +194,41 @@ Die Synapse `structured-tables` Views dienen als Referenz. Alle DV-Objekte müss
 
 ## 7. Offene Design-Fragen (vor Implementierungsstart klären)
 
-### F1 — FIBU.GL Business Key: Composite oder einfach?
+### F1 — FIBU.GL Business Key: Composite oder einfach? — **GELÖST** ✅
 
-In klassischer Buchführung ist `BELEGNR` der Belegidentifikator und `KONTO` eine Dimension. Zwei mögliche Modellierungen:
+**Ergebnis (13. März 2026 — Datenanalyse `stg.ext_ewb_fibu_gl_e25`):**
 
-- **Option A** (aktueller Plan): `hub_hauptbuch` mit composite BK `BELEGNR||KONTO` — jede Buchungszeile ist eine eigene Hub-Instanz
-- **Option B**: `hub_hauptbuch` mit BK=`BELEGNR` + eigener `hub_konto` mit BK=`KONTNR`
+Dieselbe `DKBELEGNUMMER` erscheint auf **mehreren Konten** (Soll/Haben-Buchung). Datenbeleg:
 
-**Klärungsfrage:** Kann dieselbe `BELEGNR` auf mehreren Konten erscheinen (Soll/Haben-Buchung)? Falls ja → Option A. Falls nein → Option B ist sauberer.
+| Typ | Belegnummern | Zeilen |
+|---|---:|---:|
+| Eindeutig (1 KTO) | 6.800 | 6.800 |
+| Mehrfach (2+ KTO) | 2.784 | 14.906 |
 
-### F2 — PROJ.NSA: Business Key und Personenbezug
+29% aller Belegnummern erscheinen auf 2–5 verschiedenen Konten (z.B. Beleg 204188 → 22 Zeilen auf 5 Konten).
+
+**→ Option A bestätigt:** Composite BK `DKBELEGNUMMER||KTO` ist zwingend. Jede Buchungszeile ist eine eigene Hub-Instanz.
+
+> Hinweis: Spaltenname im Parquet ist `DKBELEGNUMMER` (nicht `BELEGNR` wie in Synapse-Views).
+
+### F2 — PROJ.NSA: Business Key und Personenbezug — **TEILWEISE GELÖST** ✅
 
 Abgeklärt via `sys.columns` auf `stg.ext_ewb_proj_nsa_main` (datavault-dev, 12. März 2026):
 
 **Tatsächliche Spalten (27 total):**
 `RECNUM, DATASET, CODE, PROJNR, GB, PERIYEAR, PERIMONTH, BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, RESERVE, RESERVE2, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT` + DSS-Metadaten
 
-**Erkenntnisse:**
-- Spalte **`PROJNR`** existiert ✅ — ProjektNr ist in NSA vorhanden, kein Datenproblem
-- Spalte `PRONR` existiert **nicht** — war Fehlannahme aus Synapse-Analyse
-- Spalte `SATZID` existiert **nicht**
-- NSA ist eine **aggregierte Periodenauswertung** auf Ebene `PROJNR + CODE + PERIYEAR + PERIMONTH + GB` (keine Einzel-Stundenbuchungen pro Person/Tag)
-- Kein direkt sichtbares Personalfeld — Synapse `Projekt.Stunden` joinned NSA mit PUBL.ADR über unbekanntes Feld
+**Gelöst (13. März 2026 — Synapse-Analyse):**
+- **`PROJNR` = PersonalNr (nicht ProjektNr!)** — Synapse `Projekt.Stunden` castet `CAST(T1.[PROJNR] as int) AS [PersonalNr]`
+- **Personenbezug bestätigt:** `NSA.PROJNR = ADR.LOHNNR` (INNER JOIN in Synapse) → `link_stundenbuchung_person` ist möglich ✅
+- **`CODE` = LeistungsartNr** — Join `NSA.CODE = NTR.RECNUM` bestätigt → `link_stundenbuchung_leistungsart` ist möglich ✅
+- **BK-Semantik revidiert:** `PersonalNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`
+- **Filter:** Synapse filtert `AZBETINT <> 0` (nur Zeilen mit Betrag) — dies ist Mart-Logik
 
-**Klärungsfragen für Meeting:**
-1. Was bedeutet `CODE` in NSA — Mitarbeiterkürzel, Leistungsart (→ NTR), oder Kostenstelle?
-2. Wie kommt der Personenbezug in NSA? Über welches Feld wird PUBL.ADR gejoint?
-3. Ist `RECNUM` ein stabiler Business Key oder ein technischer Zähler ohne Semantik?
-4. Falls kein Personenbezug ableitbar: `link_stundenbuchung_person` entfällt — akzeptabel?
+**Verbleibend offen:**
+1. Woher kommt die Projektzuordnung? `PROJNR` ist PersonalNr, nicht ProjektNr → `link_stundenbuchung_projekt` kann NICHT direkt aus NSA abgeleitet werden. Mögliche Quelle: `PROJ.NTC` (Tätigkeiten pro Projekt)?
+2. Ist `RECNUM` ein stabiler Business Key oder ein technischer Zähler?
+3. ⚠️ **Naming-Kollision:** `PROJNR` bedeutet in `PROJ.NPO` die Projektnummer, in `PROJ.NSA` aber die Personalnummer — Verwechslungsgefahr bei der Modellierung!
 
 ### F3 — PROJ.NTR: Hub oder Reference Table?
 
@@ -204,16 +239,33 @@ Leistungsarten sind typischerweise stabile Lookup-Codes (<100 Einträge, selten 
 
 **Klärungsfrage:** Werden Leistungsarten aus anderen Quellsystemen importiert? Ist Historisierung der Leistungsart-Bezeichnung relevant?
 
+### F4 — Sharepoint-Datenquellen: Reference Tables oder Mart-Level?
+
+Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktkopien (ohne Transformation) nach `structured-tables/Finance/` geladen. Zusätzlich nutzt `Projekt.Projekt` 2 weitere Sharepoint-Tabellen (`KategorisierungProjekte`, `ProjekteKategorien`) im JOIN.
+
+**Relevante Tabellen:**
+- `Sharepoint.Konten` — Kontenplan (löst Lücke #4 für `hub_konto`)
+- `Sharepoint.Kostenstellen` — Kostenstellenstamm (löst Lücke #4 für `hub_kostenstelle`)
+- `Sharepoint.Budget` / `Sharepoint.Forecast` / `Sharepoint.ActualForecast` — Planungsdaten
+- `Sharepoint.Zugangsrechte` — Berechtigungen
+- `Sharepoint.KategorisierungProjekte` + `Sharepoint.ProjekteKategorien` — Projekt-Kategorisierung
+
+**Klärungsfragen:**
+1. Sollen Konten + Kostenstellen als **Reference Tables** im DV importiert werden? (empfohlen — löst Ghost-Record-Problem)
+2. Sollen die 2 Kategorisierungs-Tabellen in den DV-Scope? Oder nur als Mart-Level-Enrichment beibehalten?
+3. Wird eine `landing-zone`-Bereitstellung der Sharepoint-Daten eingerichtet? Aktuell kommen sie nur via Synapse `[Sharepoint].*` Schema.
+
 ---
 
 ## 8. Kritische Lücken (Synapse vs. DV-Scope)
 
-| # | Lücke | Impact | Empfehlung |
-|---|---|---|---|
-| 1 | `Projekt.Stunden` (Synapse) ohne ProjektNr | Synapse-Join-Logik unvollständig | Kein Problem im DV-Scope: `stg.ext_ewb_proj_nsa_main` enthält `PROJNR` direkt |
-| 2 | `hub_konto` / `hub_kostenstelle` ohne Stammdaten-Quelle | Ghost Records ohne Beschreibung | `Finance.Konten` + `Finance.Kostenstellen` aus Synapse als Lookup-Quelle oder Sharepoint |
-| 3 | Sharepoint-Daten in `Projekt.Projekt` | Hybride Quelle (Abacus + Sharepoint) | Separater `sat_projekt_sharepoint` mit `dss_record_source = 'ewb_sharepoint'` |
-| 4 | Keine `Finance.Konten` / `Finance.Kostenstellen` im Pilot-Scope | Stammdaten für Dimensionen fehlen | Als Wave-2-Erweiterung hinzufügen |
+| # | Lücke | Impact | Status | Empfehlung |
+|---|---|---|---|---|
+| 1 | `Projekt.Stunden` (Synapse) ohne ProjektNr | Synapse-Join-Logik unvollständig | Geklärt ✅ | `PROJNR` = PersonalNr, Projekt-Link braucht andere Quelle |
+| 2 | `hub_konto` / `hub_kostenstelle` ohne Stammdaten-Quelle | Ghost Records ohne Beschreibung | Geklärt ✅ | Sharepoint `Finance.Konten` + `Finance.Kostenstellen` als Reference Tables importieren (→ F4) |
+| 3 | Sharepoint-Daten in `Projekt.Projekt` | Hybride Quelle (Abacus + Sharepoint) | Offen | Separater `sat_projekt_sharepoint` mit `dss_record_source = 'ewb_sharepoint'` |
+| 4 | ~~Keine `Finance.Konten` / `Finance.Kostenstellen` im Pilot-Scope~~ | ~~Stammdaten für Dimensionen fehlen~~ | **GELÖST** ✅ | Konten + Kostenstellen sind als Sharepoint-Referenztabellen verfügbar — Import als Reference Tables empfohlen |
+| 5 | **`PROJNR`-Semantik unterscheidet sich zwischen Tabellen** | Verwechslungsgefahr bei Modellierung | **NEU** | In `PROJ.NPO` = ProjektNr, in `PROJ.NSA` = PersonalNr. Staging-Views müssen dies dokumentieren. Alias-Vergabe in Staging empfohlen: `PROJNR AS PERSONALNR` in NSA |
 
 ---
 
@@ -221,10 +273,112 @@ Leistungsarten sind typischerweise stabile Lookup-Codes (<100 Einträge, selten 
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 10 (+2 Ghost) | 6×P1, 1×P2, 3×P3 |
+| Hubs | 11 (+2 Ghost) | 7×P1, 1×P2, 3×P3 |
 | Satellites | 14 | 5×P1, 3×P2, 6×P3 |
-| Links | 11 | 0×P1, 3×P2, 8×P3 |
-| **Total Vault-Objekte** | **35** | |
+| Links | 12 | 0×P1, 3×P2, 9×P3 |
+| **Total Vault-Objekte** | **37** | |
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
+| Mart Views | 7 | geplant (structured-tables Replika) |
+| Reference Tables | bis zu 8 | Sharepoint-Daten (Entscheid ausstehend → F4) |
 
-*EWB Analytics Platform | PPMC AG | Stand: 12. März 2026*
+**Implementierungsstand (13. März 2026):**
+- Staging: **1/19** implementiert (`ewb_fibu_fhe_main` ✅), 19/19 External Tables in `sources.yml` konfiguriert ✅
+- Vault: **0/37** Objekte implementiert
+- Wave 1 kann **sofort starten** — keine Blocker
+
+---
+
+## 10. Mart Views (structured-tables Replika)
+
+Die 7 Synapse `structured-tables` Views werden als Mart Views auf dem Raw Vault repliziert. Die Business-Logik wird dabei 1:1 aus den Synapse-SQL-Transformationen übernommen.
+
+### 10a. Übersicht
+
+| Synapse View | Mart-Modell | Quell-Vault-Objekte | Business-Logik |
+|---|---|---|---|
+| Finance.Buchungen | `mart.v_fibu_buchungen` | `hub_hauptbuch` + `sat_hauptbuch` + `hub_konto` + `hub_kostenstelle` | 4-way UNION ALL, Vorzeichen-Flip, MWST-Anpassung, KST-Filter |
+| Finance.Belege | `mart.v_kred_belege` | `hub_kreditorenbeleg` + `sat_kreditorenbeleg` + `link_kreditorenbeleg_zahlung` | JOIN KBL + KVL via BELNR/DOCUMENTNR |
+| Finance.Kunden | `mart.v_kred_kunden` | `hub_adresse` + `sat_adresse` (bevorzugt), alternativ `hub_kreditor` + `sat_kreditorenbeleg` | Denorm aus KBL — besser über PUBL.ADR auflösen |
+| Projekt.Personal | `mart.v_personal` | `hub_person` + `sat_person` + `hub_adresse` + `sat_adresse` | ADR+LEN, Mitarbeiter-Filter (`LOHNJN=1, GESPERRT=0`), Initialen-Dedup |
+| Projekt.Stunden | `mart.v_stunden` | `hub_stundenbuchung` + `sat_stundenbuchung` + `link_stundenbuchung_person` + `link_stundenbuchung_leistungsart` | NSA+NTR+ADR, Datum-Konstruktion aus PERIYEAR/PERIMONTH, AZBETINT≠0 Filter |
+| Projekt.Projekt | `mart.v_projekt` | `hub_projekt` + `sat_projekt` + `sat_projekt_status` + ref_tables | NPO+PST(Dedup)+Sharepoint-Kategorien (2 Tabellen) |
+| Projekt.Abteilung | `mart.v_abteilung` | `hub_person` + `sat_person` + ref_abteilung | LEN+LTC, `GROUP=1` Filter, MUTATION_DATE |
+
+### 10b. Kritische Business-Regeln (zu konservieren)
+
+**Finance.Buchungen — Vorzeichen-Logik:**
+```
+Part 1: SH='S', Perspektive KTO  → Betrag NEGATIV (mit MWST-Anpassung), KST=KST, KTO=KTO
+Part 2: SH='S', Perspektive GKTO → Betrag POSITIV,                     KST=KST2, KTO=GKTO
+Part 3: SH='H', Perspektive KTO  → Betrag POSITIV,                     KST=KST, KTO=KTO
+Part 4: SH='H', Perspektive GKTO → Betrag NEGATIV,                     KST=KST2, KTO=GKTO
+```
+
+**Finance.Buchungen — MWST-Anpassung:**
+```sql
+CASE WHEN MWSTTYP = '5' OR MWSTINCL = 'E'
+    THEN BETRAG                 -- Netto (Vorsteuer oder inklusiv Typ E)
+    ELSE BETRAG + MWSTBETR      -- Brutto = Netto + MWST
+END
+```
+
+**Finance.Buchungen — Filter:**
+- `SAM <> '#'` — Sammelbuchungen ausschliessen
+- `KST NOT IN (2990, 3990, 4990, 5990, 6990, 7990)` — Konsolidierungs-Kostenstellen
+- `KTO > 30000 AND KTO < 90000` — Nur Erfolgsrechnungs-Konten (P&L)
+
+**Projekt.Personal — Mitarbeiter-Filter:**
+- `LOHNJN = '1'` — Ist Lohnempfänger
+- `GESPERRT = '0'` — Nicht gesperrt
+- `LOHNNR <> 0` — Gültige Personalnummer
+
+**Projekt.Stunden — Datum-Konstruktion:**
+```sql
+DATEFROMPARTS(
+    CASE WHEN COALESCE(PERIYEAR, 1900) = 0 THEN 1900 ELSE COALESCE(PERIYEAR, 1900) END,
+    CASE WHEN COALESCE(PERIMONTH, 1) = 0 THEN 1 ELSE COALESCE(PERIMONTH, 1) END, 1)
+```
+
+**Projekt.Projekt — Status-Dedup:** `LEN(TRIM(BEZEICHN)) > 2` für sinnvolle Statusbezeichnungen
+
+**Projekt.Abteilung — Abteilungs-Filter:** `LTC.GROUP = 1` (nur Abteilungstyp, keine anderen Gruppierungen)
+
+---
+
+## 11. Sharepoint Reference Tables
+
+Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Sharepoint-Tabellen** identifiziert. Diese stammen aus dem Synapse `[Sharepoint].*` Schema und sind **nicht Teil des Abacus `landing-zone` Scopes**.
+
+### 11a. Direktkopien (ohne Transformation)
+
+| Sharepoint-Tabelle | structured-tables Pfad | Beschreibung | DV-Relevanz |
+|---|---|---|---|
+| `Sharepoint.Budget` | `Finance/Budget/Main.parquet` | Budget-Daten (manuell gepflegt) | Planungsdaten für Mart |
+| `Sharepoint.Konten` | `Finance/Konten/Main.parquet` | Kontenplan | **Hoch** — löst Ghost-Record-Problem `hub_konto` |
+| `Sharepoint.Kostenstellen` | `Finance/Kostenstellen/Main.parquet` | Kostenstellenstamm | **Hoch** — löst Ghost-Record-Problem `hub_kostenstelle` |
+| `Sharepoint.Zugangsrechte` | `Finance/Zugangsrechte/Main.parquet` | Berechtigungen | Gering — operativ, nicht analytisch |
+| `Sharepoint.Forecast` | `Finance/Forecast/Main.parquet` | Finanz-Forecast | Planungsdaten für Mart |
+| `Sharepoint.ActualForecast` | `Finance/ActualForecast/Main.parquet` | Actual vs. Forecast | Planungsdaten für Mart |
+
+### 11b. Projekt-Enrichment (via JOIN in Synapse-Views)
+
+| Sharepoint-Tabelle | Verwendet in | JOIN-Logik | Beschreibung |
+|---|---|---|---|
+| `Sharepoint.KategorisierungProjekte` | `Projekt.Projekt` | `NPO.PROJNR = KategorisierungProjekte.Projektnummer` | Projektnummer → Kategorie-Zuordnung |
+| `Sharepoint.ProjekteKategorien` | `Projekt.Projekt` | `KategorisierungProjekte.KategorieNr = ProjekteKategorien.KategorieNr` | Kategorie-Nr → Kategorie-Name (Hauptgruppe) |
+
+### 11c. Entscheidung ausstehend (→ F4)
+
+**Option A — Reference Tables im DV:**
+- Konten + Kostenstellen als `ref_konto` / `ref_kostenstelle` importieren (dbt Seed oder External Table)
+- Vorteile: Ghost-Record-Problem gelöst, Stammdaten im DV verfügbar
+- `dss_record_source = 'ewb_sharepoint'`
+
+**Option B — Mart-Level JOIN:**
+- Sharepoint-Tabellen nur in Mart Views als Lookup-Quellen verwenden
+- Vorteile: Kein zusätzlicher DV-Scope, einfachere Architektur
+- Nachteil: Keine Historisierung der Referenzdaten
+
+> **Empfehlung:** Option A für Konten + Kostenstellen (kritische Dimensionen), Option B für Budget/Forecast/Kategorien (Planungs- und Enrichment-Daten).
+
+*EWB Analytics Platform | PPMC AG | Stand: 13. März 2026*

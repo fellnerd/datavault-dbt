@@ -50,20 +50,20 @@ dbt test --select "staging.ewb_*" --target ewb-dev
 dbt test --select "raw_vault.ewb" --target ewb-dev
 ```
 
-### 5. DB-Verifikation (via MSSQL MCP)
-Nach erfolgreichem Deploy, verbinde zu `sql-analytics-ewb-001.database.windows.net` (datavault-dev):
+### 5. DB-Verifikation (via dbt run_sql Macro)
+Nach erfolgreichem Deploy, verwende das `run_sql` Macro für DB-Abfragen:
 
-```sql
--- Staging View prüfen
-SELECT TOP 5 * FROM [stg].[ewb_fibu_fhe_main]
-SELECT COUNT(*) FROM [stg].[ewb_fibu_fhe_main]
+```bash
+source .env
+# Staging View prüfen
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM [stg].[ewb_fibu_fhe_main]"}' --target ewb-dev
+dbt run-operation run_sql --args '{"sql": "SELECT COUNT(*) AS cnt FROM [stg].[ewb_fibu_fhe_main]"}' --target ewb-dev
 
--- Hub prüfen (wenn deployed)
-SELECT TOP 5 * FROM [vault].[hub_<entity>]
-SELECT COUNT(*) FROM [vault].[hub_<entity>]
+# Hub prüfen (wenn deployed)
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM [vault].[hub_<entity>]"}' --target ewb-dev
 
--- Satellite prüfen (aktueller Zustand)
-SELECT TOP 5 * FROM [vault].[sat_<entity>] WHERE dss_is_current = 'Y'
+# Satellite prüfen (aktueller Zustand)
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM [vault].[sat_<entity>] WHERE dss_is_current = '\''Y'\''"}' --target ewb-dev
 ```
 
 ### 6. Fehlerbehandlung

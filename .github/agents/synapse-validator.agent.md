@@ -17,10 +17,17 @@ Die EWB hat bisher eine "Serverless SQL-on-Files" Architektur mit Synapse Server
 - SQL-Transformationen in den structured-tables Views (Joins, Filter)
 
 ## Synapse-Verbindung
-Verwende `mssql_connect` um dich zu verbinden:
-- **Server:** `tcp:arg-analytics-ewb-01-synapse-ws-ondemand.sql.azuresynapse.net,1433`
-- **Datenbank:** `structured-tables`
-- **Auth:** Entra ID / SQL Login
+
+**Kein MSSQL MCP verfügbar.** Verwende stattdessen:
+
+1. **Synapse structured-tables Logik** ist bereits extrahiert in `docs/synapse-structured-tables-logic.md` — lies dieses Dokument als Referenz.
+2. **Azure SQL (DV-Seite)** abfragen via dbt:
+```bash
+cd /Users/daniel/source/projects/ppmc/ewb/datavault-dbt
+source .venv/bin/activate
+source .env
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 10 * FROM [stg].[ewb_fibu_fhe_main]"}' --target ewb-dev
+```
 
 ## Referenz-Views in structured-tables
 
@@ -114,4 +121,4 @@ Vergleicht die Data Vault Implementierung mit den bestehenden Synapse Views.
 
 **Verwendung:** `@synapse-validator Vergleiche Finance.Buchungen mit der DV-Implementierung`
 
-**Voraussetzung:** MSSQL MCP Server muss konfiguriert sein, Synapse-Zugriff muss möglich sein.
+**Referenz:** `docs/synapse-structured-tables-logic.md` enthält die vollständige extrahierte Business-Logik aller 7 Synapse Views.

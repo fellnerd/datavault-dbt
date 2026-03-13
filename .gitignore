@@ -25,3 +25,6 @@ agent/.agent-session.json
 masterdata/*.tsbuildinfo
 masterdata/next-env.d.ts
 masterdata/npm-debug.log*
+# Environment secrets
+.env
+.env.*

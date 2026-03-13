@@ -77,20 +77,20 @@ src_source: "dss_record_source"
 ```
 
 ### 5. Satellite erstellen
-Datei: `models/raw_vault/ewb/satellites/sat_<entity>.sql`
+Datei: `models/raw_vault/_common/satellites/sat_<entity>.sql`
 Pattern (analog `sat_kunde.sql`):
 - `src_hashdiff`: source_column mit alias "hashdiff"
 - `src_payload`: Alle Attribut-Spalten aus dem Staging
 - `post_hook`: `create_hash_index` + `update_satellite_current_flag`
 
 ### 6. Link erstellen (wenn FK vorhanden)
-Datei: `models/raw_vault/ewb/links/link_<e1>_<e2>.sql`
+Datei: `models/raw_vault/_common/links/link_<e1>_<e2>.sql`
 Pattern (analog `link_verkauf_kunde.sql`):
 - `src_fk`: Array der beteiligten Hub Hash Keys
 - DC Link: nur 1 FK (`src_fk: "hk_parent"`)
 
 ### 7. Schema-YAML erstellen/aktualisieren
-Datei: `models/raw_vault/ewb/_ewb__models.yml`
+Datei: `models/raw_vault/_common/_common__models.yml`
 - Vollständige Spaltendokumentation mit `data_type`
 - Tests: not_null, unique auf Hash Keys
 - accepted_values auf dss_is_current (Y/N) bei Satellites
@@ -102,15 +102,26 @@ Wenn `.vscode/entity-designer/ewb_<entity>.json` existiert, füge `"generatedObj
 ```
 
 ### 9. Design-Dokumentation
-- Erstelle/aktualisiere `design/raw-vault/ewb/` mit Mermaid ER-Diagrammen
-- Erstelle `design/raw-vault/ewb/01_analyse.md` analog `adventureworks/01_analyse.md`
-- Aktualisiere `design/raw-vault/ewb/vault-model.mmd` (Gesamt-ER-Diagramm)
+- Erstelle/aktualisiere `design/raw-vault/_common/` mit Mermaid ER-Diagrammen
+- Aktualisiere `design/raw-vault/_common/er-diagram.mmd` (Gesamt-ER-Diagramm)
 
 ### 10. Deploy & Test
 ```bash
 set -a && source .env && set +a
-dbt run --select "+raw_vault.ewb.hub_<entity> +raw_vault.ewb.sat_<entity>" --target ewb-dev
-dbt test --select "raw_vault.ewb" --target ewb-dev
+dbt run --select "+raw_vault._common.hub_<entity> +raw_vault._common.sat_<entity>" --target ewb-dev
+dbt test --select "raw_vault._common" --target ewb-dev
+```
+
+### 11. Datenvalidierung (via dbt run_sql Macro)
+Nach Deploy, prüfe die Daten in der DB:
+```bash
+source .env
+# Hub-Zeilenzahl
+dbt run-operation run_sql --args '{"sql": "SELECT COUNT(*) AS cnt FROM [vault].[hub_<entity>]"}' --target ewb-dev
+# Satellite aktuelle Records
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM [vault].[sat_<entity>] WHERE dss_is_current = '\''Y'\''"}' --target ewb-dev
+# Quelldaten prüfen (z.B. Business Key Verteilung)
+dbt run-operation run_sql --args '{"sql": "SELECT <bk>, COUNT(*) AS cnt FROM [stg].[ewb_<entity>] GROUP BY <bk> HAVING COUNT(*) > 1"}' --target ewb-dev
 ```
 
 # Vault Architect

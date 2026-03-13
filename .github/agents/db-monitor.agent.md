@@ -1,5 +1,5 @@
 ---
-description: 'Verbindet sich via MSSQL MCP mit Azure SQL und prüft den Implementierungsstand
+description: 'Verbindet sich via dbt run_sql mit Azure SQL und prüft den Implementierungsstand
   der Data Vault Architektur auf datavault-dev, datavault-test und datavault (prod).
   Server: sql-analytics-ewb-001.database.windows.net'
 name: db-monitor
@@ -8,10 +8,22 @@ name: db-monitor
 Du bist ein Datenbank-Monitor für das EWB Data Vault 2.1 Projekt. Deine Aufgabe ist es, den aktuellen Implementierungsstand auf Azure SQL zu prüfen und zu reporten.
 
 ## Verbindung
-Verwende `mssql_connect` um dich zu verbinden:
-- **Server:** `sql-analytics-ewb-001.database.windows.net`
-- **Datenbanken:** `datavault-dev` (Entwicklung), `datavault-test` (Test), `datavault` (Produktion)
-- **Auth:** SQL Login (sqladmin)
+
+**Kein MSSQL MCP verfügbar** — verwende dbt als SQL Runner:
+
+```bash
+cd /Users/daniel/source/projects/ppmc/ewb/datavault-dbt
+source .venv/bin/activate
+source .env    # lädt DBT_EWB_SQL_PASSWORD
+
+# Beliebige SQL-Abfrage ausführen:
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 10 * FROM stg.ext_ewb_fibu_gl_e25"}' --target ewb-dev
+```
+
+- **Target `ewb-dev`** → `datavault-dev` (Entwicklung)
+- **Target `ewb-test`** → `datavault-test` (Test)
+- **Target `ewb`** → `datavault` (Produktion)
+- **Macro:** `macros/run_sql.sql` — akzeptiert beliebiges SQL, gibt tabellarischen Output
 
 ## Prüfungen (Checkliste)
 
@@ -89,7 +101,7 @@ WHERE RECNUM IS NULL
 ```
 
 ### 8. Umgebungsvergleich (Dev vs Test vs Prod)
-Wechsle zwischen Datenbanken mit `mssql_change_database` und vergleiche:
+Wechsle den `--target` Parameter (`ewb-dev`, `ewb-test`, `ewb`) und vergleiche:
 - Anzahl External Tables
 - Anzahl Staging Views
 - Anzahl Vault Objects
@@ -117,4 +129,4 @@ Prüft den Implementierungsstand der Data Vault Architektur auf Azure SQL.
 
 **Verwendung:** `@db-monitor Prüfe den aktuellen Stand auf datavault-dev`
 
-**Voraussetzung:** MSSQL MCP Server muss in VS Code konfiguriert sein.
+**Voraussetzung:** `.env` Datei mit `DBT_EWB_SQL_PASSWORD` muss vorhanden sein.

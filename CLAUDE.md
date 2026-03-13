@@ -32,6 +32,20 @@ dbt compile --select model_name                # compile without execute
 dbt run-operation stage_external_sources       # create/refresh external tables
 ```
 
+### Ad-hoc SQL Queries (Database Explorer)
+```bash
+source .env  # loads DBT_EWB_SQL_PASSWORD
+dbt run-operation run_sql --args '{"sql": "SELECT TOP 10 * FROM stg.ext_ewb_fibu_gl_e25"}' --target ewb-dev
+```
+
+The `run_sql` macro (`macros/run_sql.sql`) executes any arbitrary SQL against Azure SQL and prints results as a table. Use this for:
+- Schema exploration (`INFORMATION_SCHEMA.COLUMNS`)
+- Data profiling and validation
+- Answering design questions with real data
+- Debugging staging views and vault models
+
+**Important:** Always `source .env` first to load `DBT_EWB_SQL_PASSWORD`. The `.env` file is in `.gitignore` and must never be committed.
+
 ### Targets
 ```bash
 dbt run --target ewb-dev    # development (default)
@@ -101,6 +115,7 @@ Stable lookup values?                   → REFERENCE TABLE
 - `satellite_current_flag.sql` — Post-hook: updates `dss_is_current` flag
 - `create_hash_index.sql` — Post-hook: creates indexes on hash key columns
 - `get_parquet_schema.sql` / `get_parquet_data.sql` / `list_parquet_files.sql` — ADLS Parquet introspection
+- `run_sql.sql` — **Ad-hoc SQL runner** for arbitrary queries against Azure SQL (use with `dbt run-operation run_sql --args '{"sql": "..."}'`)
 
 ## Skills (Slash Commands)
 

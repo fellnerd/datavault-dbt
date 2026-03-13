@@ -1,6 +1,6 @@
 ---
 description: Überwacht den EWB-Anforderungsscope basierend auf der Projektdokumentation,
-  führt Gap-Analysen durch — inkl. aktiver Prüfung via MSSQL MCP und ADF-Artefakten.
+  führt Gap-Analysen durch — inkl. aktiver Prüfung via dbt run_sql und ADF-Artefakten.
   Delegiert DB-Checks an den db-monitor Agenten und aktualisiert die Kundendokumentation.
 name: scope-tracker
 ---
@@ -15,11 +15,19 @@ Lies diese Dateien um den aktuellen Anforderungsscope zu verstehen:
 - `azure-environment/docs/analysis/synapse-vergleich-analyse.md` — Quell-Inventar, View-Mappings
 
 ## Verbindungsparameter
-- **Server:** `sql-analytics-ewb-001.database.windows.net`
-- **Profile:** `ewb-datavault` (profileId: `41BEAF5F-7B1E-43B2-9F16-A801DCB2D064`)
-- **Dev-Datenbank:** `datavault-dev`
-- **Prod-Datenbank:** `datavault`
-- **MSSQL queryTypes:** immer `["SELECT"]` übergeben
+
+**Kein MSSQL MCP verfügbar** — verwende dbt als SQL Runner:
+
+```bash
+cd /Users/daniel/source/projects/ppmc/ewb/datavault-dbt
+source .venv/bin/activate
+source .env    # lädt DBT_EWB_SQL_PASSWORD
+
+# Beliebige SQL-Abfrage:
+dbt run-operation run_sql --args '{"sql": "SELECT ..."}' --target ewb-dev
+```
+
+- **Target `ewb-dev`** → `datavault-dev`, **`ewb-test`** → `datavault-test`, **`ewb`** → `datavault`
 
 ## Pilot-Scope (19 Tabellen aus Phase 3)
 
@@ -68,9 +76,15 @@ design/adf-pipelines/Copy_Stage_ewb_*/info.txt                  → deployment t
 ```
 Ein `info.txt` mit `time of download` = deployed.
 
-### Schritt 3: Datenbank via MSSQL MCP prüfen
-Verbinde dich mit `mssql_connect` zum `ewb-datavault` Profil.
-Führe folgende Prüfungen durch (alle mit `queryTypes: ["SELECT"]`):
+### Schritt 3: Datenbank via dbt run_sql prüfen
+Verwende das `run_sql` Macro für DB-Abfragen:
+
+```bash
+source .env
+dbt run-operation run_sql --args '{"sql": "<SQL>"}' --target ewb-dev
+```
+
+Führe folgende Prüfungen durch:
 
 **3a. Datenbanken vorhanden?**
 ```sql
@@ -114,10 +128,7 @@ ORDER BY schema_name, name
 
 ### Schritt 4: db-monitor Agent einbeziehen
 Wenn DB-Prüfungen nicht vollständig ausgeführt werden können (Verbindungsfehler, fehlende Berechtigung),
-rufe den `db-monitor` Agenten auf mit dem Auftrag:
-> "Prüfe auf sql-analytics-ewb-001.database.windows.net die Datenbanken datavault-dev, datavault-test und datavault:
-> Schemas (erwartet: stg, vault, bv, mart), External Data Sources, External Tables (ext_ewb_*),
-> Views in stg (ewb_*), Objekte in schema vault (hub_*, sat_*, link_*). Berichte Ist vs. Soll."
+rufe den `db-monitor` Agenten auf. Der db-monitor nutzt ebenfalls `dbt run-operation run_sql`.
 
 ### Schritt 5: Gap-Analyse zusammenstellen
 Prüfe:
@@ -182,6 +193,6 @@ Aktualisiere **`docs/projektdokumentation.md`** (nicht die azure-environment Kop
 
 # Scope Tracker
 
-Überwacht den EWB-Anforderungsscope auf drei Ebenen: Dateisystem, ADF-Artefakte und Datenbank (via MSSQL MCP). Delegiert DB-Tiefenprüfungen an `db-monitor`. Aktualisiert `docs/projektdokumentation.md`.
+Überwacht den EWB-Anforderungsscope auf drei Ebenen: Dateisystem, ADF-Artefakte und Datenbank (via dbt run_sql). Delegiert DB-Tiefenprüfungen an `db-monitor`. Aktualisiert `docs/projektdokumentation.md`.
 
 **Verwendung:** `@scope-tracker Wie ist der aktuelle Implementierungsstand?`

@@ -26,10 +26,9 @@ dbt run-operation get_parquet_schema --args '{"file_path": "ewb/abacus/<MODUL>.<
 - `DECIMAL(38,10)` → `DECIMAL(38,18)` (Parquet numeric hat Scale 18)
 - `NVARCHAR(4000)` für APPSTR-Spalten → `VARBINARY(8000)` (Binärdaten!)
 - Prüfe sys.columns auf der DB wenn unsicher:
-  ```sql
-  SELECT c.name, t.name, c.precision, c.scale, c.max_length
-  FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id
-  WHERE OBJECT_ID = OBJECT_ID('[stg].[ext_<table>]')
+  ```bash
+  source .env
+  dbt run-operation run_sql --args '{"sql": "SELECT c.name, t.name AS type_name, c.precision, c.scale, c.max_length FROM sys.columns c JOIN sys.types t ON c.user_type_id = t.user_type_id WHERE OBJECT_ID = OBJECT_ID('"'"'[stg].[ext_<table>]'"'"') ORDER BY c.column_id"}' --target ewb-dev
   ```
 
 ### 3. sources.yml Eintrag erstellen
