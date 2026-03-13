@@ -89,8 +89,8 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
 | `sat_projekt_status` | `hub_projekt` | STD | Status, StatusDatum, Beschreibung | `ewb_proj_pst_main` | P3 |
 | `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
-| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | Budget/Betrag/Vortrag (INT+EXT), AZ-Werte | `ewb_proj_nsa_main` | P3 |
-| `sat_person` | `hub_person` | STD | LAST_NAME, FIRST_NAME, HOME_DEPT_NR, CALC_GROUP | `ewb_lohn_len_main` | P1 |
+| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | AZBUDGET, AZBETINT, AZBETEXI, AZVORTRAGINT, AZVORTRAGEXI, BUDGETINT, BUDGETEXI, BETRAGINT, BETRAGEXI, VORTRAGINT, VORTRAGEXI | `ewb_proj_nsa_main` | P3 |
+| `sat_person` | `hub_person` | STD | LAST_NAME, FIRST_NAME, ABRV, HOME_DEPT_NR, CALC_GROUP | `ewb_lohn_len_main` | P1 |
 | `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
 | `sat_projektteil` | `hub_projekt` | STD | Status (STAT1/STAT2), Datum | `ewb_proj_prt_main` | P3 |
 
@@ -394,10 +394,15 @@ END
 - `KST NOT IN (2990, 3990, 4990, 5990, 6990, 7990)` — Konsolidierungs-Kostenstellen
 - `KTO > 30000 AND KTO < 90000` — Nur Erfolgsrechnungs-Konten (P&L)
 
-**Projekt.Personal — Mitarbeiter-Filter:**
+**Projekt.Personal — Mitarbeiter-Filter + Initialen-Deduplizierung:**
 - `LOHNJN = '1'` — Ist Lohnempfänger
 - `GESPERRT = '0'` — Nicht gesperrt
 - `LOHNNR <> 0` — Gültige Personalnummer
+- Deduplizierung über `ABRV` (Initialen):
+  ```sql
+  ROW_NUMBER() OVER (PARTITION BY ABRV ORDER BY MUTDAT DESC) = 1
+  ```
+  → Bei mehrfachen Einträgen pro Kürzel wird nur der zuletzt mutierte behalten.
 
 **Projekt.Stunden — ⚠️ KORREKTUR gegenüber Synapse:**
 - Synapse joint `NSA.PROJNR = ADR.LOHNNR` und nennt PROJNR "PersonalNr" — **FEHLER** (nur 2.5% Match)
