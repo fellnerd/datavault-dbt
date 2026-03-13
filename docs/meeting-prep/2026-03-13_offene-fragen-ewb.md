@@ -1,15 +1,15 @@
 # Offene Fragen — Data Vault Implementierung EWB
 
-**Datum:** 13. März 2026  
+**Datum:** 13. März 2026 | **Aktualisiert:** 14. März 2026  
 **Von:** PPMC AG — Analytics Team  
 **An:** EWB — Fachverantwortliche  
-**Betreff:** Klärungsbedarf vor Implementierung Wave 2+3
+**Betreff:** Status-Update und verbleibende Klärungspunkte
 
 ---
 
 ## Zusammenfassung
 
-Wir haben die bestehenden Synapse structured-tables Pipelines analysiert und dabei wertvolle Erkenntnisse gewonnen. Einige Punkte erfordern fachliche Klärung durch EWB, bevor wir die nächsten Implementierungswellen starten können. Wave 1 (Stammdaten) kann sofort beginnen.
+Wir haben die bestehenden Synapse structured-tables Pipelines analysiert und durch umfassende **Datenanalyse** auf den External Tables mehrere kritische Erkenntnisse gewonnen. Von den ursprünglich 4 offenen Fragen sind **3 intern gelöst** — es verbleibt **1 offener Punkt** (Sharepoint-Daten). Wave 1 (Stammdaten) kann sofort beginnen. Wave 2+3 sind ebenfalls nicht mehr blockiert.
 
 ---
 
@@ -19,47 +19,39 @@ Wir haben die bestehenden Synapse structured-tables Pipelines analysiert und dab
 
 ---
 
-## Frage 2: PROJ.NSA — Projektzuordnung in Stundenbuchungen (🔴 Blockiert Wave 3)
+## ~~Frage 2: PROJ.NSA — PROJNR-Semantik~~ ✅ GELÖST
 
-**Hintergrund:**
-Bei der Analyse der Synapse-Pipeline `Projekt.Stunden` haben wir eine überraschende Erkenntnis gewonnen:
-
-Die Spalte `PROJNR` in der Tabelle `PROJ.NSA` enthält **nicht** die Projektnummer, sondern die **Personalnummer** (= Mitarbeiternummer). Dies zeigt der Synapse-Code:
-```sql
-CAST(T1.[PROJNR] as int) AS [PersonalNr]
--- JOIN: NSA.PROJNR = ADR.LOHNNR (Adressstamm)
-```
-
-**Konkrete Fragen:**
-1. Können Sie bestätigen, dass `PROJNR` in `PROJ.NSA` tatsächlich die Personalnummer speichert?
-2. Über welchen Weg wird in Abacus die **Projektzuordnung** der Stundenbuchungen hergestellt? Mögliche Kandidaten:
-   - Über `PROJ.NTC` (Tätigkeiten pro Projekt)?
-   - Über ein anderes Feld in NSA, das wir nicht identifiziert haben?
-   - Über eine indirekte Zuordnung (Person → Projekt via Organisationseinheit)?
-3. Ist `RECNUM` in NSA ein stabiler, fachlicher Schlüssel oder ein rein technischer Zähler?
-
-**Impact:** Ohne Klärung kann `link_stundenbuchung_projekt` nicht modelliert werden — die gesamte Projekt-Stunden-Auswertung im Mart wäre unvollständig.
+> **Ergebnis (Datenanalyse 14.03.2026):**
+>
+> | Test | Ergebnis |
+> |---|---|
+> | NSA.PROJNR → NPO.PROJNR (Projekte) | **97.5% Match** (11.600 von 11.895) |
+> | NSA.PROJNR → ADR.LOHNNR (Personen) | **2.5% Match** (297 — Zufall) |
+>
+> **PROJNR in NSA = ProjektNr** (nicht PersonalNr wie in Synapse angenommen).
+>
+> Die Synapse-View `Projekt.Stunden` enthält einen **Fehler**: Der `INNER JOIN ADR ON PROJNR = LOHNNR` filtert 97.5% der Daten weg. Die DV-Implementierung korrigiert dies mit `NSA.PROJNR → NPO.PROJNR`.
+>
+> **Weitere Erkenntnisse:**
+> - `PROJ.NTC` = Zeitstempelung (Stempeluhr) — EMPLNR + PROJDAT + 10 Zeitintervalle. KEINE Spalten PRONR/POSNR.
+> - `PROJ.NTB` = Budget-Verwaltung — eigenständiges System (7 Programme, 359K Bezugsgrößen), kein FK zu NTC.
+> - Hub-Redesign: ~~`hub_stundenbuchung`~~ → `hub_projektsachkonto`, ~~`hub_projekttaetigkeit`~~ → `hub_zeiterfassung`
 
 ---
 
-## Frage 3: Leistungsarten — Hub oder Referenztabelle? (⚠️ Wave 1)
+## ~~Frage 3: Leistungsarten — Hub oder Referenztabelle?~~ ✅ GELÖST
 
-**Hintergrund:**
-`PROJ.NTR` enthält Leistungsarten (z.B. "Projektleitung", "Engineering"). Typischerweise sind dies stabile Lookup-Werte (<100 Einträge).
-
-**Konkrete Fragen:**
-1. Werden Leistungsarten ausschliesslich in Abacus gepflegt, oder kommen sie auch aus anderen Systemen (z.B. IDMS)?
-2. Ist die Historisierung der Leistungsart-Bezeichnungen relevant? (z.B. "Leistungsart X hiess früher Y")
-
-**Optionen:**
-- **Reference Table** (einfacher, empfohlen wenn nur Abacus + keine Historisierung nötig)
-- **Hub + Satellite** (nötig bei Multi-Source oder Historisierungsbedarf)
-
-**Unsere Empfehlung:** Reference Table, sofern EWB bestätigt, dass Leistungsarten stabil und single-source sind.
+> **Ergebnis (Datenanalyse 14.03.2026):** `PROJ.NTR` hat nur **29 einzigartige Leistungsarten** (NUMBER-Spalte) × 3 Datasets. Beispiele: "Normalzeit", "Überzeit ohne Zuschlag", "Bezug Ferien".
+>
+> → **Reference Table** `ref_leistungsart` (kleiner, stabiler Lookup — kein Hub nötig).
+>
+> Ebenfalls als Reference Table identifiziert:
+> - `PROJ.PST` — 7 Projektstatus-Werte → `ref_projektstatus`
+> - `LOHN.LTC` — 2.132 Abteilungen/Gruppen → `ref_abteilung`
 
 ---
 
-## Frage 4: Sharepoint-Daten als Referenztabellen (⚠️ Wave 1–2)
+## Frage 4: Sharepoint-Daten als Referenztabellen (⚠️ Offen — EWB-Entscheid nötig)
 
 **Hintergrund:**
 In den bestehenden Synapse-Pipelines haben wir 8 Sharepoint-Tabellen identifiziert, die als Referenzdaten verwendet werden:
@@ -81,32 +73,31 @@ In den bestehenden Synapse-Pipelines haben wir 8 Sharepoint-Tabellen identifizie
 
 ---
 
-## Zusätzliche Erkenntnisse (zur Information, keine Klärung nötig)
+## Erkenntnisse zur Information (keine Klärung nötig)
 
-### ✅ Personenbezug in Stundenbuchungen bestätigt
-Die Verknüpfung `NSA.PROJNR = ADR.LOHNNR` ermöglicht den Link zwischen Stundenbuchung und Person. Der `link_stundenbuchung_person` kann wie geplant umgesetzt werden.
+### ✅ Synapse-Bug in Projekt.Stunden identifiziert
+Die bestehende Synapse-View `Projekt.Stunden` joint `NSA.PROJNR = ADR.LOHNNR` und interpretiert PROJNR als PersonalNr. Datenanalyse zeigt: Dies ist **falsch** — nur 2.5% der Werte matchen, 97.5% sind Projektnummern. Die DV-Implementierung korrigiert dies.
+
+### ✅ NTC = Zeitstempelung, nicht Projekttätigkeiten
+`PROJ.NTC` enthält **tägliche Zeitstempel** pro Mitarbeiter (FROM/TO-Intervalle, Stunden). Es gibt keine Projekt-Spalten. 100% der NTC.EMPLNR-Werte matchen LEN.EMPL_NR.
 
 ### ✅ Buchungen-Logik dokumentiert
-Die komplexe Buchungslogik (4-facher UNION ALL mit Vorzeichen-Umkehr, MWST-Anpassung, KST-Ausschlussfilter) wurde vollständig extrahiert und wird im Mart Layer (`mart.v_fibu_buchungen`) repliziert.
+Die komplexe Buchungslogik (4-facher UNION ALL mit Vorzeichen-Umkehr, MWST-Anpassung, KST-Ausschlussfilter) wurde vollständig extrahiert und wird im Mart Layer (`mart_finance.v_buchungen`) repliziert.
 
-### ⚠️ Finance.Kunden ist kein Kundenstamm
+### ✅ Finance.Kunden ist kein Kundenstamm
 Die Synapse-View `Finance.Kunden` extrahiert Kundennummern aus Kreditorenbelegen (KBL) — ohne DISTINCT. Dies ist keine valide Kundenstamm-Quelle. Im Data Vault verwenden wir stattdessen `PUBL.ADR` als Personen-/Kundenstamm.
-
-### ⚠️ PROJNR-Namenskollision
-Die Spalte `PROJNR` hat unterschiedliche Bedeutungen in verschiedenen Abacus-Tabellen:
-- `PROJ.NPO`: ProjektNummer ✅
-- `PROJ.NSA`: PersonalNummer ⚠️
-
-Wir werden dies in den Staging-Views durch Umbenennung (`PROJNR AS PERSONALNR`) in NSA klar dokumentieren.
 
 ---
 
 ## Nächste Schritte
 
-| Schritt | Wer | Wann |
+| Schritt | Wer | Status |
 |---|---|---|
-| Klärung F1–F4 | EWB Fachverantwortliche | Meeting |
-| Wave 1 starten (Stammdaten) | PPMC Analytics | Sofort (unabhängig von F1–F4) |
-| Wave 2 starten (Transaktionen) | PPMC Analytics | Nach Klärung F1 |
-| Wave 3 starten (Projekt-Domain) | PPMC Analytics | Nach Klärung F2 |
+| ~~Klärung F1~~ | — | ✅ Gelöst (Datenanalyse) |
+| ~~Klärung F2~~ | — | ✅ Gelöst (Datenanalyse) |
+| ~~Klärung F3~~ | — | ✅ Gelöst (Datenanalyse) |
+| Klärung F4 (Sharepoint) | EWB Fachverantwortliche | ⚠️ Meeting |
+| Wave 1 starten (Stammdaten) | PPMC Analytics | Sofort |
+| Wave 2 starten (Transaktionen) | PPMC Analytics | Nach Wave 1 |
+| Wave 3 starten (Projekt-Domain) | PPMC Analytics | Nach Wave 2 |
 | Mart-Layer planen | PPMC + EWB | Nach Wave 2 |

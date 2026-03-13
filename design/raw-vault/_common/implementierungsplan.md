@@ -1,7 +1,7 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 13. März 2026  
-**Agenten:** synapse-validator + vault-architect  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 14. März 2026  
+**Agenten:** synapse-validator + vault-architect + db-monitor  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects)
 
 ---
@@ -35,7 +35,7 @@ Aus der ADF-Pipeline `structured-tables Daily` (Orchestrator: Finance + Projekt 
 | Finance.Belege | Mittel — LEFT JOIN KBL + KVL (`BELNR = DOCUMENTNR`) | → Link + Mart View |
 | Finance.Kunden | Niedrig — Einfacher SELECT aus KBL, **kein DISTINCT** (denormalisiert) | → **Kein eigener Hub** — Stammdaten aus PUBL.ADR |
 | Projekt.Personal | Mittel — ADR + LEN mit 3-stufiger Deduplizierung, Mitarbeiter-Filter | → Mart View (Filter = Business-Logik) |
-| Projekt.Stunden | **Hoch** — PROJNR = PersonalNr (⚠️), INNER JOIN ADR, Datum-Konstruktion | → Mart View |
+| Projekt.Stunden | **Hoch** — ⚠️ Synapse-Fehler: `PROJNR = LOHNNR` Join ist falsch (nur 2.5% Match), PROJNR = ProjektNr (97.5% Match zu NPO) | → Mart View |
 | Projekt.Projekt | Mittel — 4-way LEFT JOIN inkl. 2× Sharepoint-Tabellen | → Mart View (Sharepoint = Enrichment) |
 | Projekt.Abteilung | Niedrig — LEN + LTC mit `GROUP=1` Filter, DISTINCT | → Mart View |
 
@@ -55,17 +55,21 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_ewb_kred_kvl` | P3 |
 | `hub_kreditor` | Lieferantennummer | `LIEFNR` | `ewb_kred_kbs_main` | `hk_ewb_kred_kbs` | P1 |
 | `hub_adresse` | Adressnummer | `ADRESSNR` | `ewb_publ_adr_main` | `hk_ewb_publ_adr` | P1 |
-| `hub_projekt` | Projektnummer | `PRONR` | `ewb_proj_npo_main` | `hk_ewb_proj_npo` | P1 |
-| `hub_projekttaetigkeit` | Projekt + Positionsnr | `PRONR\|\|POSNR` | `ewb_proj_ntc_main` | `hk_ewb_proj_ntc` | P3 |
-| `hub_stundenbuchung` | Perioden-Zeile ⁴ | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB` | `ewb_proj_nsa_main` | `hk_ewb_proj_nsa` | P3 |
-| `hub_leistungsart` ² | Leistungsart-Nr | `LEANR` | `ewb_proj_ntr_main` | `hk_ewb_proj_ntr` | P1 |
-| `hub_person` | Personalnummer | `PERSNR` | `ewb_lohn_len_main` | `hk_ewb_lohn_len` | P1 |
+| `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_ewb_proj_npo` | P1 |
+| ~~`hub_projekttaetigkeit`~~ | ~~Projekt + Positionsnr~~ | ~~`PRONR\|\|POSNR`~~ | ~~`ewb_proj_ntc_main`~~ | — | ~~P3~~ |
+| `hub_zeiterfassung` ⁸ | Mitarbeiter + Tag | `EMPLNR\|\|PROJDAT` | `ewb_proj_ntc_main` | `hk_ewb_proj_ntc` | P3 |
+| `hub_projektsachkonto` ⁴ | Projekt + Code + Periode | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB` | `ewb_proj_nsa_main` | `hk_ewb_proj_nsa` | P3 |
+| `hub_person` | Personalnummer | `EMPL_NR` | `ewb_lohn_len_main` | `hk_ewb_lohn_len` | P1 |
 
-> ¹ Klärungsbedarf → Offene Frage F1  
-> ² Alternativ Reference Table → Offene Frage F3  
-> ⁴ BK beinhaltet `PROJNR` — **ACHTUNG: `PROJNR` in NSA = PersonalNr (nicht ProjektNr!)** Synapse `Projekt.Stunden` castet `PROJNR` zu `PersonalNr` und joint via `PROJNR = LOHNNR` auf `PUBL.ADR`. BK-Semantik: `PersonalNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`. Siehe F2 (teilweise gelöst).
+> ¹ Klärungsbedarf → Offene Frage F1 — **GELÖST**: Composite BK `DKBELEGNUMMER||KTO` bestätigt  
+> ⁴ **Korrigiert (14.3.2026):** `PROJNR` in NSA = **ProjektNr** (97.5% Match zu NPO.PROJNR, datenbestätigt). Die Synapse-View `Projekt.Stunden` benennt dies fälschlicherweise als "PersonalNr" und joint `PROJNR = LOHNNR` (nur 2.5% Match — Synapse-Bug). BK-Semantik: `ProjektNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`.  
+> ⁸ **NEU (14.3.2026):** NTC ist **Zeitstempelung** (Stempeluhr), nicht Projekttätigkeiten. Tatsächliche Spalten: `RECNUM, DATASET, EMPLNR, PROJDAT, FROM1-TO10, ANZAHL`. Es gibt KEINE Spalten `PRONR` oder `POSNR`. Ein Eintrag = ein Arbeitstag pro Mitarbeiter mit bis zu 10 Zeitintervallen.
+
+**Hinweis `hub_person`** (korrigiert): BK-Spalte in LEN heisst `EMPL_NR` (nicht `PERSNR`).
 
 **Hinweis `hub_adresse`** (neu): `PUBL.ADR` ist die zentrale Stammdaten-Quelle für Personen, Kunden und Adressen. Die Synapse-View `Finance.Kunden` extrahiert KNR/ADRID direkt aus `KRED.KBL` (Transaktionsdaten, kein DISTINCT) — das ist **keine valide Stammdaten-Quelle**. Kundeninformationen sollen im DV aus `hub_adresse` / `sat_adresse` kommen, nicht aus einem dedizierten "hub_kunde" basierend auf KBL.
+
+**Hinweis `hub_leistungsart`** → entfällt: NTR hat nur **29 einzigartige Leistungsarten** (NUMBER-Spalte) × 3 Datasets. → **Reference Table** `ref_leistungsart` (siehe F3, gelöst).
 
 **Ghost-Record-Hubs** (kein dedizierter Pilot-Source, werden über FK-Spalten der GL befüllt):
 - `hub_konto` — BK aus `FIBU.GL.KONTNR` (Stammdaten via Sharepoint `Finance.Konten` verfügbar → Lücke #4 gelöst)
@@ -84,15 +88,18 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `sat_kreditor` | `hub_kreditor` | STD | Saldo, Konto, Währung, Periode | `ewb_kred_kbs_main` | P1 |
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
 | `sat_projekt_status` | `hub_projekt` | STD | Status, StatusDatum, Beschreibung | `ewb_proj_pst_main` | P3 |
-| `sat_projekttaetigkeit` | `hub_projekttaetigkeit` | STD | Bezeichnung, Budget, IstStunden, Geplant | `ewb_proj_ntc_main` + `ewb_proj_ntb_main` | P3 |
-| `sat_stundenbuchung` | `hub_stundenbuchung` | STD | Datum, Stunden, Beschreibung, Verrechenbar | `ewb_proj_nsa_main` | P3 |
-| `sat_leistungsart` | `hub_leistungsart` | STD | Bezeichnung, Einheit, Aktiv | `ewb_proj_ntr_main` | P1 |
-| `sat_person` | `hub_person` | STD | Initialen, AbteilungNr, CREDAT, MUTDAT | `ewb_lohn_len_main` | P1 |
-| `sat_person_adresse` | `hub_person` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
-| `sat_person_lohnklasse` | `hub_person` | MA ³ | KlasseNr, Bezeichnung, Stufe, GültigAb | `ewb_lohn_ltc_main` | P3 |
-| `sat_projektteil` | `hub_projekt` | STD | Teilname, Status, Reihenfolge | `ewb_proj_prt_main` | P3 |
+| `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
+| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | Budget/Betrag/Vortrag (INT+EXT), AZ-Werte | `ewb_proj_nsa_main` | P3 |
+| `sat_person` | `hub_person` | STD | LAST_NAME, FIRST_NAME, HOME_DEPT_NR, CALC_GROUP | `ewb_lohn_len_main` | P1 |
+| `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
+| `sat_projektteil` | `hub_projekt` | STD | Status (STAT1/STAT2), Datum | `ewb_proj_prt_main` | P3 |
 
-> ³ MA Sat wenn mehrere Lohnklassen gleichzeitig gültig; sonst STD mit History
+> ⁸ NTC = Zeitstempelung. Payload = 10 Zeitintervalle pro Tag (FROM1/TO1 bis FROM10/TO10) plus ANZAHL (Gesamtstunden). NTB (Budget) hat **keinen direkten Bezug** zu NTC — NTB ist eine separate Budget-Verwaltung (7 Programme, 359K Bezugsgrößen).
+>
+> Entfallen gegenüber Vorversion:
+> - ~~`sat_projekttaetigkeit`~~ — NTC hat keine Projekt-Spalten (PRONR/POSNR existieren nicht)
+> - ~~`sat_leistungsart`~~ — NTR wird Reference Table
+> - ~~`sat_person_lohnklasse` (MA SAT)~~ — LTC ist kein Lohnklassen-System; LTC enthält 109 verschiedene Gruppen (Abteilungen, Perioden, etc.) mit 2132 Einträgen. Zu klären ob als Reference Table oder MA SAT.
 
 ---
 
@@ -108,14 +115,18 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl_e2x` | P3 |
 | `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 |
 | `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 |
-| `link_stundenbuchung_person` ⁶ | `hub_stundenbuchung` ↔ `hub_person` | Nein | `ewb_proj_nsa_main` | P3 |
-| `link_stundenbuchung_projekt` ⁷ | `hub_stundenbuchung` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
-| `link_stundenbuchung_leistungsart` | `hub_stundenbuchung` ↔ `hub_leistungsart` | Nein | `ewb_proj_nsa_main` | P3 |
-| `link_projekttaetigkeit_projekt` | `hub_projekttaetigkeit` ↔ `hub_projekt` | Nein | `ewb_proj_ntc_main` | P3 |
+| `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
+| `link_zeiterfassung_person` ¹⁰ | `hub_zeiterfassung` ↔ `hub_person` | Nein | `ewb_proj_ntc_main` | P3 |
+| `link_projektteil_projekt` | `hub_projekt` (PRT.PROJNR → NPO.PROJNR) | Nein | `ewb_proj_prt_main` | P3 |
 
-> ⁵ **Neu (13.3.2026):** Aus Synapse `Finance.Belege` abgeleitet: `KBL.BELNR = KVL.DOCUMENTNR`. Dieser JOIN bildet die natürliche Beziehung Beleg↔Zahlung ab.  
-> ⁶ **Bestätigt (13.3.2026):** `NSA.PROJNR = ADR.LOHNNR` — Synapse `Projekt.Stunden` joint NSA mit PUBL.ADR via `PROJNR = LOHNNR` (INNER JOIN). Da `PROJNR` in NSA die PersonalNr speichert, ist dieser Link direkt ableitbar. FK: `NSA.PROJNR` → `ADR.LOHNNR` → `hub_person`.  
-> ⁷ **Klärungsbedarf:** Da `PROJNR` in NSA die PersonalNr ist (nicht ProjektNr), ist ein direkter `link_stundenbuchung_projekt` aus NSA allein **nicht möglich**. Projektzuordnung könnte ggf. über `PROJ.NTC` oder eine andere Quelle erfolgen — noch zu klären.
+> ⁵ **Aus Synapse `Finance.Belege` abgeleitet:** `KBL.BELNR = KVL.DOCUMENTNR`. Dieser JOIN bildet die natürliche Beziehung Beleg↔Zahlung ab.  
+> ⁹ **NEU (14.3.2026):** `NSA.PROJNR = NPO.PROJNR` — Datenanalyse bestätigt: 97.5% (11.600 von 11.895 distinkten PROJNR-Werten) matchen direkt auf Projekte. Projektzuordnung ist direkt aus NSA ableitbar. `NSA.CODE = NTR.RECNUM` (70% Match) für Leistungsart-Bezug — im Mart via `ref_leistungsart` aufgelöst.  
+> ¹⁰ **NEU (14.3.2026):** `NTC.EMPLNR = LEN.EMPL_NR` — 100% Match (206 von 206 NTC-Mitarbeitern). NTC = tägliche Zeitstempelung pro Mitarbeiter.
+>
+> Entfallen gegenüber Vorversion:
+> - ~~`link_stundenbuchung_person`~~ — NSA hat **keine** Mitarbeiter-Spalte. Der Synapse-Join `PROJNR = LOHNNR` ist ein Fehler (nur 2.5% Match).
+> - ~~`link_stundenbuchung_leistungsart`~~ — NSA.CODE→NTR wird im Mart via Reference Table aufgelöst, kein Hub-Link nötig.
+> - ~~`link_projekttaetigkeit_projekt`~~ — NTC hat keine Projekt-Spalten.
 
 ---
 
@@ -131,8 +142,9 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 - `ewb_kred_kbs_main`
 
 **Raw Vault:**
-- Hubs: `hub_person`, `hub_projekt`, `hub_leistungsart`, `hub_kreditor`
-- Sats: `sat_person`, `sat_person_adresse`, `sat_projekt`, `sat_leistungsart`, `sat_kreditor`
+- Hubs: `hub_person`, `hub_projekt`, `hub_kreditor`
+- Sats: `sat_person`, `sat_person_adresse`, `sat_projekt`, `sat_kreditor`
+- Reference Tables: `ref_leistungsart` (NTR), `ref_projektstatus` (PST), `ref_abteilung` (LTC)
 
 ### Wave 2 — Transaktionsobjekte
 
@@ -150,19 +162,19 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 ### Wave 3 — Komplexe Links + Projekt-Domain
 
-**Voraussetzung:** Wave 2 deployed, Design-Frage F2 (NSA Business Key) geklärt
+**Voraussetzung:** Wave 2 deployed
 
 **Staging:**
 - `ewb_kred_kvl_main`
-- `ewb_proj_ntc_main`, `ewb_proj_ntb_main`
+- `ewb_proj_ntc_main`
+- `ewb_proj_ntb_main` (ggf. Mart-Level)
 - `ewb_proj_nsa_main`
-- `ewb_proj_pst_main`, `ewb_proj_prt_main`
-- `ewb_lohn_ltc_main`
+- `ewb_proj_prt_main`
 
 **Raw Vault:**
-- Hubs: `hub_zahlung`, `hub_projekttaetigkeit`, `hub_stundenbuchung`
-- Sats: alle verbleibenden Sats
-- Links: alle GL-Dimension-Links + alle NSA-Links (3×)
+- Hubs: `hub_zahlung`, `hub_zeiterfassung`, `hub_projektsachkonto`
+- Sats: `sat_zahlung`, `sat_zeiterfassung`, `sat_projektsachkonto`, `sat_projektteil`
+- Links: `link_kreditorenbeleg_zahlung`, `link_projektsachkonto_projekt`, `link_zeiterfassung_person`, `link_projektteil_projekt` + alle GL-Dimension-Links
 
 ---
 
@@ -173,7 +185,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | 1 | `ewb_lohn_len_main` | `hub_person` — meiste FK-Konsumenten, Wave-1-Basis |
 | 2 | `ewb_publ_adr_main` | `sat_person_adresse` — keine eigene Dep., Integration mit LEN |
 | 3 | `ewb_proj_npo_main` | `hub_projekt` — zentrale Entity Projekt-Domain |
-| 4 | `ewb_proj_ntr_main` | `hub_leistungsart` — kleine Lookup-Tabelle, früh deploybar |
+| 4 | `ewb_proj_ntr_main` | `ref_leistungsart` — 29 Leistungsarten als Reference Table |
 | 5 | `ewb_kred_kbs_main` | `hub_kreditor` — benötigt von KBL und GL |
 | 6 | `ewb_fibu_fhe_main` | `hub_buchungskopf` — bereits als Goldbeispiel vorhanden ✅ |
 | 7 | `ewb_kred_kbl_main` | `hub_kreditorenbeleg` — FK zu Kreditor (Dep. Wave 1) |
@@ -183,12 +195,12 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | 11 | `ewb_fibu_gl_e25` | FIBU.GL — Jahresscheibe 2025 |
 | 12 | `ewb_fibu_gl_e26` | FIBU.GL — Jahresscheibe 2026 |
 | 13 | `ewb_kred_kvl_main` | `hub_zahlung` — FK zu KBL (Dep. #7) |
-| 14 | `ewb_proj_pst_main` | `sat_projekt_status` — einfache Sat-Erweiterung |
-| 15 | `ewb_proj_prt_main` | `sat_projektteil` — wie PST, kein eigener Hub |
-| 16 | `ewb_proj_ntc_main` | `hub_projekttaetigkeit` — composite BK, FK zu Projekt |
-| 17 | `ewb_proj_ntb_main` | `sat_projekttaetigkeit` Ergänzung (Budget-Payload) |
-| 18 | `ewb_proj_nsa_main` | Stundenbuchungen — 3 FK-Links erst nach Wave 1+2 |
-| 19 | `ewb_lohn_ltc_main` | `sat_person_lohnklasse` (MA SAT) — aufwändigstes Pattern |
+| 14 | `ewb_proj_pst_main` | `ref_projektstatus` — 7 Statuswerte als Reference Table |
+| 15 | `ewb_proj_prt_main` | `sat_projektteil` — Projektstatus-Historie, FK zu NPO |
+| 16 | `ewb_proj_ntc_main` | `hub_zeiterfassung` — Zeitstempelung pro Mitarbeiter/Tag |
+| 17 | `ewb_proj_ntb_main` | Budget-Verwaltung — keine direkte NTC-Beziehung, ggf. Mart-Level |
+| 18 | `ewb_proj_nsa_main` | `hub_projektsachkonto` — Projekt-Buchhaltung per Periode |
+| 19 | `ewb_lohn_ltc_main` | `ref_abteilung` — Abteilungen/Gruppen als Reference Table |
 
 ---
 
@@ -211,33 +223,65 @@ Dieselbe `DKBELEGNUMMER` erscheint auf **mehreren Konten** (Soll/Haben-Buchung).
 
 > Hinweis: Spaltenname im Parquet ist `DKBELEGNUMMER` (nicht `BELEGNR` wie in Synapse-Views).
 
-### F2 — PROJ.NSA: Business Key und Personenbezug — **TEILWEISE GELÖST** ✅
+### F2 — PROJ.NSA: PROJNR-Semantik und Tabellenstruktur — **GELÖST** ✅
 
-Abgeklärt via `sys.columns` auf `stg.ext_ewb_proj_nsa_main` (datavault-dev, 12. März 2026):
+**Ergebnis (14. März 2026 — Datenanalyse):**
 
-**Tatsächliche Spalten (27 total):**
-`RECNUM, DATASET, CODE, PROJNR, GB, PERIYEAR, PERIMONTH, BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, RESERVE, RESERVE2, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT` + DSS-Metadaten
+| Test | Ergebnis |
+|---|---|
+| NSA.PROJNR → NPO.PROJNR | **97.5%** Match (11.600 von 11.895 distinkten Werten) |
+| NSA.PROJNR → ADR.LOHNNR | **2.5%** Match (297 Werte — zufällige Überlappung) |
+| NSA.CODE → NTR.RECNUM | 70% Match (273 von 388 Codes) |
 
-**Gelöst (13. März 2026 — Synapse-Analyse):**
-- **`PROJNR` = PersonalNr (nicht ProjektNr!)** — Synapse `Projekt.Stunden` castet `CAST(T1.[PROJNR] as int) AS [PersonalNr]`
-- **Personenbezug bestätigt:** `NSA.PROJNR = ADR.LOHNNR` (INNER JOIN in Synapse) → `link_stundenbuchung_person` ist möglich ✅
-- **`CODE` = LeistungsartNr** — Join `NSA.CODE = NTR.RECNUM` bestätigt → `link_stundenbuchung_leistungsart` ist möglich ✅
-- **BK-Semantik revidiert:** `PersonalNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`
-- **Filter:** Synapse filtert `AZBETINT <> 0` (nur Zeilen mit Betrag) — dies ist Mart-Logik
+**→ PROJNR in NSA = ProjektNr** (nicht PersonalNr!)
 
-**Verbleibend offen:**
-1. Woher kommt die Projektzuordnung? `PROJNR` ist PersonalNr, nicht ProjektNr → `link_stundenbuchung_projekt` kann NICHT direkt aus NSA abgeleitet werden. Mögliche Quelle: `PROJ.NTC` (Tätigkeiten pro Projekt)?
-2. Ist `RECNUM` ein stabiler Business Key oder ein technischer Zähler?
-3. ⚠️ **Naming-Kollision:** `PROJNR` bedeutet in `PROJ.NPO` die Projektnummer, in `PROJ.NSA` aber die Personalnummer — Verwechslungsgefahr bei der Modellierung!
+Die Synapse-View `Projekt.Stunden` enthält einen **Fehler**: `INNER JOIN ADR ON PROJNR = LOHNNR` filtert 97.5% der Daten weg. Die DV-Implementierung korrigiert dies.
 
-### F3 — PROJ.NTR: Hub oder Reference Table?
+**NSA-Struktur (277.834 Zeilen):**
+- BK: `PROJNR||CODE||PERIYEAR||PERIMONTH||GB` = Projekt × Leistungsart × Periode × Geschäftsbereich
+- Semantik: **Projektsachkonto** (Budget/Ist-Vergleich pro Projekt und Periode), NICHT Stundenbuchung
+- Keine Mitarbeiter-Spalte vorhanden → kein `link_projektsachkonto_person` möglich
+- Hub umbenannt: ~~`hub_stundenbuchung`~~ → `hub_projektsachkonto`
 
-Leistungsarten sind typischerweise stabile Lookup-Codes (<100 Einträge, selten geändert). Zwei Optionen:
+**NTC-Struktur (Zeitstempelung — 34 Spalten):**
+- Tatsächliche Spalten: `RECNUM, DATASET, EMPLNR, PROJDAT, FROM1-TO10, ANZAHL, USER_F, MUTDAT, VARDATA`
+- **KEINE** Spalten `PRONR` oder `POSNR` vorhanden!
+- BK: `EMPLNR||PROJDAT` (ein Eintrag pro Mitarbeiter pro Tag)
+- NTC.EMPLNR → LEN.EMPL_NR: **100%** Match (206 Mitarbeiter)
+- Hub umbenannt: ~~`hub_projekttaetigkeit`~~ → `hub_zeiterfassung`
 
-- **Option A**: `ref_leistungsart` (dbt Seed / CSV) — einfacher, kein Hub-Hash-Join nötig
-- **Option B**: `hub_leistungsart` + `sat_leistungsart` — nötig wenn Leistungsarten historisiert oder aus mehreren Systemen (z.B. IDMS) kommen sollen
+**NTB-Struktur (Budget — 7 Spalten):**
+- Spalten: `RECNUM, PRG, BEZ, LETZTMALS, USER_F, TEXT, VARDATA`
+- 707.733 Zeilen, 7 Programme (PRG), 359.382 Bezugsgrößen (BEZ)
+- Kein direkter Bezug zu NTC — eigenständiges Budget-System
+- BEZ = Kostenstellennummern/Projektnummern
 
-**Klärungsfrage:** Werden Leistungsarten aus anderen Quellsystemen importiert? Ist Historisierung der Leistungsart-Bezeichnung relevant?
+### F3 — PROJ.NTR: Hub oder Reference Table? — **GELÖST** ✅
+
+**Ergebnis (14. März 2026 — Datenanalyse):**
+
+| Metrik | Wert |
+|---|---|
+| Total Zeilen | 1.000 |
+| Distinkte NUMBER-Werte | **29** |
+| Distinkte DATASET-Werte | 3 |
+| Spalten | RECNUM, DATASET, NUMBER, DESCRIPTION, TYPE, CONDITION, VARIANT, NEXTVARIANT, INAKTIV, VISUM, RULESETTYPE |
+
+Beispieldaten: "Normalzeit", "Überzeit ohne Zuschlag", "Bezug Überzeit", "Bezug Ferien"
+
+**→ Reference Table** `ref_leistungsart` empfohlen:
+- Nur 29 echte Leistungsarten — kleiner Lookup
+- Kein Historisierungsbedarf (stabile Codes)
+- Im Mart: `NSA.CODE = NTR.RECNUM` (via NUMBER als fachlicher Schlüssel)
+- Implementierung: dbt Seed oder External Table mit View
+
+**PST ebenfalls Reference Table** (7 Einträge = Projektstatus-Lookup):
+- `ref_projektstatus` mit Werten wie "Aktiv", "zum Fakturieren"
+
+**LTC als Reference Table** (Abteilungen + Gruppen):
+- 2.132 Zeilen, 109 Gruppen, 663 NRs
+- GROUP=1 = Abteilungen (für Mart-Filter relevant)
+- `ref_abteilung` mit `GROUP=1` Filter für Mart `v_abteilung`
 
 ### F4 — Sharepoint-Datenquellen: Reference Tables oder Mart-Level?
 
@@ -261,11 +305,13 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | # | Lücke | Impact | Status | Empfehlung |
 |---|---|---|---|---|
-| 1 | `Projekt.Stunden` (Synapse) ohne ProjektNr | Synapse-Join-Logik unvollständig | Geklärt ✅ | `PROJNR` = PersonalNr, Projekt-Link braucht andere Quelle |
+| 1 | ~~`Projekt.Stunden` (Synapse) ohne ProjektNr~~ | ~~Synapse-Join-Logik unvollständig~~ | **GELÖST** ✅ | `PROJNR` = **ProjektNr** (97.5% Match zu NPO). Synapse-View `PROJNR = LOHNNR` ist fehlerhaft. |
 | 2 | `hub_konto` / `hub_kostenstelle` ohne Stammdaten-Quelle | Ghost Records ohne Beschreibung | Geklärt ✅ | Sharepoint `Finance.Konten` + `Finance.Kostenstellen` als Reference Tables importieren (→ F4) |
 | 3 | Sharepoint-Daten in `Projekt.Projekt` | Hybride Quelle (Abacus + Sharepoint) | Offen | Separater `sat_projekt_sharepoint` mit `dss_record_source = 'ewb_sharepoint'` |
 | 4 | ~~Keine `Finance.Konten` / `Finance.Kostenstellen` im Pilot-Scope~~ | ~~Stammdaten für Dimensionen fehlen~~ | **GELÖST** ✅ | Konten + Kostenstellen sind als Sharepoint-Referenztabellen verfügbar — Import als Reference Tables empfohlen |
-| 5 | **`PROJNR`-Semantik unterscheidet sich zwischen Tabellen** | Verwechslungsgefahr bei Modellierung | **NEU** | In `PROJ.NPO` = ProjektNr, in `PROJ.NSA` = PersonalNr. Staging-Views müssen dies dokumentieren. Alias-Vergabe in Staging empfohlen: `PROJNR AS PERSONALNR` in NSA |
+| 5 | ~~`PROJNR`-Semantik unterscheidet sich zwischen Tabellen~~ | ~~Verwechslungsgefahr~~ | **GELÖST** ✅ | **Keine Kollision!** `PROJNR` = ProjektNr in ALLEN Tabellen (NPO, NSA). Synapse-Interpretation als PersonalNr war **falsch**. |
+| 6 | **NTC ≠ Projekttätigkeiten** | Hub-Redesign nötig | **NEU → GELÖST** ✅ | NTC = Zeitstempelung (EMPLNR+PROJDAT). Kein PRONR/POSNR. → `hub_zeiterfassung` statt `hub_projekttaetigkeit` |
+| 7 | **NTB ohne NTC-Bezug** | Budget-Zuordnung unklar | **NEU** | NTB hat eigenes Schema (PRG+BEZ), kein FK zu NTC. Budget-Verknüpfung ggf. über BEZ→NPO.PROJNR im Mart |
 
 ---
 
@@ -273,18 +319,39 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 11 (+2 Ghost) | 7×P1, 1×P2, 3×P3 |
-| Satellites | 14 | 5×P1, 3×P2, 6×P3 |
-| Links | 12 | 0×P1, 3×P2, 9×P3 |
-| **Total Vault-Objekte** | **37** | |
+| Hubs | 9 (+2 Ghost) | 5×P1, 1×P2, 3×P3 |
+| Satellites | 12 | 4×P1, 2×P2, 6×P3 |
+| Links | 11 | 0×P1, 3×P2, 8×P3 |
+| **Total Vault-Objekte** | **32** | |
+| Reference Tables | 3 (NTR, PST, LTC) | + bis zu 8 Sharepoint |
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
 | Mart Views | 7 | geplant (structured-tables Replika) |
-| Reference Tables | bis zu 8 | Sharepoint-Daten (Entscheid ausstehend → F4) |
 
-**Implementierungsstand (13. März 2026):**
+**Implementierungsstand (14. März 2026):**
 - Staging: **1/19** implementiert (`ewb_fibu_fhe_main` ✅), 19/19 External Tables in `sources.yml` konfiguriert ✅
-- Vault: **0/37** Objekte implementiert
+- Vault: **0/32** Objekte implementiert
+- Mart: **0/7** Views implementiert
+- Reference Tables: **0/3** implementiert
 - Wave 1 kann **sofort starten** — keine Blocker
+
+### 9b. Infrastruktur-Status (DB: datavault-dev)
+
+| Komponente | Soll | Ist | Status |
+|---|---|---|---|
+| Schema `stg` | ✅ | ✅ | OK |
+| Schema `vault` | ✅ | ✅ | OK |
+| Schema `mart_finance` | ✅ | ⏳ | Wird bei erstem `dbt run` erstellt |
+| Schema `mart_project` | ✅ | ⏳ | Wird bei erstem `dbt run` erstellt |
+| External Data Source `StageFileSystem` | ✅ | ✅ | OK |
+| External Tables (EWB) | 19 | 19 | OK ✅ |
+| Staging Views (EWB) | 19 | 1 | 🟠 5% |
+| ~~Schema `vault_ewb`~~ | — | Gelöscht ✅ | War stale |
+| ~~Schema `mart_ewb`~~ | — | Gelöscht ✅ | War stale |
+| Ordner `models/raw_vault/_common/hubs/` | ✅ | ✅ | Angelegt ✅ |
+| Ordner `models/raw_vault/_common/satellites/` | ✅ | ✅ | Angelegt ✅ |
+| Ordner `models/raw_vault/_common/links/` | ✅ | ✅ | Angelegt ✅ |
+| Ordner `models/mart/finance/` | ✅ | ✅ | Angelegt ✅ |
+| Ordner `models/mart/project/` | ✅ | ✅ | Angelegt ✅ |
 
 ---
 
@@ -296,13 +363,13 @@ Die 7 Synapse `structured-tables` Views werden als Mart Views auf dem Raw Vault 
 
 | Synapse View | Mart-Modell | Quell-Vault-Objekte | Business-Logik |
 |---|---|---|---|
-| Finance.Buchungen | `mart.v_fibu_buchungen` | `hub_hauptbuch` + `sat_hauptbuch` + `hub_konto` + `hub_kostenstelle` | 4-way UNION ALL, Vorzeichen-Flip, MWST-Anpassung, KST-Filter |
-| Finance.Belege | `mart.v_kred_belege` | `hub_kreditorenbeleg` + `sat_kreditorenbeleg` + `link_kreditorenbeleg_zahlung` | JOIN KBL + KVL via BELNR/DOCUMENTNR |
-| Finance.Kunden | `mart.v_kred_kunden` | `hub_adresse` + `sat_adresse` (bevorzugt), alternativ `hub_kreditor` + `sat_kreditorenbeleg` | Denorm aus KBL — besser über PUBL.ADR auflösen |
-| Projekt.Personal | `mart.v_personal` | `hub_person` + `sat_person` + `hub_adresse` + `sat_adresse` | ADR+LEN, Mitarbeiter-Filter (`LOHNJN=1, GESPERRT=0`), Initialen-Dedup |
-| Projekt.Stunden | `mart.v_stunden` | `hub_stundenbuchung` + `sat_stundenbuchung` + `link_stundenbuchung_person` + `link_stundenbuchung_leistungsart` | NSA+NTR+ADR, Datum-Konstruktion aus PERIYEAR/PERIMONTH, AZBETINT≠0 Filter |
-| Projekt.Projekt | `mart.v_projekt` | `hub_projekt` + `sat_projekt` + `sat_projekt_status` + ref_tables | NPO+PST(Dedup)+Sharepoint-Kategorien (2 Tabellen) |
-| Projekt.Abteilung | `mart.v_abteilung` | `hub_person` + `sat_person` + ref_abteilung | LEN+LTC, `GROUP=1` Filter, MUTATION_DATE |
+| Finance.Buchungen | `mart_finance.v_buchungen` | `hub_hauptbuch` + `sat_hauptbuch` + `hub_konto` + `hub_kostenstelle` | 4-way UNION ALL, Vorzeichen-Flip, MWST-Anpassung, KST-Filter |
+| Finance.Belege | `mart_finance.v_belege` | `hub_kreditorenbeleg` + `sat_kreditorenbeleg` + `link_kreditorenbeleg_zahlung` | JOIN KBL + KVL via BELNR/DOCUMENTNR |
+| Finance.Kunden | `mart_finance.v_kunden` | `hub_adresse` + `sat_person_adresse` (bevorzugt), alternativ `hub_kreditor` + `sat_kreditorenbeleg` | Denorm aus KBL — besser über PUBL.ADR auflösen |
+| Projekt.Personal | `mart_project.v_personal` | `hub_person` + `sat_person` + `hub_adresse` + `sat_person_adresse` | ADR+LEN, Mitarbeiter-Filter (`LOHNJN=1, GESPERRT=0`), Initialen-Dedup |
+| Projekt.Stunden | `mart_project.v_stunden` | `hub_projektsachkonto` + `sat_projektsachkonto` + `link_projektsachkonto_projekt` + `ref_leistungsart` | ⚠️ Synapse-Logik KORRIGIERT: NSA.PROJNR→NPO.PROJNR (Projekt), CODE→NTR (Leistungsart), Datum aus PERIYEAR/PERIMONTH |
+| Projekt.Projekt | `mart_project.v_projekt` | `hub_projekt` + `sat_projekt` + `ref_projektstatus` + ref_tables | NPO+PST(Dedup)+Sharepoint-Kategorien (2 Tabellen) |
+| Projekt.Abteilung | `mart_project.v_abteilung` | `hub_person` + `sat_person` + `ref_abteilung` | LEN+LTC, `GROUP=1` Filter, MUTATION_DATE |
 
 ### 10b. Kritische Business-Regeln (zu konservieren)
 
@@ -331,6 +398,11 @@ END
 - `LOHNJN = '1'` — Ist Lohnempfänger
 - `GESPERRT = '0'` — Nicht gesperrt
 - `LOHNNR <> 0` — Gültige Personalnummer
+
+**Projekt.Stunden — ⚠️ KORREKTUR gegenüber Synapse:**
+- Synapse joint `NSA.PROJNR = ADR.LOHNNR` und nennt PROJNR "PersonalNr" — **FEHLER** (nur 2.5% Match)
+- DV-Korrektur: `NSA.PROJNR = NPO.PROJNR` für Projektzuordnung (97.5% Match)
+- Synapse-Filter `AZBETINT <> 0` → Mart-Logik beibehalten
 
 **Projekt.Stunden — Datum-Konstruktion:**
 ```sql
@@ -381,4 +453,4 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 
 > **Empfehlung:** Option A für Konten + Kostenstellen (kritische Dimensionen), Option B für Budget/Forecast/Kategorien (Planungs- und Enrichment-Daten).
 
-*EWB Analytics Platform | PPMC AG | Stand: 13. März 2026*
+*EWB Analytics Platform | PPMC AG | Stand: 14. März 2026*

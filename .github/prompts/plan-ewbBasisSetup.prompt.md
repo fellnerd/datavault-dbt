@@ -406,23 +406,44 @@ ewb:
 
 Minimale Vorbereitung, damit spätere Modelle das korrekte Schema erhalten.
 
-In `datavault-dbt/dbt_project.yml` unter `models.datavault.raw_vault` ergänzen:
+In `datavault-dbt/dbt_project.yml` — EWB Vault-Objekte liegen unter `raw_vault/_common/` (Schema `vault`), da EWB das einzige Quellsystem auf dieser Instanz ist:
 
 ```yaml
-ewb:
-  +schema: vault_ewb
-  +materialized: incremental
-  +incremental_strategy: append
-  +on_schema_change: append_new_columns
+raw_vault:
+  _common:
+    hubs:
+      +schema: vault
+      +materialized: incremental
+      +incremental_strategy: append
+      +on_schema_change: append_new_columns
+    satellites:
+      +schema: vault
+      +materialized: incremental
+      +incremental_strategy: append
+      +on_schema_change: append_new_columns
+    links:
+      +schema: vault
+      +materialized: incremental
+      +incremental_strategy: append
+      +on_schema_change: append_new_columns
 ```
 
-Unter `mart` ergänzen:
+Unter `mart` — Domain-basierte Schemas für Finance und Projekt:
 
 ```yaml
-ewb:
-  +schema: mart_ewb
-  +materialized: table
-  +as_columnstore: false
+mart:
+  _common:
+    +schema: mart
+    +materialized: table
+    +as_columnstore: false
+  finance:
+    +schema: mart_finance
+    +materialized: table
+    +as_columnstore: false
+  project:
+    +schema: mart_project
+    +materialized: table
+    +as_columnstore: false
 ```
 
 ---

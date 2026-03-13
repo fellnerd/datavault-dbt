@@ -88,6 +88,16 @@ models:
         +schema: mart
         +materialized: table
         +as_columnstore: false
+      # ===== FINANCE (Schema: mart_finance) =====
+      finance:
+        +schema: mart_finance
+        +materialized: table
+        +as_columnstore: false
+      # ===== PROJEKT (Schema: mart_project) =====
+      project:
+        +schema: mart_project
+        +materialized: table
+        +as_columnstore: false
       # ===== JIRA (Schema: mart_jira) =====
       jira:
         +schema: mart_jira

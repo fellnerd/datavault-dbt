@@ -249,16 +249,16 @@ WHERE T1.[AZBETINT] <> 0
 ### Business Logic
 - **Main**: `PROJ.NSA` = Hour bookings (Stundenbuchungen)
 - **JOIN 1**: `PROJ.NTR` (service types) on `CODE = RECNUM` — enriches with description
-- **JOIN 2**: `PUBL.ADR` (INNER JOIN) on `PROJNR = LOHNNR` — **filters to only bookings for known employees**
+- **JOIN 2**: `PUBL.ADR` (INNER JOIN) on `PROJNR = LOHNNR` — ⚠️ **FEHLERHAFT** — filtert 97.5% der Daten weg (nur 2.5% Match)
 - **Filter**: `AZBETINT <> 0` — only non-zero amounts
 - **Date construction**: Builds date from `PERIYEAR`/`PERIMONTH` with NULL/0 handling (defaults to 1900-01-01)
-- **⚠️ Naming quirk**: `PROJNR` in `PROJ.NSA` is used as `PersonalNr` — this column appears to store the employee number in hour bookings, NOT the project number
+- **⚠️ KORREKTUR (14.3.2026)**: Synapse behandelt `PROJNR` als PersonalNr und joint `PROJNR = LOHNNR` — dies ist **FEHLERHAFT**. Datenanalyse zeigt: 97.5% der NSA.PROJNR matchen NPO.PROJNR (Projekte), nur 2.5% matchen ADR.LOHNNR. PROJNR in NSA ist eine **ProjektNr**.
 
 ### DV Implication
 - `PROJ.NSA` → Staging already exists (`ewb_proj_nsa_main`)
-- `PROJ.NTR` → Reference table (Leistungsarten)
-- The date construction and INNER JOIN filter = **Business Vault**
-- The PROJNR→PersonalNr rename is business interpretation to be handled in Mart
+- `PROJ.NTR` → Reference table (Leistungsarten — 29 einzigartige Werte)
+- The date construction and `AZBETINT <> 0` filter = **Mart-Logik**
+- ~~The PROJNR→PersonalNr rename is business interpretation~~ → PROJNR bleibt ProjektNr, Link zu `hub_projekt` direkt möglich
 
 ---
 
@@ -421,6 +421,6 @@ All 10 Abacus source tables are already in DV scope as Parquet files in `stage-f
 2. **KST exclusion list**: `2990, 3990, 4990, 5990, 6990, 7990` (consolidation cost centers)
 3. **Account range**: Only `30000 < KTO < 90000` (P&L accounts)
 4. **Employee filter**: `LOHNJN=1 AND GESPERRT=0 AND LOHNNR<>0`
-5. **Hour bookings**: `AZBETINT <> 0` filter, `PROJNR` = PersonalNr (naming quirk)
+5. **Hour bookings**: `AZBETINT <> 0` filter, `PROJNR` = **ProjektNr** (Synapse-Interpretation als PersonalNr ist FALSCH — 97.5% Match zu NPO.PROJNR)
 6. **Status dedup**: `LEN(TRIM(BEZEICHN)) > 2` for meaningful status names
 7. **Department filter**: `GROUP = 1` in LOHN.LTC for department type only
