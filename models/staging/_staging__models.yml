@@ -489,13 +489,13 @@ models:
         business_keys:
           - RECNUM
     columns:
-      - name: hk_ewb_fibu_fhe
+      - name: hk_buchungskopf
         description: Hash Key (Primary Key)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_ewb_fibu_fhe
+      - name: hd_buchungskopf
         description: Hash Diff for change detection
         data_type: char(64)
         tests:

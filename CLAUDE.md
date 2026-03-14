@@ -76,8 +76,8 @@ All Raw Vault objects use `incremental_strategy: append` with `on_schema_change:
 |--------|---------|---------|
 | External Table | `stg.ext_ewb_<modul>_<tabelle>` | `stg.ext_ewb_fibu_fhe_main` |
 | Staging View | `stg.ewb_<modul>_<tabelle>` | `stg.ewb_fibu_fhe_main` |
-| Hash Key | `hk_ewb_<modul>_<tabelle>` | `hk_ewb_fibu_fhe` |
-| Hash Diff | `hd_ewb_<modul>_<tabelle>` | `hd_ewb_fibu_fhe` |
+| Hash Key | `hk_<entity>` | `hk_buchungskopf` |
+| Hash Diff | `hd_<entity>` | `hd_buchungskopf` |
 | Hub | `vault.hub_<entity>` | `vault.hub_fibu_fhe` |
 | Satellite | `vault.sat_<entity>` | `vault.sat_fibu_fhe` |
 | Link | `vault.link_<e1>_<e2>` | `vault.link_beleg_lieferant` |

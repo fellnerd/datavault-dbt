@@ -89,9 +89,9 @@ ORDER BY t.name
 ### 7. Datenqualität
 ```sql
 -- Duplikat-Check auf Hash Keys
-SELECT hk_ewb_fibu_fhe, COUNT(*) AS cnt
+SELECT hk_buchungskopf, COUNT(*) AS cnt
 FROM [stg].[ewb_fibu_fhe_main]
-GROUP BY hk_ewb_fibu_fhe
+GROUP BY hk_buchungskopf
 HAVING COUNT(*) > 1
 
 -- NULL-Check auf Business Keys

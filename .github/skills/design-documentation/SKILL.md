@@ -56,8 +56,8 @@ flowchart LR
         S["stg.ewb_fibu_fhe_main"]
     end
     P --> E --> S
-    S -->|"hk_ewb_fibu_fhe"| HUB["hub_fibu_fhe"]
-    S -->|"hd_ewb_fibu_fhe"| SAT["sat_fibu_fhe"]
+    S -->|"hk_buchungskopf"| HUB["hub_buchungskopf"]
+    S -->|"hd_buchungskopf"| SAT["sat_buchungskopf"]
 ```
 
 ### Hub Design (nach `design/raw-vault/_template_hub.md`)
@@ -71,13 +71,13 @@ Erstelle pro Hub ein Dokument mit:
 ```mermaid
 erDiagram
     HUB_FIBU_FHE {
-        CHAR64 hk_ewb_fibu_fhe PK
+        CHAR64 hk_buchungskopf PK
         INT RECNUM BK
         DATETIME2 dss_load_date
         VARCHAR50 dss_record_source
     }
     SAT_FIBU_FHE {
-        CHAR64 hk_ewb_fibu_fhe FK
+        CHAR64 hk_buchungskopf FK
         CHAR64 hashdiff
         INT JOURNR
         VARCHAR50 TEXT

@@ -20,8 +20,8 @@ Adworks-Vorlage: `models/staging/adworks_kunde.sql`
 - Parquet: `ewb/abacus/<MODUL>.<TABELLE>.<SUFFIX>.parquet`
 - External Table: `ext_ewb_<modul>_<tabelle>_<suffix>` (Schema: `stg`)
 - Staging View: `ewb_<modul>_<tabelle>_<suffix>`
-- Hash Key: `hk_ewb_<entity>`
-- Hash Diff: `hd_ewb_<entity>`
+- Hash Key: `hk_<entity>`
+- Hash Diff: `hd_<entity>`
 - Record Source: `'ewb_abacus'`
 
 ## 5-Block-Staging-Struktur
@@ -32,8 +32,8 @@ Adworks-Vorlage: `models/staging/adworks_kunde.sql`
     Staging Model: ewb_<modul>_<tabelle>_<suffix>
     Source: Abacus ERP - <Modul>.<Tabelle>.<Suffix>
     Business Key: RECNUM (o.ä.)
-    Hash Key: hk_ewb_<entity>
-    Hash Diff: hd_ewb_<entity>
+    Hash Key: hk_<entity>
+    Hash Diff: hd_<entity>
     Record Source: ewb_abacus
 
     Developer: Daniel Fellner, MSc
@@ -67,7 +67,7 @@ staged AS (
         -- Hash Key (Entity)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
             ISNULL(CAST(RECNUM AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_ewb_<entity>,
+        ), 2) AS hk_<entity>,
 
         -- Hash Diff (Change Detection)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
@@ -75,7 +75,7 @@ staged AS (
             ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), '')
             {% if not loop.last %} + '^^' + {% endif %}
             {% endfor %}
-        ), 2) AS hd_ewb_<entity>,
+        ), 2) AS hd_<entity>,
 
         -- Business Key
         RECNUM,

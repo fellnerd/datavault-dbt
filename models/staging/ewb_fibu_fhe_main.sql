@@ -6,8 +6,8 @@
  * Business Key: RECNUM (Datensatznummer)
  *
  * Hash Keys calculated here:
- *   - hk_ewb_fibu_fhe (Entity Hash Key)
- *   - hd_ewb_fibu_fhe (Hash Diff für Satellite)
+ *   - hk_buchungskopf (Entity Hash Key)
+ *   - hd_buchungskopf (Hash Diff für Satellite)
  *
  * Developer: Daniel Fellner, MSc
  * Company:   ppmc analytics ag
@@ -26,8 +26,8 @@
     'REF_TYP',
     'BOTTOM',
     'FONTID',
-    'BEFORE',
-    'AFTER',
+    '[BEFORE]',
+    '[AFTER]',
     'BOLDSW',
     'ULINESW',
     'ITALICSW',
@@ -86,7 +86,7 @@ staged AS (
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
             ISNULL(CAST(RECNUM AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_ewb_fibu_fhe,
+        ), 2) AS hk_buchungskopf,
 
         -- ===========================================
         -- HASH DIFF (Change Detection - Satellite)
@@ -97,7 +97,7 @@ staged AS (
                 ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
                 {%- endfor %}
             )
-        ), 2) AS hd_ewb_fibu_fhe,
+        ), 2) AS hd_buchungskopf,
 
         -- ===========================================
         -- BUSINESS KEY
@@ -117,8 +117,8 @@ staged AS (
         REF_TYP,
         BOTTOM,
         FONTID,
-        BEFORE,
-        AFTER,
+        [BEFORE],
+        [AFTER],
         BOLDSW,
         ULINESW,
         ITALICSW,

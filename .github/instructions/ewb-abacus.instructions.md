@@ -16,8 +16,8 @@ Beispiel: `FIBU.FHE.Main.parquet` → External Table `ext_ewb_fibu_fhe_main`
 Aus dem Parquet-Dateinamen `<MODUL>.<TABELLE>.<SUFFIX>.parquet` ergibt sich:
 - External Table: `ext_ewb_<modul>_<tabelle>_<suffix>` (alles lowercase)
 - Staging View: `ewb_<modul>_<tabelle>_<suffix>`
-- Hash Key: `hk_ewb_<modul>_<tabelle>` (ohne Suffix)
-- Hash Diff: `hd_ewb_<modul>_<tabelle>` (ohne Suffix)
+- Hash Key: `hk_<entity>` (abgeleitet vom Hub-Namen, z.B. `hk_buchungskopf` für `hub_buchungskopf`)
+- Hash Diff: `hd_<entity>` (abgeleitet vom Hub-Namen, z.B. `hd_buchungskopf` für `hub_buchungskopf`)
 
 ## Abacus Module und Pilot-Tabellen (Phase 3)
 

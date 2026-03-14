@@ -99,8 +99,8 @@ Bei Test-Fehlern:
 ### Tests
 | Test | Modell | Status |
 |------|--------|--------|
-| not_null_hk_ewb_fibu_fhe | ewb_fibu_fhe_main | ✅ PASS |
-| unique_hk_ewb_fibu_fhe | ewb_fibu_fhe_main | ✅ PASS |
+| not_null_hk_buchungskopf | ewb_fibu_fhe_main | ✅ PASS |
+| unique_hk_buchungskopf | ewb_fibu_fhe_main | ✅ PASS |
 
 ### DB-Verifikation
 | Objekt | Zeilen | Status |

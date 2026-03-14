@@ -49,17 +49,17 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 | Hub | Business Key | Abacus-Spalte | Staging-Quelle | Hash Key | Priorität |
 |---|---|---|---|---|---|
-| `hub_buchungskopf` | Buchungsnummer | `RECNUM` | `ewb_fibu_fhe_main` | `hk_ewb_fibu_fhe` | P1 |
-| `hub_hauptbuch` | Belegnr + Konto ¹ | `BELEGNR\|\|KONTO` | `ewb_fibu_gl_e2x` | `hk_ewb_fibu_gl` | P1 |
-| `hub_kreditorenbeleg` | Belegnummer | `BELEGNR` | `ewb_kred_kbl_main` | `hk_ewb_kred_kbl` | P2 |
-| `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_ewb_kred_kvl` | P3 |
-| `hub_kreditor` | Lieferantennummer | `LIEFNR` | `ewb_kred_kbs_main` | `hk_ewb_kred_kbs` | P1 |
-| `hub_adresse` | Adressnummer | `ADRESSNR` | `ewb_publ_adr_main` | `hk_ewb_publ_adr` | P1 |
-| `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_ewb_proj_npo` | P1 |
+| `hub_buchungskopf` | Buchungsnummer | `RECNUM` | `ewb_fibu_fhe_main` | `hk_buchungskopf` | P1 |
+| `hub_hauptbuch` | Belegnr + Konto ¹ | `DKBELEGNUMMER\|\|KTO` | `ewb_fibu_gl_e2x` | `hk_hauptbuch` | P1 |
+| `hub_kreditorenbeleg` | Belegnummer | `BELEGNR` | `ewb_kred_kbl_main` | `hk_kreditorenbeleg` | P2 |
+| `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_zahlung` | P3 |
+| `hub_kreditor` | Lieferantennummer | `LIEFNR` | `ewb_kred_kbs_main` | `hk_kreditor` | P1 |
+| `hub_adresse` | Adressnummer | `INR` | `ewb_publ_adr_main` | `hk_adresse` | P1 |
+| `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_projekt` | P1 |
 | ~~`hub_projekttaetigkeit`~~ | ~~Projekt + Positionsnr~~ | ~~`PRONR\|\|POSNR`~~ | ~~`ewb_proj_ntc_main`~~ | — | ~~P3~~ |
-| `hub_zeiterfassung` ⁸ | Mitarbeiter + Tag | `EMPLNR\|\|PROJDAT` | `ewb_proj_ntc_main` | `hk_ewb_proj_ntc` | P3 |
-| `hub_projektsachkonto` ⁴ | Projekt + Code + Periode | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB` | `ewb_proj_nsa_main` | `hk_ewb_proj_nsa` | P3 |
-| `hub_person` | Personalnummer | `EMPL_NR` | `ewb_lohn_len_main` | `hk_ewb_lohn_len` | P1 |
+| `hub_zeiterfassung` ⁸ | Mitarbeiter + Tag | `EMPLNR\|\|PROJDAT` | `ewb_proj_ntc_main` | `hk_zeiterfassung` | P3 |
+| `hub_projektsachkonto` ⁴ | Projekt + Code + Periode | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB` | `ewb_proj_nsa_main` | `hk_projektsachkonto` | P3 |
+| `hub_person` | Personalnummer | `EMPL_NR` | `ewb_lohn_len_main` | `hk_person` | P1 |
 
 > ¹ Klärungsbedarf → Offene Frage F1 — **GELÖST**: Composite BK `DKBELEGNUMMER||KTO` bestätigt  
 > ⁴ **Korrigiert (14.3.2026):** `PROJNR` in NSA = **ProjektNr** (97.5% Match zu NPO.PROJNR, datenbestätigt). Die Synapse-View `Projekt.Stunden` benennt dies fälschlicherweise als "PersonalNr" und joint `PROJNR = LOHNNR` (nur 2.5% Match — Synapse-Bug). BK-Semantik: `ProjektNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`.  
@@ -82,14 +82,14 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | Satellite | Hub | Typ | Hauptpayload | Staging-Quelle | Priorität |
 |---|---|---|---|---|---|
 | `sat_buchungskopf` | `hub_buchungskopf` | STD | PLAN, LEVEL, VARIANTE, TYP, REF_ID | `ewb_fibu_fhe_main` | P1 |
-| `sat_hauptbuch` | `hub_hauptbuch` | STD | Betrag, Periode, Währung, Buchungstext, Belegdatum | `ewb_fibu_gl_e2x` | P2 |
-| `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | Umschreibung3, Visierende-ID, Visierende, Betrag, Belegdatum | `ewb_kred_kbl_main` | P2 |
-| `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status | `ewb_kred_kvl_main` | P3 |
+| `sat_hauptbuch` | `hub_hauptbuch` | STD | DATE, SH, SAM, BETRAG, GKTO, KST, KST2, WAEHR, MWSTBETR, MWSTTYP, MWSTCODE, MWSTINCL, MWSTSATZ, TEXT, TEXT2, DKKUNDENNUMMER, PROJEBENE | `ewb_fibu_gl_e2x` | P2 |
+| `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | KNR, ADRID, Umschreibung3, Betrag, Belegdatum | `ewb_kred_kbl_main` | P2 |
+| `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 |
 | `sat_kreditor` | `hub_kreditor` | STD | Saldo, Konto, Währung, Periode | `ewb_kred_kbs_main` | P1 |
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
-| `sat_projekt_status` | `hub_projekt` | STD | Status, StatusDatum, Beschreibung | `ewb_proj_pst_main` | P3 |
+| ~~`sat_projekt_status`~~ | — | — | — | — | — | → **Entfällt:** PST = 7 stabile Lookup-Werte → nur `ref_projektstatus` |
 | `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
-| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | AZBUDGET, AZBETINT, AZBETEXI, AZVORTRAGINT, AZVORTRAGEXI, BUDGETINT, BUDGETEXI, BETRAGINT, BETRAGEXI, VORTRAGINT, VORTRAGEXI | `ewb_proj_nsa_main` | P3 |
+| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT | `ewb_proj_nsa_main` | P3 |
 | `sat_person` | `hub_person` | STD | LAST_NAME, FIRST_NAME, ABRV, HOME_DEPT_NR, CALC_GROUP | `ewb_lohn_len_main` | P1 |
 | `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
 | `sat_projektteil` | `hub_projekt` | STD | Status (STAT1/STAT2), Datum | `ewb_proj_prt_main` | P3 |
@@ -118,10 +118,12 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
 | `link_zeiterfassung_person` ¹⁰ | `hub_zeiterfassung` ↔ `hub_person` | Nein | `ewb_proj_ntc_main` | P3 |
 | `link_projektteil_projekt` | `hub_projekt` (PRT.PROJNR → NPO.PROJNR) | Nein | `ewb_proj_prt_main` | P3 |
+| `link_person_adresse` | `hub_person` ↔ `hub_adresse` | Nein | `ewb_publ_adr_main` ¹¹ | P1 |
 
 > ⁵ **Aus Synapse `Finance.Belege` abgeleitet:** `KBL.BELNR = KVL.DOCUMENTNR`. Dieser JOIN bildet die natürliche Beziehung Beleg↔Zahlung ab.  
 > ⁹ **NEU (14.3.2026):** `NSA.PROJNR = NPO.PROJNR` — Datenanalyse bestätigt: 97.5% (11.600 von 11.895 distinkten PROJNR-Werten) matchen direkt auf Projekte. Projektzuordnung ist direkt aus NSA ableitbar. `NSA.CODE = NTR.RECNUM` (70% Match) für Leistungsart-Bezug — im Mart via `ref_leistungsart` aufgelöst.  
 > ¹⁰ **NEU (14.3.2026):** `NTC.EMPLNR = LEN.EMPL_NR` — 100% Match (206 von 206 NTC-Mitarbeitern). NTC = tägliche Zeitstempelung pro Mitarbeiter.
+> ¹¹ **NEU (15.3.2026):** `ADR.LOHNNR = LEN.EMPL_NR` — Synapse `Projekt.Personal` nutzt diesen JOIN. Link verbindet Mitarbeiter mit ihrer Adresse. Staging-Quelle: `ewb_publ_adr_main` (hat beide Schlüssel: `INR` für hk_adresse, `LOHNNR` für hk_person).
 >
 > Entfallen gegenüber Vorversion:
 > - ~~`link_stundenbuchung_person`~~ — NSA hat **keine** Mitarbeiter-Spalte. Der Synapse-Join `PROJNR = LOHNNR` ist ein Fehler (nur 2.5% Match).
@@ -142,8 +144,9 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 - `ewb_kred_kbs_main`
 
 **Raw Vault:**
-- Hubs: `hub_person`, `hub_projekt`, `hub_kreditor`
+- Hubs: `hub_person`, `hub_adresse`, `hub_projekt`, `hub_kreditor`
 - Sats: `sat_person`, `sat_person_adresse`, `sat_projekt`, `sat_kreditor`
+- Links: `link_person_adresse`
 - Reference Tables: `ref_leistungsart` (NTR), `ref_projektstatus` (PST), `ref_abteilung` (LTC)
 
 ### Wave 2 — Transaktionsobjekte
@@ -319,10 +322,10 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 9 (+2 Ghost) | 5×P1, 1×P2, 3×P3 |
-| Satellites | 12 | 4×P1, 2×P2, 6×P3 |
-| Links | 11 | 0×P1, 3×P2, 8×P3 |
-| **Total Vault-Objekte** | **32** | |
+| Hubs | 10 (+2 Ghost) | 5×P1, 1×P2, 1×P3 (+2 Ghost) |
+| Satellites | 11 | 4×P1, 2×P2, 5×P3 |
+| Links | 12 | 1×P1, 3×P2, 8×P3 |
+| **Total Vault-Objekte** | **35** | |
 | Reference Tables | 3 (NTR, PST, LTC) | + bis zu 8 Sharepoint |
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
 | Mart Views | 7 | geplant (structured-tables Replika) |
