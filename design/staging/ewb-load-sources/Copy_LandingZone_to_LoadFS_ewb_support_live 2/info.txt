@@ -1,0 +1,6 @@
+selected resource name:		Copy_LandingZone_to_LoadFS_ewb
+selected resource type:		pipeline
+factory name:			analytics-datafactory001
+factory location:		switzerlandnorth
+subscription id:		68defcb4-5f61-4456-90f5-ff6bb0305183
+time of download (UTC):		Tue, 17 Mar 2026 20:54:28 GMT
