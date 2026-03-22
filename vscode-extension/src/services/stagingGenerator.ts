@@ -19,6 +19,55 @@
 import { StagingConfig, ForeignKeyMapping } from '../types';
 
 /**
+ * SQL Server reserved keywords that must be escaped with square brackets.
+ * @see https://learn.microsoft.com/en-us/sql/t-sql/language-elements/reserved-keywords-transact-sql
+ */
+const SQL_RESERVED_KEYWORDS = new Set([
+  'ADD', 'ALL', 'ALTER', 'AND', 'ANY', 'AS', 'ASC', 'AUTHORIZATION', 'BACKUP', 'BEGIN',
+  'BETWEEN', 'BREAK', 'BROWSE', 'BULK', 'BY', 'CASCADE', 'CASE', 'CHECK', 'CHECKPOINT',
+  'CLOSE', 'CLUSTERED', 'COALESCE', 'COLLATE', 'COLUMN', 'COMMIT', 'COMPUTE', 'CONSTRAINT',
+  'CONTAINS', 'CONTAINSTABLE', 'CONTINUE', 'CONVERT', 'CREATE', 'CROSS', 'CURRENT',
+  'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'CURSOR', 'DATABASE',
+  'DBCC', 'DEALLOCATE', 'DECLARE', 'DEFAULT', 'DELETE', 'DENY', 'DESC', 'DISK', 'DISTINCT',
+  'DISTRIBUTED', 'DOUBLE', 'DROP', 'DUMP', 'ELSE', 'END', 'ERRLVL', 'ESCAPE', 'EXCEPT',
+  'EXEC', 'EXECUTE', 'EXISTS', 'EXIT', 'EXTERNAL', 'FETCH', 'FILE', 'FILLFACTOR', 'FOR',
+  'FOREIGN', 'FREETEXT', 'FREETEXTTABLE', 'FROM', 'FULL', 'FUNCTION', 'GOTO', 'GRANT',
+  'GROUP', 'HAVING', 'HOLDLOCK', 'IDENTITY', 'IDENTITY_INSERT', 'IDENTITYCOL', 'IF', 'IN',
+  'INDEX', 'INNER', 'INSERT', 'INTERSECT', 'INTO', 'IS', 'JOIN', 'KEY', 'KILL', 'LEFT',
+  'LEVEL', 'LIKE', 'LINENO', 'LOAD', 'MERGE', 'NATIONAL', 'NOCHECK', 'NONCLUSTERED', 'NOT',
+  'NULL', 'NULLIF', 'OF', 'OFF', 'OFFSETS', 'ON', 'OPEN', 'OPENDATASOURCE', 'OPENQUERY',
+  'OPENROWSET', 'OPENXML', 'OPTION', 'OR', 'ORDER', 'OUTER', 'OVER', 'PERCENT', 'PIVOT',
+  'PLAN', 'PRECISION', 'PRIMARY', 'PRINT', 'PROC', 'PROCEDURE', 'PUBLIC', 'RAISERROR',
+  'READ', 'READTEXT', 'RECONFIGURE', 'REFERENCES', 'REPLICATION', 'RESTORE', 'RESTRICT',
+  'RETURN', 'REVERT', 'REVOKE', 'RIGHT', 'RIGHTS', 'ROLLBACK', 'ROWCOUNT', 'ROWGUIDCOL',
+  'RULE', 'SAVE', 'SCHEMA', 'SECURITYAUDIT', 'SELECT', 'SEMANTICKEYPHRASETABLE',
+  'SEMANTICSIMILARITYDETAILSTABLE', 'SEMANTICSIMILARITYTABLE', 'SESSION_USER', 'SET',
+  'SETUSER', 'SHUTDOWN', 'SOME', 'STATISTICS', 'STATUS', 'SYSTEM_USER', 'TABLE', 'TABLESAMPLE',
+  'TEXTSIZE', 'THEN', 'TO', 'TOP', 'TRAN', 'TRANSACTION', 'TRIGGER', 'TRUNCATE',
+  'TRY_CONVERT', 'TSEQUAL', 'TYPE', 'UNION', 'UNIQUE', 'UNPIVOT', 'UPDATE', 'UPDATETEXT',
+  'USE', 'USER', 'VALUE', 'VALUES', 'VARYING', 'VIEW', 'WAITFOR', 'WHEN', 'WHERE', 'WHILE',
+  'WITH', 'WITHIN', 'WRITETEXT',
+  // Additional keywords common in Abacus data
+  'AFTER', 'BEFORE', 'ROLE', 'STATE', 'ZONE'
+]);
+
+/**
+ * Escape a column name with square brackets if it's a SQL Server reserved keyword
+ * or contains special characters (hyphens, spaces, etc.)
+ */
+export function escapeColumnName(name: string): string {
+  // Already escaped
+  if (name.startsWith('[') && name.endsWith(']')) {
+    return name;
+  }
+  // Needs escaping: reserved keyword or contains special characters
+  if (SQL_RESERVED_KEYWORDS.has(name.toUpperCase()) || /[^a-zA-Z0-9_]/.test(name)) {
+    return `[${name}]`;
+  }
+  return name;
+}
+
+/**
  * Generate a complete staging SQL file
  * 
  * ALL hash calculations happen here - Link and Satellite models only reference these hashes
@@ -161,7 +210,8 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('{%- set hashdiff_columns = [');
     sortedHashDiffColumns.forEach((col, idx) => {
       const comma = idx < sortedHashDiffColumns.length - 1 ? ',' : '';
-      lines.push(`    '${col}'${comma}`);
+      const escaped = escapeColumnName(col);
+      lines.push(`    '${escaped}'${comma}`);
     });
     lines.push('] -%}');
     lines.push('');
@@ -175,7 +225,8 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('{%- set hashdiff_ma_columns = [');
     maHashDiffColumns.forEach((col, idx) => {
       const comma = idx < maHashDiffColumns.length - 1 ? ',' : '';
-      lines.push(`    '${col}'${comma}`);
+      const escaped = escapeColumnName(col);
+      lines.push(`    '${escaped}'${comma}`);
     });
     lines.push('] -%}');
     lines.push('');
@@ -415,7 +466,7 @@ export function generateStagingSql(config: StagingConfig): string {
     lines.push('        -- BUSINESS KEY(S)');
     lines.push('        -- ===========================================');
     businessKeyColumns.forEach((col) => {
-      lines.push(`        ${col},`);
+      lines.push(`        ${escapeColumnName(col)},`);
     });
     lines.push('');
   }
@@ -428,11 +479,13 @@ export function generateStagingSql(config: StagingConfig): string {
   lines.push('        -- ===========================================');
   payloadColumns.forEach((targetCol) => {
     const sourceCol = getSourceColumn(targetCol);
+    const escapedTarget = escapeColumnName(targetCol);
+    const escapedSource = escapeColumnName(sourceCol);
     if (sourceCol.toLowerCase() !== targetCol.toLowerCase()) {
       // Source differs from target - need AS alias
-      lines.push(`        ${sourceCol} AS ${targetCol},`);
+      lines.push(`        ${escapedSource} AS ${escapedTarget},`);
     } else {
-      lines.push(`        ${targetCol},`);
+      lines.push(`        ${escapedTarget},`);
     }
   });
   lines.push('');
@@ -489,14 +542,15 @@ function generateHashKeyWithSuffix(
   
   if (businessKeyColumns.length === 1) {
     // Single column - simple hash
+    const escapedCol = escapeColumnName(businessKeyColumns[0]);
     return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(${businessKeyColumns[0]} AS NVARCHAR(MAX)), '')
+            ISNULL(CAST(${escapedCol} AS NVARCHAR(MAX)), '')
         ), 2) AS ${hashKeyName},`;
   }
   
   // Multiple columns - composite hash with separator
   const concatParts = businessKeyColumns.map(col => 
-    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+    `ISNULL(CAST(${escapeColumnName(col)} AS NVARCHAR(MAX)), '')`
   ).join(`,\n                '${separator}',\n                `);
   
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
@@ -535,7 +589,7 @@ function generateLinkHashKey(
   // Combine source BK + target FK for link hash
   const allColumns = [...sourceBKColumns, targetFKColumn];
   const concatParts = allColumns.map(col => 
-    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+    `ISNULL(CAST(${escapeColumnName(col)} AS NVARCHAR(MAX)), '')`
   ).join(`,\n                '${separator}',\n                `);
   
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
@@ -560,10 +614,9 @@ function generateLinkHashKeyWithDCK(
   dckColumns: string[],
   separator: string
 ): string {
-  // DC Link Hash = FK + DCK (NOT source BK, as that would duplicate FK+DCK)
   const allColumns = [targetFKColumn, ...dckColumns];
   const concatParts = allColumns.map(col => 
-    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+    `ISNULL(CAST(${escapeColumnName(col)} AS NVARCHAR(MAX)), '')`
   ).join(`,\n                '${separator}',\n                `);
   
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
@@ -583,7 +636,7 @@ function generateHashDiffForDC(
   separator: string
 ): string {
   const concatParts = columns.map(col => 
-    `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`
+    `ISNULL(CAST(${escapeColumnName(col)} AS NVARCHAR(MAX)), '')`
   ).join(`,\n                '${separator}',\n                `);
   
   // SQL Server CONCAT requires at least 2 args - add empty string if only 1 column
@@ -626,7 +679,7 @@ function generatePureLinkHashKey(
     a.toLowerCase().localeCompare(b.toLowerCase())
   );
   
-  const parts = sortedFkColumns.map(col => `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`);
+  const parts = sortedFkColumns.map(col => `ISNULL(CAST(${escapeColumnName(col)} AS NVARCHAR(MAX)), '')`);
   const concatExpr = parts.join(` + '${separator}' + `);
   
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', ${concatExpr}), 2) AS hk_${linkName},`;
@@ -651,7 +704,7 @@ function generateDCLinkHashKey(
     a.toLowerCase().localeCompare(b.toLowerCase())
   );
   
-  const parts = allColumns.map(col => `ISNULL(CAST(${col} AS NVARCHAR(MAX)), '')`);
+  const parts = allColumns.map(col => `ISNULL(CAST(${escapeColumnName(col)} AS NVARCHAR(MAX)), '')`);
   const concatExpr = parts.join(` + '${separator}' + `);
   
   return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', ${concatExpr}), 2) AS hk_${linkName},`;
@@ -704,6 +757,32 @@ export function parseExternalTableName(tableName: string): { concept: string; en
 }
 
 /**
+ * Derive the dss_record_source value from the external table name.
+ * EWB tables (ext_ewb_*) → 'ewb_abacus' (Abacus ERP)
+ * Other tables → concept name (e.g., 'jira', 'adworks')
+ */
+export function deriveRecordSource(externalTableOrConcept: string): string {
+  // Extract concept from external table name if it looks like one
+  const parsed = parseExternalTableName(externalTableOrConcept);
+  const concept = parsed ? parsed.concept : externalTableOrConcept;
+  
+  // EWB data comes from Abacus ERP — record source is 'ewb_abacus'
+  if (concept === 'ewb') {
+    return 'ewb_abacus';
+  }
+  return concept;
+}
+
+/**
+ * Derive the staging view name from the external table name.
+ * Pattern: ext_<concept>_<entity> → <concept>_<entity>
+ * Example: ext_ewb_lohn_len_main → ewb_lohn_len_main
+ */
+export function deriveStagingName(externalTableName: string): string {
+  return externalTableName.replace(/^ext_/i, '');
+}
+
+/**
  * Get default staging configuration from external table
  */
 export function getDefaultStagingConfig(
@@ -734,7 +813,7 @@ export function getDefaultStagingConfig(
     payloadColumns,
     hashDiffColumns: payloadColumns, // Default: all payload columns
     foreignKeys: [], // FK relationships are defined in Link models (DV 2.0)
-    recordSourceDefault: concept,
+    recordSourceDefault: deriveRecordSource(externalTableName),
     includeRunId: columns.some(c => c.toLowerCase() === 'dss_run_id')
   };
 }

@@ -15,6 +15,7 @@ import {
 import { getWebviewContent } from './getWebviewContent';
 import { generateDataVaultObjects, generateSchemaYaml, generateVirtualViews } from '../../services/entityGenerator';
 import { loadDesignerConfig, saveDesignerConfig, DesignerConfig, detectSourceTypeFromStaging } from '../../services/designerConfigStore';
+import { deriveStagingName } from '../../services/stagingGenerator';
 
 /**
  * Manages the Entity Designer webview panel
@@ -142,7 +143,16 @@ export class EntityDesignerProvider {
 
     const stagingDir = path.join(this._projectPath, 'models', 'staging');
     const stagingModels: StagingModelInfo[] = [];
-    const currentModelName = `${concept}_${currentEntity}`;
+    
+    // Derive source concept from external table (e.g., ext_ewb_lohn_len_main → ewb)
+    // Fall back to concept for legacy compatibility
+    const sourceTable = this._currentEntity?.sourceTable;
+    const sourceConcept = sourceTable 
+      ? (sourceTable.replace(/^ext_/, '').split('_')[0] || concept) 
+      : concept;
+    const currentModelName = sourceTable 
+      ? deriveStagingName(sourceTable) 
+      : `${concept}_${currentEntity}`;
 
     try {
       if (!fs.existsSync(stagingDir)) return [];
@@ -153,14 +163,14 @@ export class EntityDesignerProvider {
       for (const file of sqlFiles) {
         const modelName = file.replace('.sql', '');
         // Only include models from same concept, exclude EXACT current model (not partial match)
-        if (modelName.startsWith(concept + '_') && modelName !== currentModelName) {
+        if (modelName.startsWith(sourceConcept + '_') && modelName !== currentModelName) {
           // Try to extract columns from the staging SQL
           const filePath = path.join(stagingDir, file);
           const columns = await this.extractStagingColumns(filePath);
           
           stagingModels.push({
             name: modelName,
-            concept,
+            concept: sourceConcept,
             columns
           });
         }
@@ -218,6 +228,23 @@ export class EntityDesignerProvider {
     if (!this._projectPath) return [];
 
     const stagingDir = path.join(this._projectPath, 'models', 'staging');
+    
+    // Try source-table-derived name first (e.g., ewb_lohn_len_main.sql from ext_ewb_lohn_len_main)
+    const sourceTable = this._currentEntity?.sourceTable;
+    if (sourceTable) {
+      const derivedFile = path.join(stagingDir, `${deriveStagingName(sourceTable)}.sql`);
+      if (fs.existsSync(derivedFile)) {
+        try {
+          const columns = await this.extractStagingColumns(derivedFile);
+          console.log(`[Entity Designer] Loaded ${columns.length} columns from staging ${deriveStagingName(sourceTable)}`);
+          return columns;
+        } catch (error) {
+          console.error('[Entity Designer] Error loading staging columns:', error);
+        }
+      }
+    }
+    
+    // Fallback: try concept_entity pattern (legacy)
     const baseStagingFile = path.join(stagingDir, `${concept}_${entityName}.sql`);
 
     try {
@@ -877,7 +904,11 @@ export class EntityDesignerProvider {
       `    "${sat}":\n      pk:\n        PK: "${hashKey}"\n      ldts:\n        LDTS: "dss_load_date"`
     ).join('\n');
 
-    const stagingName = `${concept}_${hubName.replace('hub_', '')}`;
+    // Derive staging name from source table if available, fallback to concept_entity
+    const sourceTable = this._currentEntity?.sourceTable;
+    const stagingName = sourceTable 
+      ? deriveStagingName(sourceTable)
+      : `${concept}_${hubName.replace('hub_', '')}`;
 
     return `{{-
   PIT Table: ${pitName}

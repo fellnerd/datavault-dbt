@@ -16,7 +16,7 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { EntityDesignConfig, DesignerColumnDefinition, GeneratedFile, GenerationResult, StagingConfig, ForeignKeyMapping, SourceType, LambdaVaultConfig } from '../types';
-import { generateStagingSql } from './stagingGenerator';
+import { generateStagingSql, deriveRecordSource, deriveStagingName } from './stagingGenerator';
 import { updateStagingSchemaYaml } from './schemaGenerator';
 
 /**
@@ -380,7 +380,7 @@ async function generateStaging(
     hashDiffColumns: effectiveHashDiffColumns,
     hashDiffSeparator: '^^',
     foreignKeys: fkMappings,
-    recordSourceDefault: concept,
+    recordSourceDefault: deriveRecordSource(actualSourceTable),
     includeRunId: config.columns.some(c => c.name.toLowerCase() === 'dss_run_id'),
     dependentChildKeys: Object.keys(dckByHub).length > 0 ? dckByHub : undefined,
     multiActiveKeys: multiActiveKeys.length > 0 ? multiActiveKeys.map(m => m.name.toLowerCase()) : undefined,
@@ -393,12 +393,16 @@ async function generateStaging(
   // Generate SQL using the staging generator
   const sql = generateStagingSql(stagingConfig);
   
+  // Staging filename: derive from source table name (strip ext_ prefix)
+  // e.g., ext_ewb_lohn_len_main → ewb_lohn_len_main.sql
+  const stagingModelName = deriveStagingName(actualSourceTable);
+  
   // Write to staging folder
   const filePath = path.join(
     projectPath,
     'models',
     'staging',
-    `${concept}_${entityName}.sql`
+    `${stagingModelName}.sql`
   );
   
   // Ensure directory exists
@@ -426,7 +430,7 @@ async function generateHub(
   const { concept, entityName } = config;
   const hubName = `hub_${entityName}`;
   const hashKeyName = `hk_${entityName.toLowerCase()}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
   
   // Build natural key list - can be single or composite (lowercase to match staging)
   const naturalKeys = businessKeys.map(bk => `"${bk.name.toLowerCase()}"`);
@@ -499,7 +503,7 @@ async function generateSatellite(
   const satName = `sat_${entityName}`;
   const hashKeyName = `hk_${entityName.toLowerCase()}`;
   const hashDiffName = `hd_${entityName.toLowerCase()}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build payload list (lowercase to match staging)
   const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
@@ -611,7 +615,7 @@ async function generateSplitSatellite(
   const satName = `sat_${entityName}`;  // Unique satellite name
   const hashKeyName = `hk_${targetEntity.toLowerCase()}`;  // Use TARGET hub's hash key!
   const hashDiffName = `hd_${entityName.toLowerCase()}`;  // Own hash diff for change detection
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build payload list (lowercase to match staging)
   const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
@@ -741,7 +745,7 @@ async function generateLink(
   const sourceHashKey = `hk_${entityName.toLowerCase()}`;
   // Target FK hash key also needs suffix when multiple FKs point to same hub
   const targetHashKey = `hk_${targetEntity.toLowerCase()}${linkSuffix}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Determine if this is a DC Link (no source BK, only target FK + DCK)
   const hasDCKs = dependentChildKeys.length > 0;
@@ -861,7 +865,7 @@ async function generateDependentChildSatellite(
   const dcSatName = `sat_${entityName}_${targetEntity}_dc`;
   const linkHashKey = `hk_${linkName.toLowerCase()}`;
   const hashDiffName = `hd_${dcSatName.toLowerCase().replace('sat_', '')}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // DCKs become part of the payload for DC Satellites
   const dckPayload = dependentChildKeys.map(dck => `"${dck.name.toLowerCase()}"`);
@@ -960,7 +964,7 @@ async function generateMultiActiveSatellite(
   const maSatName = `sat_${entityName}_ma`;
   const hashKeyName = `hk_${entityName.toLowerCase()}`;
   const hashDiffName = `hd_${entityName.toLowerCase()}_ma`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build MA CDK list - these columns distinguish concurrent records
   const cdkColumns = multiActiveKeys.map(ma => `"${ma.name.toLowerCase()}"`);
@@ -1083,7 +1087,7 @@ async function generatePureLink(
   // Link name: link_<entity1>_<entity2> (e.g., link_kunde_adresse)
   const linkName = `link_${targetEntities.join('_')}`;
   const linkHashKey = `hk_${linkName}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build src_fk list - one hash key per FK
   const fkHashKeys = targetEntities.map(entity => `hk_${entity}`);
@@ -1186,7 +1190,7 @@ async function generateDCLink(
   // Link name: link_<entityName> for DC (e.g., link_salesorderdetail)
   const linkName = `link_${entityName}`;
   const linkHashKey = `hk_${linkName}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build src_fk list - one hash key per FK (referencing existing Hubs)
   const fkHashKeys = targetEntities.map(entity => `hk_${entity}`);
@@ -1279,7 +1283,7 @@ async function generateCombinedDCSatellite(
   const dcSatName = `sat_${entityName}_dc`;
   const linkHashKey = `hk_${linkName}`;
   const hashDiffName = `hd_${entityName}_dc`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // DCKs become part of the payload for DC Satellites
   const dckPayload = dependentChildKeys.map(dck => `"${dck.name.toLowerCase()}"`);
@@ -1395,7 +1399,7 @@ async function generateLinkSatellite(
   const satName = `sat_${targetEntities.join('_')}`;
   const linkHashKey = `hk_${linkName}`;
   const hashDiffName = `hd_${targetEntities.join('_')}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build payload from attributes
   const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
@@ -1633,12 +1637,16 @@ models:`;
 
   yamlContent += '\n';
 
+  // YAML filename: _<concept>__models.yml
+  // Handle concepts starting with underscore (e.g., _common → _common__models.yml, not __common__models.yml)
+  const yamlPrefix = concept.startsWith('_') ? '' : '_';
+  
   const filePath = path.join(
     projectPath,
     'models',
     'raw_vault',
     concept,
-    `_${concept}__models.yml`
+    `${yamlPrefix}${concept}__models.yml`
   );
 
   // Check if file exists and merge/update if needed
