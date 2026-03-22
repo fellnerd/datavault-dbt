@@ -135,6 +135,34 @@ export class EntityDesignerProvider {
   }
 
   /**
+   * Extract available concepts from dbt_project.yml raw_vault configuration.
+   * Returns the folder names under models.datavault.raw_vault (e.g. ['_common', 'jira']).
+   */
+  private extractAvailableConcepts(): string[] {
+    if (!this._projectPath) {return [];}
+
+    try {
+      const configPath = path.join(this._projectPath, 'dbt_project.yml');
+      const content = fs.readFileSync(configPath, 'utf-8');
+      const config = yaml.parse(content);
+
+      const projectName = config?.name || 'datavault';
+      const rawVault = config?.models?.[projectName]?.raw_vault;
+      if (!rawVault || typeof rawVault !== 'object') {return [];}
+
+      // Keys under raw_vault are the concept folders
+      const concepts = Object.keys(rawVault).filter(
+        k => !k.startsWith('+')  // skip dbt config keys like +schema
+      );
+      console.log(`[Entity Designer] Available concepts from dbt_project.yml: ${concepts.join(', ')}`);
+      return concepts;
+    } catch (error) {
+      console.error('[Entity Designer] Error reading dbt_project.yml:', error);
+      return [];
+    }
+  }
+
+  /**
    * Load available staging models for Lambda Vault selection
    * Returns staging models from the same concept (excluding current entity)
    */
@@ -283,6 +311,9 @@ export class EntityDesignerProvider {
     // Load base staging columns for Lambda Vault comparison
     const baseStagingColumns = await this.loadBaseStagingColumns(concept, entityName);
 
+    // Extract available concepts from dbt_project.yml
+    const availableConcepts = this.extractAvailableConcepts();
+
     // Determine which columns to send:
     // If savedConfig has columns, use those as the PRIMARY source (user's saved config is truth)
     // Only fall back to externalTable.columns if no saved config exists
@@ -314,7 +345,8 @@ export class EntityDesignerProvider {
         savedColumns: savedConfig && savedConfig.columns.length > 0 ? savedConfig.columns : undefined,
         availableStagingModels,
         lambdaVault: savedConfig?.lambdaVault,
-        baseStagingColumns
+        baseStagingColumns,
+        availableConcepts
       }
     };
 

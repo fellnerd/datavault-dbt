@@ -83,6 +83,8 @@ interface InitData {
   lambdaVault?: LambdaVaultConfig;
   /** Column names from base staging SQL (for Lambda Vault comparison) */
   baseStagingColumns?: string[];
+  /** Available concepts from dbt_project.yml */
+  availableConcepts?: string[];
 }
 
 interface ValidationError {
@@ -597,6 +599,7 @@ export const App: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [entityName, setEntityName] = useState('');
   const [concept, setConcept] = useState('');
+  const [availableConcepts, setAvailableConcepts] = useState<string[]>([]);
   const [existingHubs, setExistingHubs] = useState<string[]>([]);
 
   // Lambda Vault state
@@ -630,6 +633,7 @@ export const App: React.FC = () => {
         setInitData(data);
         setEntityName(data.entityName);
         setConcept(data.concept);
+        setAvailableConcepts(data.availableConcepts || []);
         setExistingHubs(data.existingHubs || []);
         
         // Filter out hash columns (hk_*, hd_*) - these are auto-generated
@@ -1075,12 +1079,21 @@ export const App: React.FC = () => {
         <h1 style={styles.headerTitle}>Entity Designer</h1>
         <div style={styles.headerInfo}>
           <span><strong>Concept:</strong></span>
-          <input
-            type="text"
+          <select
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
-            style={{ ...styles.input, width: '120px', display: 'inline-block' }}
-          />
+            style={{ ...styles.input, width: '140px', display: 'inline-block' }}
+          >
+            {availableConcepts.length > 0 ? (
+              availableConcepts.map(c => (
+                <option key={c} value={c}>
+                  {c === '_common' ? '_common (vault)' : `${c} (vault_${c})`}
+                </option>
+              ))
+            ) : (
+              <option value={concept}>{concept}</option>
+            )}
+          </select>
           <span>|</span>
           <span><strong>Entity:</strong></span>
           <input

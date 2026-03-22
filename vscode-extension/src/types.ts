@@ -446,6 +446,8 @@ export interface WebviewInitMessage {
     lambdaVault?: LambdaVaultConfig;
     /** Column names from base staging SQL (for Lambda Vault comparison) */
     baseStagingColumns?: string[];
+    /** Available concepts from dbt_project.yml raw_vault config */
+    availableConcepts?: string[];
   };
 }
 
