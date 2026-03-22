@@ -1,12 +1,12 @@
 /*
- * Staging Model: ewb_lohn_len_main
- * ok
+ * Staging Model: ewb_person
+ *
  * Source: ext_ewb_lohn_len_main
  * Business Key: EMPL_NR
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
  * Hash Keys calculated here (automate_dv pattern):
- *   - hk_lohn_len_main (Entity Hash Key)
+ *   - hk_person (Entity Hash Key)
  */
 
 {%- set hashdiff_columns = [
@@ -185,7 +185,7 @@ staged AS (
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(EMPL_NR AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_lohn_len_main,
+        ), 2) AS hk_person,
 
         -- ===========================================
         -- HASH DIFF (Change Detection - Satellite)
@@ -197,7 +197,7 @@ staged AS (
                 {%- endfor %}
                 {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
             )
-        ), 2) AS hd_lohn_len_main,
+        ), 2) AS hd_person,
 
         -- ===========================================
         -- BUSINESS KEY(S)
