@@ -1,6 +1,6 @@
 version: 2
 models:
-   - name: ewb_fibu_fhe_main
+  - name: ewb_fibu_fhe_main
     description: Staging view for FIBU.FHE.Main from Abacus EWB
     config:
       meta:
