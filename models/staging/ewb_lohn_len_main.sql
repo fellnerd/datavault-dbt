@@ -1,6 +1,6 @@
 /*
  * Staging Model: ewb_lohn_len_main
- *
+ * ok
  * Source: ext_ewb_lohn_len_main
  * Business Key: EMPL_NR
  * Hash Key Separator: '^^' (DV 2.1 Standard)
