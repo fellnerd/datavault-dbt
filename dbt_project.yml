@@ -67,18 +67,7 @@ models:
           +incremental_strategy: append
           +on_schema_change: append_new_columns
       # ===== JIRA (Schema: vault_jira) =====
-      jira:
-        +schema: vault_jira
-        +materialized: incremental
-        +incremental_strategy: append
-        +as_columnstore: false
-        +on_schema_change: append_new_columns
-      adworks:
-        +schema: vault_adworks
-        +materialized: incremental
-        +incremental_strategy: append
-        +as_columnstore: false
-        +on_schema_change: append_new_columns
+     
     business_vault:
       +schema: vault
       +materialized: table
