@@ -632,8 +632,15 @@ export const App: React.FC = () => {
         }> };
         setInitData(data);
         setEntityName(data.entityName);
-        setConcept(data.concept);
-        setAvailableConcepts(data.availableConcepts || []);
+        const concepts = data.availableConcepts || [];
+        setAvailableConcepts(concepts);
+        // Auto-correct concept if it's not in the available list
+        // (e.g., source concept 'ewb' vs vault concept '_common')
+        if (concepts.length > 0 && !concepts.includes(data.concept)) {
+          setConcept(concepts[0]);
+        } else {
+          setConcept(data.concept);
+        }
         setExistingHubs(data.existingHubs || []);
         
         // Filter out hash columns (hk_*, hd_*) - these are auto-generated
@@ -1081,7 +1088,10 @@ export const App: React.FC = () => {
           <span><strong>Concept:</strong></span>
           <select
             value={concept}
-            onChange={(e) => setConcept(e.target.value)}
+            onChange={(e) => {
+              setConcept(e.target.value);
+              setHasUserChanges(true);
+            }}
             style={{ ...styles.input, width: '140px', display: 'inline-block' }}
           >
             {availableConcepts.length > 0 ? (
@@ -1099,7 +1109,10 @@ export const App: React.FC = () => {
           <input
             type="text"
             value={entityName}
-            onChange={(e) => setEntityName(e.target.value)}
+            onChange={(e) => {
+              setEntityName(e.target.value);
+              setHasUserChanges(true);
+            }}
             style={{ ...styles.input, width: '140px', display: 'inline-block' }}
           />
           <span>|</span>

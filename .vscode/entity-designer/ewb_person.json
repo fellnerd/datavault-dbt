@@ -1,6 +1,6 @@
 {
   "concept": "ewb",
-  "entityName": "lohn_len_main",
+  "entityName": "person",
   "sourceTable": "ext_ewb_lohn_len_main",
   "columns": [
     {
@@ -1348,5 +1348,5 @@
       "nullable": true
     }
   ],
-  "savedAt": "2026-03-22T21:32:22.265Z"
+  "savedAt": "2026-03-22T21:42:30.261Z"
 }

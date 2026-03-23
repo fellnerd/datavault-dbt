@@ -1,0 +1,1352 @@
+{
+  "concept": "_common",
+  "entityName": "person",
+  "sourceTable": "ext_ewb_lohn_len_main",
+  "columns": [
+    {
+      "name": "SYSKEY",
+      "sourceName": "SYSKEY",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "EMPL_NR",
+      "sourceName": "EMPL_NR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "EMPL_ID",
+      "sourceName": "EMPL_ID",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LAST_NAME",
+      "sourceName": "LAST_NAME",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "FIRST_NAME",
+      "sourceName": "FIRST_NAME",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BADGE_ID",
+      "sourceName": "BADGE_ID",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "HOME_DEPT_NR",
+      "sourceName": "HOME_DEPT_NR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CALC_GROUP",
+      "sourceName": "CALC_GROUP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BOOK_GROUP",
+      "sourceName": "BOOK_GROUP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ADR_INR",
+      "sourceName": "ADR_INR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LPE_YEAR",
+      "sourceName": "LPE_YEAR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LPE_MONTH",
+      "sourceName": "LPE_MONTH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DATE_IN",
+      "sourceName": "DATE_IN",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DATE_OUT",
+      "sourceName": "DATE_OUT",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BIRTHDAY",
+      "sourceName": "BIRTHDAY",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SEX",
+      "sourceName": "SEX",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "RHYTHM",
+      "sourceName": "RHYTHM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "TYPE",
+      "sourceName": "TYPE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LANGUAGE_CODE",
+      "sourceName": "LANGUAGE_CODE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "TYPE_OF_MAX",
+      "sourceName": "TYPE_OF_MAX",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "MUTATION_DATE",
+      "sourceName": "MUTATION_DATE",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "MUTATIONS",
+      "sourceName": "MUTATIONS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "USER_F",
+      "sourceName": "USER_F",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATION_ID",
+      "sourceName": "NATION_ID",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ISO_CODE",
+      "sourceName": "ISO_CODE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_2",
+      "sourceName": "NATIONAL_2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_4",
+      "sourceName": "NATIONAL_4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_5",
+      "sourceName": "NATIONAL_5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_6",
+      "sourceName": "NATIONAL_6",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_7",
+      "sourceName": "NATIONAL_7",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_8",
+      "sourceName": "NATIONAL_8",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_10",
+      "sourceName": "NATIONAL_10",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_NR_5",
+      "sourceName": "NATIONAL_NR_5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_ID_1",
+      "sourceName": "NATIONAL_ID_1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_ID_7",
+      "sourceName": "NATIONAL_ID_7",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_ID_8",
+      "sourceName": "NATIONAL_ID_8",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_SW_1",
+      "sourceName": "NATIONAL_SW_1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_CODE_1",
+      "sourceName": "NATIONAL_CODE_1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_CODE_3",
+      "sourceName": "NATIONAL_CODE_3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_CODE_4",
+      "sourceName": "NATIONAL_CODE_4",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_TEXT",
+      "sourceName": "NATIONAL_TEXT",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONAL_DATE_1",
+      "sourceName": "NATIONAL_DATE_1",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ABRV",
+      "sourceName": "ABRV",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NATIONALITY",
+      "sourceName": "NATIONALITY",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BIRTH_PLACE",
+      "sourceName": "BIRTH_PLACE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "VAR_ABRV",
+      "sourceName": "VAR_ABRV",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "VAR_TEXT",
+      "sourceName": "VAR_TEXT",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_1",
+      "sourceName": "NR_1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_2",
+      "sourceName": "NR_2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_3",
+      "sourceName": "NR_3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_4",
+      "sourceName": "NR_4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_6",
+      "sourceName": "NR_6",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_7",
+      "sourceName": "NR_7",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_8",
+      "sourceName": "NR_8",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_9",
+      "sourceName": "NR_9",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_10",
+      "sourceName": "NR_10",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_1",
+      "sourceName": "CODE_1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_2",
+      "sourceName": "CODE_2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_3",
+      "sourceName": "CODE_3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_7",
+      "sourceName": "CODE_7",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_8",
+      "sourceName": "CODE_8",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_9",
+      "sourceName": "CODE_9",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DATE_1",
+      "sourceName": "DATE_1",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DATE_2",
+      "sourceName": "DATE_2",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DATE_3",
+      "sourceName": "DATE_3",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "INR_PLACEOFWORK",
+      "sourceName": "INR_PLACEOFWORK",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "PERIODICITY",
+      "sourceName": "PERIODICITY",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "RETIREMENT_DATE",
+      "sourceName": "RETIREMENT_DATE",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NOT_FUL_FIT_FOR_WORK",
+      "sourceName": "NOT_FUL_FIT_FOR_WORK",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BVG_CODE",
+      "sourceName": "BVG_CODE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BVG_CONTRIBUTION",
+      "sourceName": "BVG_CONTRIBUTION",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SOC_INSUR_NR_UNKNOWN",
+      "sourceName": "SOC_INSUR_NR_UNKNOWN",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "OASI_EXEMPT_PENSION",
+      "sourceName": "OASI_EXEMPT_PENSION",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BVG_LEVEL_EMPLOYMENT",
+      "sourceName": "BVG_LEVEL_EMPLOYMENT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "BVG_DEG_DISABILITY",
+      "sourceName": "BVG_DEG_DISABILITY",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "PART_RETIREMENT_DATE",
+      "sourceName": "PART_RETIREMENT_DATE",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DISABLE_FOR_EMPL_COM",
+      "sourceName": "DISABLE_FOR_EMPL_COM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "EXCLUDED_FROM_REVIEW",
+      "sourceName": "EXCLUDED_FROM_REVIEW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "HIDE_IN_EMPL_DIR",
+      "sourceName": "HIDE_IN_EMPL_DIR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CONS_NR",
+      "sourceName": "CONS_NR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "RIGHTS",
+      "sourceName": "RIGHTS",
+      "dataType": "VARBINARY(MAX)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CHECKS",
+      "sourceName": "CHECKS",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "RIGHTSPIS",
+      "sourceName": "RIGHTSPIS",
+      "dataType": "VARBINARY(MAX)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CHECKSPIS",
+      "sourceName": "CHECKSPIS",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "GB",
+      "sourceName": "GB",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ENTERPRISE",
+      "sourceName": "ENTERPRISE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SINGLE_PARENT_FAMILY",
+      "sourceName": "SINGLE_PARENT_FAMILY",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "AUTO_APPROVE_ABSENCE",
+      "sourceName": "AUTO_APPROVE_ABSENCE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "AUTO_APPROVE_BOOKING",
+      "sourceName": "AUTO_APPROVE_BOOKING",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "AUTO_APPROVE_TRIP",
+      "sourceName": "AUTO_APPROVE_TRIP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "EMAIL_CATEGORY",
+      "sourceName": "EMAIL_CATEGORY",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "VACATION_ACC_TABLE",
+      "sourceName": "VACATION_ACC_TABLE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ACT_UPPS",
+      "sourceName": "ACT_UPPS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ABAPRGRP",
+      "sourceName": "ABAPRGRP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LAW_CODES",
+      "sourceName": "LAW_CODES",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LAW_EXPTYP",
+      "sourceName": "LAW_EXPTYP",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ACT_LOHN",
+      "sourceName": "ACT_LOHN",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ACT_PIS",
+      "sourceName": "ACT_PIS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ACT_PRJ",
+      "sourceName": "ACT_PRJ",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "GRP_LC",
+      "sourceName": "GRP_LC",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SYNC_KVS",
+      "sourceName": "SYNC_KVS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "AUTODATE",
+      "sourceName": "AUTODATE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "PROJ_TIMEMODEL",
+      "sourceName": "PROJ_TIMEMODEL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LAT_NR",
+      "sourceName": "LAT_NR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "AGRICULTURA_EMPLOYEE",
+      "sourceName": "AGRICULTURA_EMPLOYEE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "DEGREE_REL_SHIP",
+      "sourceName": "DEGREE_REL_SHIP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SW_WIFEWORKINCH",
+      "sourceName": "SW_WIFEWORKINCH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SOC_INSURANCE_NR",
+      "sourceName": "SOC_INSURANCE_NR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_11",
+      "sourceName": "NR_11",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_12",
+      "sourceName": "NR_12",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_13",
+      "sourceName": "NR_13",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_14",
+      "sourceName": "NR_14",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ZAR_NR",
+      "sourceName": "ZAR_NR",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "ZEMIS_NR",
+      "sourceName": "ZEMIS_NR",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CONTRACT",
+      "sourceName": "CONTRACT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CONTRACT_TYPE",
+      "sourceName": "CONTRACT_TYPE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SW_1",
+      "sourceName": "SW_1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SW_2",
+      "sourceName": "SW_2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SW_3",
+      "sourceName": "SW_3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SW_4",
+      "sourceName": "SW_4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "SW_5",
+      "sourceName": "SW_5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CODE_11",
+      "sourceName": "CODE_11",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_16",
+      "sourceName": "NR_16",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_17",
+      "sourceName": "NR_17",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_18",
+      "sourceName": "NR_18",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_19",
+      "sourceName": "NR_19",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_20",
+      "sourceName": "NR_20",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NRL_1",
+      "sourceName": "NRL_1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NRL_2",
+      "sourceName": "NRL_2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "VALUE_1",
+      "sourceName": "VALUE_1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_21",
+      "sourceName": "NR_21",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_23",
+      "sourceName": "NR_23",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_24",
+      "sourceName": "NR_24",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_25",
+      "sourceName": "NR_25",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "VAR_TEXT2",
+      "sourceName": "VAR_TEXT2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "VAR_TEXT3",
+      "sourceName": "VAR_TEXT3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "POST_INT_ADR1",
+      "sourceName": "POST_INT_ADR1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "POST_INT_ADR_TEL",
+      "sourceName": "POST_INT_ADR_TEL",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "POST_QUAL_GRP",
+      "sourceName": "POST_QUAL_GRP",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CLEARINGTEXT_1",
+      "sourceName": "CLEARINGTEXT_1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CLEARINGTEXT_2",
+      "sourceName": "CLEARINGTEXT_2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CLEARINGTEXT_3",
+      "sourceName": "CLEARINGTEXT_3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CLEARINGTEXT_4",
+      "sourceName": "CLEARINGTEXT_4",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "CLEARINGTEXT_5",
+      "sourceName": "CLEARINGTEXT_5",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_27",
+      "sourceName": "NR_27",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "NR_29",
+      "sourceName": "NR_29",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "RELEVANT_FOR_LOGIB",
+      "sourceName": "RELEVANT_FOR_LOGIB",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "PERM_STAFF_P_ADMIN",
+      "sourceName": "PERM_STAFF_P_ADMIN",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "TEMP_AGENCY_WORKER",
+      "sourceName": "TEMP_AGENCY_WORKER",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "LEN_DATE",
+      "sourceName": "LEN_DATE",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD1",
+      "sourceName": "_USERFIELD1",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD2",
+      "sourceName": "_USERFIELD2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD3",
+      "sourceName": "_USERFIELD3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD4",
+      "sourceName": "_USERFIELD4",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD5",
+      "sourceName": "_USERFIELD5",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD6",
+      "sourceName": "_USERFIELD6",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD7",
+      "sourceName": "_USERFIELD7",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD8",
+      "sourceName": "_USERFIELD8",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD9",
+      "sourceName": "_USERFIELD9",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD10",
+      "sourceName": "_USERFIELD10",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "_USERFIELD11",
+      "sourceName": "_USERFIELD11",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "timestamp_landing-zone",
+      "sourceName": "timestamp_landing-zone",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2026-03-22T21:53:40.957Z"
+}

@@ -118,9 +118,10 @@ export function generateStagingSql(config: StagingConfig): string {
 
   const lines: string[] = [];
 
-  // Header comment
+  // Header comment — use derived staging name (matches filename)
+  const stagingModelName = deriveStagingName(externalTable);
   lines.push('/*');
-  lines.push(` * Staging Model: ${concept}_${entityName}`);
+  lines.push(` * Staging Model: ${stagingModelName}`);
   lines.push(' *');
   lines.push(` * Source: ${externalTable}`);
   if (businessKeyColumns.length > 0) {
