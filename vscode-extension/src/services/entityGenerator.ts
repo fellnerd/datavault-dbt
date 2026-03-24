@@ -163,6 +163,22 @@ export async function generateDataVaultObjects(
         // Generate Split-Satellite pointing to existing Hub
         const splitSatFile = await generateSplitSatellite(config, splitSatelliteTargetHub, attributes, projectPath);
         generatedFiles.push(splitSatFile);
+      } else if (config.satellites && config.satellites.length > 0) {
+        // Multi-satellite: generate one satellite per defined group
+        for (const satDef of config.satellites) {
+          const groupAttrs = attributes.filter(a => a.satelliteGroup === satDef.id);
+          if (groupAttrs.length > 0) {
+            const multiSatConfig = { ...config, satelliteName: satDef.name };
+            const satFile = await generateSatellite(multiSatConfig, groupAttrs, projectPath);
+            generatedFiles.push(satFile);
+          }
+        }
+        // Also generate for unassigned satellite columns (fallback to default satellite)
+        const unassignedAttrs = attributes.filter(a => !a.satelliteGroup);
+        if (unassignedAttrs.length > 0) {
+          const satFile = await generateSatellite(config, unassignedAttrs, projectPath);
+          generatedFiles.push(satFile);
+        }
       } else {
         const satFile = await generateSatellite(config, attributes, projectPath);
         generatedFiles.push(satFile);
@@ -391,7 +407,26 @@ async function generateStaging(
     // Split-Satellite: use target hub's entity name for hash key
     splitSatelliteTargetHub: splitSatelliteTargetHub,
     // Satellite name override (e.g., 'person_adresse' instead of auto-derived)
-    satelliteName: config.satelliteName
+    satelliteName: config.satelliteName,
+    // Multi-satellite definitions (generates separate hash diffs per group)
+    satellites: config.satellites,
+    // Pre-computed hash diff columns per satellite group
+    satelliteHashDiffs: (() => {
+      if (!config.satellites || config.satellites.length === 0) return undefined;
+      const result: Record<string, string[]> = {};
+      for (const satDef of config.satellites) {
+        const groupAttrs = config.columns.filter(c =>
+          c.satelliteGroup === satDef.id &&
+          (c.columnType === 'satellite' || c.columnType === 'attribute') &&
+          c.includeInPayload !== false &&
+          c.includeInHashDiff
+        );
+        if (groupAttrs.length > 0) {
+          result[satDef.name] = groupAttrs.map(a => a.name.toLowerCase()).sort();
+        }
+      }
+      return Object.keys(result).length > 0 ? result : undefined;
+    })()
   };
   
   // Generate SQL using the staging generator
@@ -1690,7 +1725,11 @@ models:`;
       newModelNames.add(`hub_${entityName}`);
     }
     if (generatedFiles.some(f => f.type === 'satellite')) {
-      newModelNames.add(`sat_${satEntityName}`);
+      // Add all satellite file names (for multi-satellite support)
+      const satFiles = generatedFiles.filter(f => f.type === 'satellite');
+      for (const satFile of satFiles) {
+        newModelNames.add(path.basename(satFile.path, '.sql'));
+      }
     }
     for (const linkFile of linkFiles) {
       newModelNames.add(path.basename(linkFile.path, '.sql'));
@@ -1717,7 +1756,19 @@ models:`;
     if (newModelNames.has(`hub_${entityName}`)) {
       newModelDefs.push(buildHubYamlObject(entityName, businessKeys));
     }
-    if (newModelNames.has(`sat_${satEntityName}`)) {
+    // Multi-satellite: add YAML entries for each satellite group
+    if (config.satellites && config.satellites.length > 0) {
+      for (const satDef of config.satellites) {
+        const satName = `sat_${satDef.name || satEntityName}`;
+        if (newModelNames.has(satName)) {
+          const groupAttrs = attributes.filter(a => a.satelliteGroup === satDef.id);
+          if (groupAttrs.length > 0) {
+            newModelDefs.push(buildSatelliteYamlObject(satDef.name || satEntityName, entityName, groupAttrs));
+          }
+        }
+      }
+    } else if (newModelNames.has(`sat_${satEntityName}`)) {
+      // Single satellite (no multi-satellite groups defined)
       newModelDefs.push(buildSatelliteYamlObject(satEntityName, entityName, attributes));
     }
     for (const linkFile of linkFiles) {

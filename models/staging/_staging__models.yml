@@ -545,6 +545,12 @@ models:
         description: Payload attribute
       - name: vorname
         description: Payload attribute
+      - name: plz
+        description: Payload attribute
+      - name: ort
+        description: Payload attribute
+      - name: street
+        description: Payload attribute
       - name: dss_record_source
         description: Data source identifier
         data_type: varchar(100)

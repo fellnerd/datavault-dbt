@@ -295,7 +295,14 @@ export interface StagingConfig {
   
   // Override satellite name (e.g., 'person_adresse' instead of auto-derived from entityName)
   // Affects hash diff naming: hd_<satelliteName> instead of hd_<entityName>
+  /** @deprecated Use satellites array instead */
   satelliteName?: string;
+  
+  /** Multi-satellite definitions for staging (generates one hash diff per satellite) */
+  satellites?: SatelliteDefinition[];
+  
+  /** Hash diff column groups for multi-satellite (keyed by satellite name) */
+  satelliteHashDiffs?: Record<string, string[]>;
 }
 
 /**
@@ -335,6 +342,16 @@ export type DesignerColumnType =
   | 'ignore';
 
 /**
+ * Satellite group definition for multi-satellite support
+ */
+export interface SatelliteDefinition {
+  /** Unique ID for this satellite group */
+  id: string;
+  /** Satellite name (without 'sat_' prefix), e.g. 'person_adresse' */
+  name: string;
+}
+
+/**
  * Column definition in Entity Designer
  */
 export interface DesignerColumnDefinition {
@@ -355,6 +372,8 @@ export interface DesignerColumnDefinition {
   multiActiveSequence?: boolean;
   /** Whether to include this column in satellite payload (default: true) */
   includeInPayload?: boolean;
+  /** Satellite group ID for multi-satellite assignment */
+  satelliteGroup?: string;
 }
 
 /**
@@ -369,8 +388,10 @@ export interface EntityDesignConfig {
   ghostRecordValue: string;     // Default: '-1'
   /** Lambda Vault configuration for near-real-time data */
   lambdaVault?: LambdaVaultConfig;
-  /** Optional: override satellite name (e.g., 'person_adresse' instead of auto-derived from entityName) */
+  /** @deprecated Use satellites array instead. Kept for backward compatibility. */
   satelliteName?: string;
+  /** Multi-satellite definitions */
+  satellites?: SatelliteDefinition[];
 }
 
 // ============================================
@@ -458,6 +479,8 @@ export interface WebviewInitMessage {
     availableConcepts?: string[];
     /** Saved satellite name override */
     satelliteName?: string;
+    /** Multi-satellite definitions */
+    satellites?: SatelliteDefinition[];
   };
 }
 
@@ -483,6 +506,8 @@ export interface SavedColumnConfig {
   includeInHashDiff?: boolean;
   /** Whether to include this column in satellite payload (default: true) */
   includeInPayload?: boolean;
+  /** Satellite group ID for multi-satellite assignment */
+  satelliteGroup?: string;
 }
 
 /**

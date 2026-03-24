@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useVSCodeApi } from './hooks/useVSCodeApi';
-import type { ColumnInfo, DesignerColumnDefinition, LambdaVaultConfig, LambdaColumnMapping, StagingModelInfo } from '../../../types';
+import type { ColumnInfo, DesignerColumnDefinition, LambdaVaultConfig, LambdaColumnMapping, StagingModelInfo, SatelliteDefinition } from '../../../types';
 
 /**
  * Data Vault Target - Where the column will be used
@@ -71,6 +71,8 @@ interface ColumnConfig extends DesignerColumnDefinition {
   multiActiveSequence?: boolean;
   /** Whether to include this column in satellite payload (default: true) */
   includeInPayload?: boolean;
+  /** Satellite group ID for multi-satellite assignment */
+  satelliteGroup?: string;
 }
 
 interface InitData {
@@ -125,7 +127,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: 'grid',
     gridTemplateColumns: '300px 50px 1fr',
-    gridTemplateRows: 'auto 1fr auto auto',
+    gridTemplateRows: 'auto auto 1fr auto auto',
     height: '100vh',
     fontFamily: 'var(--vscode-font-family)',
     fontSize: '13px',
@@ -602,7 +604,7 @@ export const App: React.FC = () => {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
   const [entityName, setEntityName] = useState('');
-  const [satelliteName, setSatelliteName] = useState('');
+  const [satellites, setSatellites] = useState<SatelliteDefinition[]>([]);
   const [concept, setConcept] = useState('');
   const [availableConcepts, setAvailableConcepts] = useState<string[]>([]);
   const [existingHubs, setExistingHubs] = useState<string[]>([]);
@@ -716,6 +718,7 @@ export const App: React.FC = () => {
                 additionalTypes,
                 includeInHashDiff,
                 includeInPayload: saved.includeInPayload,
+                satelliteGroup: saved.satelliteGroup,
                 foreignKeyTarget: saved.foreignKeyTarget,
                 hubTarget: saved.hubTarget,
                 dependentChildForLink: saved.dependentChildForLink,
@@ -732,9 +735,12 @@ export const App: React.FC = () => {
             setDeltaStagingModel(data.lambdaVault.deltaStagingModel || '');
           }
           
-          // Restore satellite name override
-          if (data.satelliteName) {
-            setSatelliteName(data.satelliteName);
+          // Restore satellite definitions (multi-satellite or legacy single name)
+          if (data.satellites && data.satellites.length > 0) {
+            setSatellites(data.satellites);
+          } else if (data.satelliteName) {
+            // Backward compat: convert single satelliteName to satellites array
+            setSatellites([{ id: 'sat-1', name: data.satelliteName }]);
           }
           
           // Restore available staging models
@@ -795,6 +801,7 @@ export const App: React.FC = () => {
               additionalTypes,
               includeInHashDiff,
               includeInPayload: saved.includeInPayload,
+              satelliteGroup: saved.satelliteGroup,
               foreignKeyTarget: saved.foreignKeyTarget,
               hubTarget: saved.hubTarget,
               dependentChildForLink: saved.dependentChildForLink,
@@ -900,6 +907,7 @@ export const App: React.FC = () => {
         ...(c.includeInHashDiff !== undefined && { includeInHashDiff: c.includeInHashDiff }),
         // Save includeInPayload if explicitly set to false
         ...(c.includeInPayload !== undefined && { includeInPayload: c.includeInPayload }),
+        ...(c.satelliteGroup && { satelliteGroup: c.satelliteGroup }),
         nullable: c.nullable,
       }));
 
@@ -917,14 +925,15 @@ export const App: React.FC = () => {
         columns: savedColumns,
         entityName: entityName,
         concept: concept,
-        satelliteName: satelliteName || undefined,
+        satelliteName: satellites.length === 1 ? satellites[0].name : undefined,
+        satellites: satellites.length > 0 ? satellites : undefined,
         lambdaVault
       });
       console.log('[Entity Designer] Config auto-saved');
     }, 1000); // 1 second debounce (longer to avoid race conditions)
 
     return () => clearTimeout(timeoutId);
-  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept, satelliteName]);
+  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept, satellites]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -1052,6 +1061,7 @@ export const App: React.FC = () => {
       // Include includeInHashDiff for satellite columns
       ...(c.includeInHashDiff !== undefined && { includeInHashDiff: c.includeInHashDiff }),
       ...(c.includeInPayload !== undefined && { includeInPayload: c.includeInPayload }),
+      ...(c.satelliteGroup && { satelliteGroup: c.satelliteGroup }),
       nullable: c.nullable,
     }));
 
@@ -1070,8 +1080,9 @@ export const App: React.FC = () => {
       // Include current values for concept/entity (may differ from original)
       concept: concept,
       entityName: entityName,
-      // Satellite name override (e.g., 'person_adresse' instead of auto-derived)
-      satelliteName: satelliteName || undefined,
+      // Satellite definitions (multi-satellite support)
+      satelliteName: satellites.length === 1 ? satellites[0].name : undefined,
+      satellites: satellites.length > 0 ? satellites : undefined,
       // Include original values so provider can clean up old files if renamed
       originalConcept: originalConcept,
       originalEntityName: originalEntityName,
@@ -1133,19 +1144,6 @@ export const App: React.FC = () => {
             style={{ ...styles.input, width: '140px', display: 'inline-block' }}
           />
           <span>|</span>
-          <span><strong>Sat Name:</strong></span>
-          <input
-            type="text"
-            value={satelliteName}
-            onChange={(e) => {
-              setSatelliteName(e.target.value);
-              setHasUserChanges(true);
-            }}
-            placeholder={`sat_${entityName}`}
-            title="Override satellite name (e.g., 'person_adresse' → sat_person_adresse). Leave empty for default."
-            style={{ ...styles.input, width: '140px', display: 'inline-block', fontStyle: satelliteName ? 'normal' : 'italic' }}
-          />
-          <span>|</span>
           <span><strong>Source:</strong> {initData?.sourceTable}</span>
           <span>|</span>
           {/* Lambda Vault Toggle */}
@@ -1177,6 +1175,98 @@ export const App: React.FC = () => {
             </button>
           )}
         </div>
+      </div>
+
+      {/* SATELLITE MANAGER */}
+      <div style={{
+        gridColumn: '1 / -1',
+        padding: '6px 12px',
+        borderBottom: `1px solid ${colors.border}`,
+        backgroundColor: colors.bgSecondary,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        flexWrap: 'wrap',
+        minHeight: '32px',
+      }}>
+        <span style={{ fontWeight: 600, fontSize: '12px', color: colors.text }}>📦 Satellites:</span>
+        {satellites.length === 0 && (
+          <span style={{ fontSize: '11px', color: colors.textMuted, fontStyle: 'italic' }}>
+            sat_{entityName} (default)
+          </span>
+        )}
+        {satellites.map((sat, idx) => (
+          <div key={sat.id} style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            backgroundColor: `hsl(${idx * 60 + 200}, 40%, 25%)`,
+            border: `1px solid hsl(${idx * 60 + 200}, 40%, 40%)`,
+            fontSize: '11px',
+          }}>
+            <input
+              type="text"
+              value={sat.name}
+              onChange={(e) => {
+                const next = [...satellites];
+                next[idx] = { ...sat, name: e.target.value };
+                setSatellites(next);
+                setHasUserChanges(true);
+              }}
+              placeholder={entityName}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: colors.text,
+                fontSize: '11px',
+                width: `${Math.max(60, (sat.name || entityName).length * 7 + 10)}px`,
+                outline: 'none',
+                padding: 0,
+              }}
+              title={`sat_${sat.name || entityName}`}
+            />
+            <span style={{ color: colors.textMuted, fontSize: '10px' }}>
+              ({columns.filter(c => c.satelliteGroup === sat.id && c.includeInPayload !== false).length})
+            </span>
+            <button
+              onClick={() => {
+                // Remove satellite group, unassign columns
+                setSatellites(prev => prev.filter(s => s.id !== sat.id));
+                setColumns(prev => prev.map(c => c.satelliteGroup === sat.id ? { ...c, satelliteGroup: undefined } : c));
+                setHasUserChanges(true);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: colors.textMuted,
+                cursor: 'pointer',
+                fontSize: '12px',
+                padding: '0 2px',
+                lineHeight: 1,
+              }}
+              title="Remove satellite group"
+            >×</button>
+          </div>
+        ))}
+        <button
+          onClick={() => {
+            const newId = `sat-${Date.now()}`;
+            setSatellites(prev => [...prev, { id: newId, name: '' }]);
+            setHasUserChanges(true);
+          }}
+          style={{
+            background: 'none',
+            border: `1px dashed ${colors.border}`,
+            color: colors.accent,
+            cursor: 'pointer',
+            fontSize: '11px',
+            padding: '2px 8px',
+            borderRadius: '12px',
+          }}
+          title="Add satellite group"
+        >+ Add Satellite</button>
       </div>
 
       {/* LEFT PANEL: Column List */}
@@ -1280,6 +1370,17 @@ export const App: React.FC = () => {
                 }}>
                   {target.label}
                 </span>
+                {satellites.length > 0 && col.satelliteGroup && (() => {
+                  const satIdx = satellites.findIndex(s => s.id === col.satelliteGroup);
+                  if (satIdx < 0) return null;
+                  return (
+                    <span style={{
+                      width: '8px', height: '8px', borderRadius: '50%',
+                      backgroundColor: `hsl(${satIdx * 60 + 200}, 50%, 50%)`,
+                      flexShrink: 0,
+                    }} title={`sat_${satellites[satIdx].name || entityName}`} />
+                  );
+                })()}
               </div>
             );
           })}
@@ -1433,6 +1534,34 @@ export const App: React.FC = () => {
                   }}
                 >Apply</button>
               </div>
+
+              {/* Satellite Group batch (only when multi-satellite defined) */}
+              {satellites.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '12px', minWidth: '80px' }}>Sat Group:</label>
+                  <select id="batch-satGroup" style={{ ...styles.select, flex: 1 }}>
+                    <option value="">— Unassigned —</option>
+                    {satellites.map(sat => (
+                      <option key={sat.id} value={sat.id}>sat_{sat.name || entityName}</option>
+                    ))}
+                  </select>
+                  <button
+                    style={{ ...styles.buttonSecondary, padding: '2px 8px', fontSize: '11px' }}
+                    onClick={() => {
+                      const select = document.getElementById('batch-satGroup') as HTMLSelectElement;
+                      const satelliteGroup = select.value || undefined;
+                      setHasUserChanges(true);
+                      setColumns(prev => {
+                        const next = [...prev];
+                        selectedIndices.forEach(idx => {
+                          next[idx] = { ...next[idx], satelliteGroup };
+                        });
+                        return next;
+                      });
+                    }}
+                  >Apply</button>
+                </div>
+              )}
             </div>
           </div>
         ) : selectedColumn ? (
@@ -1552,6 +1681,27 @@ export const App: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Satellite Group (only for satellite columns, only when multi-satellite defined) */}
+              {satellites.length > 0 && (selectedColumn.columnType === 'satellite' || selectedColumn.columnType === 'attribute') && (
+                <div style={styles.propertyRow}>
+                  <span style={styles.propertyLabel}>Satellite group:</span>
+                  <select
+                    value={selectedColumn.satelliteGroup || ''}
+                    onChange={(e) => {
+                      updateColumn(selectedIndex!, { satelliteGroup: e.target.value || undefined });
+                    }}
+                    style={styles.select}
+                  >
+                    <option value="">— Unassigned —</option>
+                    {satellites.map((sat, idx) => (
+                      <option key={sat.id} value={sat.id}>
+                        sat_{sat.name || entityName} ({columns.filter(c => c.satelliteGroup === sat.id).length} cols)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Data Vault Target */}
@@ -1848,7 +1998,7 @@ export const App: React.FC = () => {
       <div style={styles.footer}>
         <div style={styles.footerStats}>
           <span>🏛️ Hub: <strong>{stats.hubCols.length}</strong>{hasHubErrors && ' ❌'}</span>
-          <span>📦 Satellite{satelliteName ? ` (${satelliteName})` : ''}: <strong>{stats.satCols.length}</strong>{hasSatelliteErrors && ' ❌'}</span>
+          <span>📦 Satellite{satellites.length > 0 ? `s (${satellites.length})` : ''}: <strong>{stats.satCols.length}</strong>{hasSatelliteErrors && ' ❌'}</span>
           <span>🔗 Links: <strong>{stats.linkCols.length}</strong>{hasLinkErrors && ' ❌'}</span>
           {!hasAnyError && validationErrors.length === 0 && <span style={{ color: colors.success }}>✅ Valid</span>}
         </div>

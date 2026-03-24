@@ -10,7 +10,8 @@ import {
   SavedColumnConfig,
   WebviewSaveConfigMessage,
   LambdaVaultConfig,
-  StagingModelInfo
+  StagingModelInfo,
+  SatelliteDefinition
 } from '../../types';
 import { getWebviewContent } from './getWebviewContent';
 import { generateDataVaultObjects, generateSchemaYaml, generateVirtualViews } from '../../services/entityGenerator';
@@ -346,6 +347,7 @@ export class EntityDesignerProvider {
         availableStagingModels,
         lambdaVault: savedConfig?.lambdaVault,
         satelliteName: savedConfig?.satelliteName,
+        satellites: savedConfig?.satellites,
         baseStagingColumns,
         availableConcepts
       }
@@ -399,7 +401,8 @@ export class EntityDesignerProvider {
           saveMsg.entityName, 
           saveMsg.lambdaVault,
           saveMsg.concept,
-          (saveMsg as any).satelliteName
+          (saveMsg as any).satelliteName,
+          (saveMsg as any).satellites
         );
         break;
       // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
@@ -413,7 +416,7 @@ export class EntityDesignerProvider {
    * Handle generate with context (concept/entity may have changed)
    */
   private async handleGenerateWithContext(message: any): Promise<void> {
-    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault, satelliteName } = message;
+    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault, satelliteName, satellites } = message;
     
     // Check if concept or entity was renamed
     const conceptChanged = originalConcept && concept && concept !== originalConcept;
@@ -437,7 +440,8 @@ export class EntityDesignerProvider {
           columns,
           savedAt: new Date().toISOString(),
           lambdaVault,
-          satelliteName: satelliteName || undefined
+          satelliteName: satelliteName || undefined,
+          satellites: satellites || undefined
         };
         await saveDesignerConfig(this._projectPath, config);
         console.log(`[Entity Designer] Saved config as ${concept}_${entityName}.json`);
@@ -471,7 +475,8 @@ export class EntityDesignerProvider {
         columns,
         savedAt: new Date().toISOString(),
         lambdaVault,
-        satelliteName: satelliteName || undefined
+        satelliteName: satelliteName || undefined,
+        satellites: satellites || undefined
       };
       await saveDesignerConfig(this._projectPath, config);
     }
@@ -483,7 +488,7 @@ export class EntityDesignerProvider {
   /**
    * Save config to JSON file (Config-First: JSON is Single Source of Truth)
    */
-  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string, satelliteName?: string): Promise<void> {
+  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string, satelliteName?: string, satellites?: SatelliteDefinition[]): Promise<void> {
     if (!this._projectPath || !this._currentEntity) {
       console.error('[Entity Designer] Cannot save config: missing project path or entity context');
       return;
@@ -513,7 +518,8 @@ export class EntityDesignerProvider {
       columns,
       savedAt: new Date().toISOString(),
       lambdaVault,
-      satelliteName: satelliteName || undefined
+      satelliteName: satelliteName || undefined,
+      satellites: satellites && satellites.length > 0 ? satellites : undefined
     };
 
     // Debug: Log column count and types
@@ -743,11 +749,13 @@ export class EntityDesignerProvider {
             multiActiveSequence: c.multiActiveSequence,
             nullable: c.nullable ?? true,
             // Pass includeInPayload for payload filtering
-            includeInPayload: c.includeInPayload
+            includeInPayload: c.includeInPayload,
+            satelliteGroup: c.satelliteGroup
           };
         }),
         ghostRecordValue: '-1',
-        satelliteName: savedConfig.satelliteName
+        satelliteName: savedConfig.satelliteName,
+        satellites: savedConfig.satellites
       };
 
       // Determine which targets to generate (including DC/MA satellites if configured)

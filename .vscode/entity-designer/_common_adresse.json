@@ -126,6 +126,7 @@
       "columnType": "satellite",
       "includeInHashDiff": true,
       "includeInPayload": true,
+      "satelliteGroup": "sat-1",
       "nullable": true
     },
     {
@@ -135,6 +136,7 @@
       "columnType": "satellite",
       "includeInHashDiff": true,
       "includeInPayload": true,
+      "satelliteGroup": "sat-1",
       "nullable": true
     },
     {
@@ -187,8 +189,9 @@
       "sourceName": "PLZ",
       "dataType": "NVARCHAR(4000)",
       "columnType": "satellite",
-      "includeInHashDiff": false,
-      "includeInPayload": false,
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1774388665619",
       "nullable": true
     },
     {
@@ -196,8 +199,9 @@
       "sourceName": "ORT",
       "dataType": "NVARCHAR(4000)",
       "columnType": "satellite",
-      "includeInHashDiff": false,
-      "includeInPayload": false,
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1774388665619",
       "nullable": true
     },
     {
@@ -214,8 +218,9 @@
       "sourceName": "STREET",
       "dataType": "NVARCHAR(4000)",
       "columnType": "satellite",
-      "includeInHashDiff": false,
-      "includeInPayload": false,
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1774388665619",
       "nullable": true
     },
     {
@@ -1636,6 +1641,21 @@
       "nullable": true
     }
   ],
-  "savedAt": "2026-03-24T19:06:25.537Z",
-  "satelliteName": "person_adresse"
+  "savedAt": "2026-03-24T21:53:05.756Z",
+  "satellites": [
+    {
+      "id": "sat-1",
+      "name": "person_adresse"
+    },
+    {
+      "id": "sat-1774388665619",
+      "name": "adresse_kontakt"
+    }
+  ],
+  "sourceType": "external_table",
+  "generatedObjects": [
+    "hub",
+    "satellite",
+    "links"
+  ]
 }

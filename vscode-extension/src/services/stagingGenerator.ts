@@ -91,7 +91,8 @@ export function generateStagingSql(config: StagingConfig): string {
     isPureLinkEntity,
     isPureDependentChild,
     splitSatelliteTargetHub,
-    satelliteName
+    satelliteName,
+    satellites
   } = config;
 
   // Helper to get the source column name for a target column
@@ -209,14 +210,45 @@ export function generateStagingSql(config: StagingConfig): string {
 
   // Hash diff columns macro (for regular satellite)
   if (sortedHashDiffColumns.length > 0) {
-    lines.push('{%- set hashdiff_columns = [');
-    sortedHashDiffColumns.forEach((col, idx) => {
-      const comma = idx < sortedHashDiffColumns.length - 1 ? ',' : '';
-      const escaped = escapeColumnName(col);
-      lines.push(`    '${escaped}'${comma}`);
-    });
-    lines.push('] -%}');
-    lines.push('');
+    if (config.satelliteHashDiffs && Object.keys(config.satelliteHashDiffs).length > 0) {
+      // Multi-satellite: generate one hashdiff variable per satellite group
+      for (const [satName, cols] of Object.entries(config.satelliteHashDiffs)) {
+        const sortedCols = [...cols].sort((a, b) => a.localeCompare(b));
+        const varName = `hashdiff_${satName}_columns`;
+        lines.push(`{%- set ${varName} = [`);
+        sortedCols.forEach((col, idx) => {
+          const comma = idx < sortedCols.length - 1 ? ',' : '';
+          const escaped = escapeColumnName(col);
+          lines.push(`    '${escaped}'${comma}`);
+        });
+        lines.push('] -%}');
+        lines.push('');
+      }
+      
+      // Check for unassigned columns (not in any satellite group)
+      const allAssigned = new Set(Object.values(config.satelliteHashDiffs).flat());
+      const unassigned = sortedHashDiffColumns.filter(c => !allAssigned.has(c));
+      if (unassigned.length > 0) {
+        lines.push('{%- set hashdiff_columns = [');
+        unassigned.forEach((col, idx) => {
+          const comma = idx < unassigned.length - 1 ? ',' : '';
+          const escaped = escapeColumnName(col);
+          lines.push(`    '${escaped}'${comma}`);
+        });
+        lines.push('] -%}');
+        lines.push('');
+      }
+    } else {
+      // Single satellite: original behavior
+      lines.push('{%- set hashdiff_columns = [');
+      sortedHashDiffColumns.forEach((col, idx) => {
+        const comma = idx < sortedHashDiffColumns.length - 1 ? ',' : '';
+        const escaped = escapeColumnName(col);
+        lines.push(`    '${escaped}'${comma}`);
+      });
+      lines.push('] -%}');
+      lines.push('');
+    }
   }
 
   // MA Sat Hash Diff columns (CDK + attributes)
@@ -404,10 +436,27 @@ export function generateStagingSql(config: StagingConfig): string {
       lines.push(generateHashDiffForLinkSat(linkSatName, sortedHashDiffColumns, hashDiffSeparator));
     } else if (!isPureDependentChild) {
       // Standard Satellite (skip if Pure DC - will be handled in DC section)
-      lines.push('        -- ===========================================');
-      lines.push('        -- HASH DIFF (Change Detection - Satellite)');
-      lines.push('        -- ===========================================');
-      lines.push(generateHashDiff(satelliteName || entityName, hashDiffSeparator));
+      if (config.satelliteHashDiffs && Object.keys(config.satelliteHashDiffs).length > 0) {
+        // Multi-satellite: generate one hash diff per group
+        lines.push('        -- ===========================================');
+        lines.push('        -- HASH DIFFS (Change Detection - Multi-Satellite)');
+        lines.push('        -- ===========================================');
+        for (const [satName, _cols] of Object.entries(config.satelliteHashDiffs)) {
+          const varName = `hashdiff_${satName}_columns`;
+          lines.push(generateHashDiffWithVar(satName, varName, hashDiffSeparator));
+        }
+        // Unassigned columns get default hash diff
+        const allAssigned = new Set(Object.values(config.satelliteHashDiffs).flat());
+        const hasUnassigned = sortedHashDiffColumns.some(c => !allAssigned.has(c));
+        if (hasUnassigned) {
+          lines.push(generateHashDiff(satelliteName || entityName, hashDiffSeparator));
+        }
+      } else {
+        lines.push('        -- ===========================================');
+        lines.push('        -- HASH DIFF (Change Detection - Satellite)');
+        lines.push('        -- ===========================================');
+        lines.push(generateHashDiff(satelliteName || entityName, hashDiffSeparator));
+      }
     }
     lines.push('');
   }
@@ -575,6 +624,21 @@ function generateHashDiff(entityName: string, separator: string): string {
                 {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
             )
         ), 2) AS hd_${entityName},`;
+}
+
+/**
+ * Generate hash diff calculation using a named Jinja variable
+ * Used for multi-satellite: each satellite group has its own hashdiff variable
+ */
+function generateHashDiffWithVar(satName: string, varName: string, separator: string): string {
+  return `        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in ${varName} %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                {%- endfor %}
+                {%- if ${varName} | length == 1 %}, ''{%- endif %}
+            )
+        ), 2) AS hd_${satName},`;
 }
 
 /**

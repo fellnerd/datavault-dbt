@@ -9,9 +9,15 @@
  *   - hk_adresse (Entity Hash Key)
  */
 
-{%- set hashdiff_columns = [
+{%- set hashdiff_person_adresse_columns = [
     'name',
     'vorname'
+] -%}
+
+{%- set hashdiff_adresse_kontakt_columns = [
+    'ort',
+    'plz',
+    'street'
 ] -%}
 
 WITH source AS (
@@ -28,16 +34,24 @@ staged AS (
         ), 2) AS hk_adresse,
 
         -- ===========================================
-        -- HASH DIFF (Change Detection - Satellite)
+        -- HASH DIFFS (Change Detection - Multi-Satellite)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
-                {%- for col in hashdiff_columns %}
+                {%- for col in hashdiff_person_adresse_columns %}
                 ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
                 {%- endfor %}
-                {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
+                {%- if hashdiff_person_adresse_columns | length == 1 %}, ''{%- endif %}
             )
         ), 2) AS hd_person_adresse,
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                {%- for col in hashdiff_adresse_kontakt_columns %}
+                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                {%- endfor %}
+                {%- if hashdiff_adresse_kontakt_columns | length == 1 %}, ''{%- endif %}
+            )
+        ), 2) AS hd_adresse_kontakt,
 
         -- ===========================================
         -- BUSINESS KEY(S)
@@ -49,6 +63,9 @@ staged AS (
         -- ===========================================
         name,
         vorname,
+        plz,
+        ort,
+        street,
 
         -- ===========================================
         -- METADATA
