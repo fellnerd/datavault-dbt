@@ -26,6 +26,8 @@ export interface DesignerConfig {
   generatedObjects?: ('hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite')[];
   /** Lambda Vault configuration for near-real-time data */
   lambdaVault?: LambdaVaultConfig;
+  /** Optional: override satellite name (e.g., 'person_adresse' instead of auto-derived from entityName) */
+  satelliteName?: string;
 }
 
 const CONFIG_FOLDER = '.vscode/entity-designer';

@@ -292,6 +292,10 @@ export interface StagingConfig {
   // Value: hub name (e.g., 'hub_product') - uses that hub's hash key
   // When set: No Hub generated, Satellite uses target hub's hk_<entity>
   splitSatelliteTargetHub?: string;
+  
+  // Override satellite name (e.g., 'person_adresse' instead of auto-derived from entityName)
+  // Affects hash diff naming: hd_<satelliteName> instead of hd_<entityName>
+  satelliteName?: string;
 }
 
 /**
@@ -365,6 +369,8 @@ export interface EntityDesignConfig {
   ghostRecordValue: string;     // Default: '-1'
   /** Lambda Vault configuration for near-real-time data */
   lambdaVault?: LambdaVaultConfig;
+  /** Optional: override satellite name (e.g., 'person_adresse' instead of auto-derived from entityName) */
+  satelliteName?: string;
 }
 
 // ============================================
@@ -450,6 +456,8 @@ export interface WebviewInitMessage {
     baseStagingColumns?: string[];
     /** Available concepts from dbt_project.yml raw_vault config */
     availableConcepts?: string[];
+    /** Saved satellite name override */
+    satelliteName?: string;
   };
 }
 

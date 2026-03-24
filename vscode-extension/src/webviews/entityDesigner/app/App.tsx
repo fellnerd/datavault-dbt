@@ -602,6 +602,7 @@ export const App: React.FC = () => {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
   const [entityName, setEntityName] = useState('');
+  const [satelliteName, setSatelliteName] = useState('');
   const [concept, setConcept] = useState('');
   const [availableConcepts, setAvailableConcepts] = useState<string[]>([]);
   const [existingHubs, setExistingHubs] = useState<string[]>([]);
@@ -729,6 +730,11 @@ export const App: React.FC = () => {
           if (data.lambdaVault?.enabled) {
             setLambdaVaultEnabled(true);
             setDeltaStagingModel(data.lambdaVault.deltaStagingModel || '');
+          }
+          
+          // Restore satellite name override
+          if (data.satelliteName) {
+            setSatelliteName(data.satelliteName);
           }
           
           // Restore available staging models
@@ -911,13 +917,14 @@ export const App: React.FC = () => {
         columns: savedColumns,
         entityName: entityName,
         concept: concept,
+        satelliteName: satelliteName || undefined,
         lambdaVault
       });
       console.log('[Entity Designer] Config auto-saved');
     }, 1000); // 1 second debounce (longer to avoid race conditions)
 
     return () => clearTimeout(timeoutId);
-  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept]);
+  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept, satelliteName]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -1044,6 +1051,7 @@ export const App: React.FC = () => {
       ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
       // Include includeInHashDiff for satellite columns
       ...(c.includeInHashDiff !== undefined && { includeInHashDiff: c.includeInHashDiff }),
+      ...(c.includeInPayload !== undefined && { includeInPayload: c.includeInPayload }),
       nullable: c.nullable,
     }));
 
@@ -1062,6 +1070,8 @@ export const App: React.FC = () => {
       // Include current values for concept/entity (may differ from original)
       concept: concept,
       entityName: entityName,
+      // Satellite name override (e.g., 'person_adresse' instead of auto-derived)
+      satelliteName: satelliteName || undefined,
       // Include original values so provider can clean up old files if renamed
       originalConcept: originalConcept,
       originalEntityName: originalEntityName,
@@ -1121,6 +1131,19 @@ export const App: React.FC = () => {
               setHasUserChanges(true);
             }}
             style={{ ...styles.input, width: '140px', display: 'inline-block' }}
+          />
+          <span>|</span>
+          <span><strong>Sat Name:</strong></span>
+          <input
+            type="text"
+            value={satelliteName}
+            onChange={(e) => {
+              setSatelliteName(e.target.value);
+              setHasUserChanges(true);
+            }}
+            placeholder={`sat_${entityName}`}
+            title="Override satellite name (e.g., 'person_adresse' → sat_person_adresse). Leave empty for default."
+            style={{ ...styles.input, width: '140px', display: 'inline-block', fontStyle: satelliteName ? 'normal' : 'italic' }}
           />
           <span>|</span>
           <span><strong>Source:</strong> {initData?.sourceTable}</span>
@@ -1593,7 +1616,16 @@ export const App: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={selectedColumn.includeInHashDiff ?? true}
-                      onChange={(e) => updateColumn(selectedIndex!, { includeInHashDiff: e.target.checked })}
+                      onChange={(e) => {
+                        const updates: Partial<ColumnConfig> = { includeInHashDiff: e.target.checked };
+                        // Sync payload with hashDiff: uncheck hashDiff → also exclude from payload
+                        if (!e.target.checked) {
+                          updates.includeInPayload = false;
+                        } else if (selectedColumn.includeInPayload === false) {
+                          updates.includeInPayload = true;
+                        }
+                        updateColumn(selectedIndex!, updates);
+                      }}
                       style={styles.checkbox}
                     />
                     <span style={{ fontSize: '11px', color: colors.textMuted }}>
@@ -1601,7 +1633,7 @@ export const App: React.FC = () => {
                     </span>
                   </div>
                   <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
-                    Unchecked = column is in Satellite payload but changes won't trigger new record
+                    Controls both Hash Diff and Payload inclusion
                   </div>
                 </div>
               )}
@@ -1816,7 +1848,7 @@ export const App: React.FC = () => {
       <div style={styles.footer}>
         <div style={styles.footerStats}>
           <span>🏛️ Hub: <strong>{stats.hubCols.length}</strong>{hasHubErrors && ' ❌'}</span>
-          <span>📦 Satellite: <strong>{stats.satCols.length}</strong>{hasSatelliteErrors && ' ❌'}</span>
+          <span>📦 Satellite{satelliteName ? ` (${satelliteName})` : ''}: <strong>{stats.satCols.length}</strong>{hasSatelliteErrors && ' ❌'}</span>
           <span>🔗 Links: <strong>{stats.linkCols.length}</strong>{hasLinkErrors && ' ❌'}</span>
           {!hasAnyError && validationErrors.length === 0 && <span style={{ color: colors.success }}>✅ Valid</span>}
         </div>
@@ -1828,10 +1860,10 @@ export const App: React.FC = () => {
             title={hasHubErrors ? 'Fix Hub validation errors first' : 'Generate Hub model'}
           >Generate Hub</button>
           <button
-            style={{ ...styles.buttonSecondary, ...(isGenerating || hasHubErrors || hasSatelliteErrors || stats.satCols.length === 0 ? styles.buttonDisabled : {}) }}
+            style={{ ...styles.buttonSecondary, ...(isGenerating || hasSatelliteErrors || stats.satCols.length === 0 ? styles.buttonDisabled : {}) }}
             onClick={() => handleGenerate('satellite')}
-            disabled={isGenerating || hasHubErrors || hasSatelliteErrors || stats.satCols.length === 0}
-            title={hasHubErrors || hasSatelliteErrors ? 'Fix validation errors first' : 'Generate Satellite model'}
+            disabled={isGenerating || hasSatelliteErrors || stats.satCols.length === 0}
+            title={hasSatelliteErrors ? 'Fix Satellite validation errors first' : stats.satCols.length === 0 ? 'No satellite columns configured' : 'Generate Satellite model'}
           >Generate Satellite</button>
           <button
             style={{ ...styles.buttonSecondary, ...(isGenerating || hasLinkErrors || stats.linkCols.length === 0 ? styles.buttonDisabled : {}) }}

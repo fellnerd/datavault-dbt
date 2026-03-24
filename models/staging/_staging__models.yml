@@ -516,3 +516,44 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_publ_adr_main
+    description: Staging view for adresse from _common
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_publ_adr_main
+        business_keys:
+          - INR
+    columns:
+      - name: hk_adresse
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_adresse
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: INR
+        description: Business Key
+        tests:
+          - not_null
+      - name: name
+        description: Payload attribute
+      - name: vorname
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier

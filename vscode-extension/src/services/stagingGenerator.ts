@@ -90,7 +90,8 @@ export function generateStagingSql(config: StagingConfig): string {
     multiActiveKeys,
     isPureLinkEntity,
     isPureDependentChild,
-    splitSatelliteTargetHub
+    splitSatelliteTargetHub,
+    satelliteName
   } = config;
 
   // Helper to get the source column name for a target column
@@ -406,7 +407,7 @@ export function generateStagingSql(config: StagingConfig): string {
       lines.push('        -- ===========================================');
       lines.push('        -- HASH DIFF (Change Detection - Satellite)');
       lines.push('        -- ===========================================');
-      lines.push(generateHashDiff(entityName, hashDiffSeparator));
+      lines.push(generateHashDiff(satelliteName || entityName, hashDiffSeparator));
     }
     lines.push('');
   }
