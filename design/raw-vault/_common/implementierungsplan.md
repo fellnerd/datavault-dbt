@@ -90,7 +90,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | ~~`sat_projekt_status`~~ | — | — | — | — | — | → **Entfällt:** PST = 7 stabile Lookup-Werte → nur `ref_projektstatus` |
 | `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
 | `sat_projektsachkonto` | `hub_projektsachkonto` | STD | BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT | `ewb_proj_nsa_main` | P3 |
-| `sat_person` | `hub_person` | STD | LAST_NAME, FIRST_NAME, ABRV, HOME_DEPT_NR, CALC_GROUP | `ewb_lohn_len_main` | P1 |
+| `sat_person` | `hub_person` | STD | **20 Spalten (datenbasiert)** — Identität: EMPL_ID, LAST_NAME, FIRST_NAME, ABRV, BADGE_ID, BIRTHDAY, SEX, NATIONALITY, BIRTH_PLACE — Anstellung: HOME_DEPT_NR, ADR_INR, DATE_IN, DATE_OUT, TYPE, MUTATION_DATE, LPE_YEAR, LPE_MONTH — CH-SV: SOC_INSURANCE_NR — Compliance: RELEVANT_FOR_LOGIB, ZEMIS_NR | `ewb_lohn_len_main` | P1 |
 | `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
 | `sat_projektteil` | `hub_projekt` | STD | Status (STAT1/STAT2), Datum | `ewb_proj_prt_main` | P3 |
 
