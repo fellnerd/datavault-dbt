@@ -11,9 +11,9 @@ import type { ColumnInfo, DesignerColumnDefinition, LambdaVaultConfig, LambdaCol
  * - dependent_child: Dependent Child Key → goes into DC Sat (for multi-row Link relationships)
  * - multi_active: Multi-Active attribute → goes into MA Sat (multiple valid values per entity)
  * - metadata: System columns (dss_*) → auto-generated, not user-selectable
- * - ignore: Column will not be used in any Data Vault object
+ * - metadata: System/audit column (dss_load_date, dss_record_source, etc.)
  */
-type DataVaultTarget = 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata' | 'ignore';
+type DataVaultTarget = 'hub' | 'satellite' | 'link' | 'dependent_child' | 'multi_active' | 'metadata';
 
 // Base SQL Server data types (without size) for dropdown
 const SQL_BASE_TYPES = [
@@ -430,7 +430,6 @@ const targetColors: Record<DataVaultTarget, { bg: string; text: string; icon: st
   dependent_child: { bg: '#5a2a5a', text: '#DDA0DD', icon: '📎', label: 'DC' },
   multi_active: { bg: '#2a5a5a', text: '#20B2AA', icon: '📚', label: 'MA' },
   metadata: { bg: '#444', text: '#aaa', icon: '⚙️', label: 'META' },
-  ignore: { bg: '#333', text: '#666', icon: '🚫', label: 'IGN' },
 };
 
 // ============================================================================
@@ -539,7 +538,7 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
   }
   
   // DV Rule 6: Check for duplicate aliases (affects all)
-  const aliases = columns.filter(c => c.columnType !== 'ignore').map(c => c.alias || c.name);
+  const aliases = columns.filter(c => c.includeInPayload !== false).map(c => c.alias || c.name);
   const duplicates = aliases.filter((a, i) => aliases.indexOf(a) !== i);
   if (duplicates.length > 0) {
     errors.push({
@@ -702,7 +701,8 @@ export const App: React.FC = () => {
               } else if (saved.columnType === 'metadata') {
                 target = 'metadata';
               } else if (saved.columnType === 'ignore') {
-                target = 'ignore';
+                // Migration: ignore → satellite + includeInPayload: false
+                target = 'satellite';
               }
               
               const additionalTypes = saved.additionalTypes as DataVaultTarget[] | undefined;
@@ -781,7 +781,8 @@ export const App: React.FC = () => {
             } else if (saved.columnType === 'metadata') {
               target = 'metadata';
             } else if (saved.columnType === 'ignore') {
-              target = 'ignore';
+              // Migration: ignore → satellite + includeInPayload: false
+              target = 'satellite';
             }
             
             // Load additionalTypes (e.g., ['satellite'] for link+satellite columns)
@@ -1511,7 +1512,6 @@ export const App: React.FC = () => {
                   <option value="link">🔗 Link</option>
                   <option value="dependent_child">📎 DC Key</option>
                   <option value="multi_active">📚 MA Key</option>
-                  <option value="ignore">🚫 Ignore</option>
                 </select>
                 <button
                   style={{ ...styles.buttonSecondary, padding: '2px 8px', fontSize: '11px' }}
@@ -1526,7 +1526,7 @@ export const App: React.FC = () => {
                           ...next[idx],
                           columnType,
                           includeInHashDiff: columnType === 'satellite',
-                          includeInPayload: columnType === 'ignore' || columnType === 'metadata' ? false : next[idx].includeInPayload,
+                          includeInPayload: columnType === 'metadata' ? false : next[idx].includeInPayload,
                         };
                       });
                       return next;
@@ -1732,7 +1732,6 @@ export const App: React.FC = () => {
                   <option value="dependent_child">📎 Dependent Child Key</option>
                   <option value="multi_active">📚 Multi-Active Key</option>
                   <option value="metadata" disabled>⚙️ Metadata (system)</option>
-                  <option value="ignore">🚫 Ignore</option>
                 </select>
               </div>
 
@@ -1955,11 +1954,6 @@ export const App: React.FC = () => {
                 {selectedColumn.columnType === 'metadata' && (
                   <div style={{ color: colors.textMuted }}>
                     System column - auto-included in all generated objects
-                  </div>
-                )}
-                {selectedColumn.columnType === 'ignore' && (
-                  <div style={{ color: colors.textMuted }}>
-                    This column will not be included in staging or any DV object
                   </div>
                 )}
               </div>

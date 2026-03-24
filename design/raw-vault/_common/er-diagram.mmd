@@ -389,12 +389,21 @@ erDiagram
 
     SAT_PERSON_ADRESSE {
         char64 hk_adresse FK "computed"
-        char64 hd_adresse "computed"
+        char64 hd_person_adresse "computed"
         nvarchar name "ext_ewb_publ_adr_main.NAME"
         nvarchar vorname "ext_ewb_publ_adr_main.VORNAME"
-        nvarchar strasse "ext_ewb_publ_adr_main.STRASSE"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+
+    SAT_ADRESSE_KONTAKT {
+        char64 hk_adresse FK "computed"
+        char64 hd_adresse_kontakt "computed"
         nvarchar plz "ext_ewb_publ_adr_main.PLZ"
         nvarchar ort "ext_ewb_publ_adr_main.ORT"
+        nvarchar street "ext_ewb_publ_adr_main.STREET"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
         char dss_is_current "computed"
@@ -441,6 +450,7 @@ erDiagram
     HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has
     HUB_PERSON ||--o{ SAT_PERSON : has
     HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
 
     %% ========================================
     %% RELATIONSHIPS — Hub to Link (Finance)

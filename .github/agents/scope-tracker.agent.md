@@ -61,9 +61,11 @@ Scanne immer folgende Pfade:
 ```
 models/staging/ewb_*.sql           → Existierende Staging-Views
 models/staging/sources.yml         → Registrierte External Tables (grep: ext_ewb_)
-models/raw_vault/ewb/hubs/         → Existierende Hubs
-models/raw_vault/ewb/satellites/   → Existierende Satellites
-models/raw_vault/ewb/links/        → Existierende Links
+models/raw_vault/_common/hubs/         → Existierende Hubs
+models/raw_vault/_common/satellites/   → Existierende Satellites
+models/raw_vault/_common/links/        → Existierende Links
+.vscode/entity-designer/_common_*.json → Entity-Designer Definitionen
+design/raw-vault/_common/er-diagram.mmd → ER-Diagramm
 dbt_project.yml                    → ewb: Block unter raw_vault vorhanden?
 ~/.dbt/profiles.yml (via Terminal) → ewb, ewb-dev, ewb-test Targets vorhanden?
 ```
@@ -154,6 +156,36 @@ Aktualisiere **`docs/projektdokumentation.md`** (nicht die azure-environment Kop
 - ⚠️ Hub ohne zugehörigen Satellite
 - ⚠️ Staging deployed aber kein Vault-Objekt
 - ⚠️ RBAC-Blocker: External Tables zeigen Fehler bei Abfrage
+- ⚠️ **SYNC:** Staging-Modell existiert ohne Entity-Designer JSON in `.vscode/entity-designer/`
+- ⚠️ **SYNC:** Vault-Objekt existiert aber fehlt im ER-Diagramm (`er-diagram.mmd`)
+- ⚠️ **SYNC:** Entity-Designer JSON `generatedObjects` stimmt nicht mit vorhandenen Vault-Dateien überein
+- ⚠️ **SYNC:** Implementierungsplan Hub/Sat/Link-Zähler stimmen nicht mit tatsächlichen Dateien überein
+
+## Schritt 6b: Artefakt-Sync prüfen (NEU)
+Prüfe die Konsistenz zwischen dbt-Modellen, Extension-Dateien und Design-Dokumentation:
+
+**Entity-Designer JSON vs. dbt-Modelle:**
+```
+Für jedes models/staging/ewb_*.sql:
+  → Existiert .vscode/entity-designer/_common_<entity>.json?
+  → Stimmen die Spalten überein?
+```
+
+**ER-Diagramm vs. Vault-Modelle:**
+```
+Für jedes models/raw_vault/_common/hubs/hub_*.sql:
+  → Ist HUB_<ENTITY> im er-diagram.mmd definiert?
+Für jedes models/raw_vault/_common/satellites/sat_*.sql:
+  → Ist SAT_<ENTITY> im er-diagram.mmd definiert?
+Für jedes models/raw_vault/_common/links/link_*.sql:
+  → Ist LINK_<ENTITY> im er-diagram.mmd definiert?
+```
+
+**Implementierungsplan Zähler:**
+```
+Zähle: Hub-Dateien, Sat-Dateien, Link-Dateien
+Vergleiche mit Angaben in implementierungsplan.md
+```
 
 ## Output-Format
 ```
@@ -189,6 +221,15 @@ Aktualisiere **`docs/projektdokumentation.md`** (nicht die azure-environment Kop
 ### Empfohlene nächste Schritte (priorisiert)
 1. [BLOCKER] ...
 2. ...
+
+### Artefakt-Sync Status (NEU)
+| Staging-Modell | sources.yml | _staging__models.yml | Entity-Designer JSON | Status |
+|---------------|-------------|---------------------|---------------------|--------|
+| ewb_fibu_fhe_main | ✅ | ✅ | ✅ | Synchron |
+
+| Vault-Objekt | _common__models.yml | ER-Diagramm | Entity-Designer JSON | Status |
+|-------------|---------------------|-------------|---------------------|--------|
+| hub_fibu_fhe | ✅ | ✅ | ✅ generatedObjects | Synchron |
 ```
 
 # Scope Tracker

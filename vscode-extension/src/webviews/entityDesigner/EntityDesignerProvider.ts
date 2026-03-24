@@ -467,7 +467,7 @@ export class EntityDesignerProvider {
       }
     } else if (columns && this._projectPath && this._currentEntity) {
       // No rename, but save current config before generate
-      console.log(`[Entity Designer] Generate: saving ${columns.length} columns (ignored: ${columns.filter((c: SavedColumnConfig) => c.columnType === 'ignore').length})`);
+      console.log(`[Entity Designer] Generate: saving ${columns.length} columns (excluded: ${columns.filter((c: SavedColumnConfig) => c.includeInPayload === false).length})`);
       const config: DesignerConfig = {
         concept: this._currentEntity.concept,
         entityName: this._currentEntity.entityName,
@@ -524,9 +524,9 @@ export class EntityDesignerProvider {
 
     // Debug: Log column count and types
     console.log(`[Entity Designer] Saving ${columns.length} columns to JSON`);
-    const ignoredCount = columns.filter(c => c.columnType === 'ignore').length;
-    if (ignoredCount > 0) {
-      console.log(`[Entity Designer] Including ${ignoredCount} ignored column(s)`);
+    const excludedCount = columns.filter(c => c.includeInPayload === false).length;
+    if (excludedCount > 0) {
+      console.log(`[Entity Designer] ${excludedCount} column(s) excluded from payload`);
     }
 
     await saveDesignerConfig(this._projectPath, config);

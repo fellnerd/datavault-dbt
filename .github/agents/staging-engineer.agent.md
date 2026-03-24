@@ -63,11 +63,39 @@ Füge unter `# ===== EWB / ABACUS =====` in `models/staging/_staging__models.yml
 - Tests: not_null + unique auf hk, not_null auf hd, Business Key, dss-Spalten
 - Alle Spalten mit `data_type` und `description`
 
-### 6. Entity-Designer JSON
-Erstelle `.vscode/entity-designer/ewb_<modul>_<tabelle>_<suffix>.json` nach dem Adworks-Muster.
-- `concept: "ewb"`
-- `sourceType: "external_table"`
-- Business Key: `columnType: "hub"`, Payload: `columnType: "satellite"`, DSS: `columnType: "metadata"`
+### 6. Entity-Designer JSON (PFLICHT — Sync mit Extension)
+Erstelle `.vscode/entity-designer/_common_<entity>.json` nach dem Referenz-Pattern `.vscode/entity-designer/_common_adresse.json`.
+
+**WICHTIG:** Das Concept ist `_common` (nicht `ewb`), da alle EWB-Objekte im `_common` Schema liegen.
+
+**Pflichtfelder im JSON:**
+```json
+{
+  "concept": "_common",
+  "entityName": "<entity>",
+  "sourceTable": "ext_ewb_<modul>_<tabelle>_<suffix>",
+  "sourceType": "external_table",
+  "columns": [
+    {
+      "name": "<SPALTE>",
+      "sourceName": "<SPALTE>",
+      "dataType": "<SQL_TYPE>",
+      "columnType": "hub|satellite|metadata",
+      "includeInPayload": true|false,
+      "includeInHashDiff": true|false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "<ISO-Timestamp>",
+  "generatedObjects": []
+}
+```
+
+**columnType-Zuordnung:**
+- Business Key Spalte(n) → `"hub"`
+- Payload-Spalten (im hashdiff) → `"satellite"`, `includeInPayload: true`, `includeInHashDiff: true`
+- Technische/System-Spalten (SYSSW, APPSW, GUID, etc.) → `"satellite"`, `includeInPayload: false`
+- dss_record_source, dss_load_date, dss_run_id → `"metadata"`
 
 ### 7. Design-Dokumentation
 Erstelle `design/staging/ewb/<entity>.md` basierend auf dem Template `design/staging/_template.md`.
@@ -78,6 +106,15 @@ set -a && source .env && set +a
 dbt run-operation stage_external_sources --target ewb-dev
 dbt run --select "ewb_<modul>_<tabelle>_<suffix>" --target ewb-dev
 ```
+
+## Checkliste (vor Abschluss prüfen)
+
+- [ ] `sources.yml` — External Table Eintrag
+- [ ] `ewb_<entity>.sql` — Staging SQL mit 5-Block-Struktur
+- [ ] `_staging__models.yml` — YAML-Dokumentation mit Tests
+- [ ] `.vscode/entity-designer/_common_<entity>.json` — Extension-Datei
+- [ ] `design/staging/ewb/<entity>.md` — Design-Doku
+- [ ] Kein Schiefstand: SQL-Spalten = JSON-Spalten = YAML-Spalten
 
 ## Fehlerbehandlung
 - Bei SQL-Fehlern: Reserved Keywords prüfen, DROP EXTERNAL TABLE via IF OBJECT_ID Pattern

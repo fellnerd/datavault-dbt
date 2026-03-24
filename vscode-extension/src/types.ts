@@ -338,8 +338,8 @@ export type DesignerColumnType =
   | 'foreign_key' | 'link'        // Foreign Key → Link
   | 'dependent_child'             // Dependent Child Key → DC Sat (on Link)
   | 'multi_active'                // Multi-Active Key → MA Sat
-  | 'metadata' 
-  | 'ignore';
+  | 'metadata'
+  | 'ignore';                     // @deprecated — use includeInPayload: false instead. Kept for backward compat with existing JSON configs.
 
 /**
  * Satellite group definition for multi-satellite support

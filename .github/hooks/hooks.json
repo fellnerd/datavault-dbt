@@ -6,7 +6,7 @@
     "steps": [
       {
         "type": "prompt",
-        "prompt": "Die Datei {file} wurde gespeichert. Prüfe folgende Punkte und melde Probleme:\n\n1. **Reserved Keywords:** Sind alle SQL Reserved Keywords escaped? Prüfe auf: PLAN, LEVEL, KEY, STATUS, TYPE, ORDER, GROUP, INDEX, BEFORE, AFTER (müssen in eckigen Klammern stehen)\n2. **5-Block-Struktur:** Hat die Datei alle 5 Blöcke? (Header-Kommentar, hashdiff_columns, source CTE, staged CTE, SELECT)\n3. **APPSTR in hashdiff:** Sind VARBINARY-Spalten (APPSTRx) fälschlicherweise in hashdiff_columns?\n4. **Metadata-Spalten:** Sind dss_record_source, dss_load_date, dss_start_date, dss_create_date vorhanden?\n5. **Hash-Pattern:** Werden HASHBYTES('SHA2_256', ...) korrekt verwendet?\n\nWenn alles OK: 'Staging-Validation bestanden ✅'\nBei Problemen: Liste die Fehler auf und schlage Korrekturen vor."
+        "prompt": "Die Datei {file} wurde gespeichert. Prüfe folgende Punkte und melde Probleme:\n\n1. **Reserved Keywords:** Sind alle SQL Reserved Keywords escaped? Prüfe auf: PLAN, LEVEL, KEY, STATUS, TYPE, ORDER, GROUP, INDEX, BEFORE, AFTER (müssen in eckigen Klammern stehen)\n2. **5-Block-Struktur:** Hat die Datei alle 5 Blöcke? (Header-Kommentar, hashdiff_columns, source CTE, staged CTE, SELECT)\n3. **APPSTR in hashdiff:** Sind VARBINARY-Spalten (APPSTRx) fälschlicherweise in hashdiff_columns?\n4. **Metadata-Spalten:** Sind dss_record_source, dss_load_date, dss_start_date, dss_create_date vorhanden?\n5. **Hash-Pattern:** Werden HASHBYTES('SHA2_256', ...) korrekt verwendet?\n6. **Entity-Designer Sync:** Existiert eine passende `.vscode/entity-designer/_common_<entity>.json`? Leite den Entity-Namen aus dem Dateinamen ab (z.B. `ewb_publ_adr_main.sql` → `_common_adresse.json` oder `_common_<entity>.json`). Wenn keine JSON-Datei existiert, weise darauf hin dass sie erstellt werden sollte.\n\nWenn alles OK: 'Staging-Validation bestanden ✅'\nBei Problemen: Liste die Fehler auf und schlage Korrekturen vor."
       }
     ]
   },
@@ -18,6 +18,61 @@
       {
         "type": "prompt",
         "prompt": "Die Datei {file} wurde gespeichert. Führe einen schnellen Lint-Check durch:\n\n1. **Schema-Konvention:** Stimmt der config-Block? (materialized, as_columnstore, post_hook)\n2. **Hash-Pattern:** Werden Hash Keys korrekt berechnet (CONVERT(CHAR(64), HASHBYTES(...), 2))?\n3. **Metadata-Spalten:** Sind die DSS-Pflichtfelder vorhanden (dss_load_date, dss_record_source)?\n4. **post_hook:** Bei Vault-Modellen: create_hash_index vorhanden? Bei Satellites: update_satellite_current_flag?\n5. **automate_dv:** Bei Vault-Modellen: Wird fromyaml() korrekt verwendet?\n\nWenn alles OK: 'dbt-Lint bestanden ✅'\nBei Problemen: Liste die Fehler auf."
+      }
+    ]
+  },
+  {
+    "event": "postSaveFile",
+    "description": "Validate vault model sync with ER diagram and entity-designer after saving a vault SQL file",
+    "pattern": "models/raw_vault/_common/**/*.sql",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Die Vault-Datei {file} wurde gespeichert. Prüfe die Artefakt-Synchronisation:\n\n1. **ER-Diagramm:** Ist dieses Objekt in `design/raw-vault/_common/er-diagram.mmd` definiert?\n   - Bei Hub: Existiert `HUB_<ENTITY> { ... }` im Diagramm?\n   - Bei Satellite: Existiert `SAT_<ENTITY> { ... }` und die Relation `HUB_x ||--o{ SAT_x : \"has\"`?\n   - Bei Link: Existiert `LINK_<E1>_<E2> { ... }` und die Relationen zu den Hubs?\n   Falls fehlend: Schlage den konkreten Mermaid-Code vor, der hinzugefügt werden muss.\n\n2. **YAML-Dokumentation:** Ist das Modell in `models/raw_vault/_common/_common__models.yml` dokumentiert?\n   Falls fehlend: Weise darauf hin.\n\n3. **Entity-Designer JSON:** Prüfe ob `.vscode/entity-designer/_common_<entity>.json` existiert und `generatedObjects` das aktuelle Objekt enthält (hub/satellite/links).\n   Falls `generatedObjects` fehlt oder nicht aktuell: Schlage die Korrektur vor.\n\nWenn alles synchron: 'Vault-Sync ✅'\nBei Lücken: Liste die fehlenden Artefakte und schlage konkrete Ergänzungen vor."
+      }
+    ]
+  },
+  {
+    "event": "postSaveFile",
+    "description": "Validate ER diagram consistency after editing",
+    "pattern": "design/raw-vault/_common/er-diagram.mmd",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Das ER-Diagramm `design/raw-vault/_common/er-diagram.mmd` wurde gespeichert. Prüfe:\n\n1. **Mermaid-Syntax:** Ist das erDiagram-Format korrekt? (Keine fehlenden Klammern, korrekte Relationship-Syntax)\n2. **Konsistenz mit Vault-Modellen:**\n   - Zähle alle HUB_, SAT_, LINK_ Definitionen im Diagramm\n   - Vergleiche mit den tatsächlichen Dateien in `models/raw_vault/_common/hubs/`, `satellites/`, `links/`\n   - Melde fehlende Objekte (im Diagramm aber nicht als Datei, oder als Datei aber nicht im Diagramm)\n3. **Header-Kommentar:** Stimmen die Zähler im Header-Kommentar (X Hubs, X Sats, X Links) mit der tatsächlichen Anzahl im Diagramm?\n4. **Relationen:** Hat jeder SAT_ eine Relation zu seinem HUB_? Hat jeder LINK_ Relationen zu seinen HUBs?\n\nWenn alles OK: 'ER-Diagramm Validation bestanden ✅'\nBei Problemen: Liste die Inkonsistenzen auf."
+      }
+    ]
+  },
+  {
+    "event": "postSaveFile",
+    "description": "Validate entity-designer JSON consistency after saving",
+    "pattern": ".vscode/entity-designer/_common_*.json",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Die Entity-Designer Datei {file} wurde gespeichert. Prüfe:\n\n1. **Pflichtfelder:** Sind `concept`, `entityName`, `sourceTable`, `columns`, `savedAt` vorhanden?\n2. **Concept:** Ist `concept` auf `_common` gesetzt (nicht `ewb`)?\n3. **columnType Verteilung:** Mindestens 1 Spalte mit `columnType: \"hub\"` (Business Key)?\n4. **Staging-Sync:** Existiert ein passendes Staging-Modell `models/staging/ewb_*.sql` für diese Entity?\n5. **generatedObjects:** Wenn Vault-Dateien existieren (hub_<entity>.sql, sat_<entity>.sql), ist `generatedObjects` korrekt gesetzt?\n6. **includeInPayload:** Stimmen die als `includeInPayload: false` markierten Spalten mit dem Staging SQL überein (nicht im hashdiff und payload)?\n\nWenn alles OK: 'Entity-Designer JSON ✅'\nBei Problemen: Liste die Inkonsistenzen auf."
+      }
+    ]
+  },
+  {
+    "event": "postSaveFile",
+    "description": "Check if projektdokumentation.md needs updating after staging or vault model changes",
+    "pattern": "models/**/ewb_*.sql",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Ein Staging- oder Vault-Modell wurde gespeichert ({file}). Prüfe ob `docs/projektdokumentation.md` aktualisiert werden muss:\n\n1. **Zähler in Abschnitt 5.1** (Implementierungsfortschritt):\n   - Zähle die tatsächlichen Dateien:\n     - Staging-Views: `ls models/staging/ewb_*.sql | wc -l` (von 19)\n     - Hubs: `ls models/raw_vault/_common/hubs/hub_*.sql 2>/dev/null | wc -l` (von 10+2)\n     - Satellites: `ls models/raw_vault/_common/satellites/sat_*.sql 2>/dev/null | wc -l` (von 14)\n     - Links: `ls models/raw_vault/_common/links/link_*.sql 2>/dev/null | wc -l` (von 11)\n   - Vergleiche mit den Zahlen in projektdokumentation.md Abschnitt 5.1\n   - Falls abweichend: Aktualisiere die Zähler und Prozentangaben\n\n2. **Status-Tabelle in Abschnitt 5.2** (Staging-Layer):\n   - Prüfe ob die gespeicherte Datei ein neues Staging-Modell ist\n   - Falls ja: Ändere den Status der entsprechenden Zeile von 'View ausstehend' zu 'Komplett'\n\n3. **Status-Tabelle in Abschnitt 5.3** (Raw Vault Geplante Objekte):\n   - Prüfe ob die gespeicherte Datei ein neues Hub/Sat/Link ist\n   - Falls ja: Ändere den Status der entsprechenden Zeile von 'Geplant' zu 'Erstellt'\n   - Falls ein neues Objekt existiert das NICHT in der Tabelle steht: Füge es hinzu\n\n4. **Stand-Datum** in Abschnitt 5.1:\n   - Aktualisiere '(Stand ...)' auf das heutige Datum\n\nWenn projektdokumentation.md bereits aktuell ist: 'Projektdokumentation ist aktuell ✅'\nWenn Änderungen nötig: Führe die Änderungen durch und melde was aktualisiert wurde."
+      }
+    ]
+  },
+  {
+    "event": "postSaveFile",
+    "description": "Check if projektdokumentation.md needs updating after vault model changes",
+    "pattern": "models/raw_vault/_common/**/*.sql",
+    "steps": [
+      {
+        "type": "prompt",
+        "prompt": "Ein Vault-Modell wurde gespeichert ({file}). Prüfe ob `docs/projektdokumentation.md` aktualisiert werden muss:\n\n1. **Zähler in Abschnitt 5.1** (Implementierungsfortschritt):\n   - Zähle die tatsächlichen Dateien:\n     - Hubs: `ls models/raw_vault/_common/hubs/hub_*.sql 2>/dev/null | wc -l`\n     - Satellites: `ls models/raw_vault/_common/satellites/sat_*.sql 2>/dev/null | wc -l`\n     - Links: `ls models/raw_vault/_common/links/link_*.sql 2>/dev/null | wc -l`\n   - Vergleiche mit den Zahlen in projektdokumentation.md Abschnitt 5.1\n   - Falls abweichend: Aktualisiere die Zähler und Prozentangaben\n\n2. **Status-Tabelle in Abschnitt 5.3** (Raw Vault Geplante Objekte):\n   - Prüfe ob die gespeicherte Datei ein neues Hub/Sat/Link ist\n   - Falls ja: Ändere den Status der entsprechenden Zeile von 'Geplant' zu 'Erstellt'\n   - Falls ein neues Objekt existiert das NICHT in der Tabelle steht (z.B. split-Satellites wie sat_person_adresse, sat_adresse_kontakt): Füge es hinzu und entferne ggf. den alten Eintrag (z.B. sat_adresse)\n\n3. **Stand-Datum** in Abschnitt 5.1:\n   - Aktualisiere '(Stand ...)' auf das heutige Datum\n\nWenn projektdokumentation.md bereits aktuell ist: 'Projektdokumentation ist aktuell ✅'\nWenn Änderungen nötig: Führe die Änderungen durch und melde was aktualisiert wurde."
       }
     ]
   }
