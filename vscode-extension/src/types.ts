@@ -349,6 +349,8 @@ export interface DesignerColumnDefinition {
   dependentChildForLink?: string;
   /** For multi_active: sequence/identifier column name */
   multiActiveSequence?: boolean;
+  /** Whether to include this column in satellite payload (default: true) */
+  includeInPayload?: boolean;
 }
 
 /**
@@ -471,6 +473,8 @@ export interface SavedColumnConfig {
   multiActiveSequence?: boolean;
   /** Whether to include this column in Hash Diff calculation (for satellite columns) */
   includeInHashDiff?: boolean;
+  /** Whether to include this column in satellite payload (default: true) */
+  includeInPayload?: boolean;
 }
 
 /**

@@ -44,6 +44,7 @@ export async function generateDataVaultObjects(
     );
     const attributes = config.columns.filter(c => 
       (hasType(c, 'attribute') || hasType(c, 'satellite')) &&
+      c.includeInPayload !== false &&
       // Exclude hash columns from payload - they are handled separately
       !c.name.toLowerCase().startsWith('hk_') &&
       !c.name.toLowerCase().startsWith('hd_')
@@ -324,6 +325,7 @@ async function generateStaging(
       (c.columnType === 'attribute' || c.columnType === 'satellite' || 
        c.columnType === 'dependent_child' || c.columnType === 'multi_active' ||
        c.columnType === 'foreign_key' || c.columnType === 'link') &&
+      c.includeInPayload !== false &&
       !c.name.toLowerCase().startsWith('hk_') &&
       !c.name.toLowerCase().startsWith('hd_') &&
       !c.name.toLowerCase().startsWith('dss_')
@@ -332,7 +334,7 @@ async function generateStaging(
   
   // Hash diff columns = attributes that have includeInHashDiff = true
   const hashDiffColumns = attributes
-    .filter(a => a.includeInHashDiff)
+    .filter(a => a.includeInHashDiff && a.includeInPayload !== false)
     .map(a => a.name.toLowerCase());
   
   // If no explicit hashDiff selection, use all attributes

@@ -69,6 +69,8 @@ interface ColumnConfig extends DesignerColumnDefinition {
   dependentChildForLink?: string;
   /** For multi_active: is this a sequence column */
   multiActiveSequence?: boolean;
+  /** Whether to include this column in satellite payload (default: true) */
+  includeInPayload?: boolean;
 }
 
 interface InitData {
@@ -597,6 +599,8 @@ export const App: React.FC = () => {
   const [initData, setInitData] = useState<InitData | null>(null);
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
   const [entityName, setEntityName] = useState('');
   const [concept, setConcept] = useState('');
   const [availableConcepts, setAvailableConcepts] = useState<string[]>([]);
@@ -710,6 +714,7 @@ export const App: React.FC = () => {
                 columnType: target,
                 additionalTypes,
                 includeInHashDiff,
+                includeInPayload: saved.includeInPayload,
                 foreignKeyTarget: saved.foreignKeyTarget,
                 hubTarget: saved.hubTarget,
                 dependentChildForLink: saved.dependentChildForLink,
@@ -718,7 +723,6 @@ export const App: React.FC = () => {
                 position: index,
               };
             });
-          
           setColumns(configuredColumns);
           
           // Restore Lambda Vault settings
@@ -784,6 +788,7 @@ export const App: React.FC = () => {
               columnType: target,
               additionalTypes,
               includeInHashDiff,
+              includeInPayload: saved.includeInPayload,
               foreignKeyTarget: saved.foreignKeyTarget,
               hubTarget: saved.hubTarget,
               dependentChildForLink: saved.dependentChildForLink,
@@ -887,6 +892,8 @@ export const App: React.FC = () => {
         ...(c.multiActiveSequence !== undefined && { multiActiveSequence: c.multiActiveSequence }),
         // Save includeInHashDiff for satellite columns (explicit user choice)
         ...(c.includeInHashDiff !== undefined && { includeInHashDiff: c.includeInHashDiff }),
+        // Save includeInPayload if explicitly set to false
+        ...(c.includeInPayload !== undefined && { includeInPayload: c.includeInPayload }),
         nullable: c.nullable,
       }));
 
@@ -1162,27 +1169,81 @@ export const App: React.FC = () => {
         <div style={styles.columnList}>
           {columns.map((col, index) => {
             const target = targetColors[col.columnType as DataVaultTarget] || targetColors.satellite;
-            const isSelected = index === selectedIndex;
+            const isSelected = index === selectedIndex && selectedIndices.size <= 1;
+            const isMultiSelected = selectedIndices.has(index);
             const hasAlias = col.alias && col.alias !== col.sourceName;
+            const isExcluded = col.includeInPayload === false;
             
             return (
               <div
                 key={col.sourceName}
-                onClick={() => setSelectedIndex(index)}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey) {
+                    // Cmd/Ctrl+Click: toggle in multi-select
+                    setSelectedIndices(prev => {
+                      const next = new Set(prev);
+                      // If nothing was multi-selected yet, add current selectedIndex first
+                      if (prev.size === 0 && selectedIndex !== null) {
+                        next.add(selectedIndex);
+                      }
+                      if (next.has(index)) {
+                        next.delete(index);
+                      } else {
+                        next.add(index);
+                      }
+                      // If only one left, switch to single-select
+                      if (next.size <= 1) {
+                        const remaining = [...next][0] ?? null;
+                        setSelectedIndex(remaining);
+                        return new Set();
+                      }
+                      return next;
+                    });
+                    setLastClickedIndex(index);
+                  } else if (e.shiftKey && lastClickedIndex !== null) {
+                    // Shift+Click: range select
+                    const start = Math.min(lastClickedIndex, index);
+                    const end = Math.max(lastClickedIndex, index);
+                    const range = new Set<number>();
+                    for (let i = start; i <= end; i++) {
+                      range.add(i);
+                    }
+                    if (range.size > 1) {
+                      setSelectedIndices(range);
+                    } else {
+                      setSelectedIndices(new Set());
+                      setSelectedIndex(index);
+                    }
+                  } else {
+                    // Normal click: single select
+                    setSelectedIndex(index);
+                    setSelectedIndices(new Set());
+                    setLastClickedIndex(index);
+                  }
+                }}
                 style={{
                   ...styles.columnItem,
                   ...(isSelected ? styles.columnItemSelected : {}),
+                  ...(isMultiSelected && selectedIndices.size > 1 ? {
+                    backgroundColor: colors.hover,
+                    borderLeft: `3px solid ${colors.accent}`,
+                    paddingLeft: '9px',
+                  } : {}),
+                  ...(isExcluded ? { opacity: 0.45 } : {}),
                 }}
                 onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = colors.hover;
+                  if (!isSelected && !(isMultiSelected && selectedIndices.size > 1)) e.currentTarget.style.backgroundColor = colors.hover;
                 }}
                 onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                  if (!isSelected && !(isMultiSelected && selectedIndices.size > 1)) e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
                 <span style={styles.columnIcon}>{target.icon}</span>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={styles.columnName} title={col.sourceName}>
+                  <div style={{
+                    ...styles.columnName,
+                    ...(isExcluded ? { textDecoration: 'line-through' } : {}),
+                  }} title={col.sourceName}>
                     {hasAlias ? col.alias : col.sourceName}
                   </div>
                   {hasAlias && (
@@ -1233,10 +1294,125 @@ export const App: React.FC = () => {
       {/* RIGHT PANEL: Property Editor */}
       <div style={styles.propertyPanel}>
         <div style={styles.propertyHeader}>
-          Column Properties{selectedColumn && `: ${selectedColumn.sourceName}`}
+          {selectedIndices.size > 1
+            ? `Batch Operations: ${selectedIndices.size} columns`
+            : <>Column Properties{selectedColumn && `: ${selectedColumn.sourceName}`}</>
+          }
         </div>
         
-        {selectedColumn ? (
+        {selectedIndices.size > 1 ? (
+          /* ============================================ */
+          /* BATCH OPERATIONS PANEL                       */
+          /* ============================================ */
+          <div style={styles.propertyContent}>
+            <div style={styles.propertyGroup}>
+              <div style={styles.propertyGroupTitle}>Batch Operations</div>
+              <div style={{ fontSize: '11px', color: colors.textMuted, marginBottom: '12px' }}>
+                Apply changes to all {selectedIndices.size} selected columns.
+                Use Cmd+Click or Shift+Click to adjust selection.
+              </div>
+
+              {/* Boolean toggles */}
+              {([
+                { key: 'includeInPayload', label: 'Include in Payload' },
+                { key: 'nullable', label: 'Nullable' },
+                { key: 'includeInHashDiff', label: 'Include in Hash Diff' },
+              ] as const).map(({ key, label }) => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="checkbox"
+                    id={`batch-${key}`}
+                    style={styles.checkbox}
+                  />
+                  <label htmlFor={`batch-${key}`} style={{ flex: 1, fontSize: '12px' }}>{label}</label>
+                  <button
+                    style={{ ...styles.buttonSecondary, padding: '2px 8px', fontSize: '11px' }}
+                    onClick={() => {
+                      const checkbox = document.getElementById(`batch-${key}`) as HTMLInputElement;
+                      const value = checkbox.checked;
+                      setHasUserChanges(true);
+                      const updates: Partial<ColumnConfig> = { [key]: value };
+                      if (key === 'includeInPayload' && !value) {
+                        updates.includeInHashDiff = false;
+                      }
+                      setColumns(prev => {
+                        const next = [...prev];
+                        selectedIndices.forEach(idx => {
+                          next[idx] = { ...next[idx], ...updates };
+                        });
+                        return next;
+                      });
+                    }}
+                  >Apply</button>
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.propertyGroup}>
+              <div style={styles.propertyGroupTitle}>Batch Type Changes</div>
+
+              {/* Data Type dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <label style={{ fontSize: '12px', minWidth: '80px' }}>Data Type:</label>
+                <select id="batch-dataType" style={{ ...styles.select, flex: 1 }}>
+                  {SQL_BASE_TYPES.map(dt => (
+                    <option key={dt.type} value={dt.type}>{dt.type}</option>
+                  ))}
+                </select>
+                <button
+                  style={{ ...styles.buttonSecondary, padding: '2px 8px', fontSize: '11px' }}
+                  onClick={() => {
+                    const select = document.getElementById('batch-dataType') as HTMLSelectElement;
+                    const base = select.value;
+                    const typeInfo = SQL_BASE_TYPES.find(t => t.type === base);
+                    const dataType = typeInfo?.hasSize ? `${base}(${typeInfo.defaultSize})` : base;
+                    setHasUserChanges(true);
+                    setColumns(prev => {
+                      const next = [...prev];
+                      selectedIndices.forEach(idx => {
+                        next[idx] = { ...next[idx], dataType };
+                      });
+                      return next;
+                    });
+                  }}
+                >Apply</button>
+              </div>
+
+              {/* Column Type dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <label style={{ fontSize: '12px', minWidth: '80px' }}>Column Type:</label>
+                <select id="batch-columnType" style={{ ...styles.select, flex: 1 }}>
+                  <option value="hub">🏛️ Hub</option>
+                  <option value="satellite">📦 Satellite</option>
+                  <option value="link">🔗 Link</option>
+                  <option value="dependent_child">📎 DC Key</option>
+                  <option value="multi_active">📚 MA Key</option>
+                  <option value="ignore">🚫 Ignore</option>
+                </select>
+                <button
+                  style={{ ...styles.buttonSecondary, padding: '2px 8px', fontSize: '11px' }}
+                  onClick={() => {
+                    const select = document.getElementById('batch-columnType') as HTMLSelectElement;
+                    const columnType = select.value as DataVaultTarget;
+                    setHasUserChanges(true);
+                    setColumns(prev => {
+                      const next = [...prev];
+                      selectedIndices.forEach(idx => {
+                        next[idx] = {
+                          ...next[idx],
+                          columnType,
+                          includeInHashDiff: columnType === 'satellite',
+                          includeInPayload: columnType === 'ignore' || columnType === 'metadata' ? false : next[idx].includeInPayload,
+                        };
+                      });
+                      return next;
+                    });
+                  }}
+                >Apply</button>
+              </div>
+            </div>
+          </div>
+        ) : selectedColumn ? (
           <div style={styles.propertyContent}>
             {/* Source Information */}
             <div style={styles.propertyGroup}>
@@ -1332,6 +1508,26 @@ export const App: React.FC = () => {
                   onChange={(e) => updateColumn(selectedIndex!, { nullable: e.target.checked })}
                   style={styles.checkbox}
                 />
+              </div>
+
+              <div style={styles.propertyRow}>
+                <span style={styles.propertyLabel}>Include in payload:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedColumn.includeInPayload ?? true}
+                    onChange={(e) => {
+                      updateColumn(selectedIndex!, {
+                        includeInPayload: e.target.checked,
+                        includeInHashDiff: e.target.checked ? (selectedColumn.includeInHashDiff ?? true) : false,
+                      });
+                    }}
+                    style={styles.checkbox}
+                  />
+                  <span style={{ fontSize: '11px', color: colors.textMuted }}>
+                    Column will be included in satellite payload
+                  </span>
+                </div>
               </div>
             </div>
 
