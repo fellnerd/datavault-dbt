@@ -17,8 +17,8 @@ erDiagram
 
     HUB_HAUPTBUCH {
         char64 hk_hauptbuch PK "SHA2_256(DKBELEGNUMMER^^KTO)"
-        nvarchar dkbelegnummer "composite BK"
-        nvarchar kto "composite BK"
+        nvarchar dkbelegnummer "ext_ewb_fibu_gl_e22-e26.DKBELEGNUMMER"
+        nvarchar kto "ext_ewb_fibu_gl_e22-e26.KTO"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -32,8 +32,8 @@ erDiagram
 
     HUB_ZAHLUNG {
         char64 hk_zahlung PK "SHA2_256(BELEGNR^^ZAHLNR)"
-        nvarchar belegnr "composite BK"
-        nvarchar zahlnr "composite BK"
+        nvarchar belegnr "ext_ewb_kred_kvl_main.BELEGNR"
+        nvarchar zahlnr "ext_ewb_kred_kvl_main.ZAHLNR"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -46,15 +46,15 @@ erDiagram
     }
 
     HUB_KONTO {
-        char64 hk_konto PK "ghost"
-        nvarchar kontnr "aus GL E22-E26"
+        char64 hk_konto PK "ghost — kein eigenes Staging"
+        nvarchar kontnr "ext_ewb_fibu_gl_e22-e26.KTO"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
     HUB_KOSTENSTELLE {
-        char64 hk_kostenstelle PK "ghost"
-        nvarchar kostnr "aus GL E22-E26"
+        char64 hk_kostenstelle PK "ghost — kein eigenes Staging"
+        nvarchar kostnr "ext_ewb_fibu_gl_e22-e26.KST"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }

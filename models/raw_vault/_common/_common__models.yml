@@ -704,3 +704,29 @@ models:
         data_type: "varchar(100)"
         tests:
           - "not_null"
+
+  - name: "ref_abteilung"
+    description: "Reference Table: Abteilungen (LOHN.LTC.Main) — 109 Gruppen / 2132 Eintraege"
+    columns:
+      - name: "nr"
+        description: "Abteilungsnummer (Primary Key)"
+        data_type: "decimal(38,18)"
+        tests:
+          - "not_null"
+          - "unique"
+      - name: "description"
+        description: "Abteilungsbezeichnung"
+        data_type: "nvarchar(4000)"
+      - name: "group_nr"
+        description: "Gruppierungsebene (=1 fuer Abteilungen)"
+        data_type: "decimal(38,18)"
+      - name: "dss_load_date"
+        description: "Ladezeitpunkt"
+        data_type: "datetime2(7)"
+        tests:
+          - "not_null"
+      - name: "dss_record_source"
+        description: "Datenquelle"
+        data_type: "varchar(100)"
+        tests:
+          - "not_null"

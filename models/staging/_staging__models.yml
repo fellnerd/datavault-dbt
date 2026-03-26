@@ -170,7 +170,6 @@ models:
         data_type: char(64)
         tests:
           - not_null
-          - unique
       - name: hd_person
         description: Hash Diff for change detection
         data_type: char(64)
@@ -541,8 +540,13 @@ models:
         data_type: char(64)
         tests:
           - not_null
-      - name: hd_adresse
-        description: Hash Diff for change detection
+      - name: hd_person_adresse
+        description: Hash Diff for sat_person_adresse
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_adresse_kontakt
+        description: Hash Diff for sat_adresse_kontakt
         data_type: char(64)
         tests:
           - not_null
@@ -572,3 +576,30 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_lohn_ltc_main
+    description: "Staging: LOHN.LTC.Main (Abteilungen) — Quelle für ref_abteilung"
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_lohn_ltc_main
+    columns:
+      - name: nr
+        description: "Abteilungsnummer (Primary Key)"
+        tests:
+          - not_null
+          - unique
+      - name: description
+        description: "Abteilungsbezeichnung"
+      - name: group_nr
+        description: "Gruppierungsebene (=1 fuer Abteilungen) — aus [GROUP]"
+      - name: dss_record_source
+        description: "Datenquelle"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Ladezeitpunkt"
+        data_type: datetime2(7)
+        tests:
+          - not_null

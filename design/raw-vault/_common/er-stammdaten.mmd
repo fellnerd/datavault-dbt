@@ -1,7 +1,7 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault — STAMMDATEN DOMAIN
     %% Schema: vault | Quelle: Abacus ERP
-    %% Hubs: Person, Adresse
+    %% Hubs: Person, Adresse, Zeiterfassung
     %% Bereits implementiert: hub_person, hub_adresse, sat_person, sat_person_adresse, sat_adresse_kontakt
 
     %% ========================================
@@ -18,6 +18,14 @@ erDiagram
     HUB_ADRESSE {
         char64 hk_adresse PK "SHA2_256(INR)"
         nvarchar inr "ext_ewb_publ_adr_main.INR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_ZEITERFASSUNG {
+        char64 hk_zeiterfassung PK "SHA2_256(EMPLNR^^PROJDAT)"
+        nvarchar emplnr "ext_ewb_proj_ntc_main.EMPLNR"
+        date projdat "ext_ewb_proj_ntc_main.PROJDAT"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -78,12 +86,24 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
+    SAT_ZEITERFASSUNG {
+        char64 hk_zeiterfassung FK "hub_zeiterfassung"
+        char64 hd_zeiterfassung "hash diff"
+        nvarchar from1_to10 "10 Zeitintervalle"
+        decimal anzahl "Stunden"
+        nvarchar user_f "Benutzer"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
     %% ========================================
     %% REFERENCE TABLE
     %% ========================================
 
     REF_ABTEILUNG {
-        int nr PK "109 Gruppen"
+        int nr PK "ext_ewb_lohn_ltc_main — 109 Gruppen"
         nvarchar description "Beschreibung"
         int group_nr "GROUP (=1 fuer Abteilungen)"
     }
@@ -100,6 +120,14 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
+    LINK_ZEITERFASSUNG_PERSON {
+        char64 hk_link PK "SHA2_256(hk_zeiterfassung^^hk_person)"
+        char64 hk_zeiterfassung FK "hub_zeiterfassung"
+        char64 hk_person FK "hub_person"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
     %% ========================================
     %% RELATIONSHIPS — Hub → Satellite
     %% ========================================
@@ -107,6 +135,7 @@ erDiagram
     HUB_PERSON ||--o{ SAT_PERSON : has
     HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
     HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
+    HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
 
     %% ========================================
     %% RELATIONSHIPS — Hub → Link
@@ -114,6 +143,8 @@ erDiagram
 
     HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : "ADR.LOHNNR = LEN.EMPL_NR"
     HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : "ADR.INR"
+    HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : "NTC.EMPLNR"
+    HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : "LEN.EMPL_NR"
 
     %% ========================================
     %% RELATIONSHIPS — Reference

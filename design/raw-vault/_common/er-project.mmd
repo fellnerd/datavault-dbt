@@ -1,8 +1,8 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault — PROJECT DOMAIN
     %% Schema: vault | Quelle: Abacus ERP
-    %% Hubs: Projekt, Projektsachkonto, Zeiterfassung
-    %% Reference Tables: Leistungsart, Projektstatus, Abteilung
+    %% Hubs: Projekt, Projektsachkonto
+    %% Reference Tables: Leistungsart, Projektstatus
 
     %% ========================================
     %% HUBS
@@ -17,19 +17,11 @@ erDiagram
 
     HUB_PROJEKTSACHKONTO {
         char64 hk_projektsachkonto PK "SHA2_256(PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB)"
-        nvarchar projnr "composite BK"
-        nvarchar code "composite BK"
-        nvarchar periyear "composite BK"
-        nvarchar perimonth "composite BK"
-        nvarchar gb "composite BK"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_ZEITERFASSUNG {
-        char64 hk_zeiterfassung PK "SHA2_256(EMPLNR^^PROJDAT)"
-        nvarchar emplnr "composite BK"
-        date projdat "composite BK"
+        nvarchar projnr "ext_ewb_proj_nsa_main.PROJNR"
+        nvarchar code "ext_ewb_proj_nsa_main.CODE"
+        nvarchar periyear "ext_ewb_proj_nsa_main.PERIYEAR"
+        nvarchar perimonth "ext_ewb_proj_nsa_main.PERIMONTH"
+        nvarchar gb "ext_ewb_proj_nsa_main.GB"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -46,30 +38,8 @@ erDiagram
         nvarchar gruppenr "Gruppe"
         nvarchar statusnr "FK ref_projektstatus"
         date erstellt "Erstelldatum"
-        datetime2 dss_load_date "PK Teil 2"
-        varchar dss_record_source "metadata"
-        char dss_is_current "Y/N"
-        datetime2 dss_end_date "NULL=aktuell"
-    }
-
-    SAT_PROJEKTTEIL {
-        char64 hk_projekt FK "hub_projekt"
-        char64 hd_projektteil "hash diff"
-        nvarchar stat1 "Status 1"
-        nvarchar stat2 "Status 2"
-        date datum "Datum"
-        datetime2 dss_load_date "PK Teil 2"
-        varchar dss_record_source "metadata"
-        char dss_is_current "Y/N"
-        datetime2 dss_end_date "NULL=aktuell"
-    }
-
-    SAT_ZEITERFASSUNG {
-        char64 hk_zeiterfassung FK "hub_zeiterfassung"
-        char64 hd_zeiterfassung "hash diff"
-        nvarchar from1_to10 "10 Zeitintervalle"
-        decimal anzahl "Stunden"
-        nvarchar user_f "Benutzer"
+        decimal stat1 "Projektteil-Status 1 (aus PRT)"
+        decimal stat2 "Projektteil-Status 2 (aus PRT)"
         datetime2 dss_load_date "PK Teil 2"
         varchar dss_record_source "metadata"
         char dss_is_current "Y/N"
@@ -102,21 +72,15 @@ erDiagram
     %% ========================================
 
     REF_LEISTUNGSART {
-        int number PK "29 Eintraege"
+        int number PK "ext_ewb_proj_ntr_main — 29 Eintraege"
         nvarchar description "Beschreibung"
         nvarchar type "Typ"
         bit inaktiv "Inaktiv-Flag"
     }
 
     REF_PROJEKTSTATUS {
-        int status_id PK "7 Eintraege"
+        int status_id PK "ext_ewb_proj_pst_main — 7 Eintraege"
         nvarchar bezeichnung "Bezeichnung"
-    }
-
-    REF_ABTEILUNG {
-        int nr PK "109 Gruppen"
-        nvarchar description "Beschreibung"
-        int group_nr "GROUP (=1 fuer Abteilungen)"
     }
 
     %% ========================================
@@ -127,26 +91,6 @@ erDiagram
         char64 hk_link PK "SHA2_256(hk_projektsachkonto^^hk_projekt)"
         char64 hk_projektsachkonto FK "hub_projektsachkonto"
         char64 hk_projekt FK "hub_projekt"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_PROJEKTTEIL_PROJEKT {
-        char64 hk_link PK "SHA2_256(hk_projekt)"
-        char64 hk_projekt FK "hub_projekt"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    %% Cross-domain: Zeiterfassung → Person
-    HUB_PERSON {
-        char64 hk_person PK "siehe er-stammdaten.mmd"
-    }
-
-    LINK_ZEITERFASSUNG_PERSON {
-        char64 hk_link PK "SHA2_256(hk_zeiterfassung^^hk_person)"
-        char64 hk_zeiterfassung FK "hub_zeiterfassung"
-        char64 hk_person FK "hub_person"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -169,8 +113,6 @@ erDiagram
     %% ========================================
 
     HUB_PROJEKT ||--o{ SAT_PROJEKT : has
-    HUB_PROJEKT ||--o{ SAT_PROJEKTTEIL : has
-    HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
     HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has
 
     %% ========================================
@@ -179,9 +121,6 @@ erDiagram
 
     HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
     HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
-    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
-    HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
-    HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
 
     %% Cross-domain
     HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
@@ -193,4 +132,3 @@ erDiagram
 
     SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE zu NUMBER"
     SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUSNR zu status_id"
-    SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR zu NR"
