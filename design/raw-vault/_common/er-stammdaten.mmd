@@ -1,0 +1,122 @@
+erDiagram
+    %% Data Vault 2.1 — EWB Raw Vault — STAMMDATEN DOMAIN
+    %% Schema: vault | Quelle: Abacus ERP
+    %% Hubs: Person, Adresse
+    %% Bereits implementiert: hub_person, hub_adresse, sat_person, sat_person_adresse, sat_adresse_kontakt
+
+    %% ========================================
+    %% HUBS
+    %% ========================================
+
+    HUB_PERSON {
+        char64 hk_person PK "SHA2_256(EMPL_NR)"
+        nvarchar empl_nr "ext_ewb_lohn_len_main.EMPL_NR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_ADRESSE {
+        char64 hk_adresse PK "SHA2_256(INR)"
+        nvarchar inr "ext_ewb_publ_adr_main.INR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% ========================================
+    %% SATELLITES
+    %% ========================================
+
+    SAT_PERSON {
+        char64 hk_person FK "hub_person"
+        char64 hd_person "hash diff"
+        nvarchar empl_id "Mitarbeiter-ID (518 distinct)"
+        nvarchar last_name "Nachname"
+        nvarchar first_name "Vorname"
+        nvarchar abrv "Initialen"
+        nvarchar badge_id "Badge-ID (518 distinct)"
+        date birthday "Geburtsdatum"
+        nvarchar sex "Geschlecht"
+        nvarchar nationality "CH/AT/DE/LI/..."
+        nvarchar birth_place "Geburtsort"
+        nvarchar home_dept_nr "FK ref_abteilung"
+        nvarchar adr_inr "FK hub_adresse"
+        date date_in "Eintrittsdatum"
+        date date_out "Austrittsdatum (NULL=aktiv)"
+        nvarchar type "M/S/R/J"
+        date mutation_date "Mutationsdatum"
+        decimal lpe_year "Letztes Lohnjahr"
+        decimal lpe_month "Letzter Lohnmonat"
+        nvarchar soc_insurance_nr "AHV-Nummer"
+        decimal relevant_for_logib "Logib-relevant (0/1)"
+        nvarchar zemis_nr "ZEMIS-Nr (nur Auslaender)"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_PERSON_ADRESSE {
+        char64 hk_adresse FK "hub_adresse"
+        char64 hd_person_adresse "hash diff"
+        nvarchar name "Name"
+        nvarchar vorname "Vorname"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_ADRESSE_KONTAKT {
+        char64 hk_adresse FK "hub_adresse"
+        char64 hd_adresse_kontakt "hash diff"
+        nvarchar plz "Postleitzahl"
+        nvarchar ort "Ort"
+        nvarchar street "Strasse"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    %% ========================================
+    %% REFERENCE TABLE
+    %% ========================================
+
+    REF_ABTEILUNG {
+        int nr PK "109 Gruppen"
+        nvarchar description "Beschreibung"
+        int group_nr "GROUP (=1 fuer Abteilungen)"
+    }
+
+    %% ========================================
+    %% LINK
+    %% ========================================
+
+    LINK_PERSON_ADRESSE {
+        char64 hk_link PK "SHA2_256(hk_person^^hk_adresse)"
+        char64 hk_person FK "hub_person"
+        char64 hk_adresse FK "hub_adresse"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% ========================================
+    %% RELATIONSHIPS — Hub → Satellite
+    %% ========================================
+
+    HUB_PERSON ||--o{ SAT_PERSON : has
+    HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
+
+    %% ========================================
+    %% RELATIONSHIPS — Hub → Link
+    %% ========================================
+
+    HUB_PERSON ||--o{ LINK_PERSON_ADRESSE : "ADR.LOHNNR = LEN.EMPL_NR"
+    HUB_ADRESSE ||--o{ LINK_PERSON_ADRESSE : "ADR.INR"
+
+    %% ========================================
+    %% RELATIONSHIPS — Reference
+    %% ========================================
+
+    SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR zu NR"

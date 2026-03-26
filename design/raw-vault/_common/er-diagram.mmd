@@ -1,449 +1,64 @@
 erDiagram
-    %%{init: {'theme': 'base'}}%%
-    %% Data Vault 2.1 Model: EWB Raw Vault (_common)
-    %% Schema: vault
-    %% Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
+    %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
+    %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
     %% Stand: 14. März 2026
-    %% Objekte: 10 Hubs (+2 Ghost), 11 Satellites, 12 Links, 3 Reference Tables
+    %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
-    %% ========================================
-    %% HUBS — Finance Domain
-    %% ========================================
+    %% === FINANCE ===
+    HUB_BUCHUNGSKOPF { char64 hk PK }
+    HUB_HAUPTBUCH { char64 hk PK }
+    HUB_KREDITORENBELEG { char64 hk PK }
+    HUB_ZAHLUNG { char64 hk PK }
+    HUB_KREDITOR { char64 hk PK }
+    HUB_KONTO { char64 hk PK "ghost" }
+    HUB_KOSTENSTELLE { char64 hk PK "ghost" }
+    SAT_BUCHUNGSKOPF { char64 hk FK }
+    SAT_HAUPTBUCH { char64 hk FK }
+    SAT_KREDITORENBELEG { char64 hk FK }
+    SAT_ZAHLUNG { char64 hk FK }
+    SAT_KREDITOR { char64 hk FK }
 
-    HUB_BUCHUNGSKOPF {
-        char64 hk_buchungskopf PK "computed"
-        nvarchar recnum "ext_ewb_fibu_fhe_main.RECNUM"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
+    %% === PROJECT ===
+    HUB_PROJEKT { char64 hk PK }
+    HUB_PROJEKTSACHKONTO { char64 hk PK }
+    HUB_ZEITERFASSUNG { char64 hk PK }
+    SAT_PROJEKT { char64 hk FK }
+    SAT_PROJEKTTEIL { char64 hk FK }
+    SAT_ZEITERFASSUNG { char64 hk FK }
+    SAT_PROJEKTSACHKONTO { char64 hk FK }
 
-    HUB_HAUPTBUCH {
-        char64 hk_hauptbuch PK "computed"
-        nvarchar dkbelegnummer "ext_ewb_fibu_gl_e2x.DKBELEGNUMMER (composite BK)"
-        nvarchar kto "ext_ewb_fibu_gl_e2x.KTO (composite BK)"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
+    %% === STAMMDATEN ===
+    HUB_PERSON { char64 hk PK }
+    HUB_ADRESSE { char64 hk PK }
+    SAT_PERSON { char64 hk FK }
+    SAT_PERSON_ADRESSE { char64 hk FK }
+    SAT_ADRESSE_KONTAKT { char64 hk FK }
 
-    HUB_KREDITORENBELEG {
-        char64 hk_kreditorenbeleg PK "computed"
-        nvarchar belegnr "ext_ewb_kred_kbl_main.BELEGNR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
+    %% === REFERENCE ===
+    REF_LEISTUNGSART { int number PK }
+    REF_PROJEKTSTATUS { int status_id PK }
+    REF_ABTEILUNG { int nr PK }
 
-    HUB_ZAHLUNG {
-        char64 hk_zahlung PK "computed"
-        nvarchar belegnr "ext_ewb_kred_kvl_main.BELEGNR (composite BK)"
-        nvarchar zahlnr "ext_ewb_kred_kvl_main.ZAHLNR (composite BK)"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
+    %% === LINKS ===
+    LINK_BUCHUNGSKOPF_KREDITORENBELEG { char64 hk PK }
+    LINK_HAUPTBUCH_BUCHUNGSKOPF { char64 hk PK }
+    LINK_HAUPTBUCH_PROJEKT { char64 hk PK }
+    LINK_HAUPTBUCH_KREDITOR { char64 hk PK }
+    LINK_HAUPTBUCH_KONTO { char64 hk PK }
+    LINK_HAUPTBUCH_KOSTENSTELLE { char64 hk PK }
+    LINK_KREDITORENBELEG_KREDITOR { char64 hk PK }
+    LINK_KREDITORENBELEG_ZAHLUNG { char64 hk PK }
+    LINK_PROJEKTSACHKONTO_PROJEKT { char64 hk PK }
+    LINK_ZEITERFASSUNG_PERSON { char64 hk PK }
+    LINK_PROJEKTTEIL_PROJEKT { char64 hk PK }
+    LINK_PERSON_ADRESSE { char64 hk PK }
 
-    HUB_KREDITOR {
-        char64 hk_kreditor PK "computed"
-        nvarchar liefnr "ext_ewb_kred_kbs_main.LIEFNR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_KONTO {
-        char64 hk_konto PK "computed"
-        nvarchar kontnr "ghost - ext_ewb_fibu_gl_e2x.KONTNR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_KOSTENSTELLE {
-        char64 hk_kostenstelle PK "computed"
-        nvarchar kostnr "ghost - ext_ewb_fibu_gl_e2x.KOSTNR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    %% ========================================
-    %% HUBS — Project Domain
-    %% ========================================
-
-    HUB_PROJEKT {
-        char64 hk_projekt PK "computed"
-        nvarchar projnr "ext_ewb_proj_npo_main.PROJNR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_PROJEKTSACHKONTO {
-        char64 hk_projektsachkonto PK "computed"
-        nvarchar projnr "ext_ewb_proj_nsa_main.PROJNR (composite BK)"
-        nvarchar code "ext_ewb_proj_nsa_main.CODE (composite BK)"
-        nvarchar periyear "ext_ewb_proj_nsa_main.PERIYEAR (composite BK)"
-        nvarchar perimonth "ext_ewb_proj_nsa_main.PERIMONTH (composite BK)"
-        nvarchar gb "ext_ewb_proj_nsa_main.GB (composite BK)"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_ZEITERFASSUNG {
-        char64 hk_zeiterfassung PK "computed"
-        nvarchar emplnr "ext_ewb_proj_ntc_main.EMPLNR (composite BK)"
-        date projdat "ext_ewb_proj_ntc_main.PROJDAT (composite BK)"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_PERSON {
-        char64 hk_person PK "computed"
-        nvarchar empl_nr "ext_ewb_lohn_len_main.EMPL_NR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    HUB_ADRESSE {
-        char64 hk_adresse PK "computed"
-        nvarchar inr "ext_ewb_publ_adr_main.INR"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    %% ========================================
-    %% LINKS — Finance Domain
-    %% ========================================
-
-    LINK_BUCHUNGSKOPF_KREDITORENBELEG {
-        char64 hk_link_buchungskopf_kreditorenbeleg PK "computed"
-        char64 hk_buchungskopf FK "hub_buchungskopf"
-        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_HAUPTBUCH_BUCHUNGSKOPF {
-        char64 hk_link_hauptbuch_buchungskopf PK "computed"
-        char64 hk_hauptbuch FK "hub_hauptbuch"
-        char64 hk_buchungskopf FK "hub_buchungskopf"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_HAUPTBUCH_PROJEKT {
-        char64 hk_link_hauptbuch_projekt PK "computed"
-        char64 hk_hauptbuch FK "hub_hauptbuch"
-        char64 hk_projekt FK "hub_projekt"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_HAUPTBUCH_KREDITOR {
-        char64 hk_link_hauptbuch_kreditor PK "computed"
-        char64 hk_hauptbuch FK "hub_hauptbuch"
-        char64 hk_kreditor FK "hub_kreditor"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_HAUPTBUCH_KONTO {
-        char64 hk_link_hauptbuch_konto PK "computed"
-        char64 hk_hauptbuch FK "hub_hauptbuch"
-        char64 hk_konto FK "hub_konto"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_HAUPTBUCH_KOSTENSTELLE {
-        char64 hk_link_hauptbuch_kostenstelle PK "computed"
-        char64 hk_hauptbuch FK "hub_hauptbuch"
-        char64 hk_kostenstelle FK "hub_kostenstelle"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_KREDITORENBELEG_KREDITOR {
-        char64 hk_link_kreditorenbeleg_kreditor PK "computed"
-        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
-        char64 hk_kreditor FK "hub_kreditor"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_KREDITORENBELEG_ZAHLUNG {
-        char64 hk_link_kreditorenbeleg_zahlung PK "computed"
-        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
-        char64 hk_zahlung FK "hub_zahlung"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    %% ========================================
-    %% LINKS — Project Domain
-    %% ========================================
-
-    LINK_PROJEKTSACHKONTO_PROJEKT {
-        char64 hk_link_projektsachkonto_projekt PK "computed"
-        char64 hk_projektsachkonto FK "hub_projektsachkonto"
-        char64 hk_projekt FK "hub_projekt"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_ZEITERFASSUNG_PERSON {
-        char64 hk_link_zeiterfassung_person PK "computed"
-        char64 hk_zeiterfassung FK "hub_zeiterfassung"
-        char64 hk_person FK "hub_person"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_PROJEKTTEIL_PROJEKT {
-        char64 hk_link_projektteil_projekt PK "computed"
-        char64 hk_projekt FK "hub_projekt"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    LINK_PERSON_ADRESSE {
-        char64 hk_link_person_adresse PK "computed"
-        char64 hk_person FK "hub_person"
-        char64 hk_adresse FK "hub_adresse"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
-    %% ========================================
-    %% SATELLITES — Finance Domain
-    %% ========================================
-
-    SAT_BUCHUNGSKOPF {
-        char64 hk_buchungskopf FK "computed"
-        char64 hd_buchungskopf "computed"
-        nvarchar plan "ext_ewb_fibu_fhe_main.PLAN"
-        nvarchar level "ext_ewb_fibu_fhe_main.LEVEL"
-        nvarchar variante "ext_ewb_fibu_fhe_main.VARIANTE"
-        nvarchar typ "ext_ewb_fibu_fhe_main.TYP"
-        nvarchar ref_id "ext_ewb_fibu_fhe_main.REF_ID"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_HAUPTBUCH {
-        char64 hk_hauptbuch FK "computed"
-        char64 hd_hauptbuch "computed"
-        date date "ext_ewb_fibu_gl_e2x.DATE"
-        nvarchar sh "ext_ewb_fibu_gl_e2x.SH"
-        decimal sam "ext_ewb_fibu_gl_e2x.SAM"
-        decimal betrag "ext_ewb_fibu_gl_e2x.BETRAG"
-        nvarchar gkto "ext_ewb_fibu_gl_e2x.GKTO"
-        nvarchar kst "ext_ewb_fibu_gl_e2x.KST"
-        nvarchar kst2 "ext_ewb_fibu_gl_e2x.KST2"
-        nvarchar waehr "ext_ewb_fibu_gl_e2x.WAEHR"
-        decimal mwstbetr "ext_ewb_fibu_gl_e2x.MWSTBETR"
-        nvarchar mwsttyp "ext_ewb_fibu_gl_e2x.MWSTTYP"
-        nvarchar mwstcode "ext_ewb_fibu_gl_e2x.MWSTCODE"
-        bit mwstincl "ext_ewb_fibu_gl_e2x.MWSTINCL"
-        decimal mwstsatz "ext_ewb_fibu_gl_e2x.MWSTSATZ"
-        nvarchar text "ext_ewb_fibu_gl_e2x.TEXT"
-        nvarchar text2 "ext_ewb_fibu_gl_e2x.TEXT2"
-        nvarchar dkkundennummer "ext_ewb_fibu_gl_e2x.DKKUNDENNUMMER"
-        nvarchar projebene "ext_ewb_fibu_gl_e2x.PROJEBENE"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_KREDITORENBELEG {
-        char64 hk_kreditorenbeleg FK "computed"
-        char64 hd_kreditorenbeleg "computed"
-        nvarchar knr "ext_ewb_kred_kbl_main.KNR"
-        nvarchar adrid "ext_ewb_kred_kbl_main.ADRID"
-        nvarchar umschreibung3 "ext_ewb_kred_kbl_main.UMSCHREIBUNG3"
-        decimal betrag "ext_ewb_kred_kbl_main.BETRAG"
-        date belegdatum "ext_ewb_kred_kbl_main.BELEGDATUM"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_ZAHLUNG {
-        char64 hk_zahlung FK "computed"
-        char64 hd_zahlung "computed"
-        decimal zahlbetrag "ext_ewb_kred_kvl_main.ZAHLBETRAG"
-        date valuta "ext_ewb_kred_kvl_main.VALUTA"
-        nvarchar zahlungsart "ext_ewb_kred_kvl_main.ZAHLUNGSART"
-        nvarchar konto "ext_ewb_kred_kvl_main.KONTO"
-        nvarchar status "ext_ewb_kred_kvl_main.STATUS"
-        nvarchar abacus_usr_name "ext_ewb_kred_kvl_main.ABACUS_USR_NAME"
-        nvarchar abacus_usr_full_name "ext_ewb_kred_kvl_main.ABACUS_USR_FULL_NAME"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_KREDITOR {
-        char64 hk_kreditor FK "computed"
-        char64 hd_kreditor "computed"
-        decimal saldo "ext_ewb_kred_kbs_main.SALDO"
-        nvarchar konto "ext_ewb_kred_kbs_main.KONTO"
-        nvarchar waehrung "ext_ewb_kred_kbs_main.WAEHRUNG"
-        nvarchar periode "ext_ewb_kred_kbs_main.PERIODE"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    %% ========================================
-    %% SATELLITES — Project Domain
-    %% ========================================
-
-    SAT_PROJEKT {
-        char64 hk_projekt FK "computed"
-        char64 hd_projekt "computed"
-        nvarchar projektname "ext_ewb_proj_npo_main.PROJEKTNAME"
-        bit inaktiv "ext_ewb_proj_npo_main.INAKTIV"
-        nvarchar gruppenr "ext_ewb_proj_npo_main.GRUPPENR"
-        nvarchar statusnr "ext_ewb_proj_npo_main.STATUSNR"
-        date erstellt "ext_ewb_proj_npo_main.ERSTELLT"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_PROJEKTTEIL {
-        char64 hk_projekt FK "computed"
-        char64 hd_projektteil "computed"
-        nvarchar stat1 "ext_ewb_proj_prt_main.STAT1"
-        nvarchar stat2 "ext_ewb_proj_prt_main.STAT2"
-        date datum "ext_ewb_proj_prt_main.DATUM"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_ZEITERFASSUNG {
-        char64 hk_zeiterfassung FK "computed"
-        char64 hd_zeiterfassung "computed"
-        nvarchar from1_to10 "ext_ewb_proj_ntc_main.FROM1-TO10 (10 Intervalle)"
-        decimal anzahl "ext_ewb_proj_ntc_main.ANZAHL (Stunden)"
-        nvarchar user_f "ext_ewb_proj_ntc_main.USER_F"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_PROJEKTSACHKONTO {
-        char64 hk_projektsachkonto FK "computed"
-        char64 hd_projektsachkonto "computed"
-        decimal budgetint "ext_ewb_proj_nsa_main.BUDGETINT"
-        decimal betragint "ext_ewb_proj_nsa_main.BETRAGINT"
-        decimal vortragint "ext_ewb_proj_nsa_main.VORTRAGINT"
-        decimal budgetext "ext_ewb_proj_nsa_main.BUDGETEXT"
-        decimal betragext "ext_ewb_proj_nsa_main.BETRAGEXT"
-        decimal vortragext "ext_ewb_proj_nsa_main.VORTRAGEXT"
-        decimal azbutint "ext_ewb_proj_nsa_main.AZBUTINT"
-        decimal azbetint "ext_ewb_proj_nsa_main.AZBETINT"
-        decimal azvortint "ext_ewb_proj_nsa_main.AZVORTINT"
-        decimal azbutext "ext_ewb_proj_nsa_main.AZBUTEXT"
-        decimal azbetext "ext_ewb_proj_nsa_main.AZBETEXT"
-        decimal azvortext "ext_ewb_proj_nsa_main.AZVORTEXT"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_PERSON {
-        char64 hk_person FK "computed"
-        char64 hd_person "computed"
-        nvarchar empl_id "EMPL_ID - 518 distinct"
-        nvarchar last_name "LAST_NAME"
-        nvarchar first_name "FIRST_NAME"
-        nvarchar abrv "ABRV - Initialen structured-tables"
-        nvarchar badge_id "BADGE_ID - 518 distinct"
-        date birthday "BIRTHDAY"
-        nvarchar sex "SEX"
-        nvarchar nationality "NATIONALITY - CH/AT/DE/LI/..."
-        nvarchar birth_place "BIRTH_PLACE"
-        nvarchar home_dept_nr "HOME_DEPT_NR - structured-tables"
-        nvarchar adr_inr "ADR_INR - FK hub_adresse"
-        date date_in "DATE_IN"
-        date date_out "DATE_OUT - NULL=aktiv"
-        nvarchar type "TYPE - M/S/R/J"
-        date mutation_date "MUTATION_DATE - structured-tables"
-        decimal lpe_year "LPE_YEAR - letztes Lohnjahr"
-        decimal lpe_month "LPE_MONTH - letzter Lohnmonat"
-        nvarchar soc_insurance_nr "SOC_INSURANCE_NR - AHV"
-        decimal relevant_for_logib "RELEVANT_FOR_LOGIB - 0/1"
-        nvarchar zemis_nr "ZEMIS_NR - nur Auslaender"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_PERSON_ADRESSE {
-        char64 hk_adresse FK "computed"
-        char64 hd_person_adresse "computed"
-        nvarchar name "ext_ewb_publ_adr_main.NAME"
-        nvarchar vorname "ext_ewb_publ_adr_main.VORNAME"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    SAT_ADRESSE_KONTAKT {
-        char64 hk_adresse FK "computed"
-        char64 hd_adresse_kontakt "computed"
-        nvarchar plz "ext_ewb_publ_adr_main.PLZ"
-        nvarchar ort "ext_ewb_publ_adr_main.ORT"
-        nvarchar street "ext_ewb_publ_adr_main.STREET"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-        char dss_is_current "computed"
-        datetime2 dss_end_date "computed"
-    }
-
-    %% ========================================
-    %% REFERENCE TABLES
-    %% ========================================
-
-    REF_LEISTUNGSART {
-        int number PK "ext_ewb_proj_ntr_main.NUMBER"
-        nvarchar description "DESCRIPTION"
-        nvarchar type "TYPE"
-        bit inaktiv "INAKTIV"
-    }
-
-    REF_PROJEKTSTATUS {
-        int status_id PK "ext_ewb_proj_pst_main"
-        nvarchar bezeichnung "BEZEICHN"
-    }
-
-    REF_ABTEILUNG {
-        int nr PK "ext_ewb_lohn_ltc_main.NR"
-        nvarchar description "DESCRIPTION"
-        int group_nr "GROUP (=1 fuer Abteilungen)"
-    }
-
-    %% ========================================
-    %% RELATIONSHIPS — Hub to Satellite
-    %% ========================================
-
-    %% Finance
+    %% Hub → Satellite
     HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF : has
     HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH : has
     HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG : has
     HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG : has
     HUB_KREDITOR ||--o{ SAT_KREDITOR : has
-
-    %% Project
     HUB_PROJEKT ||--o{ SAT_PROJEKT : has
     HUB_PROJEKT ||--o{ SAT_PROJEKTTEIL : has
     HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
@@ -452,53 +67,34 @@ erDiagram
     HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
     HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
 
-    %% ========================================
-    %% RELATIONSHIPS — Hub to Link (Finance)
-    %% ========================================
+    %% Finance Links
+    HUB_BUCHUNGSKOPF ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
+    HUB_KREDITORENBELEG ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+    HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+    HUB_KREDITOR ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KONTO : ""
+    HUB_KONTO ||--o{ LINK_HAUPTBUCH_KONTO : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+    HUB_KOSTENSTELLE ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+    HUB_KREDITOR ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
+    HUB_ZAHLUNG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
 
-    HUB_BUCHUNGSKOPF ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : references
-    HUB_KREDITORENBELEG ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : references
-
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : references
-    HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : references
-
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : references
-    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : references
-
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KREDITOR : references
-    HUB_KREDITOR ||--o{ LINK_HAUPTBUCH_KREDITOR : references
-
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KONTO : references
-    HUB_KONTO ||--o{ LINK_HAUPTBUCH_KONTO : references
-
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : references
-    HUB_KOSTENSTELLE ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : references
-
-    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_KREDITOR : references
-    HUB_KREDITOR ||--o{ LINK_KREDITORENBELEG_KREDITOR : references
-
-    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : references
-    HUB_ZAHLUNG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : references
-
-    %% ========================================
-    %% RELATIONSHIPS — Hub to Link (Project)
-    %% ========================================
-
-    HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : references
-    HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : references
-
-    HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : references
-    HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : references
-
-    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : references
-
+    %% Project Links
+    HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
+    HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
     HUB_PERSON ||--o{ LINK_PERSON_ADRESSE : ""
     HUB_ADRESSE ||--o{ LINK_PERSON_ADRESSE : ""
 
-    %% ========================================
-    %% RELATIONSHIPS — Reference Tables
-    %% ========================================
-
-    SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE zu NUMBER"
-    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUSNR zu status_id"
-    SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR zu NR"
+    %% Reference Tables
+    SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE"
+    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUSNR"
+    SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR"

@@ -1,0 +1,259 @@
+erDiagram
+    %% Data Vault 2.1 — EWB Raw Vault — FINANCE DOMAIN
+    %% Schema: vault | Quelle: Abacus ERP
+    %% Hubs: Buchungskopf, Hauptbuch, Kreditorenbeleg, Zahlung, Kreditor, Konto*, Kostenstelle*
+    %% (* = Ghost Hubs, kein eigenes Staging)
+
+    %% ========================================
+    %% HUBS
+    %% ========================================
+
+    HUB_BUCHUNGSKOPF {
+        char64 hk_buchungskopf PK "SHA2_256(RECNUM)"
+        nvarchar recnum "ext_ewb_fibu_fhe_main.RECNUM"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_HAUPTBUCH {
+        char64 hk_hauptbuch PK "SHA2_256(DKBELEGNUMMER^^KTO)"
+        nvarchar dkbelegnummer "composite BK"
+        nvarchar kto "composite BK"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_KREDITORENBELEG {
+        char64 hk_kreditorenbeleg PK "SHA2_256(BELEGNR)"
+        nvarchar belegnr "ext_ewb_kred_kbl_main.BELEGNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_ZAHLUNG {
+        char64 hk_zahlung PK "SHA2_256(BELEGNR^^ZAHLNR)"
+        nvarchar belegnr "composite BK"
+        nvarchar zahlnr "composite BK"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_KREDITOR {
+        char64 hk_kreditor PK "SHA2_256(LIEFNR)"
+        nvarchar liefnr "ext_ewb_kred_kbs_main.LIEFNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_KONTO {
+        char64 hk_konto PK "ghost"
+        nvarchar kontnr "aus GL E22-E26"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_KOSTENSTELLE {
+        char64 hk_kostenstelle PK "ghost"
+        nvarchar kostnr "aus GL E22-E26"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% ========================================
+    %% SATELLITES
+    %% ========================================
+
+    SAT_BUCHUNGSKOPF {
+        char64 hk_buchungskopf FK "hub_buchungskopf"
+        char64 hd_buchungskopf "hash diff"
+        nvarchar plan "PLAN (reserved keyword)"
+        nvarchar level "LEVEL (reserved keyword)"
+        nvarchar variante "VARIANTE"
+        nvarchar typ "TYP"
+        nvarchar ref_id "REF_ID"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_HAUPTBUCH {
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hd_hauptbuch "hash diff"
+        date date "Buchungsdatum"
+        nvarchar sh "Soll/Haben"
+        decimal sam "Sammel-Betrag"
+        decimal betrag "Betrag"
+        nvarchar gkto "Gegenkonto"
+        nvarchar kst "Kostenstelle"
+        nvarchar kst2 "Kostenstelle 2"
+        nvarchar waehr "Waehrung"
+        decimal mwstbetr "MwSt-Betrag"
+        nvarchar mwsttyp "MwSt-Typ"
+        nvarchar mwstcode "MwSt-Code"
+        bit mwstincl "MwSt inkl."
+        decimal mwstsatz "MwSt-Satz"
+        nvarchar text "Buchungstext 1"
+        nvarchar text2 "Buchungstext 2"
+        nvarchar dkkundennummer "DK-Kundennummer"
+        nvarchar projebene "Projektebene"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_KREDITORENBELEG {
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hd_kreditorenbeleg "hash diff"
+        nvarchar knr "Kreditoren-Nr"
+        nvarchar adrid "Adress-ID"
+        nvarchar umschreibung3 "Beschreibung"
+        decimal betrag "Belegbetrag"
+        date belegdatum "Belegdatum"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_ZAHLUNG {
+        char64 hk_zahlung FK "hub_zahlung"
+        char64 hd_zahlung "hash diff"
+        decimal zahlbetrag "Zahlbetrag"
+        date valuta "Valuta-Datum"
+        nvarchar zahlungsart "Zahlungsart"
+        nvarchar konto "Konto"
+        nvarchar status "Status (reserved keyword)"
+        nvarchar abacus_usr_name "Benutzer"
+        nvarchar abacus_usr_full_name "Vollstaendiger Name"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_KREDITOR {
+        char64 hk_kreditor FK "hub_kreditor"
+        char64 hd_kreditor "hash diff"
+        decimal saldo "Saldo"
+        nvarchar konto "Konto"
+        nvarchar waehrung "Waehrung"
+        nvarchar periode "Periode"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    %% ========================================
+    %% LINKS
+    %% ========================================
+
+    LINK_HAUPTBUCH_BUCHUNGSKOPF {
+        char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_buchungskopf)"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_buchungskopf FK "hub_buchungskopf"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_BUCHUNGSKOPF_KREDITORENBELEG {
+        char64 hk_link PK "SHA2_256(hk_buchungskopf^^hk_kreditorenbeleg)"
+        char64 hk_buchungskopf FK "hub_buchungskopf"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_KREDITORENBELEG_KREDITOR {
+        char64 hk_link PK "SHA2_256(hk_kreditorenbeleg^^hk_kreditor)"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hk_kreditor FK "hub_kreditor"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_KREDITORENBELEG_ZAHLUNG {
+        char64 hk_link PK "SHA2_256(hk_kreditorenbeleg^^hk_zahlung)"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hk_zahlung FK "hub_zahlung"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_HAUPTBUCH_KREDITOR {
+        char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_kreditor)"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_kreditor FK "hub_kreditor"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_HAUPTBUCH_KONTO {
+        char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_konto)"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_konto FK "hub_konto"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_HAUPTBUCH_KOSTENSTELLE {
+        char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_kostenstelle)"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_kostenstelle FK "hub_kostenstelle"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% Cross-domain: Hauptbuch → Projekt
+    HUB_PROJEKT {
+        char64 hk_projekt PK "siehe er-project.mmd"
+    }
+
+    LINK_HAUPTBUCH_PROJEKT {
+        char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_projekt)"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% ========================================
+    %% RELATIONSHIPS — Hub → Satellite
+    %% ========================================
+
+    HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF : has
+    HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH : has
+    HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG : has
+    HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG : has
+    HUB_KREDITOR ||--o{ SAT_KREDITOR : has
+
+    %% ========================================
+    %% RELATIONSHIPS — Hub → Link
+    %% ========================================
+
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+    HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+
+    HUB_BUCHUNGSKOPF ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
+    HUB_KREDITORENBELEG ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
+
+    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+    HUB_KREDITOR ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+
+    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
+    HUB_ZAHLUNG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
+
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+    HUB_KREDITOR ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KONTO : ""
+    HUB_KONTO ||--o{ LINK_HAUPTBUCH_KONTO : ""
+
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+    HUB_KOSTENSTELLE ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+
+    %% Cross-domain
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
