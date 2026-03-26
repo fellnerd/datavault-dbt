@@ -616,6 +616,9 @@ export const App: React.FC = () => {
   const [availableStagingModels, setAvailableStagingModels] = useState<StagingModelInfo[]>([]);
   const [baseStagingColumns, setBaseStagingColumns] = useState<string[]>([]);
 
+  // Current View option
+  const [generateCurrentView, setGenerateCurrentView] = useState(false);
+
   // ============================================================================
   // MESSAGE HANDLING
   // ============================================================================
@@ -741,6 +744,11 @@ export const App: React.FC = () => {
           } else if (data.satelliteName) {
             // Backward compat: convert single satelliteName to satellites array
             setSatellites([{ id: 'sat-1', name: data.satelliteName }]);
+          }
+          
+          // Restore current view option
+          if (data.generateCurrentView) {
+            setGenerateCurrentView(true);
           }
           
           // Restore available staging models
@@ -928,13 +936,14 @@ export const App: React.FC = () => {
         concept: concept,
         satelliteName: satellites.length === 1 ? satellites[0].name : undefined,
         satellites: satellites.length > 0 ? satellites : undefined,
+        generateCurrentView: generateCurrentView || undefined,
         lambdaVault
       });
       console.log('[Entity Designer] Config auto-saved');
     }, 1000); // 1 second debounce (longer to avoid race conditions)
 
     return () => clearTimeout(timeoutId);
-  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept, satellites]);
+  }, [columns, lambdaVaultEnabled, deltaStagingModel, columnMappings, isLoading, isGenerating, hasUserChanges, vscode, entityName, concept, satellites, generateCurrentView]);
 
   // ============================================================================
   // VALIDATION - Per Object Type
@@ -1089,6 +1098,7 @@ export const App: React.FC = () => {
       originalEntityName: originalEntityName,
       // Include columns so config is saved before generate
       columns: savedColumns,
+      generateCurrentView: generateCurrentView || undefined,
       lambdaVault
     });
   };
@@ -1175,6 +1185,20 @@ export const App: React.FC = () => {
               Configure Mappings
             </button>
           )}
+          <span>|</span>
+          {/* Current View Toggle */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={generateCurrentView}
+              onChange={(e) => {
+                setHasUserChanges(true);
+                setGenerateCurrentView(e.target.checked);
+              }}
+              style={styles.checkbox}
+            />
+            <span style={{ fontWeight: 500 }}>👁️ Current View</span>
+          </label>
         </div>
       </div>
 

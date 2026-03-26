@@ -30,6 +30,8 @@ export interface DesignerConfig {
   satelliteName?: string;
   /** Multi-satellite definitions */
   satellites?: SatelliteDefinition[];
+  /** Generate current-view (sat_*_current_v) for each satellite */
+  generateCurrentView?: boolean;
 }
 
 const CONFIG_FOLDER = '.vscode/entity-designer';

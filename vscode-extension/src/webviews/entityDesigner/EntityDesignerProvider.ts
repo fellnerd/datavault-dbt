@@ -348,6 +348,7 @@ export class EntityDesignerProvider {
         lambdaVault: savedConfig?.lambdaVault,
         satelliteName: savedConfig?.satelliteName,
         satellites: savedConfig?.satellites,
+        generateCurrentView: savedConfig?.generateCurrentView,
         baseStagingColumns,
         availableConcepts
       }
@@ -402,7 +403,8 @@ export class EntityDesignerProvider {
           saveMsg.lambdaVault,
           saveMsg.concept,
           (saveMsg as any).satelliteName,
-          (saveMsg as any).satellites
+          (saveMsg as any).satellites,
+          (saveMsg as any).generateCurrentView
         );
         break;
       // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
@@ -416,7 +418,7 @@ export class EntityDesignerProvider {
    * Handle generate with context (concept/entity may have changed)
    */
   private async handleGenerateWithContext(message: any): Promise<void> {
-    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault, satelliteName, satellites } = message;
+    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault, satelliteName, satellites, generateCurrentView } = message;
     
     // Check if concept or entity was renamed
     const conceptChanged = originalConcept && concept && concept !== originalConcept;
@@ -441,7 +443,8 @@ export class EntityDesignerProvider {
           savedAt: new Date().toISOString(),
           lambdaVault,
           satelliteName: satelliteName || undefined,
-          satellites: satellites || undefined
+          satellites: satellites || undefined,
+          generateCurrentView: generateCurrentView || undefined
         };
         await saveDesignerConfig(this._projectPath, config);
         console.log(`[Entity Designer] Saved config as ${concept}_${entityName}.json`);
@@ -476,7 +479,8 @@ export class EntityDesignerProvider {
         savedAt: new Date().toISOString(),
         lambdaVault,
         satelliteName: satelliteName || undefined,
-        satellites: satellites || undefined
+        satellites: satellites || undefined,
+        generateCurrentView: generateCurrentView || undefined
       };
       await saveDesignerConfig(this._projectPath, config);
     }
@@ -488,7 +492,7 @@ export class EntityDesignerProvider {
   /**
    * Save config to JSON file (Config-First: JSON is Single Source of Truth)
    */
-  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string, satelliteName?: string, satellites?: SatelliteDefinition[]): Promise<void> {
+  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string, satelliteName?: string, satellites?: SatelliteDefinition[], generateCurrentView?: boolean): Promise<void> {
     if (!this._projectPath || !this._currentEntity) {
       console.error('[Entity Designer] Cannot save config: missing project path or entity context');
       return;
@@ -519,7 +523,8 @@ export class EntityDesignerProvider {
       savedAt: new Date().toISOString(),
       lambdaVault,
       satelliteName: satelliteName || undefined,
-      satellites: satellites && satellites.length > 0 ? satellites : undefined
+      satellites: satellites && satellites.length > 0 ? satellites : undefined,
+      generateCurrentView: generateCurrentView || undefined
     };
 
     // Debug: Log column count and types
@@ -755,7 +760,8 @@ export class EntityDesignerProvider {
         }),
         ghostRecordValue: '-1',
         satelliteName: savedConfig.satelliteName,
-        satellites: savedConfig.satellites
+        satellites: savedConfig.satellites,
+        generateCurrentView: savedConfig.generateCurrentView
       };
 
       // Determine which targets to generate (including DC/MA satellites if configured)

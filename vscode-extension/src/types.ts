@@ -392,6 +392,8 @@ export interface EntityDesignConfig {
   satelliteName?: string;
   /** Multi-satellite definitions */
   satellites?: SatelliteDefinition[];
+  /** Generate current-view (sat_*_current_v) for each satellite */
+  generateCurrentView?: boolean;
 }
 
 // ============================================
@@ -440,7 +442,7 @@ export interface StagingModelInfo {
 export interface GeneratedFile {
   path: string;
   content: string;
-  type: 'hub' | 'satellite' | 'link' | 'link_satellite' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
+  type: 'hub' | 'satellite' | 'satellite_current_view' | 'link' | 'link_satellite' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
 }
 
 /**
@@ -481,6 +483,8 @@ export interface WebviewInitMessage {
     satelliteName?: string;
     /** Multi-satellite definitions */
     satellites?: SatelliteDefinition[];
+    /** Generate current-view for satellites */
+    generateCurrentView?: boolean;
   };
 }
 
