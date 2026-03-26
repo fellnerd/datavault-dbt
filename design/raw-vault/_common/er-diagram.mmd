@@ -1,7 +1,7 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
-    %% Stand: 14. März 2026
+    %% Stand: 2026-03-14 | Hubs: 10 | Sats: 11 | Links: 11 | Refs: 3
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
@@ -21,10 +21,52 @@ erDiagram
     %% === PROJECT ===
     HUB_PROJEKT { char64 hk PK }
     HUB_PROJEKTSACHKONTO { char64 hk PK }
-    HUB_ZEITERFASSUNG { char64 hk PK }
+    HUB_ZEITERFASSUNG {
+        char64 hk_zeiterfassung PK "computed"
+        decimal emplnr "ext_ewb_proj_ntc_main.EMPLNR"
+        datetime2 projdat "ext_ewb_proj_ntc_main.PROJDAT"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     SAT_PROJEKT { char64 hk FK }
-    SAT_ZEITERFASSUNG { char64 hk FK }
+    SAT_ZEITERFASSUNG {
+        char64 hk_zeiterfassung FK "computed"
+        char64 hd_zeiterfassung "computed"
+        decimal from1 "FROM1"
+        decimal to1 "TO1"
+        decimal from2 "FROM2"
+        decimal to2 "TO2"
+        decimal from3 "FROM3"
+        decimal to3 "TO3"
+        decimal from4 "FROM4"
+        decimal to4 "TO4"
+        decimal from5 "FROM5"
+        decimal to5 "TO5"
+        decimal from6 "FROM6"
+        decimal to6 "TO6"
+        decimal from7 "FROM7"
+        decimal to7 "TO7"
+        decimal from8 "FROM8"
+        decimal to8 "TO8"
+        decimal from9 "FROM9"
+        decimal to9 "TO9"
+        decimal from10 "FROM10"
+        decimal to10 "TO10"
+        decimal anzahl "ANZAHL"
+        nvarchar user_f "USER_F"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
     SAT_PROJEKTSACHKONTO { char64 hk FK }
+    LINK_ZEITERFASSUNG_PERSON {
+        char64 hk_link_zeiterfassung_person PK "computed"
+        char64 hk_zeiterfassung FK "computed"
+        char64 hk_person FK "computed"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
 
     %% === STAMMDATEN ===
     HUB_PERSON { char64 hk PK }
@@ -48,7 +90,6 @@ erDiagram
     LINK_KREDITORENBELEG_KREDITOR { char64 hk PK }
     LINK_KREDITORENBELEG_ZAHLUNG { char64 hk PK }
     LINK_PROJEKTSACHKONTO_PROJEKT { char64 hk PK }
-    LINK_ZEITERFASSUNG_PERSON { char64 hk PK }
     LINK_PERSON_ADRESSE { char64 hk PK }
 
     %% Hub → Satellite

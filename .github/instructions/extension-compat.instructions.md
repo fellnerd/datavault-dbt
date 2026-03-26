@@ -11,7 +11,9 @@ Jede neue Entity **muss** eine JSON-Datei in `.vscode/entity-designer/` haben.
 ```
 <concept>_<entityName>.json
 ```
-Beispiele: `adworks_kunde.json`, `ewb_fibu_fhe_main.json`
+Beispiele: `adworks_kunde.json`, `_common_zeiterfassung.json`, `_common_person.json`
+
+**Wichtig:** `concept` ist der dbt-Schichtname (z.B. `_common`, `adworks`, `jira`), **nicht** das Quellsystem. EWB-Entities verwenden `_common` als Concept, da sie im `raw_vault/_common/` Ordner liegen.
 
 ### Schema
 ```json

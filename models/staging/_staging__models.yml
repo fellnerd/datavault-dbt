@@ -515,6 +515,135 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_proj_ntc_main
+    description: Staging view für Zeiterfassung (PROJ.NTC) aus _common
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_proj_ntc_main
+        business_keys:
+          - EMPLNR
+          - PROJDAT
+    columns:
+      - name: hk_zeiterfassung
+        description: Hash Key Zeiterfassung (zusammengesetzt EMPLNR ^^ PROJDAT)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_person
+        description: Cross-Reference Hash Key Person (SHA2_256(EMPLNR)), FK → hub_person
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_zeiterfassung_person
+        description: Link Hash Key (SHA2_256(hk_zeiterfassung ^^ hk_person))
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_zeiterfassung
+        description: Hash Diff für Change Detection (Satellite)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: EMPLNR
+        description: Business Key Teil 1 — Mitarbeiternummer (FK → hub_person)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PROJDAT
+        description: Business Key Teil 2 — Projektdatum (Zeiterfassungstag)
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: RECNUM
+        description: Technische Zeilennummer
+        data_type: decimal(38,18)
+      - name: DATASET
+        description: Dataset-Kennung
+        data_type: decimal(38,18)
+      - name: FROM1
+        description: Zeitintervall 1 — Von (Zeitstring)
+        data_type: nvarchar(4000)
+      - name: TO1
+        description: Zeitintervall 1 — Bis (Zeitstring)
+        data_type: nvarchar(4000)
+      - name: FROM2
+        description: Zeitintervall 2 — Von
+        data_type: nvarchar(4000)
+      - name: TO2
+        description: Zeitintervall 2 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM3
+        description: Zeitintervall 3 — Von
+        data_type: nvarchar(4000)
+      - name: TO3
+        description: Zeitintervall 3 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM4
+        description: Zeitintervall 4 — Von
+        data_type: nvarchar(4000)
+      - name: TO4
+        description: Zeitintervall 4 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM5
+        description: Zeitintervall 5 — Von
+        data_type: nvarchar(4000)
+      - name: TO5
+        description: Zeitintervall 5 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM6
+        description: Zeitintervall 6 — Von
+        data_type: nvarchar(4000)
+      - name: TO6
+        description: Zeitintervall 6 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM7
+        description: Zeitintervall 7 — Von
+        data_type: nvarchar(4000)
+      - name: TO7
+        description: Zeitintervall 7 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM8
+        description: Zeitintervall 8 — Von
+        data_type: nvarchar(4000)
+      - name: TO8
+        description: Zeitintervall 8 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM9
+        description: Zeitintervall 9 — Von
+        data_type: nvarchar(4000)
+      - name: TO9
+        description: Zeitintervall 9 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM10
+        description: Zeitintervall 10 — Von
+        data_type: nvarchar(4000)
+      - name: TO10
+        description: Zeitintervall 10 — Bis
+        data_type: nvarchar(4000)
+      - name: ANZAHL
+        description: Gesamtstunden des Tages
+        data_type: decimal(38,18)
+      - name: USER_F
+        description: Letzter bearbeitender Benutzer
+        data_type: nvarchar(4000)
+      - name: MUTDAT
+        description: Mutationsdatum (letzte Änderung)
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Datenquelle (Standard — ewb_abacus)
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: ewb_publ_adr_main
     description: Staging view for adresse from _common
     config:
