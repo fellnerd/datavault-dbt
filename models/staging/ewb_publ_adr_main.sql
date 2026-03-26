@@ -5,8 +5,13 @@
  * Business Key: INR
  * Hash Key Separator: '^^' (DV 2.1 Standard)
  *
+ * Links (Foreign Keys):
+ *   - _common.hub_person via lohnnr
+ *
  * Hash Keys calculated here (automate_dv pattern):
  *   - hk_adresse (Entity Hash Key)
+ *   - hk_person (FK Hash Key for _common.hub_person via lohnnr)
+ *   - hk_link_adresse_person (Link Hash Key)
  */
 
 {%- set hashdiff_person_adresse_columns = [
@@ -32,6 +37,24 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             ISNULL(CAST(INR AS NVARCHAR(MAX)), '')
         ), 2) AS hk_adresse,
+
+        -- ===========================================
+        -- FK HASH KEYS (for Links)
+        -- ===========================================
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            ISNULL(CAST(lohnnr AS NVARCHAR(MAX)), '')
+        ), 2) AS hk_person,
+
+        -- ===========================================
+        -- LINK HASH KEYS
+        -- ===========================================
+        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
+            CONCAT(
+                ISNULL(CAST(INR AS NVARCHAR(MAX)), ''),
+                '^^',
+                ISNULL(CAST(lohnnr AS NVARCHAR(MAX)), '')
+            )
+        ), 2) AS hk_link_adresse_person,
 
         -- ===========================================
         -- HASH DIFFS (Change Detection - Multi-Satellite)
@@ -66,6 +89,7 @@ staged AS (
         plz,
         ort,
         street,
+        lohnnr,
 
         -- ===========================================
         -- METADATA

@@ -92,7 +92,7 @@ erDiagram
     %% LINK
     %% ========================================
 
-    LINK_PERSON_ADRESSE {
+    LINK_ADRESSE_PERSON {
         char64 hk_link PK "SHA2_256(hk_person^^hk_adresse)"
         char64 hk_person FK "hub_person"
         char64 hk_adresse FK "hub_adresse"
@@ -112,8 +112,8 @@ erDiagram
     %% RELATIONSHIPS — Hub → Link
     %% ========================================
 
-    HUB_PERSON ||--o{ LINK_PERSON_ADRESSE : "ADR.LOHNNR = LEN.EMPL_NR"
-    HUB_ADRESSE ||--o{ LINK_PERSON_ADRESSE : "ADR.INR"
+    HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : "ADR.LOHNNR = LEN.EMPL_NR"
+    HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : "ADR.INR"
 
     %% ========================================
     %% RELATIONSHIPS — Reference

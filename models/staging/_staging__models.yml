@@ -525,6 +525,10 @@ models:
         external_table: ext_ewb_publ_adr_main
         business_keys:
           - INR
+        foreign_keys:
+          - column: lohnnr
+            target_entity: person
+            target_hub: _common.hub_person
     columns:
       - name: hk_adresse
         description: Hash Key (Primary Key)
@@ -532,6 +536,11 @@ models:
         tests:
           - not_null
           - unique
+      - name: hk_person
+        description: Foreign Key to hub_person
+        data_type: char(64)
+        tests:
+          - not_null
       - name: hd_adresse
         description: Hash Diff for change detection
         data_type: char(64)

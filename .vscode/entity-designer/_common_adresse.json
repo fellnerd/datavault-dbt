@@ -52,7 +52,7 @@
       "sourceName": "LOHNJN",
       "dataType": "NVARCHAR(4000)",
       "columnType": "satellite",
-      "includeInHashDiff": false,
+      "includeInHashDiff": true,
       "includeInPayload": false,
       "nullable": true
     },
@@ -515,9 +515,10 @@
       "name": "LOHNNR",
       "sourceName": "LOHNNR",
       "dataType": "DECIMAL(38,18)",
-      "columnType": "satellite",
+      "columnType": "link",
+      "foreignKeyTarget": "_common.hub_person",
       "includeInHashDiff": false,
-      "includeInPayload": false,
+      "includeInPayload": true,
       "nullable": true
     },
     {
@@ -1641,7 +1642,7 @@
       "nullable": true
     }
   ],
-  "savedAt": "2026-03-24T21:53:05.756Z",
+  "savedAt": "2026-03-26T16:06:59.911Z",
   "satellites": [
     {
       "id": "sat-1",
@@ -1651,11 +1652,5 @@
       "id": "sat-1774388665619",
       "name": "adresse_kontakt"
     }
-  ],
-  "sourceType": "external_table",
-  "generatedObjects": [
-    "hub",
-    "satellite",
-    "links"
   ]
 }
