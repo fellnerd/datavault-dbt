@@ -1,0 +1,1389 @@
+{
+  "concept": "_common",
+  "entityName": "projekt",
+  "sourceTable": "ext_ewb_proj_npo_main",
+  "columns": [
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJNR",
+      "sourceName": "PROJNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "REFPROJNR",
+      "sourceName": "REFPROJNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ROOTPROJ",
+      "sourceName": "ROOTPROJ",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJTYPE",
+      "sourceName": "PROJTYPE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "LEVEL",
+      "sourceName": "LEVEL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "INAKTIV",
+      "sourceName": "INAKTIV",
+      "dataType": "BIT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "PROJGROUP",
+      "sourceName": "PROJGROUP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "PROJNR2",
+      "sourceName": "PROJNR2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJNAME",
+      "sourceName": "PROJNAME",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "NAME2",
+      "sourceName": "NAME2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NAME3",
+      "sourceName": "NAME3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KDINR",
+      "sourceName": "KDINR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABRSCHEMA",
+      "sourceName": "ABRSCHEMA",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ANLAGE",
+      "sourceName": "ANLAGE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJART",
+      "sourceName": "PROJART",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJTARIF",
+      "sourceName": "PROJTARIF",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABRART",
+      "sourceName": "ABRART",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABRPERIODE",
+      "sourceName": "ABRPERIODE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KURSSW",
+      "sourceName": "KURSSW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SEPFAKT",
+      "sourceName": "SEPFAKT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ISOCODE",
+      "sourceName": "ISOCODE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABRDEF",
+      "sourceName": "ABRDEF",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABRDEFAKONTO",
+      "sourceName": "ABRDEFAKONTO",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VERANTW",
+      "sourceName": "VERANTW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABEAABL",
+      "sourceName": "ABEAABL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABEAABLAUFGUT",
+      "sourceName": "ABEAABLAUFGUT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "GBSW",
+      "sourceName": "GBSW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "GBVON",
+      "sourceName": "GBVON",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "GBBIS",
+      "sourceName": "GBBIS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUSDEF",
+      "sourceName": "STATUSDEF",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "STATUS",
+      "sourceName": "STATUS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "STATUS1",
+      "sourceName": "STATUS1",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "STATUS2",
+      "sourceName": "STATUS2",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS3",
+      "sourceName": "STATUS3",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS4",
+      "sourceName": "STATUS4",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS5",
+      "sourceName": "STATUS5",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS6",
+      "sourceName": "STATUS6",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS7",
+      "sourceName": "STATUS7",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS8",
+      "sourceName": "STATUS8",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATUS9",
+      "sourceName": "STATUS9",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KDATUM",
+      "sourceName": "KDATUM",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KSUMME",
+      "sourceName": "KSUMME",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KBEM",
+      "sourceName": "KBEM",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ADATUM",
+      "sourceName": "ADATUM",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ASUMME",
+      "sourceName": "ASUMME",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABEM",
+      "sourceName": "ABEM",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NDATUM",
+      "sourceName": "NDATUM",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NSUMME",
+      "sourceName": "NSUMME",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NBEM",
+      "sourceName": "NBEM",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SUMME1",
+      "sourceName": "SUMME1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SUMME2",
+      "sourceName": "SUMME2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SUMME3",
+      "sourceName": "SUMME3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SUMME4",
+      "sourceName": "SUMME4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SUMME5",
+      "sourceName": "SUMME5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KONTINT1",
+      "sourceName": "KONTINT1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KONTINT2",
+      "sourceName": "KONTINT2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KONTINT3",
+      "sourceName": "KONTINT3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KONTINT4",
+      "sourceName": "KONTINT4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KONTEXT1",
+      "sourceName": "KONTEXT1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KONTEXT2",
+      "sourceName": "KONTEXT2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON1",
+      "sourceName": "PERSON1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON2",
+      "sourceName": "PERSON2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON3",
+      "sourceName": "PERSON3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON4",
+      "sourceName": "PERSON4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON5",
+      "sourceName": "PERSON5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON6",
+      "sourceName": "PERSON6",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERSON7",
+      "sourceName": "PERSON7",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS1KONT",
+      "sourceName": "PERS1KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS2KONT",
+      "sourceName": "PERS2KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS3KONT",
+      "sourceName": "PERS3KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS4KONT",
+      "sourceName": "PERS4KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS5KONT",
+      "sourceName": "PERS5KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS6KONT",
+      "sourceName": "PERS6KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PERS7KONT",
+      "sourceName": "PERS7KONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ONLYLEARTS",
+      "sourceName": "ONLYLEARTS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "EMPLFROMGB",
+      "sourceName": "EMPLFROMGB",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ONLYEMPLS",
+      "sourceName": "ONLYEMPLS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ROOTABR",
+      "sourceName": "ROOTABR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PLANWIEDERH",
+      "sourceName": "PLANWIEDERH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "MAHNBEREICH",
+      "sourceName": "MAHNBEREICH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KSTGRPNR",
+      "sourceName": "KSTGRPNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "CREATION",
+      "sourceName": "CREATION",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "MUT",
+      "sourceName": "MUT",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "USER_F",
+      "sourceName": "USER_F",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PLANFAKTOR",
+      "sourceName": "PLANFAKTOR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "FAKTURAADR",
+      "sourceName": "FAKTURAADR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ASKFORFAKTADR",
+      "sourceName": "ASKFORFAKTADR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BEWERTUNG",
+      "sourceName": "BEWERTUNG",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "TAGESABR",
+      "sourceName": "TAGESABR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STDPROTAG",
+      "sourceName": "STDPROTAG",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "RUNDUNG",
+      "sourceName": "RUNDUNG",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "RUNDUNGFAKT",
+      "sourceName": "RUNDUNGFAKT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VERTRAGALS",
+      "sourceName": "VERTRAGALS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VERTRAGWIEDERH",
+      "sourceName": "VERTRAGWIEDERH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VERTAGAUSL",
+      "sourceName": "VERTAGAUSL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "FAKTADRKONT",
+      "sourceName": "FAKTADRKONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "KATEGORIE",
+      "sourceName": "KATEGORIE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "GEBIET",
+      "sourceName": "GEBIET",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "MAHNVERF",
+      "sourceName": "MAHNVERF",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ZLGKOND",
+      "sourceName": "ZLGKOND",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STARTDATUM",
+      "sourceName": "STARTDATUM",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ENDDATUM",
+      "sourceName": "ENDDATUM",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SPRACHE",
+      "sourceName": "SPRACHE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ARGE",
+      "sourceName": "ARGE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "TARIFJAHR",
+      "sourceName": "TARIFJAHR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STANDORT",
+      "sourceName": "STANDORT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STANDORTKONT",
+      "sourceName": "STANDORTKONT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NOKSTREFERENZ",
+      "sourceName": "NOKSTREFERENZ",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJKSTFROM",
+      "sourceName": "PROJKSTFROM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJKST",
+      "sourceName": "PROJKST",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "HASCHILDREN",
+      "sourceName": "HASCHILDREN",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "COPYEDFROM",
+      "sourceName": "COPYEDFROM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BEWOHNERADR",
+      "sourceName": "BEWOHNERADR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BEWOHNERMA",
+      "sourceName": "BEWOHNERMA",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ROOTBEWERT",
+      "sourceName": "ROOTBEWERT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BIVTYP",
+      "sourceName": "BIVTYP",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ENTERPRISE",
+      "sourceName": "ENTERPRISE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "EMPLFROMENTERPRISE",
+      "sourceName": "EMPLFROMENTERPRISE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABLAUF",
+      "sourceName": "ABLAUF",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "RESERVE",
+      "sourceName": "RESERVE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "TEXTINTSW",
+      "sourceName": "TEXTINTSW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "TEXTEXTSW",
+      "sourceName": "TEXTEXTSW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "LVERBNACH",
+      "sourceName": "LVERBNACH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "FVERBNACH",
+      "sourceName": "FVERBNACH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "IVERBNACH",
+      "sourceName": "IVERBNACH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PFVERBNACH",
+      "sourceName": "PFVERBNACH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BIVTYPINT",
+      "sourceName": "BIVTYPINT",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BIRTHDAY",
+      "sourceName": "BIRTHDAY",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SEX",
+      "sourceName": "SEX",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "SOCIALSECNR",
+      "sourceName": "SOCIALSECNR",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "WOHNKANTON",
+      "sourceName": "WOHNKANTON",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NATIONALITY",
+      "sourceName": "NATIONALITY",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ZIVILSTAND",
+      "sourceName": "ZIVILSTAND",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "BIRTHPLACE",
+      "sourceName": "BIRTHPLACE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PLANKURS",
+      "sourceName": "PLANKURS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PLANISOCODE",
+      "sourceName": "PLANISOCODE",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "TARIFJAHREXT",
+      "sourceName": "TARIFJAHREXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ACCESSACTIVE",
+      "sourceName": "ACCESSACTIVE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "CREATESVMOBJ",
+      "sourceName": "CREATESVMOBJ",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ANSCHRIFT",
+      "sourceName": "ANSCHRIFT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VEHICLE",
+      "sourceName": "VEHICLE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "CREAUSER",
+      "sourceName": "CREAUSER",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "IMMOBILIENR",
+      "sourceName": "IMMOBILIENR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "IMMOBAUMNR",
+      "sourceName": "IMMOBAUMNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ABRABLAUF",
+      "sourceName": "ABRABLAUF",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "ELEMENT",
+      "sourceName": "ELEMENT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "IMMOOBJEKTNR",
+      "sourceName": "IMMOOBJEKTNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "timestamp_landing-zone",
+      "sourceName": "timestamp_landing-zone",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2026-03-28T22:24:19.989Z"
+}

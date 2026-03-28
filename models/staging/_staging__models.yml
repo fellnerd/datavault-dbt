@@ -515,6 +515,86 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_lohn_ltc_main
+    description: "Staging: LOHN.LTC.Main (Abteilungen) — Quelle für ref_abteilung"
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_lohn_ltc_main
+    columns:
+      - name: nr
+        description: Abteilungsnummer (Primary Key)
+        tests:
+          - not_null
+          - unique
+      - name: description
+        description: Abteilungsbezeichnung
+      - name: group_nr
+        description: Gruppierungsebene (=1 fuer Abteilungen) — aus [GROUP]
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+  - name: ewb_proj_npo_main
+    description: Staging view for projekt from _common
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_proj_npo_main
+        business_keys:
+          - PROJNR
+    columns:
+      - name: hk_projekt
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_projekt
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PROJNR
+        description: Business Key
+        tests:
+          - not_null
+      - name: refprojnr
+        description: Payload attribute
+      - name: inaktiv
+        description: Payload attribute
+      - name: projgroup
+        description: Payload attribute
+      - name: projname
+        description: Payload attribute
+      - name: statusdef
+        description: Payload attribute
+      - name: status
+        description: Payload attribute
+      - name: status1
+        description: Payload attribute
+      - name: creation
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: ewb_proj_ntc_main
     description: Staging view für Zeiterfassung (PROJ.NTC) aus _common
     config:
@@ -705,30 +785,3 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: ewb_lohn_ltc_main
-    description: "Staging: LOHN.LTC.Main (Abteilungen) — Quelle für ref_abteilung"
-    config:
-      meta:
-        entity_type: reference
-        source_type: external_table
-        external_table: ext_ewb_lohn_ltc_main
-    columns:
-      - name: nr
-        description: "Abteilungsnummer (Primary Key)"
-        tests:
-          - not_null
-          - unique
-      - name: description
-        description: "Abteilungsbezeichnung"
-      - name: group_nr
-        description: "Gruppierungsebene (=1 fuer Abteilungen) — aus [GROUP]"
-      - name: dss_record_source
-        description: "Datenquelle"
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: "Ladezeitpunkt"
-        data_type: datetime2(7)
-        tests:
-          - not_null

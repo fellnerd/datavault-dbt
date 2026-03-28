@@ -631,6 +631,9 @@ export const App: React.FC = () => {
   // Current View option
   const [generateCurrentView, setGenerateCurrentView] = useState(false);
 
+  // Column search filter
+  const [columnSearch, setColumnSearch] = useState('');
+
   // ============================================================================
   // MESSAGE HANDLING
   // ============================================================================
@@ -1310,15 +1313,37 @@ export const App: React.FC = () => {
       {/* LEFT PANEL: Column List */}
       <div style={styles.columnListPanel}>
         <div style={styles.columnListHeader}>
-          <span>Columns ({columns.length})</span>
+          <span>Columns ({columnSearch ? `${columns.filter(c => { const s = columnSearch.toLowerCase(); return c.sourceName.toLowerCase().includes(s) || (c.alias && c.alias.toLowerCase().includes(s)) || c.columnType.toLowerCase().includes(s) || (c.dataType && c.dataType.toLowerCase().includes(s)); }).length}/` : ''}{columns.length})</span>
           <span style={{ fontSize: '10px', color: colors.textMuted }}>
             {stats.hubCols.length}H / {stats.satCols.length}S / {stats.linkCols.length}L
             {stats.dcCols.length > 0 && ` / ${stats.dcCols.length}DC`}
             {stats.maCols.length > 0 && ` / ${stats.maCols.length}MA`}
           </span>
         </div>
+        {/* Column Search */}
+        <div style={{ padding: '4px 8px', borderBottom: `1px solid ${colors.border}` }}>
+          <input
+            type="text"
+            placeholder="🔍 Filter columns..."
+            value={columnSearch}
+            onChange={(e) => setColumnSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              fontSize: '12px',
+              backgroundColor: colors.bgSecondary,
+              color: colors.text,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '4px',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
         <div style={styles.columnList}>
           {columns.map((col, index) => {
+            const searchLower = columnSearch.toLowerCase();
+            if (searchLower && !(col.sourceName.toLowerCase().includes(searchLower) || (col.alias && col.alias.toLowerCase().includes(searchLower)) || col.columnType.toLowerCase().includes(searchLower) || (col.dataType && col.dataType.toLowerCase().includes(searchLower)))) return null;
             const target = targetColors[col.columnType as DataVaultTarget] || targetColors.satellite;
             const isSelected = index === selectedIndex && selectedIndices.size <= 1;
             const isMultiSelected = selectedIndices.has(index);

@@ -33,13 +33,12 @@ erDiagram
     SAT_PROJEKT {
         char64 hk_projekt FK "hub_projekt"
         char64 hd_projekt "hash diff"
-        nvarchar projektname "Projektname"
+        nvarchar projname "Projektname"
         bit inaktiv "Inaktiv-Flag"
-        nvarchar gruppenr "Gruppe"
-        nvarchar statusnr "FK ref_projektstatus"
-        date erstellt "Erstelldatum"
-        decimal stat1 "Projektteil-Status 1 (aus PRT)"
-        decimal stat2 "Projektteil-Status 2 (aus PRT)"
+        int refprojnr "GruppeNr (FK Kostenstelle)"
+        int status "StatusNr (FK ref_projektstatus)"
+        date status1 "StatusDatum"
+        date creation "Erstelldatum"
         datetime2 dss_load_date "PK Teil 2"
         varchar dss_record_source "metadata"
         char dss_is_current "Y/N"
@@ -131,4 +130,4 @@ erDiagram
     %% ========================================
 
     SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE zu NUMBER"
-    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUSNR zu status_id"
+    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUS zu status_id"
