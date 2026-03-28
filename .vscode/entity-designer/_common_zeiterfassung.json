@@ -39,6 +39,7 @@
       "sourceName": "EMPLNR",
       "dataType": "DECIMAL(38,18)",
       "columnType": "hub",
+      "foreignKeyTarget": "_common.hub_person",
       "includeInHashDiff": false,
       "includeInPayload": false,
       "nullable": false

@@ -50,7 +50,9 @@ export async function generateDataVaultObjects(
       !c.name.toLowerCase().startsWith('hd_')
     );
     const foreignKeys = config.columns.filter(c => 
-      hasType(c, 'foreign_key') || hasType(c, 'link')
+      hasType(c, 'foreign_key') || hasType(c, 'link') ||
+      // Hub columns that also serve as FK to another Hub (composite BK with cross-reference)
+      ((hasType(c, 'hub') || hasType(c, 'business_key')) && c.foreignKeyTarget)
     );
     const dependentChildKeys = config.columns.filter(c => 
       hasType(c, 'dependent_child')

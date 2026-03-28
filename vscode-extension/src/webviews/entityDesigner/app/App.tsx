@@ -518,6 +518,18 @@ function validateDataVault(columns: ColumnConfig[], entityName: string, existing
       });
     }
   });
+
+  // DV Rule 3b: Hub columns with foreignKeyTarget must reference a valid existing Hub
+  hubCols.forEach(col => {
+    if (col.foreignKeyTarget && !existingHubs.includes(col.foreignKeyTarget)) {
+      errors.push({
+        type: 'error',
+        message: `Target Hub "${col.foreignKeyTarget}" does not exist for hub column "${col.alias || col.name}"`,
+        column: col.name,
+        affectsObject: 'link',
+      });
+    }
+  });
   
   // DV Rule 4: Recommend at least one satellite attribute
   if (satCols.length === 0) {
@@ -1031,9 +1043,10 @@ export const App: React.FC = () => {
     const hubCols = columns.filter(c => c.columnType === 'hub');
     const satCols = columns.filter(c => c.columnType === 'satellite');
     const linkCols = columns.filter(c => c.columnType === 'link');
+    const hubFkCols = hubCols.filter(c => c.foreignKeyTarget); // Hub BKs that also serve as FK
     const dcCols = columns.filter(c => c.columnType === 'dependent_child');
     const maCols = columns.filter(c => c.columnType === 'multi_active');
-    return { hubCols, satCols, linkCols, dcCols, maCols };
+    return { hubCols, satCols, linkCols, hubFkCols, dcCols, maCols };
   }, [columns]);
 
   // ============================================================================
@@ -1781,6 +1794,28 @@ export const App: React.FC = () => {
                 </div>
               )}
 
+              {/* Hub columns can also serve as FK to another Hub (e.g., composite BK where one part references another entity) */}
+              {selectedColumn.columnType === 'hub' && (
+                <div style={styles.propertyRow}>
+                  <span style={styles.propertyLabel}>Also FK to Hub:</span>
+                  <select
+                    value={selectedColumn.foreignKeyTarget || ''}
+                    onChange={(e) => updateColumn(selectedIndex!, { foreignKeyTarget: e.target.value || undefined })}
+                    style={styles.select}
+                  >
+                    <option value="">— None (no Link)</option>
+                    {existingHubs.map(hub => (
+                      <option key={hub} value={hub}>{hub}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                    {selectedColumn.foreignKeyTarget 
+                      ? `Creates Link: link_${entityName}_${selectedColumn.foreignKeyTarget.replace(/^.*\./, '').replace('hub_', '')}`
+                      : 'Optional: If this BK column also references another Hub, a Link will be generated'}
+                  </div>
+                </div>
+              )}
+
               {/* Satellite-specific: Include in Hash Diff */}
               {selectedColumn.columnType === 'satellite' && (
                 <div style={styles.propertyRow}>
@@ -1923,6 +1958,17 @@ export const App: React.FC = () => {
                     <code style={{ color: '#9cdcfe' }}>
                       hk_{entityName} = SHA256({stats.hubCols.map(c => c.alias || c.name).join(' ^^ ')})
                     </code>
+                    {selectedColumn.foreignKeyTarget && (
+                      <>
+                        <div style={{ marginTop: '8px' }}><strong>Link:</strong> link_{entityName}_{selectedColumn.foreignKeyTarget.replace(/^.*\./, '').replace('hub_', '')}</div>
+                        <div style={{ color: colors.textMuted }}>
+                          Connects hub_{entityName} → {selectedColumn.foreignKeyTarget}
+                        </div>
+                        <div style={{ color: colors.textMuted }}>
+                          Driving key: {selectedColumn.alias || selectedColumn.sourceName}
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
                 {selectedColumn.columnType === 'satellite' && (
@@ -2017,7 +2063,7 @@ export const App: React.FC = () => {
         <div style={styles.footerStats}>
           <span>🏛️ Hub: <strong>{stats.hubCols.length}</strong>{hasHubErrors && ' ❌'}</span>
           <span>📦 Satellite{satellites.length > 0 ? `s (${satellites.length})` : ''}: <strong>{stats.satCols.length}</strong>{hasSatelliteErrors && ' ❌'}</span>
-          <span>🔗 Links: <strong>{stats.linkCols.length}</strong>{hasLinkErrors && ' ❌'}</span>
+          <span>🔗 Links: <strong>{stats.linkCols.length + stats.hubFkCols.length}</strong>{hasLinkErrors && ' ❌'}</span>
           {!hasAnyError && validationErrors.length === 0 && <span style={{ color: colors.success }}>✅ Valid</span>}
         </div>
         <div style={styles.footerButtons}>
@@ -2034,9 +2080,9 @@ export const App: React.FC = () => {
             title={hasSatelliteErrors ? 'Fix Satellite validation errors first' : stats.satCols.length === 0 ? 'No satellite columns configured' : 'Generate Satellite model'}
           >Generate Satellite</button>
           <button
-            style={{ ...styles.buttonSecondary, ...(isGenerating || hasLinkErrors || stats.linkCols.length === 0 ? styles.buttonDisabled : {}) }}
+            style={{ ...styles.buttonSecondary, ...(isGenerating || hasLinkErrors || (stats.linkCols.length === 0 && stats.hubFkCols.length === 0) ? styles.buttonDisabled : {}) }}
             onClick={() => handleGenerate('links')}
-            disabled={isGenerating || hasLinkErrors || stats.linkCols.length === 0}
+            disabled={isGenerating || hasLinkErrors || (stats.linkCols.length === 0 && stats.hubFkCols.length === 0)}
             title={hasLinkErrors ? 'Fix Link validation errors first (select target Hub)' : 'Generate Link models'}
           >Generate Links</button>
           <button
