@@ -90,6 +90,8 @@ staged AS (
         ort,
         street,
         lohnnr,
+        lohnjn,
+        gesperrt,
 
         -- ===========================================
         -- METADATA

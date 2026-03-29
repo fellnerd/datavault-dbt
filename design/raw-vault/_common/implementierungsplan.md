@@ -364,23 +364,45 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 ---
 
-## 10. Mart Views (structured-tables Replika)
+## 10. Mart Layer — Star Schema (structured-tables Replika)
 
-Die 7 Synapse `structured-tables` Views werden als Mart Views auf dem Raw Vault repliziert. Die Business-Logik wird dabei 1:1 aus den Synapse-SQL-Transformationen übernommen.
+Die 7 Synapse `structured-tables` Views werden als **Star Schema** im Mart-Layer repliziert:
+- **Dimensionen** (`dim_*`) mit INT Surrogate Keys
+- **Faktentabellen** (`fakt_*`) mit FK-Beziehungen zu Dimensionen
+- Business-Logik 1:1 aus Synapse übernommen, dokumentierte Korrekturen angewandt
 
-### 10a. Übersicht
+### 10a. Projekt-Domain (DEPLOYED ✅)
 
-| Synapse View | Mart-Modell | Quell-Vault-Objekte | Business-Logik |
-|---|---|---|---|
-| Finance.Buchungen | `mart_finance.v_buchungen` | `hub_hauptbuch` + `sat_hauptbuch` + `hub_konto` + `hub_kostenstelle` | 4-way UNION ALL, Vorzeichen-Flip, MWST-Anpassung, KST-Filter |
-| Finance.Belege | `mart_finance.v_belege` | `hub_kreditorenbeleg` + `sat_kreditorenbeleg` + `link_kreditorenbeleg_zahlung` | JOIN KBL + KVL via BELNR/DOCUMENTNR |
-| Finance.Kunden | `mart_finance.v_kunden` | `hub_adresse` + `sat_person_adresse` (bevorzugt), alternativ `hub_kreditor` + `sat_kreditorenbeleg` | Denorm aus KBL — besser über PUBL.ADR auflösen |
-| Projekt.Personal | `mart_project.v_personal` | `hub_person` + `sat_person` + `hub_adresse` + `sat_person_adresse` | ADR+LEN, Mitarbeiter-Filter (`LOHNJN=1, GESPERRT=0`), Initialen-Dedup |
-| Projekt.Stunden | `mart_project.v_stunden` | `hub_projektsachkonto` + `sat_projektsachkonto` + `link_projektsachkonto_projekt` + `ref_leistungsart` | ⚠️ Synapse-Logik KORRIGIERT: NSA.PROJNR→NPO.PROJNR (Projekt), CODE→NTR (Leistungsart), Datum aus PERIYEAR/PERIMONTH |
-| Projekt.Projekt | `mart_project.v_projekt` | `hub_projekt` + `sat_projekt` + `ref_projektstatus` + ref_tables | NPO+PST(Dedup)+Sharepoint-Kategorien (2 Tabellen) |
-| Projekt.Abteilung | `mart_project.v_abteilung` | `hub_person` + `sat_person` + `ref_abteilung` | LEN+LTC, `GROUP=1` Filter, MUTATION_DATE |
+| Mart-Objekt | Typ | Synapse-Äquivalent | Zeilen | Status |
+|---|---|---|---|---|
+| `mart_project.dim_person` | Dimension | [Projekt].[Personal] + [Abteilung] | 502 | ✅ DEPLOYED |
+| `mart_project.dim_projekt` | Dimension | [Projekt].[Projekt] | 14.168 | ✅ DEPLOYED |
+| `mart_project.dim_leistungsart` | Dimension | (NTR Lookup) | 15 | ✅ DEPLOYED |
+| `mart._common.dim_date` | Dimension | (generiert) | 5.844 | ✅ DEPLOYED |
+| `mart_project.fakt_stunden` | Fakt | [Projekt].[Stunden] | 199.206 | ✅ DEPLOYED |
 
-### 10b. Kritische Business-Regeln (zu konservieren)
+**Star-Schema FK-Beziehungen:**
+```
+fakt_stunden.ProjektNr      → dim_projekt.ProjektNr       (100% Match ✅)
+fakt_stunden.LeistungsartNr → dim_leistungsart.LeistungsartNr (11.2% Match — WARN)
+fakt_stunden.DatumKey       → dim_date.date_key            (WARN: Daten vor 2020)
+```
+
+**Validierung gegen Synapse (2026-03-29):**
+- dim_person: ✅ Korrekt, erweitert um Abteilungs-Attribute
+- dim_projekt: ✅ Korrekt (3 Sharepoint-Spalten bewusst out of scope)
+- fakt_stunden: ⚠️ PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
+- LeistungsartNr: NSA.CODE = Sachkonto (389 Werte), nicht 1:1 NTR (15 Werte) — entspricht Synapse LEFT JOIN Verhalten
+
+### 10b. Finance-Domain (OFFEN — Wave 2 Abhängigkeit)
+
+| Synapse View | Mart-Modell | Abhängigkeit |
+|---|---|---|
+| Finance.Buchungen | `mart_finance.fakt_buchungen` + Dimensionen | Wave 2: GL-Staging, hub_hauptbuch |
+| Finance.Belege | `mart_finance.fakt_belege` + Dimensionen | Wave 2: KBL/KVL-Staging |
+| Finance.Kunden | `mart_finance.dim_kunde` | Wave 2: PUBL.ADR-Erweiterung |
+
+### 10c. Kritische Business-Regeln (zu konservieren)
 
 **Finance.Buchungen — Vorzeichen-Logik:**
 ```

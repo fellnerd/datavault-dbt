@@ -1,0 +1,44 @@
+# Copilot Coding Agent – Environment Setup
+# 
+# Diese Datei konfiguriert die Umgebung für den Copilot Coding Agent.
+# Wenn CI auf einem PR fehlschlägt, kann Copilot:
+#   1. Die CI-Fehlerlogs lesen
+#   2. Den Code + .github/instructions/ verstehen
+#   3. Einen Fix-Commit auf den Branch pushen
+#
+# Voraussetzung: Copilot muss als Reviewer auf dem PR zugewiesen sein
+# oder über "Copilot, fix this" in einem Issue/PR-Kommentar getriggert werden.
+
+steps:
+  - uses: actions/setup-python@v5
+    with:
+      python-version: '3.11'
+
+  - name: Install dbt
+    run: pip install dbt-core dbt-sqlserver
+
+  - name: Create dummy profiles.yml for compilation
+    run: |
+      cat > profiles.yml << 'EOF'
+      datavault:
+        target: dev
+        outputs:
+          dev:
+            type: sqlserver
+            driver: 'ODBC Driver 17 for SQL Server'
+            server: localhost
+            database: VAULT
+            schema: dv
+            user: dummy
+            password: dummy
+            encrypt: false
+            trust_cert: true
+      EOF
+
+  - name: Install dbt packages
+    run: |
+      if [ -d "dbt_packages" ]; then
+        echo "dbt_packages already in repo, skipping install"
+      else
+        dbt deps
+      fi

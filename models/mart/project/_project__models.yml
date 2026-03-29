@@ -1,0 +1,173 @@
+version: 2
+
+models:
+  # =============================================================================
+  # MART: PROJEKT-DOMAIN — Star Schema (mart_project)
+  # Dimensionen (dim_*) + Faktentabellen (fakt_*)
+  # Repliziert Synapse structured-tables mit DV-Korrekturen
+  # =============================================================================
+
+  # ---------------------------------------------------------------------------
+  # DIMENSIONEN
+  # ---------------------------------------------------------------------------
+
+  - name: dim_person
+    description: |
+      Mitarbeiterstammdaten mit Abteilungszuordnung.
+      Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
+      Surrogate Key: PersonalNr (INT).
+      Filter: Nur aktive Lohnempfaenger (LOHNJN=1, GESPERRT=0, LOHNNR<>0).
+      Abteilung als Attribut integriert (GROUP=1 aus ref_abteilung).
+      Quelle: hub_adresse + sat_person_adresse + link_adresse_person
+              + hub_person + sat_person + ref_abteilung.
+    columns:
+      - name: PersonalNr
+        description: "Surrogate Key = Personalnummer (ADR.LOHNNR = LEN.EMPL_NR)"
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: Name
+        description: "Nachname (sat_person_adresse.name)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Vorname
+        description: "Vorname (sat_person_adresse.vorname)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Initialen
+        description: "Kuerzel (sat_person.abrv, aktueller Wert via dss_is_current)"
+        data_type: nvarchar(4000)
+      - name: AbteilungNr
+        description: "Abteilungsnummer (sat_person.home_dept_nr)"
+        data_type: int
+      - name: Abteilung
+        description: "Abteilungsbezeichnung (ref_abteilung.description, GROUP=1)"
+        data_type: nvarchar(4000)
+      - name: MutationDate
+        description: "Letzte Aenderung der Zuordnung (sat_person.mutation_date)"
+        data_type: date
+      - name: Eintritt
+        description: "Eintrittsdatum (sat_person.date_in)"
+        data_type: date
+      - name: Austritt
+        description: "Austrittsdatum (sat_person.date_out, NULL = noch aktiv)"
+        data_type: date
+
+  - name: dim_projekt
+    description: |
+      Projektstammdaten mit Status-Aufloesung.
+      Repliziert Synapse [Projekt].[Projekt].
+      Surrogate Key: ProjektNr (INT).
+      Ohne Sharepoint-Anreicherung (Kostenstellen, Kategorien).
+      Quelle: hub_projekt + sat_projekt + ref_projektstatus.
+    columns:
+      - name: ProjektNr
+        description: "Surrogate Key = Projektnummer (NPO.PROJNR)"
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: ProjektName
+        description: "Projektbezeichnung (sat_projekt.projname)"
+        data_type: nvarchar(4000)
+      - name: Inaktiv
+        description: "Inaktiv-Flag (0=aktiv, 1=inaktiv)"
+        data_type: int
+      - name: GruppeNr
+        description: "Referenz-Projektnummer / Gruppe (sat_projekt.refprojnr)"
+        data_type: int
+      - name: Erstellt
+        description: "Erstellungsdatum (sat_projekt.creation)"
+        data_type: date
+      - name: StatusNr
+        description: "Status-Code (sat_projekt.status → ref_projektstatus)"
+        data_type: int
+      - name: Status
+        description: "Status-Bezeichnung (ref_projektstatus.bezeichn)"
+        data_type: nvarchar(4000)
+      - name: StatusDatum
+        description: "Datum der letzten Statusaenderung (sat_projekt.status1)"
+        data_type: date
+
+  - name: dim_leistungsart
+    description: |
+      Leistungsarten (Service Types) fuer Projektsachkonten.
+      Surrogate Key: LeistungsartNr (INT).
+      29 distinkte Leistungsarten (z.B. Normalzeit, Ueberzeit, Ferien).
+      Quelle: ref_leistungsart (PROJ.NTR).
+    columns:
+      - name: LeistungsartNr
+        description: "Surrogate Key = NTR.NUMBER"
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: Beschreibung
+        description: "Leistungsart-Bezeichnung (z.B. Normalzeit)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: Typ
+        description: "Leistungsart-Typ (ref_leistungsart.type)"
+        data_type: nvarchar(4000)
+      - name: Inaktiv
+        description: "Inaktiv-Flag (ref_leistungsart.inaktiv)"
+        data_type: int
+
+  # ---------------------------------------------------------------------------
+  # FAKTENTABELLEN
+  # ---------------------------------------------------------------------------
+
+  - name: fakt_stunden
+    description: |
+      Projektsachkonto-Buchungen (Stunden/Kosten pro Projekt und Periode).
+      Repliziert Synapse [Projekt].[Stunden] mit KORREKTUR:
+      NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse fehlerhaft).
+      Granularitaet: 1 Zeile = 1 Projektsachkonto-Buchung.
+      Filter: AZBETINT <> 0 (nur Eintraege mit Betrag).
+      FK-Beziehungen: ProjektNr → dim_projekt, LeistungsartNr → dim_leistungsart, DatumKey → dim_date.
+      Quelle: hub_projektsachkonto + sat_projektsachkonto
+              + link_projektsachkonto_projekt + hub_projekt.
+    columns:
+      - name: ProjektNr
+        description: "FK → dim_projekt.ProjektNr (KORRIGIERT: NSA.PROJNR = ProjektNr)"
+        data_type: int
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_projekt')
+              field: ProjektNr
+      - name: LeistungsartNr
+        description: "FK → dim_leistungsart.LeistungsartNr (NSA.CODE — nur Teilmatch, da CODE = Sachkonto)"
+        data_type: int
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_leistungsart')
+              field: LeistungsartNr
+              config:
+                severity: warn
+      - name: DatumKey
+        description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH)"
+        data_type: int
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: Betrag
+        description: "Ist-Betrag intern (sat_projektsachkonto.azbetint, <> 0)"
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: GB
+        description: "Geschaeftsbereich (hub_projektsachkonto.gb)"
+        data_type: nvarchar(4000)
+      - name: Dataset
+        description: "Abacus Dataset-Nummer (hub_projektsachkonto.dataset)"
+        data_type: int

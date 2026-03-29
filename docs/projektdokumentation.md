@@ -5,7 +5,7 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 28. März 2026 |
+| **Stand** | 29. März 2026 |
 | **Verfasser** | PPMC AG |
 
 ---
@@ -26,7 +26,7 @@ Der gewählte Ansatz stellt sicher, dass Rohdaten unveränderlich erhalten bleib
 | 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | In Bearbeitung |
 | 3 | Raw Vault: Staging, Hubs, Satellites, Links | In Bearbeitung (Wave 1 deployed ✅) |
 | 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung |
-| 5 | Reporting Layer & Power BI | Geplant |
+| 5 | Reporting Layer & Power BI | In Bearbeitung (Projekt-Domain deployed ✅) |
 
 ---
 
@@ -352,7 +352,29 @@ Stellt den aktuellen Tagesstand im `stage-fs` Container bereit: löscht zuerst d
 
 ## 7. Phase 5 — Reporting Layer & Power BI
 
-Mart-Views im Schema `mart` werden auf dem Vault-Fundament erstellt. Power BI verbindet sich direkt mit `sql-analytics-ewb-001` und liest aus diesen Views.
+Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema** auf dem Vault-Fundament erstellt. Power BI verbindet sich direkt mit `sql-analytics-ewb-001` und liest aus Dimensionen (`dim_*`) und Faktentabellen (`fakt_*`).
+
+### 7.1 Projekt-Domain — Star Schema (DEPLOYED ✅)
+
+| Mart-Objekt | Typ | Synapse-Äquivalent | Zeilen | Tests |
+|---|---|---|---|---|
+| `mart_project.dim_person` | Dimension | [Projekt].[Personal]+[Abteilung] | 502 | ✅ 5/5 |
+| `mart_project.dim_projekt` | Dimension | [Projekt].[Projekt] | 14.168 | ✅ 4/4 |
+| `mart_project.dim_leistungsart` | Dimension | NTR-Lookup | 15 | ✅ 3/3 |
+| `mart_project.fakt_stunden` | Fakt | [Projekt].[Stunden] | 199.206 | ✅ 4/4 (2 WARN) |
+| `mart.dim_date` | Dimension | (generiert) | 5.844 | ✅ 2/2 |
+
+**ER-Diagramm:** `design/mart/er-mart-project.mmd`
+
+**Validierungs-Ergebnis (29.3.2026):**
+- dim_person: Erweitert Synapse Personal um Abteilungs-Attribute
+- dim_projekt: 3 Sharepoint-Spalten bewusst out of scope
+- fakt_stunden: PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
+- LeistungsartNr: NSA.CODE ist Sachkonto (389 Werte), nicht 1:1 NTR — entspricht Synapse LEFT JOIN
+
+### 7.2 Finance-Domain (OFFEN — Wave 2)
+
+Blockiert durch fehlende GL-Staging-Modelle und Kreditoren-Objekte.
 
 ---
 
@@ -360,6 +382,8 @@ Mart-Views im Schema `mart` werden auf dem Vault-Fundament erstellt. Power BI ve
 
 | Datum | Entscheidung | Begründung |
 |---|---|---|
+| März 2026 | Star Schema für Projekt-Domain deployed (29.3.) | 3 Dimensionen + 1 Faktentabelle auf `datavault-dev`: dim_person, dim_projekt, dim_leistungsart, fakt_stunden. 173 Tests PASS (2 WARN) |
+| März 2026 | NSA.CODE = Sachkonto, nicht Leistungsart | Synapse JOIN `CODE=RECNUM` war ebenfalls fehlerhaft. LEFT JOIN beibehalten (NULL für nicht-matchende Codes) |
 | März 2026 | Wave 1 Stammdaten deployed (28.3.) | 27 Modelle auf `datavault-dev`: 5 Hubs, 6 Sats, 3 Links, 3 Refs, 10 Staging Views |
 | März 2026 | hub_kreditor als Ghost Hub (aus KBL.KNR) | KRED.KBS enthält keine Kreditoren-Stammdaten — ist Status-Konfiguration. Verschoben nach Wave 2 |
 | März 2026 | NTR/PST/LTC als Reference Tables (nicht Hubs) | Kleine, stabile Lookup-Tabellen (29/7/109 Einträge) ohne Historisierungsbedarf |
