@@ -26,7 +26,7 @@ runs:
 
     - name: Install dbt-sqlserver
       shell: bash
-      run: pip install --quiet dbt-sqlserver==1.8.3
+      run: pip install --quiet "dbt-sqlserver>=1.8,<2.0"
 
     - name: Azure Login
       uses: azure/login@v2

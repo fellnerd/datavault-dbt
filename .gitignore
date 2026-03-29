@@ -28,3 +28,4 @@ masterdata/npm-debug.log*
 # Environment secrets
 .env
 .env.*
+package-lock.yml
