@@ -1,12 +1,10 @@
 name: Setup dbt Environment
-description: Install Python, dbt-sqlserver, Azure CLI login, and create profiles.yml
+description: Install Python, dbt-sqlserver, and create profiles.yml with SQL auth
 
 inputs:
-  azure_client_id:
+  sql_user:
     required: true
-  azure_client_secret:
-    required: true
-  azure_tenant_id:
+  sql_password:
     required: true
 
 runs:
@@ -28,22 +26,14 @@ runs:
       shell: bash
       run: pip install --quiet "dbt-sqlserver>=1.8,<2.0"
 
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        creds: >-
-          {
-            "clientId": "${{ inputs.azure_client_id }}",
-            "clientSecret": "${{ inputs.azure_client_secret }}",
-            "tenantId": "${{ inputs.azure_tenant_id }}",
-            "subscriptionId": "518a5277-e3f1-408f-aefc-e11931898d67"
-          }
-
     - name: Create profiles.yml
       shell: bash
+      env:
+        SQL_USER: ${{ inputs.sql_user }}
+        SQL_PASSWORD: ${{ inputs.sql_password }}
       run: |
         mkdir -p "${{ github.workspace }}"
-        cat > "${{ github.workspace }}/profiles.yml" << 'EOF'
+        cat > "${{ github.workspace }}/profiles.yml" << EOF
         datavault:
           target: ewb-dev
           outputs:
@@ -54,7 +44,9 @@ runs:
               port: 1433
               database: datavault-dev
               schema: dv
-              authentication: cli
+              authentication: sql
+              user: "${SQL_USER}"
+              password: "${SQL_PASSWORD}"
               encrypt: true
               trust_cert: false
             ewb-test:
@@ -64,7 +56,9 @@ runs:
               port: 1433
               database: datavault-test
               schema: dv
-              authentication: cli
+              authentication: sql
+              user: "${SQL_USER}"
+              password: "${SQL_PASSWORD}"
               encrypt: true
               trust_cert: false
             ewb:
@@ -74,7 +68,9 @@ runs:
               port: 1433
               database: datavault
               schema: dv
-              authentication: cli
+              authentication: sql
+              user: "${SQL_USER}"
+              password: "${SQL_PASSWORD}"
               encrypt: true
               trust_cert: false
         EOF
