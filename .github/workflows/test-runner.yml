@@ -1,0 +1,24 @@
+name: Test ACA Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test Runner
+    runs-on: [self-hosted, linux, dbt, aca]
+    steps:
+      - name: Hello from ACA
+        run: |
+          echo "✅ Runner funktioniert!"
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"
+
+      - name: Check dbt
+        run: dbt --version
+
+      - name: Check ODBC
+        run: odbcinst -j
+
+      - name: Check Azure CLI
+        run: az --version | head -1
