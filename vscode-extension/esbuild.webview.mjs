@@ -9,6 +9,7 @@ const watch = process.argv.includes('--watch');
 // Webview entry points with explicit output names
 const webviewEntries = [
   { in: 'src/webviews/entityDesigner/app/index.tsx', out: 'entityDesigner' },
+  { in: 'src/webviews/entityDesignerV2/app/index.tsx', out: 'entityDesignerV2' },
   { in: 'src/webviews/martDesigner/app/index.tsx', out: 'martDesigner' },
 ];
 

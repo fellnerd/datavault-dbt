@@ -178,6 +178,12 @@
         "category": "Data Vault"
       },
       {
+        "command": "datavault.openEntityDesignerV2",
+        "title": "Design Entity (v2)",
+        "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
         "command": "datavault.openEntityDesignerFromConfig",
         "title": "Open Entity Designer from Config",
         "icon": "$(json)",

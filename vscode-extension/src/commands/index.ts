@@ -16,6 +16,7 @@ import { createPersistentStaging, createPersistentStagingWizard } from './persis
 import { createPITTable, createPITTableFromPalette } from './pitTable';
 import { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 import { registerEntityDesignerCommands } from './entityDesigner';
+import { registerEntityDesignerV2Commands } from './entityDesignerV2';
 import { registerDbtCommands } from './dbtCommands';
 import { deleteRawVaultModel, deleteBusinessVaultModel, deleteEntity } from './vaultDelete';
 import { registerMartDesignerCommands } from './martDesigner';
@@ -29,6 +30,7 @@ export { createPersistentStaging, createPersistentStagingWizard } from './persis
 export { createPITTable, createPITTableFromPalette } from './pitTable';
 export { createBridgeTable, createBridgeTableFromPalette } from './bridgeTable';
 export { registerEntityDesignerCommands } from './entityDesigner';
+export { registerEntityDesignerV2Commands } from './entityDesignerV2';
 export { registerDbtCommands } from './dbtCommands';
 export { deleteRawVaultModel, deleteBusinessVaultModel, deleteEntity } from './vaultDelete';
 export { registerMartDesignerCommands } from './martDesigner';
@@ -371,6 +373,13 @@ export function registerCommands(
     () => getCurrentProjectPath() ?? undefined
   );
   disposables.push(...entityDesignerDisposables);
+
+  // Entity Designer v2 Commands (Object-First Raw Vault Designer)
+  const entityDesignerV2Disposables = registerEntityDesignerV2Commands(
+    context,
+    () => getCurrentProjectPath() ?? undefined
+  );
+  disposables.push(...entityDesignerV2Disposables);
 
   // Mart Designer Commands (Star Schema Designer)
   const martDesignerDisposables = registerMartDesignerCommands({
