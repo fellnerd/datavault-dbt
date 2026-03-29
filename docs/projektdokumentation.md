@@ -5,7 +5,7 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 12. März 2026 |
+| **Stand** | 28. März 2026 |
 | **Verfasser** | PPMC AG |
 
 ---
@@ -24,7 +24,7 @@ Der gewählte Ansatz stellt sicher, dass Rohdaten unveränderlich erhalten bleib
 |---|---|---|
 | 1 | Analyse der bestehenden Azure-Umgebung | Abgeschlossen |
 | 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | In Bearbeitung |
-| 3 | Raw Vault: Staging, Hubs, Satellites, Links | In Bearbeitung |
+| 3 | Raw Vault: Staging, Hubs, Satellites, Links | In Bearbeitung (Wave 1 deployed ✅) |
 | 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung |
 | 5 | Reporting Layer & Power BI | Geplant |
 
@@ -117,15 +117,15 @@ Quellsysteme (Abacus ERP, IDMS, ISE, ServiceNow, ...)
 | FIBU.FHE | Buchungsköpfe |
 | KRED.KBL | Kreditorenbelege |
 | KRED.KVL | Kreditorenzahlungen |
-| KRED.KBS | Kreditorensalden |
+| KRED.KBS | Kreditoren-Buchungsstatus (Status-Konfiguration) |
 
 **Projects:**
 
 | Tabelle | Inhalt |
 |---|---|
 | PROJ.NPO | Projektpositionen |
-| PROJ.NTC / NTCA / NTCE / NTB | Tätigkeiten, Budgets |
-| PROJ.NSA / NTR | Stundenbuchungen |
+| PROJ.NTC / NTCA / NTCE / NTB | Zeitstempelung, Budgets |
+| PROJ.NSA / NTR | Projektsachkonto, Leistungsarten |
 | PROJ.PST / PRT | Projektstatus, Projektteile |
 | LOHN.LEN / LTC | Mitarbeiterstamm, Abteilung |
 | PUBL.ADR | Adressstamm (Personal-Join) |
@@ -182,15 +182,18 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 12. März 2026)
+### 5.1 Implementierungsfortschritt (Stand 28. März 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
 | External Tables | 19 | 19 | 100% (datavault-dev) |
-| Staging-Views | 1 | 19 | 5% |
-| Hubs | 0 | 10 (+2 Ghost) | 0% |
-| Satellites | 0 | 14 | 0% |
-| Links | 0 | 11 | 0% |
+| Staging-Views | 10 | 19 | 53% |
+| Hubs | 5 | 10 (+2 Ghost) | 42% |
+| Satellites | 6 | 14 | 43% |
+| Links | 3 | 11 | 27% |
+| Reference Tables | 3 | 3 | 100% |
+
+**Wave 1 (Stammdaten): ✅ DEPLOYED** auf `datavault-dev` (28. März 2026, 27 Modelle, 0 Fehler)
 
 **Implementierungsplan:** `design/raw-vault/_common/implementierungsplan.md` (erstellt 12. März 2026, basierend auf Synapse-Analyse)
 
@@ -198,7 +201,7 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 | Tabelle | External Table | Staging-View | Status |
 |---|---|---|---|
-| FIBU.FHE | `stg.ext_ewb_fibu_fhe_main` | `stg.ewb_fibu_fhe_main` | Komplett (Referenz-Modell) |
+| FIBU.FHE | `stg.ext_ewb_fibu_fhe_main` | `stg.ewb_fibu_fhe_main` | ✅ Komplett (Referenz-Modell) |
 | FIBU.GL.E22 | `stg.ext_ewb_fibu_gl_e22` | `stg.ewb_fibu_gl_e22` | View ausstehend |
 | FIBU.GL.E23 | `stg.ext_ewb_fibu_gl_e23` | `stg.ewb_fibu_gl_e23` | View ausstehend |
 | FIBU.GL.E24 | `stg.ext_ewb_fibu_gl_e24` | `stg.ewb_fibu_gl_e24` | View ausstehend |
@@ -206,41 +209,56 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 | FIBU.GL.E26 | `stg.ext_ewb_fibu_gl_e26` | `stg.ewb_fibu_gl_e26` | View ausstehend |
 | KRED.KBL | `stg.ext_ewb_kred_kbl_main` | `stg.ewb_kred_kbl_main` | View ausstehend |
 | KRED.KVL | `stg.ext_ewb_kred_kvl_main` | `stg.ewb_kred_kvl_main` | View ausstehend |
-| KRED.KBS | `stg.ext_ewb_kred_kbs_main` | `stg.ewb_kred_kbs_main` | View ausstehend |
-| PROJ.NPO | `stg.ext_ewb_proj_npo_main` | `stg.ewb_proj_npo_main` | View ausstehend |
-| PROJ.NTC | `stg.ext_ewb_proj_ntc_main` | `stg.ewb_proj_ntc_main` | View ausstehend |
+| KRED.KBS | `stg.ext_ewb_kred_kbs_main` | `stg.ewb_kred_kbs_main` | View ausstehend (Status-Konfig → Wave 2) |
+| PROJ.NPO | `stg.ext_ewb_proj_npo_main` | `stg.ewb_proj_npo_main` | ✅ Deployed |
+| PROJ.NTC | `stg.ext_ewb_proj_ntc_main` | `stg.ewb_proj_ntc_main` | ✅ Deployed |
 | PROJ.NTB | `stg.ext_ewb_proj_ntb_main` | `stg.ewb_proj_ntb_main` | View ausstehend |
-| PROJ.NSA | `stg.ext_ewb_proj_nsa_main` | `stg.ewb_proj_nsa_main` | View ausstehend |
-| PROJ.NTR | `stg.ext_ewb_proj_ntr_main` | `stg.ewb_proj_ntr_main` | View ausstehend |
-| PROJ.PST | `stg.ext_ewb_proj_pst_main` | `stg.ewb_proj_pst_main` | View ausstehend |
+| PROJ.NSA | `stg.ext_ewb_proj_nsa_main` | `stg.ewb_proj_nsa_main` | ✅ Deployed |
+| PROJ.NTR | `stg.ext_ewb_proj_ntr_main` | `stg.ewb_proj_ntr_main` | ✅ Deployed |
+| PROJ.PST | `stg.ext_ewb_proj_pst_main` | `stg.ewb_proj_pst_main` | ✅ Deployed |
 | PROJ.PRT | `stg.ext_ewb_proj_prt_main` | `stg.ewb_proj_prt_main` | View ausstehend |
-| LOHN.LEN | `stg.ext_ewb_lohn_len_main` | `stg.ewb_lohn_len_main` | View ausstehend |
-| LOHN.LTC | `stg.ext_ewb_lohn_ltc_main` | `stg.ewb_lohn_ltc_main` | View ausstehend |
-| PUBL.ADR | `stg.ext_ewb_publ_adr_main` | `stg.ewb_publ_adr_main` | View ausstehend |
+| LOHN.LEN | `stg.ext_ewb_lohn_len_main` | `stg.ewb_lohn_len_main` | ✅ Deployed |
+| LOHN.LTC | `stg.ext_ewb_lohn_ltc_main` | `stg.ewb_lohn_ltc_main` | ✅ Deployed |
+| PUBL.ADR | `stg.ext_ewb_publ_adr_main` | `stg.ewb_publ_adr_main` | ✅ Deployed |
 
-### 5.3 Raw Vault — Geplante Objekte
+### 5.3 Raw Vault — Objekte
 
 | Entität | Typ | Basiert auf | Status |
 |---|---|---|---|
-| `hub_konto` | Hub | FIBU.GL | Geplant |
-| `hub_lieferant` | Hub | KRED.KBL | Geplant |
-| `hub_beleg` | Hub | KRED.KBL | Geplant |
-| `hub_beleg_fhe` | Hub | FIBU.FHE | Geplant |
-| `sat_buchung` | Satellite | FIBU.GL | Geplant |
-| `sat_beleg_fhe` | Satellite | FIBU.FHE | Geplant |
-| `sat_beleg_detail` | Satellite | KRED.KBL + KVL | Geplant |
-| `sat_zahlung` | Satellite | KRED.KVL | Geplant |
-| `sat_saldo` | Satellite | KRED.KBS | Geplant |
-| `link_beleg_lieferant` | Link | KRED.KBL | Geplant |
-| `hub_projekt` | Hub | PROJ.NPO | Geplant |
-| `sat_projekt_stamm` | Satellite | PROJ.NPO + PST | Geplant |
-| `hub_stunden` | Hub | PROJ.NSA | Geplant |
-| `sat_stundenbuchung` | Satellite | PROJ.NSA | Geplant |
-| `link_stunden_projekt` | Link | PROJ.NSA + NTR | Geplant |
-| `hub_mitarbeiter` | Hub | LOHN.LEN | Geplant |
-| `sat_mitarbeiter` | Satellite | LOHN.LEN | Geplant |
-| `hub_adresse` | Hub | PUBL.ADR | Geplant |
-| `sat_adresse` | Satellite | PUBL.ADR | Geplant |
+| `hub_person` | Hub | LOHN.LEN | ✅ Deployed |
+| `hub_adresse` | Hub | PUBL.ADR | ✅ Deployed |
+| `hub_projekt` | Hub | PROJ.NPO | ✅ Deployed |
+| `hub_projektsachkonto` | Hub | PROJ.NSA | ✅ Deployed |
+| `hub_zeiterfassung` | Hub | PROJ.NTC | ✅ Deployed |
+| `hub_buchungskopf` | Hub | FIBU.FHE | Geplant (Wave 2) |
+| `hub_hauptbuch` | Hub | FIBU.GL | Geplant (Wave 2) |
+| `hub_kreditorenbeleg` | Hub | KRED.KBL | Geplant (Wave 2) |
+| `hub_kreditor` | Hub (Ghost) | KRED.KBL (KNR) | Geplant (Wave 2) |
+| `hub_zahlung` | Hub | KRED.KVL | Geplant (Wave 3) |
+| `hub_konto` | Hub (Ghost) | FIBU.GL | Geplant |
+| `hub_kostenstelle` | Hub (Ghost) | FIBU.GL | Geplant |
+| `sat_person` | Satellite | LOHN.LEN | ✅ Deployed |
+| `sat_person_adresse` | Satellite | PUBL.ADR | ✅ Deployed |
+| `sat_adresse_kontakt` | Satellite | PUBL.ADR | ✅ Deployed |
+| `sat_projekt` | Satellite | PROJ.NPO | ✅ Deployed |
+| `sat_projektsachkonto` | Satellite | PROJ.NSA | ✅ Deployed |
+| `sat_zeiterfassung` | Satellite | PROJ.NTC | ✅ Deployed |
+| `sat_buchungskopf` | Satellite | FIBU.FHE | Geplant (Wave 2) |
+| `sat_hauptbuch` | Satellite | FIBU.GL | Geplant (Wave 2) |
+| `sat_kreditorenbeleg` | Satellite | KRED.KBL | Geplant (Wave 2) |
+| `sat_kreditor` | Satellite | KRED.KBL (Ghost) | Geplant (Wave 2) |
+| `sat_zahlung` | Satellite | KRED.KVL | Geplant (Wave 3) |
+| `sat_projektteil` | Satellite | PROJ.PRT | Geplant (Wave 3) |
+| `link_adresse_person` | Link | PUBL.ADR | ✅ Deployed |
+| `link_zeiterfassung_person` | Link | PROJ.NTC | ✅ Deployed |
+| `link_projektsachkonto_projekt` | Link | PROJ.NSA | ✅ Deployed |
+| `link_buchungskopf_kreditorenbeleg` | Link | FIBU.FHE | Geplant (Wave 2) |
+| `link_hauptbuch_buchungskopf` | Link | FIBU.GL | Geplant (Wave 2) |
+| `link_kreditorenbeleg_kreditor` | Link | KRED.KBL | Geplant (Wave 2) |
+| `link_kreditorenbeleg_zahlung` | Link | KRED.KVL | Geplant (Wave 3) |
+| `ref_abteilung` | Reference | LOHN.LTC | ✅ Deployed |
+| `ref_leistungsart` | Reference | PROJ.NTR | ✅ Deployed |
+| `ref_projektstatus` | Reference | PROJ.PST | ✅ Deployed |
 
 ### 5.4 Bereits erstellte dbt-Infrastruktur
 
@@ -253,21 +271,24 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ---
 
-### 5.5 Offene Design-Fragen (Meeting-Vorbereitung)
+### 5.5 Gelöste Design-Fragen
 
-Diese drei Fragen müssen vor dem Implementierungsstart Wave 2/3 mit EWB geklärt werden. Vollständige technische Analyse: `design/raw-vault/_common/implementierungsplan.md` Abschnitt 7.
+Alle drei Design-Fragen wurden durch Datenanalyse gelöst. Vollständige technische Analyse: `design/raw-vault/_common/implementierungsplan.md` Abschnitt 7.
 
-| # | Frage | Betrifft | Wave |
+| # | Frage | Ergebnis | Status |
 |---|---|---|---|
-| F1 | Kann dieselbe Belegnummer (`BELEGNR`) auf mehreren Konten (`KONTO`) erscheinen (Soll/Haben-Buchung)? | Datenbankstruktur für 890.449 Buchungszeilen | 2 |
-| F2 | Was bedeutet das Feld `CODE` in PROJ.NSA — Mitarbeiterkürzel, Leistungsart oder Kostenstelle? Und: über welches Feld wird der Personenbezug hergestellt? | Person-Verlinkung für Stundenbuchungen (63.755 Zeilen) | 3 |
-| F3 | Kommen Leistungsarten (PROJ.NTR) auch aus anderen Systemen (z.B. IDMS)? Ist Historisierung der Bezeichnungen nötig? | Einfache Lookup-Tabelle vs. vollständiger Hub+Satellite | 1 |
+| F1 | FIBU.GL Business Key: Composite oder einfach? | Composite BK `DKBELEGNUMMER\|\|KTO` — 29% der Belege auf 2+ Konten | ✅ Gelöst |
+| F2 | NSA.PROJNR-Semantik und Personenbezug? | PROJNR = **ProjektNr** (97.5% Match zu NPO). Synapse `PROJNR=LOHNNR` ist ein Bug | ✅ Gelöst |
+| F3 | NTR: Hub oder Reference Table? | Reference Table — nur 29 stabile Leistungsarten | ✅ Gelöst |
 
-**Hintergrund F1:** Bei Soll/Haben-Buchung auf mehreren Konten pro Beleg → BK = `BELEGNR||KONTO` (jede Zeile ist eigene Hub-Instanz). Falls `BELEGNR` eindeutig pro Konto → BK = `BELEGNR` mit separatem `hub_konto`. Die Antwort bestimmt die gesamte FIBU-Modellierung.
+### 5.6 Erkenntnisse aus der Implementierung
 
-**Hintergrund F2:** Die Rohdaten (`stg.ext_ewb_proj_nsa_main`) enthalten `PROJNR` (Projektbezug vorhanden ✅). Spalten `PRONR` und `SATZID` existieren **nicht**. PROJ.NSA ist eine aggregierte Periodenauswertung (`PROJNR + CODE + PERIYEAR + PERIMONTH + GB`) — kein direktes Personalfeld sichtbar. Synapse `Projekt.Stunden` joined NSA mit PUBL.ADR, aber über welches Feld ist unklar. Falls kein Personenbezug ableitbar: `link_stundenbuchung_person` entfällt.
-
-**Hintergrund F3:** NTR-Tabelle hat < 100 Einträge und ändert sich selten. Wenn nur Abacus-Quelle → einfache `ref_leistungsart` (dbt Seed, kein Hash-Join). Wenn Multi-Source oder Historisierung → `hub_leistungsart + sat_leistungsart`.
+| Erkenntnis | Detail |
+|---|---|
+| KBS ≠ Kreditorensalden | `KRED.KBS` ist eine Status-Konfigurationstabelle (18 Spalten: STATID, STATDEF, etc.), nicht Kreditoren-Stamm. Kein LIEFNR/SALDO/KONTO vorhanden. |
+| hub_kreditor = Ghost Hub | Wird aus `KBL.KNR` abgeleitet (Wave 2), da keine dedizierte Kreditoren-Stammdatentabelle existiert |
+| NTC = Zeitstempelung | PROJ.NTC enthält Stempeluhr-Daten (EMPLNR+PROJDAT+FROM1-TO10), keine Projekttätigkeiten. Kein PRONR/POSNR vorhanden. |
+| Synapse-Bugs | Zwei Fehler in Synapse Views identifiziert: (1) `PROJNR=LOHNNR` Join, (2) `CODE=RECNUM` statt `CODE=NUMBER` |
 
 ---
 
@@ -339,6 +360,10 @@ Mart-Views im Schema `mart` werden auf dem Vault-Fundament erstellt. Power BI ve
 
 | Datum | Entscheidung | Begründung |
 |---|---|---|
+| März 2026 | Wave 1 Stammdaten deployed (28.3.) | 27 Modelle auf `datavault-dev`: 5 Hubs, 6 Sats, 3 Links, 3 Refs, 10 Staging Views |
+| März 2026 | hub_kreditor als Ghost Hub (aus KBL.KNR) | KRED.KBS enthält keine Kreditoren-Stammdaten — ist Status-Konfiguration. Verschoben nach Wave 2 |
+| März 2026 | NTR/PST/LTC als Reference Tables (nicht Hubs) | Kleine, stabile Lookup-Tabellen (29/7/109 Einträge) ohne Historisierungsbedarf |
+| März 2026 | EWB Vault-Objekte in `_common` (nicht separater Concept) | EWB ist das einzige Quellsystem auf dieser Instanz — kein `vault_ewb` Schema nötig |
 | Feb 2026 | dbt Sources aus `landing-zone` (nicht `structured-tables`) | `structured-tables` enthält Business-Logik; DV 2.1 erfordert Rohdaten als Quelle |
 | Feb 2026 | Neuer SQL Server `sql-analytics-ewb-001` im EWB-Tenant | Mandantentrennung von PPMC-Shared-Infrastruktur (`sql-datavault-weu-001`) |
 | Feb 2026 | Managed Identity für Storage-Zugriff | Kein statisches Passwort / kein SAS-Token — Zero-Credential-Prinzip |
@@ -377,6 +402,6 @@ Mart-Views im Schema `mart` werden auf dem Vault-Fundament erstellt. Power BI ve
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 12. März 2026 — Credential-Umstellung auf Managed Identity abgeschlossen*
+*EWB Analytics Platform | PPMC AG | Stand: 28. März 2026 — Wave 1 (Stammdaten) deployed auf datavault-dev*
 
-> Letztes Update: RBAC Storage Blob Data Reader durch EWB-Admin eingerichtet (12. März 2026). SAS Token kann nun durch Managed Identity ersetzt werden. Nächster Schritt: Credential-Umstellung + External Data Sources auf `datavault-test` / `datavault` einrichten.
+> Letztes Update: Wave 1 deployed (28. März 2026). 27 Modelle erfolgreich auf `datavault-dev`. Nächster Schritt: Wave 2 (Finance-Transaktionen) — `hub_buchungskopf`, `hub_hauptbuch`, `hub_kreditorenbeleg`, `hub_kreditor` (Ghost).

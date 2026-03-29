@@ -1,0 +1,222 @@
+{
+  "concept": "_common",
+  "entityName": "projektsachkonto",
+  "sourceTable": "ext_ewb_proj_nsa_main",
+  "columns": [
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "DATASET",
+      "sourceName": "DATASET",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "PROJNR",
+      "sourceName": "PROJNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "CODE",
+      "sourceName": "CODE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "PERIYEAR",
+      "sourceName": "PERIYEAR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "PERIMONTH",
+      "sourceName": "PERIMONTH",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "GB",
+      "sourceName": "GB",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "BUDGETINT",
+      "sourceName": "BUDGETINT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "BETRAGINT",
+      "sourceName": "BETRAGINT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "VORTRAGINT",
+      "sourceName": "VORTRAGINT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "BUDGETEXT",
+      "sourceName": "BUDGETEXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "BETRAGEXT",
+      "sourceName": "BETRAGEXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "VORTRAGEXT",
+      "sourceName": "VORTRAGEXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "RESERVE",
+      "sourceName": "RESERVE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "RESERVE2",
+      "sourceName": "RESERVE2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "AZBUTINT",
+      "sourceName": "AZBUTINT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "AZBETINT",
+      "sourceName": "AZBETINT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "AZVORTINT",
+      "sourceName": "AZVORTINT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "AZBUTEXT",
+      "sourceName": "AZBUTEXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "AZBETEXT",
+      "sourceName": "AZBETEXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "AZVORTEXT",
+      "sourceName": "AZVORTEXT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2026-07-14T10:00:00.000Z",
+  "generatedObjects": ["hub", "satellite", "link"]
+}

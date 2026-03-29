@@ -39,8 +39,8 @@ erDiagram
     }
 
     HUB_KREDITOR {
-        char64 hk_kreditor PK "SHA2_256(LIEFNR)"
-        nvarchar liefnr "ext_ewb_kred_kbs_main.LIEFNR"
+        char64 hk_kreditor PK "ghost — SHA2_256(KNR)"
+        decimal knr "ext_ewb_kred_kbl_main.KNR (Ghost Hub aus Belegen)"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -136,10 +136,7 @@ erDiagram
     SAT_KREDITOR {
         char64 hk_kreditor FK "hub_kreditor"
         char64 hd_kreditor "hash diff"
-        decimal saldo "Saldo"
-        nvarchar konto "Konto"
-        nvarchar waehrung "Waehrung"
-        nvarchar periode "Periode"
+        nvarchar adrid "Kundenname/Adress-ID (aus KBL)"
         datetime2 dss_load_date "PK Teil 2"
         varchar dss_record_source "metadata"
         char dss_is_current "Y/N"

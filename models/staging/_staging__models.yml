@@ -595,6 +595,118 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_proj_nsa_main
+    description: Staging view for projektsachkonto (PROJ.NSA.Main) from Abacus EWB
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_proj_nsa_main
+        business_keys:
+          - PROJNR
+          - CODE
+          - PERIYEAR
+          - PERIMONTH
+          - GB
+        foreign_keys:
+          - column: PROJNR
+            target_entity: projekt
+            target_hub: _common.hub_projekt
+    columns:
+      - name: hk_projektsachkonto
+        description: Hash Key (Primary Key, Composite PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_projekt
+        description: Foreign Key to hub_projekt (SHA2_256(PROJNR))
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_projektsachkonto_projekt
+        description: Link Hash Key (SHA2_256(hk_projektsachkonto ^^ hk_projekt))
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_projektsachkonto
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PROJNR
+        description: Business Key Teil 1 — Projektnummer
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: CODE
+        description: Business Key Teil 2 — Sachkonto-Code
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PERIYEAR
+        description: Business Key Teil 3 — Periodenjahr
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PERIMONTH
+        description: Business Key Teil 4 — Periodenmonat
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: GB
+        description: Business Key Teil 5 — Geschäftsbereich
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: BUDGETINT
+        description: Budget intern
+        data_type: decimal(38,18)
+      - name: BETRAGINT
+        description: Betrag intern
+        data_type: decimal(38,18)
+      - name: VORTRAGINT
+        description: Vortrag intern
+        data_type: decimal(38,18)
+      - name: BUDGETEXT
+        description: Budget extern
+        data_type: decimal(38,18)
+      - name: BETRAGEXT
+        description: Betrag extern
+        data_type: decimal(38,18)
+      - name: VORTRAGEXT
+        description: Vortrag extern
+        data_type: decimal(38,18)
+      - name: AZBUTINT
+        description: AZ Budget intern
+        data_type: decimal(38,18)
+      - name: AZBETINT
+        description: AZ Betrag intern
+        data_type: decimal(38,18)
+      - name: AZVORTINT
+        description: AZ Vortrag intern
+        data_type: decimal(38,18)
+      - name: AZBUTEXT
+        description: AZ Budget extern
+        data_type: decimal(38,18)
+      - name: AZBETEXT
+        description: AZ Betrag extern
+        data_type: decimal(38,18)
+      - name: AZVORTEXT
+        description: AZ Vortrag extern
+        data_type: decimal(38,18)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: ewb_proj_ntc_main
     description: Staging view für Zeiterfassung (PROJ.NTC) aus _common
     config:
@@ -724,6 +836,74 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+
+  # --- Reference Tables ---
+
+  - name: ewb_proj_ntr_main
+    description: "Staging: PROJ.NTR.Main (Leistungsarten) — Quelle fuer ref_leistungsart. SELECT DISTINCT dedupliziert ~1000 Zeilen auf 29 Leistungsarten."
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_proj_ntr_main
+    columns:
+      - name: number
+        description: Leistungsart-Code (Primary Key, z.B. 1000, 1010, 1020)
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: description
+        description: Bezeichnung der Leistungsart
+        data_type: nvarchar(4000)
+      - name: type
+        description: Typ der Leistungsart
+        data_type: int
+      - name: inaktiv
+        description: Inaktiv-Flag (0/1)
+        data_type: int
+      - name: dss_record_source
+        description: Datenquelle (hardcoded ewb_abacus)
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+
+  - name: ewb_proj_pst_main
+    description: "Staging: PROJ.PST.Main (Projektstatus) — Quelle fuer ref_projektstatus. 7 Eintraege, kein Filter im Staging."
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_proj_pst_main
+    columns:
+      - name: status
+        description: Statuscode (Primary Key)
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: bezeichn
+        description: Bezeichnung des Projektstatus
+        data_type: nvarchar(4000)
+      - name: langcode
+        description: Sprachcode
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+
   - name: ewb_publ_adr_main
     description: Staging view for adresse from _common
     config:

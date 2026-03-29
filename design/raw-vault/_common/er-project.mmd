@@ -36,6 +36,8 @@ erDiagram
         nvarchar projname "Projektname"
         bit inaktiv "Inaktiv-Flag"
         int refprojnr "GruppeNr (FK Kostenstelle)"
+        decimal projgroup "Projektgruppe"
+        int statusdef "Status-Definition"
         int status "StatusNr (FK ref_projektstatus)"
         date status1 "StatusDatum"
         date creation "Erstelldatum"
@@ -78,8 +80,9 @@ erDiagram
     }
 
     REF_PROJEKTSTATUS {
-        int status_id PK "ext_ewb_proj_pst_main — 7 Eintraege"
-        nvarchar bezeichnung "Bezeichnung"
+        decimal status PK "ext_ewb_proj_pst_main — 7 Eintraege"
+        nvarchar bezeichn "Bezeichnung"
+        nvarchar langcode "Sprachcode"
     }
 
     %% ========================================
@@ -130,4 +133,4 @@ erDiagram
     %% ========================================
 
     SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE zu NUMBER"
-    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUS zu status_id"
+    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUS zu STATUS"

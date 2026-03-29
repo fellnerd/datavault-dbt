@@ -2,6 +2,7 @@ erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
     %% Stand: 2026-03-14 | Hubs: 10 | Sats: 11 | Links: 11 | Refs: 3
+    %% + Project Domain: hub_projektsachkonto, sat_projektsachkonto, link_projektsachkonto_projekt, ref_leistungsart, ref_projektstatus
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
@@ -59,7 +60,33 @@ erDiagram
         char1 dss_is_current "computed"
         datetime2 dss_end_date "computed"
     }
-    SAT_PROJEKTSACHKONTO { char64 hk FK }
+    SAT_PROJEKTSACHKONTO {
+        char64 hk_projektsachkonto FK "hub_projektsachkonto"
+        char64 hd_projektsachkonto "hash diff"
+        decimal budgetint "Budget intern"
+        decimal betragint "Betrag intern"
+        decimal vortragint "Vortrag intern"
+        decimal budgetext "Budget extern"
+        decimal betragext "Betrag extern"
+        decimal vortragext "Vortrag extern"
+        decimal azbutint "AZ Budget intern"
+        decimal azbetint "AZ Betrag intern"
+        decimal azvortint "AZ Vortrag intern"
+        decimal azbutext "AZ Budget extern"
+        decimal azbetext "AZ Betrag extern"
+        decimal azvortext "AZ Vortrag extern"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    LINK_PROJEKTSACHKONTO_PROJEKT {
+        char64 hk_link_projektsachkonto_projekt PK "computed"
+        char64 hk_projektsachkonto FK "hub_projektsachkonto"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_ZEITERFASSUNG_PERSON {
         char64 hk_link_zeiterfassung_person PK "computed"
         char64 hk_zeiterfassung FK "computed"
@@ -76,8 +103,17 @@ erDiagram
     SAT_ADRESSE_KONTAKT { char64 hk FK }
 
     %% === REFERENCE ===
-    REF_LEISTUNGSART { int number PK }
-    REF_PROJEKTSTATUS { int status_id PK }
+    REF_LEISTUNGSART {
+        int number PK "ext_ewb_proj_ntr_main — 29 Eintraege"
+        nvarchar description "Beschreibung"
+        int type "Typ"
+        int inaktiv "Inaktiv-Flag"
+    }
+    REF_PROJEKTSTATUS {
+        int status PK "ext_ewb_proj_pst_main — 7 Eintraege"
+        nvarchar bezeichn "Bezeichnung"
+        nvarchar langcode "Sprachcode"
+    }
     REF_ABTEILUNG { int nr PK }
 
     %% === LINKS ===
@@ -89,7 +125,6 @@ erDiagram
     LINK_HAUPTBUCH_KOSTENSTELLE { char64 hk PK }
     LINK_KREDITORENBELEG_KREDITOR { char64 hk PK }
     LINK_KREDITORENBELEG_ZAHLUNG { char64 hk PK }
-    LINK_PROJEKTSACHKONTO_PROJEKT { char64 hk PK }
     LINK_PERSON_ADRESSE { char64 hk PK }
 
     %% Hub → Satellite

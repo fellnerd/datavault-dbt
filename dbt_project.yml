@@ -66,6 +66,9 @@ models:
           +materialized: incremental
           +incremental_strategy: append
           +on_schema_change: append_new_columns
+        refs:
+          +schema: vault
+          +materialized: view
       # ===== JIRA (Schema: vault_jira) =====
      
     business_vault:

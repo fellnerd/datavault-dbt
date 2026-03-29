@@ -1,7 +1,7 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 14. März 2026  
-**Agenten:** synapse-validator + vault-architect + db-monitor  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 28. März 2026  
+**Agenten:** synapse-validator + vault-architect + db-monitor + staging-engineer  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects)
 
 ---
@@ -53,7 +53,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `hub_hauptbuch` | Belegnr + Konto ¹ | `DKBELEGNUMMER\|\|KTO` | `ewb_fibu_gl_e2x` | `hk_hauptbuch` | P1 |
 | `hub_kreditorenbeleg` | Belegnummer | `BELEGNR` | `ewb_kred_kbl_main` | `hk_kreditorenbeleg` | P2 |
 | `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_zahlung` | P3 |
-| `hub_kreditor` | Lieferantennummer | `LIEFNR` | `ewb_kred_kbs_main` | `hk_kreditor` | P1 |
+| `hub_kreditor` | Kreditoren-Nr | `KNR` | `ewb_kred_kbl_main` (Ghost Hub) | `hk_kreditor` | P2 |
 | `hub_adresse` | Adressnummer | `INR` | `ewb_publ_adr_main` | `hk_adresse` | P1 |
 | `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_projekt` | P1 |
 | ~~`hub_projekttaetigkeit`~~ | ~~Projekt + Positionsnr~~ | ~~`PRONR\|\|POSNR`~~ | ~~`ewb_proj_ntc_main`~~ | — | ~~P3~~ |
@@ -85,7 +85,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `sat_hauptbuch` | `hub_hauptbuch` | STD | DATE, SH, SAM, BETRAG, GKTO, KST, KST2, WAEHR, MWSTBETR, MWSTTYP, MWSTCODE, MWSTINCL, MWSTSATZ, TEXT, TEXT2, DKKUNDENNUMMER, PROJEBENE | `ewb_fibu_gl_e2x` | P2 |
 | `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | KNR, ADRID, Umschreibung3, Betrag, Belegdatum | `ewb_kred_kbl_main` | P2 |
 | `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 |
-| `sat_kreditor` | `hub_kreditor` | STD | Saldo, Konto, Währung, Periode | `ewb_kred_kbs_main` | P1 |
+| `sat_kreditor` | `hub_kreditor` | STD | ADRID (Kundenname/Adress-ID) | `ewb_kred_kbl_main` (Ghost Hub) | P2 |
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
 | ~~`sat_projekt_status`~~ | — | — | — | — | — | → **Entfällt:** PST = 7 stabile Lookup-Werte → nur `ref_projektstatus` |
 | `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
@@ -134,20 +134,26 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 ## 5. Implementierungs-Wellen
 
-### Wave 1 — Stammdaten (keine FK-Abhängigkeiten, sofort deploybar)
+### Wave 1 — Stammdaten (keine FK-Abhängigkeiten, sofort deploybar) — ✅ DEPLOYED (28.3.2026)
 
 **Staging:**
-- `ewb_lohn_len_main`
-- `ewb_publ_adr_main`
-- `ewb_proj_npo_main`
-- `ewb_proj_ntr_main`
-- `ewb_kred_kbs_main`
+- `ewb_lohn_len_main` ✅
+- `ewb_publ_adr_main` ✅
+- `ewb_proj_npo_main` ✅
+- `ewb_proj_ntr_main` ✅
+- `ewb_proj_pst_main` ✅
+- `ewb_proj_nsa_main` ✅
+- `ewb_proj_ntc_main` ✅
+- `ewb_lohn_ltc_main` ✅
 
 **Raw Vault:**
-- Hubs: `hub_person`, `hub_adresse`, `hub_projekt`, `hub_kreditor`
-- Sats: `sat_person`, `sat_person_adresse`, `sat_projekt`, `sat_kreditor`
-- Links: `link_person_adresse`
-- Reference Tables: `ref_leistungsart` (NTR), `ref_projektstatus` (PST), `ref_abteilung` (LTC)
+- Hubs: `hub_person` ✅, `hub_adresse` ✅, `hub_projekt` ✅, `hub_projektsachkonto` ✅, `hub_zeiterfassung` ✅
+- Sats: `sat_person` ✅, `sat_person_adresse` ✅, `sat_adresse_kontakt` ✅, `sat_projekt` ✅, `sat_projektsachkonto` ✅, `sat_zeiterfassung` ✅
+- Links: `link_adresse_person` ✅, `link_zeiterfassung_person` ✅, `link_projektsachkonto_projekt` ✅
+- Reference Tables: `ref_leistungsart` (NTR) ✅, `ref_projektstatus` (PST) ✅, `ref_abteilung` (LTC) ✅
+
+> **Deployed auf `datavault-dev`:** 27/27 Modelle erfolgreich (28.3.2026, 184s, 0 Fehler).  
+> **Korrektur (28.3.2026):** `hub_kreditor` + `sat_kreditor` nach Wave 2 verschoben. `KRED.KBS` enthält keine Kreditoren-Stammdaten (kein LIEFNR, SALDO, KONTO) — ist eine Status-Konfigurationstabelle (STATID/STATDEF). `hub_kreditor` wird als Ghost Hub aus `KBL.KNR` abgeleitet.
 
 ### Wave 2 — Transaktionsobjekte
 
@@ -156,28 +162,27 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 **Staging:**
 - `ewb_fibu_fhe_main` (bereits vorhanden ✅)
 - `ewb_kred_kbl_main`
+- `ewb_kred_kbs_main` (Status-Konfiguration → `ref_kred_buchungsstatus`)
 - `ewb_fibu_gl_e22` bis `ewb_fibu_gl_e26` (Union oder 5 Views)
 
 **Raw Vault:**
-- Hubs: `hub_buchungskopf`, `hub_hauptbuch`, `hub_kreditorenbeleg`
-- Sats: `sat_buchungskopf`, `sat_hauptbuch`, `sat_kreditorenbeleg`
+- Hubs: `hub_buchungskopf`, `hub_hauptbuch`, `hub_kreditorenbeleg`, `hub_kreditor` (Ghost Hub aus KBL.KNR)
+- Sats: `sat_buchungskopf`, `sat_hauptbuch`, `sat_kreditorenbeleg`, `sat_kreditor`
 - Links: `link_buchungskopf_kreditorenbeleg`, `link_hauptbuch_buchungskopf`, `link_kreditorenbeleg_kreditor`
 
-### Wave 3 — Komplexe Links + Projekt-Domain
+### Wave 3 — Komplexe Links + Restliche Objekte
 
 **Voraussetzung:** Wave 2 deployed
 
 **Staging:**
 - `ewb_kred_kvl_main`
-- `ewb_proj_ntc_main`
 - `ewb_proj_ntb_main` (ggf. Mart-Level)
-- `ewb_proj_nsa_main`
 - `ewb_proj_prt_main`
 
 **Raw Vault:**
-- Hubs: `hub_zahlung`, `hub_zeiterfassung`, `hub_projektsachkonto`
-- Sats: `sat_zahlung`, `sat_zeiterfassung`, `sat_projektsachkonto`, `sat_projektteil`
-- Links: `link_kreditorenbeleg_zahlung`, `link_projektsachkonto_projekt`, `link_zeiterfassung_person`, `link_projektteil_projekt` + alle GL-Dimension-Links
+- Hubs: `hub_zahlung`
+- Sats: `sat_zahlung`, `sat_projektteil`
+- Links: `link_kreditorenbeleg_zahlung`, `link_projektteil_projekt` + alle GL-Dimension-Links
 
 ---
 
@@ -189,7 +194,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | 2 | `ewb_publ_adr_main` | `sat_person_adresse` — keine eigene Dep., Integration mit LEN |
 | 3 | `ewb_proj_npo_main` | `hub_projekt` — zentrale Entity Projekt-Domain |
 | 4 | `ewb_proj_ntr_main` | `ref_leistungsart` — 29 Leistungsarten als Reference Table |
-| 5 | `ewb_kred_kbs_main` | `hub_kreditor` — benötigt von KBL und GL |
+| 5 | ~~`ewb_kred_kbs_main`~~ | ~~`hub_kreditor`~~ — **Verschoben nach Wave 2**: KBS ist Status-Konfiguration, nicht Kreditoren-Stammdaten |
 | 6 | `ewb_fibu_fhe_main` | `hub_buchungskopf` — bereits als Goldbeispiel vorhanden ✅ |
 | 7 | `ewb_kred_kbl_main` | `hub_kreditorenbeleg` — FK zu Kreditor (Dep. Wave 1) |
 | 8 | `ewb_fibu_gl_e22` | FIBU.GL — Jahresscheibe 2022 |
@@ -330,12 +335,13 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
 | Mart Views | 7 | geplant (structured-tables Replika) |
 
-**Implementierungsstand (14. März 2026):**
-- Staging: **1/19** implementiert (`ewb_fibu_fhe_main` ✅), 19/19 External Tables in `sources.yml` konfiguriert ✅
-- Vault: **0/32** Objekte implementiert
+**Implementierungsstand (28. März 2026):**
+- Staging: **10/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
+- Vault: **14/35** Objekte implementiert — 5 Hubs, 6 Sats, 3 Links
 - Mart: **0/7** Views implementiert
-- Reference Tables: **0/3** implementiert
-- Wave 1 kann **sofort starten** — keine Blocker
+- Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
+- **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
+- Wave 2 kann **sofort starten** — keine Blocker
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 
@@ -347,7 +353,7 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Schema `mart_project` | ✅ | ⏳ | Wird bei erstem `dbt run` erstellt |
 | External Data Source `StageFileSystem` | ✅ | ✅ | OK |
 | External Tables (EWB) | 19 | 19 | OK ✅ |
-| Staging Views (EWB) | 19 | 1 | 🟠 5% |
+| Staging Views (EWB) | 19 | 10 | 🟡 53% |
 | ~~Schema `vault_ewb`~~ | — | Gelöscht ✅ | War stale |
 | ~~Schema `mart_ewb`~~ | — | Gelöscht ✅ | War stale |
 | Ordner `models/raw_vault/_common/hubs/` | ✅ | ✅ | Angelegt ✅ |
@@ -461,4 +467,4 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 
 > **Empfehlung:** Option A für Konten + Kostenstellen (kritische Dimensionen), Option B für Budget/Forecast/Kategorien (Planungs- und Enrichment-Daten).
 
-*EWB Analytics Platform | PPMC AG | Stand: 14. März 2026*
+*EWB Analytics Platform | PPMC AG | Stand: 28. März 2026 — Wave 1 deployed*
