@@ -25,7 +25,7 @@
 WITH aktive_adressen AS (
     SELECT
         hk_adresse,
-        ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(lohnnr AS NVARCHAR(MAX))))) AS person_key
+        {{ surrogate_key('lohnnr') }} AS person_key
     FROM {{ ref('ewb_publ_adr_main') }}
     WHERE lohnjn = '1'
       AND gesperrt = 0

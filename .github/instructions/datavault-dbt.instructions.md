@@ -31,6 +31,25 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View
 
 **Pattern:** `_common` → Basis-Schema, `<concept>` → `<basis>_<concept>`
 
+## MART LAYER
+
+### Konventionen
+- **Star Schema** (Kimball): Dimensionen + Faktentabellen
+- **Virtualisierung:** `materialized='view'` (Standard)
+- **Surrogate Keys:** `{{ surrogate_key('bk') }}` → BIGINT via MD5 Hash
+
+### Naming
+| Objekt | Pattern | Beispiel |
+|--------|---------|---------|
+| Dimension | `dim_{entity}` | `dim_person`, `dim_projekt` |
+| Faktentabelle | `fakt_{content}` | `fakt_stunden` |
+
+### Custom Macros (Mart)
+- `surrogate_key(column)` — Deterministischer BIGINT Surrogate Key via MD5
+
+### Agent
+- `@mart-architect` — Erstellt Dimensionen und Faktentabellen aus dem Raw Vault
+
 ## NAMENSKONVENTIONEN
 
 ### Tabellen/Views

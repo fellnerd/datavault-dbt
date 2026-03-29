@@ -8,7 +8,7 @@ Data Vault 2.1 implementation on Azure SQL Server using dbt. Source data flows f
 
 **Full data flow:**
 ```
-ADLS Parquet → stg.ext_ewb_* (External Table) → stg.ewb_* (Staging View) → vault.* (Hub/Sat/Link) → mart.* (Mart View)
+ADLS Parquet → stg.ext_ewb_* (External Table) → stg.ewb_* (Staging View) → vault.* (Hub/Sat/Link) → mart_* (Dim/Fakt)
 ```
 
 ## Commands
@@ -66,7 +66,8 @@ dbt run --target ewb        # production
 | Raw Vault (EWB + common) | `vault` | `models/raw_vault/_common/` | Incremental (append) |
 | Raw Vault (Jira) | `vault_jira` | `models/raw_vault/jira/` | Incremental (append) |
 | Business Vault (PITs, bridges) | `vault` | `models/business_vault/` | Table |
-| Mart | `mart` | `models/mart/_common/` | Table |
+| Mart (common) | `mart` | `models/mart/_common/` | View |
+| Mart (domain) | `mart_<concept>` | `models/mart/<concept>/` | View |
 
 All Raw Vault objects use `incremental_strategy: append` with `on_schema_change: append_new_columns` (Data Vault immutability + Azure SQL Basic tier constraint).
 
@@ -82,6 +83,8 @@ All Raw Vault objects use `incremental_strategy: append` with `on_schema_change:
 | Satellite | `vault.sat_<entity>` | `vault.sat_fibu_fhe` |
 | Link | `vault.link_<e1>_<e2>` | `vault.link_beleg_lieferant` |
 | Mart view | `mart.v_<descriptive>` | `mart.v_fibu_buchungen` |
+| Dimension | `mart_<concept>.dim_<entity>` | `mart_project.dim_person` |
+| Fact table | `mart_<concept>.fakt_<content>` | `mart_project.fakt_stunden` |
 
 Standard metadata columns: `dss_load_date`, `dss_record_source`, `dss_run_id`, `dss_is_current`, `dss_end_date`.
 `dss_record_source = 'ewb_abacus'` for all EWB objects.
@@ -116,6 +119,7 @@ Stable lookup values?                   → REFERENCE TABLE
 - `create_hash_index.sql` — Post-hook: creates indexes on hash key columns
 - `get_parquet_schema.sql` / `get_parquet_data.sql` / `list_parquet_files.sql` — ADLS Parquet introspection
 - `run_sql.sql` — **Ad-hoc SQL runner** for arbitrary queries against Azure SQL (use with `dbt run-operation run_sql --args '{"sql": "..."}'`)
+- `surrogate_key.sql` — **Mart surrogate key**: `ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(col AS NVARCHAR(MAX)))))` — deterministic BIGINT for dim PKs and fact FKs
 
 ## Skills (Slash Commands)
 

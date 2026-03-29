@@ -17,8 +17,8 @@
 ) }}
 
 SELECT
-    ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(hp.projnr AS NVARCHAR(MAX)))))   AS projekt_key,
-    ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(hpsk.code AS NVARCHAR(MAX)))))   AS leistungsart_key,
+    {{ surrogate_key('hp.projnr') }}   AS projekt_key,
+    {{ surrogate_key('hpsk.code') }}   AS leistungsart_key,
     TRY_CAST(FORMAT(
         DATEFROMPARTS(
             CASE WHEN COALESCE(TRY_CAST(hpsk.periyear AS INT), 1900) = 0

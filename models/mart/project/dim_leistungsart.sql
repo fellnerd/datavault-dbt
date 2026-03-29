@@ -12,7 +12,7 @@
 ) }}
 
 SELECT
-    ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(ref_la.number AS NVARCHAR(MAX))))) AS leistungsart_key,
+    {{ surrogate_key('ref_la.number') }} AS leistungsart_key,
     CAST(ref_la.number AS NVARCHAR(255))                                              AS leistungsart_id,
     ISNULL(CAST(ref_la.type AS NVARCHAR(255)), CAST(ref_la.number AS NVARCHAR(255)))  AS leistungsart_code,
     ISNULL(ref_la.description, ISNULL(CAST(ref_la.type AS NVARCHAR(255)), 'UNKNOWN')) AS leistungsart_name,

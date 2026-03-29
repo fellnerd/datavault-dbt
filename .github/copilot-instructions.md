@@ -5,7 +5,7 @@ Data Vault 2.1 auf Azure SQL für EWB (Energie Wasser Bern). Quellsystem: Abacus
 
 **Datenfluss:**
 ```
-ADLS Parquet → External Table (stg.ext_ewb_*) → Staging View (stg.ewb_*) → Hub/Sat/Link (vault.*)
+ADLS Parquet → External Table (stg.ext_ewb_*) → Staging View (stg.ewb_*) → Hub/Sat/Link (vault.*) → Dim/Fakt (mart.*)
 ```
 
 ## Agent-Delegation (WICHTIG)
@@ -16,6 +16,7 @@ Delegiere task-spezifische Arbeit immer an den passenden Sub-Agenten:
 |---------|-------|
 | Staging-View für EWB Parquet erstellen | `@staging-engineer` |
 | Hub / Satellite / Link modellieren | `@vault-architect` |
+| Mart Dimensionen / Fakten erstellen | `@mart-architect` |
 | dbt deploy + DB-Verifikation | `@dbt-deployer` |
 | Scope- und Fortschrittsanalyse | `@scope-tracker` |
 | DB-Zustand prüfen (Schemas, Objekte) | `@db-monitor` |
@@ -47,6 +48,7 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Raw Vault (EWB + gemeinsam) | `raw_vault/_common/` | `vault` |
 | Business Vault | `business_vault/` | `vault` |
 | Mart | `mart/_common/` | `mart` |
+| Mart (domain) | `mart/<concept>/` | `mart_<concept>` |
 
 **EWB Vault-Objekte gehören in `raw_vault/_common/`** — kein separater Concept-Ordner, da EWB das einzige Quellsystem auf dieser Instanz ist.
 
@@ -61,6 +63,8 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Hub | `vault.hub_<entity>` | `vault.hub_fibu_fhe` |
 | Satellite | `vault.sat_<entity>` | `vault.sat_fibu_fhe` |
 | Link | `vault.link_<e1>_<e2>` | `vault.link_beleg_lieferant` |
+| Dimension | `mart.dim_<entity>` | `mart_project.dim_person` |
+| Faktentabelle | `mart.fakt_<content>` | `mart_project.fakt_stunden` |
 | Metadata | `dss_*` | `dss_load_date`, `dss_record_source` |
 
 `dss_record_source = 'ewb_abacus'`
@@ -110,5 +114,31 @@ Jedes Modell muss in einer `_<layer>__models.yml` dokumentiert sein:
 |-------|-------|
 | Staging | `models/staging/_staging__models.yml` |
 | Raw Vault | `models/raw_vault/_common/_common__models.yml` |
+| Mart | `models/mart/<concept>/_<concept>__models.yml` |
 
-Nach jeder Modell-Änderung: ER-Diagramm in `design/raw-vault/_common/er-diagram.mmd` aktualisieren (→ `@design-documentation`).
+Nach jeder Modell-Änderung: ER-Diagramm aktualisieren (→ `@design-documentation`):
+- Raw Vault: `design/raw-vault/_common/er-diagram.mmd`
+- Mart: `design/mart/er-mart-<concept>.mmd`
+
+## Mart-Konventionen
+
+### Surrogate Key Macro
+```sql
+{{ surrogate_key('business_key_column') }} AS {dim}_key
+-- → ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(column AS NVARCHAR(MAX)))))
+```
+BIGINT, deterministisch, view-kompatibel. Fakt-FKs verwenden denselben Aufruf.
+
+### Dimension Pflicht-Spalten
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| `{dim}_key` | BIGINT | Surrogate Key via `surrogate_key()` |
+| `{dim}_id` | NVARCHAR(255) | Technische ID |
+| `{dim}_code` | NVARCHAR(255) | Sprechender Schluessel (Fallback = ID) |
+| `{dim}_name` | NVARCHAR(255) | Bezeichnung (Fallback = CODE / 'UNKNOWN') |
+| `dss_load_date` | DATETIME2 | Ladezeitpunkt |
+| `dss_record_source` | NVARCHAR(255) | Quelle |
+
+### Materialisierung
+- `materialized='view'` — Standard (Virtualisierung bevorzugt)
+- `materialized='table'` — Nur bei Performance-Bedarf

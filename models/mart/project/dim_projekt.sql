@@ -15,7 +15,7 @@
 ) }}
 
 SELECT
-    ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(hp.projnr AS NVARCHAR(MAX)))))     AS projekt_key,
+    {{ surrogate_key('hp.projnr') }}     AS projekt_key,
     CAST(hp.projnr AS NVARCHAR(255))                                         AS projekt_id,
     ISNULL(CAST(hp.projnr AS NVARCHAR(255)), 'UNKNOWN')                      AS projekt_code,
     ISNULL(sp.projname, ISNULL(CAST(hp.projnr AS NVARCHAR(255)), 'UNKNOWN')) AS projekt_name,

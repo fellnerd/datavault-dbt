@@ -132,3 +132,34 @@ src_source: "dss_record_source"
 {% set metadata_dict = fromyaml(yaml_metadata) %}
 {{ automate_dv.hub(...metadata_dict...) }}
 ```
+
+## Mart Layer — Dimensionale Modellierung
+
+### Surrogate Key Macro
+Mart-Dimensionen verwenden das `surrogate_key()` Macro für deterministische BIGINT Keys:
+```sql
+{{ surrogate_key('business_key_column') }} AS {dim}_key
+-- Generiert: ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(column AS NVARCHAR(MAX)))))
+```
+
+### Dimension Pflicht-Spalten
+```
+{dim}_key             -- Surrogate Key (PK), BIGINT, via surrogate_key() Macro
+{dim}_id              -- Technische ID, NVARCHAR(255)
+{dim}_code            -- Sprechender Schluessel, NVARCHAR(255), Fallback = ID
+{dim}_name            -- Bezeichnung, NVARCHAR(255), Fallback = CODE oder 'UNKNOWN'
+dss_load_date         -- Ladezeitpunkt, DATETIME2
+dss_record_source     -- Quellenidentifikation, NVARCHAR(255)
+```
+
+### Faktentabelle Pflicht-Spalten
+```
+{dim}_key             -- FK zur Dimension, BIGINT, via surrogate_key() (gleicher Aufruf!)
+<measures>            -- Fachliche Kennzahlen
+dss_load_date         -- Ladezeitpunkt, DATETIME2
+dss_record_source     -- Quellenidentifikation, NVARCHAR(255)
+```
+
+### Materialisierung
+- `materialized='view'` — Standard (Virtualisierung bevorzugt)
+- `materialized='table'` — Nur bei Performance-Problemen
