@@ -3,29 +3,20 @@
  * Schema: mart_project
  *
  * Leistungsarten (Service Types) fuer Projektsachkonten.
- * Abgeleitet aus ref_leistungsart (PROJ.NTR).
- *
- * Surrogate Key: LeistungsartNr (INT) = NTR.NUMBER
- *
- * Quell-Vault-Objekte:
- *   - ref_leistungsart (PROJ.NTR — 29 distinkte Leistungsarten)
- *
- * Beispiele: "Normalzeit", "Ueberzeit ohne Zuschlag", "Bezug Ferien"
- * Mart-Bezug: fakt_stunden.LeistungsartNr → dim_leistungsart.LeistungsartNr
+ * Abgeleitet aus ref_leistungsart (PROJ.NTR — 15 distinkte Leistungsarten).
  */
 
 {{ config(
-    materialized='table',
-    as_columnstore=false,
-    tags=['dimension'],
-    post_hook=[
-        "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_dim_leistungsart_pk' AND object_id = OBJECT_ID('{{ this }}')) CREATE NONCLUSTERED INDEX ix_dim_leistungsart_pk ON {{ this }} (LeistungsartNr)"
-    ]
+    materialized='view',
+    tags=['dimension']
 ) }}
 
 SELECT
-    CAST(ref_la.number AS INT)            AS LeistungsartNr,
-    ref_la.description                    AS Beschreibung,
-    ref_la.type                           AS Typ,
-    CAST(ref_la.inaktiv AS INT)           AS Inaktiv
+    ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(ref_la.number AS NVARCHAR(MAX))))) AS leistungsart_key,
+    CAST(ref_la.number AS NVARCHAR(255))                                              AS leistungsart_id,
+    ISNULL(CAST(ref_la.type AS NVARCHAR(255)), CAST(ref_la.number AS NVARCHAR(255)))  AS leistungsart_code,
+    ISNULL(ref_la.description, ISNULL(CAST(ref_la.type AS NVARCHAR(255)), 'UNKNOWN')) AS leistungsart_name,
+    CAST(ref_la.inaktiv AS INT)           AS inaktiv,
+    ref_la.dss_load_date,
+    ref_la.dss_record_source
 FROM {{ ref('ref_leistungsart') }} ref_la

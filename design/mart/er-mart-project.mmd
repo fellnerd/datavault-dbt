@@ -4,42 +4,52 @@ title: "EWB Mart Layer — Projekt-Domain Star Schema (mart_project)"
 erDiagram
     %% =====================================================================
     %% STAR SCHEMA — Projekt-Domain
-    %% Dimensionen (dim_*) mit INT Surrogate Keys
-    %% Faktentabellen (fakt_*) mit FK-Beziehungen zu Dimensionen
+    %% Pflicht-Spalten: {dim}_key, {dim}_id, {dim}_code, {dim}_name
+    %% Ghost Records: vorerst nicht implementiert
+    %% Materialisierung: view (Virtualisierung bevorzugt)
     %% =====================================================================
 
     dim_person {
-        int PersonalNr PK "Surrogate Key = EMPL_NR = LOHNNR"
-        nvarchar Name "sat_person_adresse.name"
-        nvarchar Vorname "sat_person_adresse.vorname"
-        nvarchar Initialen "sat_person.abrv"
-        int AbteilungNr "sat_person.home_dept_nr"
-        nvarchar Abteilung "ref_abteilung.description (GROUP=1)"
-        date MutationDate "sat_person.mutation_date"
-        date Eintritt "sat_person.date_in"
-        date Austritt "sat_person.date_out"
+        bigint person_key PK "SK = MD5(LOHNNR)"
+        nvarchar person_id "Technische ID"
+        nvarchar person_code "Initialen, Fallback PersonalNr"
+        nvarchar person_name "Nachname Vorname, Fallback UNKNOWN"
+        int abteilung_nr "sat_person.home_dept_nr"
+        nvarchar abteilung "ref_abteilung, Fallback UNKNOWN"
+        date mutation_date "Letzte Aenderung"
+        date eintritt "sat_person.date_in"
+        date austritt "sat_person.date_out"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
     }
 
     dim_projekt {
-        int ProjektNr PK "Surrogate Key = NPO.PROJNR"
-        nvarchar ProjektName "sat_projekt.projname"
-        int Inaktiv "sat_projekt.inaktiv"
-        int GruppeNr "sat_projekt.refprojnr"
-        date Erstellt "sat_projekt.creation"
-        int StatusNr "sat_projekt.status"
-        nvarchar Status "ref_projektstatus.bezeichn"
-        date StatusDatum "sat_projekt.status1"
+        bigint projekt_key PK "SK = MD5(PROJNR)"
+        nvarchar projekt_id "Technische ID"
+        nvarchar projekt_code "ProjektNr als String"
+        nvarchar projekt_name "Projektbezeichnung, Fallback UNKNOWN"
+        int inaktiv "0=aktiv 1=inaktiv"
+        int gruppe_nr "Referenz-Projektnummer"
+        date erstellt "Erstellungsdatum"
+        int status_nr "Status-Code"
+        nvarchar status "ref_projektstatus, Fallback UNKNOWN"
+        date status_datum "Letzte Statusaenderung"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
     }
 
     dim_leistungsart {
-        int LeistungsartNr PK "Surrogate Key = NTR.NUMBER"
-        nvarchar Beschreibung "ref_leistungsart.description"
-        nvarchar Typ "ref_leistungsart.type"
-        int Inaktiv "ref_leistungsart.inaktiv"
+        bigint leistungsart_key PK "SK = MD5(NUMBER)"
+        nvarchar leistungsart_id "Technische ID"
+        nvarchar leistungsart_code "Typ, Fallback NUMBER"
+        nvarchar leistungsart_name "Beschreibung, Fallback UNKNOWN"
+        int inaktiv "Inaktiv-Flag"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
     }
 
     dim_date {
-        int date_key PK "Surrogate Key YYYYMMDD"
+        int date_key PK "SK YYYYMMDD"
         date full_date "Natuerlicher Schluessel"
         int year "Jahr"
         int month "Monat"
@@ -48,21 +58,23 @@ erDiagram
     }
 
     fakt_stunden {
-        int ProjektNr FK "→ dim_projekt.ProjektNr"
-        int LeistungsartNr FK "→ dim_leistungsart.LeistungsartNr"
-        int DatumKey FK "→ dim_date.date_key"
-        decimal Betrag "sat_projektsachkonto.azbetint"
-        nvarchar GB "Geschaeftsbereich"
-        int Dataset "Abacus Dataset-Nr"
+        bigint projekt_key FK "dim_projekt"
+        bigint leistungsart_key FK "dim_leistungsart"
+        int datum_key FK "dim_date"
+        decimal betrag "sat_projektsachkonto.azbetint"
+        nvarchar gb "Geschaeftsbereich"
+        int dataset "Abacus Dataset-Nr"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
     }
 
     %% =====================================================================
     %% BEZIEHUNGEN (Star Schema)
     %% =====================================================================
 
-    fakt_stunden }o--|| dim_projekt : "ProjektNr"
-    fakt_stunden }o--|| dim_leistungsart : "LeistungsartNr"
-    fakt_stunden }o--|| dim_date : "DatumKey"
+    fakt_stunden }o--|| dim_projekt : "projekt_key"
+    fakt_stunden }o--|| dim_leistungsart : "leistungsart_key"
+    fakt_stunden }o--|| dim_date : "datum_key"
 
     %% dim_person ist eigenstaendig (kein FK von fakt_stunden)
     %% NSA hat keinen PersonalNr-Bezug
@@ -92,11 +104,7 @@ erDiagram
     %% KORREKTUREN gegenueber Synapse structured-tables:
     %%
     %% 1. fakt_stunden: NSA.PROJNR = ProjektNr (nicht PersonalNr)
-    %%    Synapse-Bug: PROJNR = LOHNNR (97.5% Datenverlust)
-    %%    DV-Korrektur: PROJNR = NPO.PROJNR via Link (97.5% Match)
-    %%
     %% 2. dim_projekt: Sharepoint-Anreicherung nicht verfuegbar
-    %%    (Kostenstellen, KategorisierungProjekte, ProjekteKategorien)
-    %%
     %% 3. dim_person: Initialen via dss_is_current statt alphabetisch
+    %% 4. Ghost Records: vorerst nicht implementiert
     %% =====================================================================

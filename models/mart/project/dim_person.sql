@@ -3,37 +3,29 @@
  * Schema: mart_project
  *
  * Mitarbeiterstammdaten mit Abteilungszuordnung.
- * Repliziert Synapse structured-tables [Projekt].[Personal] + [Projekt].[Abteilung].
- *
- * Surrogate Key: PersonalNr (INT) = ADR.LOHNNR = LEN.EMPL_NR
+ * Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
  *
  * Quell-Vault-Objekte:
- *   - hub_adresse + sat_person_adresse (Name, Vorname aus PUBL.ADR)
- *   - hub_person + sat_person (Initialen, Abteilung, Eintritt/Austritt aus LOHN.LEN)
- *   - link_adresse_person (ADR ↔ LEN via LOHNNR = EMPL_NR)
- *   - ref_abteilung (Abteilungsname, GROUP=1)
- *   - ewb_publ_adr_main (Staging: LOHNJN/GESPERRT Filter)
+ *   hub_adresse + sat_person_adresse, hub_person + sat_person,
+ *   link_adresse_person, ref_abteilung, ewb_publ_adr_main
  *
- * Business-Logik (aus Azure Pipeline / Synapse):
+ * Business-Logik:
  *   1. Nur aktive Mitarbeiter: LOHNJN='1', GESPERRT=0, LOHNNR<>0
- *   2. Initialen: aktueller Wert via dss_is_current='Y'
- *   3. Abteilung: Nur GROUP=1 (eigentliche Abteilungen)
- *   4. DISTINCT: Duplikate entfernen
+ *   2. Initialen via dss_is_current='Y'
+ *   3. Abteilung: Nur GROUP=1
+ *   4. Dedup: ROW_NUMBER nach MutationDate DESC
+ *
  */
 
 {{ config(
-    materialized='table',
-    as_columnstore=false,
-    tags=['dimension'],
-    post_hook=[
-        "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_dim_person_pk' AND object_id = OBJECT_ID('{{ this }}')) CREATE NONCLUSTERED INDEX ix_dim_person_pk ON {{ this }} (PersonalNr)"
-    ]
+    materialized='view',
+    tags=['dimension']
 ) }}
 
 WITH aktive_adressen AS (
     SELECT
         hk_adresse,
-        CAST(lohnnr AS INT) AS PersonalNr
+        ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(lohnnr AS NVARCHAR(MAX))))) AS person_key
     FROM {{ ref('ewb_publ_adr_main') }}
     WHERE lohnjn = '1'
       AND gesperrt = 0
@@ -41,7 +33,7 @@ WITH aktive_adressen AS (
 ),
 
 person_name AS (
-    SELECT hk_adresse, name, vorname
+    SELECT hk_adresse, name, vorname, dss_load_date, dss_record_source
     FROM {{ ref('sat_person_adresse') }}
     WHERE dss_is_current = 'Y'
 ),
@@ -60,17 +52,19 @@ person_details AS (
 
 joined AS (
     SELECT
-        aa.PersonalNr,
-        pn.name                              AS Name,
-        pn.vorname                           AS Vorname,
-        pd.abrv                              AS Initialen,
-        pd.home_dept_nr                      AS AbteilungNr,
-        ref_abt.description                  AS Abteilung,
-        pd.mutation_date                     AS MutationDate,
-        pd.date_in                           AS Eintritt,
-        pd.date_out                          AS Austritt,
+        aa.person_key,
+        pn.name,
+        pn.vorname,
+        pd.abrv,
+        pd.home_dept_nr,
+        ref_abt.description                  AS abteilung,
+        pd.mutation_date,
+        pd.date_in,
+        pd.date_out,
+        pn.dss_load_date,
+        pn.dss_record_source,
         ROW_NUMBER() OVER (
-            PARTITION BY aa.PersonalNr
+            PARTITION BY aa.person_key
             ORDER BY pd.mutation_date DESC, pn.name
         ) AS rn
     FROM aktive_adressen aa
@@ -86,14 +80,19 @@ joined AS (
 )
 
 SELECT
-    PersonalNr,
-    Name,
-    Vorname,
-    Initialen,
-    AbteilungNr,
-    Abteilung,
-    MutationDate,
-    Eintritt,
-    Austritt
+    person_key,
+    CAST(person_key AS NVARCHAR(255))                                       AS person_id,
+    ISNULL(abrv, CAST(person_key AS NVARCHAR(255)))                         AS person_code,
+    ISNULL(
+        NULLIF(CONCAT_WS(', ', name, vorname), ''),
+        ISNULL(abrv, 'UNKNOWN')
+    )                                                                        AS person_name,
+    CAST(home_dept_nr AS INT)                                                AS abteilung_nr,
+    ISNULL(abteilung, 'UNKNOWN')                                             AS abteilung,
+    mutation_date,
+    date_in                                                                  AS eintritt,
+    date_out                                                                 AS austritt,
+    dss_load_date,
+    dss_record_source
 FROM joined
 WHERE rn = 1

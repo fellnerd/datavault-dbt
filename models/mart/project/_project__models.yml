@@ -4,7 +4,7 @@ models:
   # =============================================================================
   # MART: PROJEKT-DOMAIN — Star Schema (mart_project)
   # Dimensionen (dim_*) + Faktentabellen (fakt_*)
-  # Repliziert Synapse structured-tables mit DV-Korrekturen
+  # Konvention: {dim}_key/_id/_code/_name, Ghost Records, dss-Metadata
   # =============================================================================
 
   # ---------------------------------------------------------------------------
@@ -15,107 +15,145 @@ models:
     description: |
       Mitarbeiterstammdaten mit Abteilungszuordnung.
       Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
-      Surrogate Key: PersonalNr (INT).
       Filter: Nur aktive Lohnempfaenger (LOHNJN=1, GESPERRT=0, LOHNNR<>0).
-      Abteilung als Attribut integriert (GROUP=1 aus ref_abteilung).
       Quelle: hub_adresse + sat_person_adresse + link_adresse_person
               + hub_person + sat_person + ref_abteilung.
     columns:
-      - name: PersonalNr
-        description: "Surrogate Key = Personalnummer (ADR.LOHNNR = LEN.EMPL_NR)"
-        data_type: int
+      - name: person_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', LOHNNR))"
+        data_type: bigint
         tests:
           - not_null
           - unique
-      - name: Name
-        description: "Nachname (sat_person_adresse.name)"
-        data_type: nvarchar(4000)
+      - name: person_id
+        description: "Technische ID (PersonalNr als String)"
+        data_type: nvarchar(255)
         tests:
           - not_null
-      - name: Vorname
-        description: "Vorname (sat_person_adresse.vorname)"
-        data_type: nvarchar(4000)
+      - name: person_code
+        description: "Sprechender Schluessel (Initialen, Fallback: PersonalNr)"
+        data_type: nvarchar(255)
         tests:
           - not_null
-      - name: Initialen
-        description: "Kuerzel (sat_person.abrv, aktueller Wert via dss_is_current)"
-        data_type: nvarchar(4000)
-      - name: AbteilungNr
+      - name: person_name
+        description: "Bekannte Bezeichnung (Nachname, Vorname). NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: abteilung_nr
         description: "Abteilungsnummer (sat_person.home_dept_nr)"
         data_type: int
-      - name: Abteilung
-        description: "Abteilungsbezeichnung (ref_abteilung.description, GROUP=1)"
+      - name: abteilung
+        description: "Abteilungsbezeichnung (ref_abteilung.description, GROUP=1). NULL → 'UNKNOWN'"
         data_type: nvarchar(4000)
-      - name: MutationDate
-        description: "Letzte Aenderung der Zuordnung (sat_person.mutation_date)"
+        tests:
+          - not_null
+      - name: mutation_date
+        description: "Letzte Aenderung (sat_person.mutation_date)"
         data_type: date
-      - name: Eintritt
+      - name: eintritt
         description: "Eintrittsdatum (sat_person.date_in)"
         data_type: date
-      - name: Austritt
+      - name: austritt
         description: "Austrittsdatum (sat_person.date_out, NULL = noch aktiv)"
         data_type: date
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation (ghost_record fuer Ghost)"
+        data_type: nvarchar(255)
 
   - name: dim_projekt
     description: |
       Projektstammdaten mit Status-Aufloesung.
       Repliziert Synapse [Projekt].[Projekt].
-      Surrogate Key: ProjektNr (INT).
-      Ohne Sharepoint-Anreicherung (Kostenstellen, Kategorien).
       Quelle: hub_projekt + sat_projekt + ref_projektstatus.
     columns:
-      - name: ProjektNr
-        description: "Surrogate Key = Projektnummer (NPO.PROJNR)"
-        data_type: int
+      - name: projekt_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', PROJNR))"
+        data_type: bigint
         tests:
           - not_null
           - unique
-      - name: ProjektName
-        description: "Projektbezeichnung (sat_projekt.projname)"
-        data_type: nvarchar(4000)
-      - name: Inaktiv
+      - name: projekt_id
+        description: "Technische ID (ProjektNr als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: projekt_code
+        description: "Sprechender Schluessel (ProjektNr). NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: projekt_name
+        description: "Projektbezeichnung. NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: inaktiv
         description: "Inaktiv-Flag (0=aktiv, 1=inaktiv)"
         data_type: int
-      - name: GruppeNr
+      - name: gruppe_nr
         description: "Referenz-Projektnummer / Gruppe (sat_projekt.refprojnr)"
         data_type: int
-      - name: Erstellt
+      - name: erstellt
         description: "Erstellungsdatum (sat_projekt.creation)"
         data_type: date
-      - name: StatusNr
+      - name: status_nr
         description: "Status-Code (sat_projekt.status → ref_projektstatus)"
         data_type: int
-      - name: Status
-        description: "Status-Bezeichnung (ref_projektstatus.bezeichn)"
+      - name: status
+        description: "Status-Bezeichnung (ref_projektstatus.bezeichn). NULL → 'UNKNOWN'"
         data_type: nvarchar(4000)
-      - name: StatusDatum
+        tests:
+          - not_null
+      - name: status_datum
         description: "Datum der letzten Statusaenderung (sat_projekt.status1)"
         data_type: date
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
 
   - name: dim_leistungsart
     description: |
       Leistungsarten (Service Types) fuer Projektsachkonten.
-      Surrogate Key: LeistungsartNr (INT).
-      29 distinkte Leistungsarten (z.B. Normalzeit, Ueberzeit, Ferien).
+      15 distinkte Leistungsarten (z.B. Normalzeit, Ueberzeit, Ferien).
       Quelle: ref_leistungsart (PROJ.NTR).
     columns:
-      - name: LeistungsartNr
-        description: "Surrogate Key = NTR.NUMBER"
-        data_type: int
+      - name: leistungsart_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', NUMBER))"
+        data_type: bigint
         tests:
           - not_null
           - unique
-      - name: Beschreibung
-        description: "Leistungsart-Bezeichnung (z.B. Normalzeit)"
-        data_type: nvarchar(4000)
+      - name: leistungsart_id
+        description: "Technische ID (NUMBER als String)"
+        data_type: nvarchar(255)
         tests:
           - not_null
-      - name: Typ
-        description: "Leistungsart-Typ (ref_leistungsart.type)"
-        data_type: nvarchar(4000)
-      - name: Inaktiv
+      - name: leistungsart_code
+        description: "Sprechender Schluessel (type, Fallback: NUMBER)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: leistungsart_name
+        description: "Bezeichnung. NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: inaktiv
         description: "Inaktiv-Flag (ref_leistungsart.inaktiv)"
         data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
 
   # ---------------------------------------------------------------------------
   # FAKTENTABELLEN
@@ -127,30 +165,29 @@ models:
       Repliziert Synapse [Projekt].[Stunden] mit KORREKTUR:
       NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse fehlerhaft).
       Granularitaet: 1 Zeile = 1 Projektsachkonto-Buchung.
-      Filter: AZBETINT <> 0 (nur Eintraege mit Betrag).
-      FK-Beziehungen: ProjektNr → dim_projekt, LeistungsartNr → dim_leistungsart, DatumKey → dim_date.
+      Filter: AZBETINT <> 0.
       Quelle: hub_projektsachkonto + sat_projektsachkonto
               + link_projektsachkonto_projekt + hub_projekt.
     columns:
-      - name: ProjektNr
-        description: "FK → dim_projekt.ProjektNr (KORRIGIERT: NSA.PROJNR = ProjektNr)"
-        data_type: int
+      - name: projekt_key
+        description: "FK → dim_projekt.projekt_key"
+        data_type: bigint
         tests:
           - not_null
           - relationships:
               to: ref('dim_projekt')
-              field: ProjektNr
-      - name: LeistungsartNr
-        description: "FK → dim_leistungsart.LeistungsartNr (NSA.CODE — nur Teilmatch, da CODE = Sachkonto)"
-        data_type: int
+              field: projekt_key
+      - name: leistungsart_key
+        description: "FK → dim_leistungsart.leistungsart_key"
+        data_type: bigint
         tests:
           - not_null
           - relationships:
               to: ref('dim_leistungsart')
-              field: LeistungsartNr
+              field: leistungsart_key
               config:
                 severity: warn
-      - name: DatumKey
+      - name: datum_key
         description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH)"
         data_type: int
         tests:
@@ -160,14 +197,20 @@ models:
               field: date_key
               config:
                 severity: warn
-      - name: Betrag
+      - name: betrag
         description: "Ist-Betrag intern (sat_projektsachkonto.azbetint, <> 0)"
         data_type: decimal(38,18)
         tests:
           - not_null
-      - name: GB
+      - name: gb
         description: "Geschaeftsbereich (hub_projektsachkonto.gb)"
         data_type: nvarchar(4000)
-      - name: Dataset
+      - name: dataset
         description: "Abacus Dataset-Nummer (hub_projektsachkonto.dataset)"
         data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)

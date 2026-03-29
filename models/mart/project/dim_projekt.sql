@@ -3,42 +3,30 @@
  * Schema: mart_project
  *
  * Projektstammdaten mit Status-Aufloesung.
- * Repliziert Synapse structured-table [Projekt].[Projekt].
- *
- * Surrogate Key: ProjektNr (INT) = NPO.PROJNR
+ * Repliziert Synapse [Projekt].[Projekt].
  *
  * Quell-Vault-Objekte:
- *   - hub_projekt + sat_projekt (PROJ.NPO — Stammdaten)
- *   - ref_projektstatus (PROJ.PST — Status-Aufloesung)
- *
- * Business-Logik (aus Azure Pipeline / Synapse):
- *   1. Alle Projekte (aktiv + inaktiv)
- *   2. Status-Aufloesung: NPO.STATUS → PST.STATUS/BEZEICHN
- *      (PST Dedup durch DATASET=2 Filter in Staging sichergestellt)
- *
- * Nicht implementiert (out of scope):
- *   - Sharepoint-Anreicherung: Kostenstellen (GruppeName),
- *     KategorisierungProjekte + ProjekteKategorien (HauptgruppeName)
+ *   hub_projekt + sat_projekt (PROJ.NPO), ref_projektstatus (PROJ.PST)
  */
 
 {{ config(
-    materialized='table',
-    as_columnstore=false,
-    tags=['dimension'],
-    post_hook=[
-        "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'ix_dim_projekt_pk' AND object_id = OBJECT_ID('{{ this }}')) CREATE NONCLUSTERED INDEX ix_dim_projekt_pk ON {{ this }} (ProjektNr)"
-    ]
+    materialized='view',
+    tags=['dimension']
 ) }}
 
 SELECT
-    CAST(hp.projnr AS INT)               AS ProjektNr,
-    sp.projname                           AS ProjektName,
-    CAST(sp.inaktiv AS INT)               AS Inaktiv,
-    CAST(sp.refprojnr AS INT)             AS GruppeNr,
-    TRY_CAST(sp.creation AS DATE)         AS Erstellt,
-    CAST(sp.status AS INT)                AS StatusNr,
-    ref_ps.bezeichn                       AS Status,
-    TRY_CAST(sp.status1 AS DATE)          AS StatusDatum
+    ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(hp.projnr AS NVARCHAR(MAX)))))     AS projekt_key,
+    CAST(hp.projnr AS NVARCHAR(255))                                         AS projekt_id,
+    ISNULL(CAST(hp.projnr AS NVARCHAR(255)), 'UNKNOWN')                      AS projekt_code,
+    ISNULL(sp.projname, ISNULL(CAST(hp.projnr AS NVARCHAR(255)), 'UNKNOWN')) AS projekt_name,
+    CAST(sp.inaktiv AS INT)               AS inaktiv,
+    CAST(sp.refprojnr AS INT)             AS gruppe_nr,
+    TRY_CAST(sp.creation AS DATE)         AS erstellt,
+    CAST(sp.status AS INT)                AS status_nr,
+    ISNULL(ref_ps.bezeichn, 'UNKNOWN')    AS status,
+    TRY_CAST(sp.status1 AS DATE)          AS status_datum,
+    sp.dss_load_date,
+    sp.dss_record_source
 FROM {{ ref('hub_projekt') }} hp
 INNER JOIN {{ ref('sat_projekt') }} sp
     ON hp.hk_projekt = sp.hk_projekt
