@@ -1,0 +1,86 @@
+name: Setup dbt Environment
+description: Install Python, dbt-sqlserver, Azure CLI login, and create profiles.yml
+
+inputs:
+  azure_client_id:
+    required: true
+  azure_client_secret:
+    required: true
+  azure_tenant_id:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: pip-dbt-sqlserver-${{ runner.os }}-1.8
+        restore-keys: pip-dbt-sqlserver-${{ runner.os }}-
+
+    - name: Install dbt-sqlserver
+      shell: bash
+      run: pip install --quiet dbt-sqlserver==1.8.3
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: >-
+          {
+            "clientId": "${{ inputs.azure_client_id }}",
+            "clientSecret": "${{ inputs.azure_client_secret }}",
+            "tenantId": "${{ inputs.azure_tenant_id }}",
+            "subscriptionId": "518a5277-e3f1-408f-aefc-e11931898d67"
+          }
+
+    - name: Create profiles.yml
+      shell: bash
+      run: |
+        mkdir -p "${{ github.workspace }}"
+        cat > "${{ github.workspace }}/profiles.yml" << 'EOF'
+        datavault:
+          target: ewb-dev
+          outputs:
+            ewb-dev:
+              type: sqlserver
+              driver: 'ODBC Driver 18 for SQL Server'
+              server: sql-analytics-ewb-001.database.windows.net
+              port: 1433
+              database: datavault-dev
+              schema: dv
+              authentication: cli
+              encrypt: true
+              trust_cert: false
+            ewb-test:
+              type: sqlserver
+              driver: 'ODBC Driver 18 for SQL Server'
+              server: sql-analytics-ewb-001.database.windows.net
+              port: 1433
+              database: datavault-test
+              schema: dv
+              authentication: cli
+              encrypt: true
+              trust_cert: false
+            ewb:
+              type: sqlserver
+              driver: 'ODBC Driver 18 for SQL Server'
+              server: sql-analytics-ewb-001.database.windows.net
+              port: 1433
+              database: datavault
+              schema: dv
+              authentication: cli
+              encrypt: true
+              trust_cert: false
+        EOF
+
+    - name: Install dbt packages
+      shell: bash
+      run: dbt deps
+      env:
+        DBT_PROFILES_DIR: ${{ github.workspace }}

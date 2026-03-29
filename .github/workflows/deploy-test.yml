@@ -1,8 +1,8 @@
-name: Deploy to Development
+name: Deploy to Test
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
     paths:
       - 'models/**'
       - 'macros/**'
@@ -33,10 +33,10 @@ env:
   DBT_PROFILES_DIR: ${{ github.workspace }}
 
 jobs:
-  deploy-dev:
-    name: Deploy → ewb-dev (datavault-dev)
+  deploy-test:
+    name: Deploy → ewb-test (datavault-test)
     runs-on: [self-hosted, linux, dbt, aca]
-    environment: development
+    environment: test
 
     steps:
       - name: Checkout code
@@ -51,16 +51,16 @@ jobs:
 
       - name: Stage external sources
         if: ${{ github.event_name == 'push' || inputs.run_stage_external }}
-        run: dbt run-operation stage_external_sources --target ewb-dev
+        run: dbt run-operation stage_external_sources --target ewb-test
 
       - name: dbt run
         if: ${{ github.event_name == 'push' || inputs.run_dbt_run }}
         run: |
           SELECT="${{ inputs.select }}"
           if [ -n "$SELECT" ]; then
-            dbt run --target ewb-dev --select "$SELECT"
+            dbt run --target ewb-test --select "$SELECT"
           else
-            dbt run --target ewb-dev
+            dbt run --target ewb-test
           fi
 
       - name: dbt test
@@ -68,18 +68,18 @@ jobs:
         run: |
           SELECT="${{ inputs.select }}"
           if [ -n "$SELECT" ]; then
-            dbt test --target ewb-dev --select "$SELECT"
+            dbt test --target ewb-test --select "$SELECT"
           else
-            dbt test --target ewb-dev
+            dbt test --target ewb-test
           fi
 
       - name: Deployment Summary
         if: always()
         run: |
-          echo "## 🛠️ Deploy → ewb-dev" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧪 Deploy → ewb-test" >> $GITHUB_STEP_SUMMARY
           echo "| | |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Target** | ewb-dev (datavault-dev) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target** | ewb-test (datavault-test) |" >> $GITHUB_STEP_SUMMARY
           echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY

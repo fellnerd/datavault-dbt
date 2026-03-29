@@ -6,102 +6,75 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      target:
-        description: 'Production target to deploy'
-        required: true
-        default: 'jira'
-        type: choice
-        options:
-          - jira
-          - ewb
+      run_stage_external:
+        description: 'External Tables aktualisieren (stage_external_sources)'
+        type: boolean
+        default: true
+      run_dbt_run:
+        description: 'dbt run ausführen'
+        type: boolean
+        default: true
+      run_dbt_test:
+        description: 'dbt test ausführen'
+        type: boolean
+        default: true
+      select:
+        description: 'dbt --select Filter (leer = alle Modelle)'
+        type: string
+        default: ''
 
 env:
   DBT_PROFILES_DIR: ${{ github.workspace }}
 
 jobs:
   deploy-prod:
-    name: Deploy to Production
-    runs-on: [self-hosted, linux, dbt]
+    name: Deploy → ewb (datavault)
+    runs-on: [self-hosted, linux, dbt, aca]
     environment: production
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup dbt
+        uses: ./.github/actions/setup-dbt
         with:
-          python-version: '3.11'
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_client_secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
 
-      - name: Install dependencies
+      - name: Stage external sources
+        if: ${{ github.event_name == 'push' || inputs.run_stage_external }}
+        run: dbt run-operation stage_external_sources --target ewb
+
+      - name: dbt run
+        if: ${{ github.event_name == 'push' || inputs.run_dbt_run }}
         run: |
-          python -m pip install --upgrade pip
-          pip install dbt-sqlserver
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: |
-            {
-              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
-              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
-              "tenantId": "${{ secrets.AZURE_TENANT_ID }}",
-              "subscriptionId": "518a5277-e3f1-408f-aefc-e11931898d67"
-            }
-
-      - name: Determine target
-        id: target
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "target=${{ inputs.target }}" >> $GITHUB_OUTPUT
+          SELECT="${{ inputs.select }}"
+          if [ -n "$SELECT" ]; then
+            dbt run --target ewb --select "$SELECT"
           else
-            echo "target=jira" >> $GITHUB_OUTPUT
+            dbt run --target ewb
           fi
 
-      - name: Create profiles.yml
+      - name: dbt test
+        if: ${{ github.event_name == 'push' || inputs.run_dbt_test }}
         run: |
-          mkdir -p $DBT_PROFILES_DIR
-          cat > $DBT_PROFILES_DIR/profiles.yml << 'EOF'
-          datavault:
-            target: jira
-            outputs:
-              jira:
-                type: sqlserver
-                driver: 'ODBC Driver 18 for SQL Server'
-                server: sql-datavault-weu-001.database.windows.net
-                port: 1433
-                database: Vault_Jira
-                schema: dv
-                authentication: cli
-                encrypt: true
-                trust_cert: false
-              ewb:
-                type: sqlserver
-                driver: 'ODBC Driver 18 for SQL Server'
-                server: sql-datavault-weu-001.database.windows.net
-                port: 1433
-                database: Vault_EWB
-                schema: dv
-                authentication: cli
-                encrypt: true
-                trust_cert: false
-          EOF
+          SELECT="${{ inputs.select }}"
+          if [ -n "$SELECT" ]; then
+            dbt test --target ewb --select "$SELECT"
+          else
+            dbt test --target ewb
+          fi
 
-      - name: Install dbt packages
-        run: dbt deps
-
-      - name: Run dbt models
-        run: dbt run --target ${{ steps.target.outputs.target }}
-
-      - name: Run dbt tests
-        run: dbt test --target ${{ steps.target.outputs.target }}
-
-      - name: Generate deployment summary
+      - name: Deployment Summary
         if: always()
         run: |
-          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target:** ${{ steps.target.outputs.target }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag/Ref:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Deploy → ewb (Production)" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target** | ewb (datavault) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Tag/Ref** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Select** | \`${{ inputs.select || '(alle)' }}\` |" >> $GITHUB_STEP_SUMMARY
