@@ -1,0 +1,167 @@
+{
+  "concept": "_common",
+  "entityName": "kred_buchungsstatus",
+  "sourceTable": "ext_ewb_kred_kbs_main",
+  "sourceModel": "ewb_kred_kbs_main",
+  "sourceType": "external_table",
+  "columns": [
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "DB",
+      "sourceName": "DB",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "STATID",
+      "sourceName": "STATID",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "STATDEF",
+      "sourceName": "STATDEF",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SWINAKT",
+      "sourceName": "SWINAKT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SWVORS",
+      "sourceName": "SWVORS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SWNOBLVAL",
+      "sourceName": "SWNOBLVAL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SWNOPSVAL",
+      "sourceName": "SWNOPSVAL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "MUTDAT",
+      "sourceName": "MUTDAT",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "USER_F",
+      "sourceName": "USER_F",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VERSION",
+      "sourceName": "VERSION",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SWPBLDEL",
+      "sourceName": "SWPBLDEL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "timestamp_landing-zone",
+      "sourceName": "timestamp_landing-zone",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2025-07-22T10:00:00.000Z",
+  "generatedObjects": ["reference"]
+}

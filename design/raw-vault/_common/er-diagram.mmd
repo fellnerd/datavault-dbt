@@ -1,8 +1,10 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
-    %% Stand: 2026-03-29 | Hubs: 10 (+1 impl.) | Sats: 11 (+1 impl.) | Links: 11 | Refs: 3
+    %% Stand: 2026-03-30 | Hubs: 12 (+2 impl.) | Sats: 13 (+2 impl.) | Links: 11 (+2 impl.) | Refs: 3
     %% + Project Domain: hub_projektsachkonto, sat_projektsachkonto__abacus, link_projektsachkonto_projekt, ref_leistungsart, ref_projektstatus
+    %% + Finance Domain: hub_kreditorenbeleg, sat_kreditorenbeleg__abacus, hub_kreditor (Ghost Hub), sat_kreditor__abacus
+    %% + Wave 2 Links: link_kreditorenbeleg_kreditor, link_hauptbuch_buchungskopf
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
@@ -12,10 +14,25 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    HUB_HAUPTBUCH { char64 hk PK }
-    HUB_KREDITORENBELEG { char64 hk PK }
+    HUB_HAUPTBUCH {
+        char64 hk_hauptbuch PK "computed"
+        decimal recnum "ext_ewb_fibu_gl.RECNUM (BK)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_KREDITORENBELEG {
+        char64 hk_kreditorenbeleg PK "computed"
+        decimal belnr "ext_ewb_kred_kbl_main.BELNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     HUB_ZAHLUNG { char64 hk PK }
-    HUB_KREDITOR { char64 hk PK }
+    HUB_KREDITOR {
+        char64 hk_kreditor PK "computed — Ghost Hub"
+        decimal knr "ext_ewb_kred_kbl_main.KNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     HUB_KONTO { char64 hk PK "ghost" }
     HUB_KOSTENSTELLE { char64 hk PK "ghost" }
     SAT_BUCHUNGSKOPF {
@@ -43,10 +60,68 @@ erDiagram
         char1 dss_is_current "computed"
         datetime2 dss_end_date "computed"
     }
-    SAT_HAUPTBUCH { char64 hk FK }
-    SAT_KREDITORENBELEG { char64 hk FK }
+    SAT_HAUPTBUCH__ABACUS {
+        char64 hk_hauptbuch FK "computed"
+        char64 hd_hauptbuch "computed"
+        datetime2 date "DATE (reserved)"
+        nvarchar belnr "BELNR"
+        nvarchar sh "SH — Soll/Haben"
+        decimal betrag "BETRAG"
+        decimal gkto "GKTO — Gegenkonto"
+        decimal kst "KST — Kostenstelle"
+        decimal kst2 "KST2 — Gegenbuchung KST"
+        nvarchar waehr "WAEHR — Währung"
+        decimal mwstbetr "MWSTBETR — MWST-Betrag"
+        decimal mwsttyp "MWSTTYP"
+        nvarchar mwstcode "MWSTCODE"
+        nvarchar mwstincl "MWSTINCL"
+        decimal mwstsatz "MWSTSATZ"
+        nvarchar text "TEXT (reserved)"
+        nvarchar text2 "TEXT2"
+        decimal dkkundennummer "DKKUNDENNUMMER — FK Kreditor"
+        decimal proj "PROJ — FK Projekt"
+        nvarchar sam "SAM — Sammelbuchung"
+        varchar ___ "... +158 weitere Spalten (178 total)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    SAT_KREDITORENBELEG__ABACUS {
+        char64 hk_kreditorenbeleg FK "computed"
+        char64 hd_kreditorenbeleg "computed"
+        nvarchar belart "BELART"
+        decimal beldef "BELDEF"
+        nvarchar belref "BELREF"
+        datetime2 fbeldat "FBELDAT"
+        datetime2 kbeldat "KBELDAT"
+        decimal bwbtr "BWBTR — Belegwährungsbetrag"
+        decimal lwbtr "LWBTR — Leitwährungsbetrag"
+        nvarchar bwwrc "BWWRC — Belegwährungscode"
+        decimal gf "GF — Geschäftsfeld"
+        nvarchar statid "STATID"
+        decimal projekt "PROJEKT"
+        decimal kst1 "KST1 — Kostenstelle"
+        nvarchar adrid "ADRID — Adress-ID"
+        nvarchar erfuser "ERFUSER"
+        datetime2 erfdat "ERFDAT"
+        datetime2 mutdat "MUTDAT"
+        varchar ___ "... +99 weitere Spalten (116 total)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
     SAT_ZAHLUNG { char64 hk FK }
-    SAT_KREDITOR { char64 hk FK }
+    SAT_KREDITOR__ABACUS {
+        char64 hk_kreditor FK "computed"
+        char64 hd_kreditor "computed"
+        nvarchar adrid "ADRID — Adress-ID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
 
     %% === PROJECT ===
     HUB_PROJEKT { char64 hk PK }
@@ -147,21 +222,33 @@ erDiagram
 
     %% === LINKS ===
     LINK_BUCHUNGSKOPF_KREDITORENBELEG { char64 hk PK }
-    LINK_HAUPTBUCH_BUCHUNGSKOPF { char64 hk PK }
+    LINK_HAUPTBUCH_BUCHUNGSKOPF {
+        char64 hk_link_hauptbuch_buchungskopf PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_buchungskopf FK "hub_buchungskopf"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_HAUPTBUCH_PROJEKT { char64 hk PK }
     LINK_HAUPTBUCH_KREDITOR { char64 hk PK }
     LINK_HAUPTBUCH_KONTO { char64 hk PK }
     LINK_HAUPTBUCH_KOSTENSTELLE { char64 hk PK }
-    LINK_KREDITORENBELEG_KREDITOR { char64 hk PK }
+    LINK_KREDITORENBELEG_KREDITOR {
+        char64 hk_link_kreditorenbeleg_kreditor PK "computed"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hk_kreditor FK "hub_kreditor"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_KREDITORENBELEG_ZAHLUNG { char64 hk PK }
     LINK_PERSON_ADRESSE { char64 hk PK }
 
     %% Hub → Satellite
     HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF : has
-    HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH : has
-    HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG : has
+    HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH__ABACUS : has
+    HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG__ABACUS : has
     HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG : has
-    HUB_KREDITOR ||--o{ SAT_KREDITOR : has
+    HUB_KREDITOR ||--o{ SAT_KREDITOR__ABACUS : has
     HUB_PROJEKT ||--o{ SAT_PROJEKT : has
     HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
     HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has

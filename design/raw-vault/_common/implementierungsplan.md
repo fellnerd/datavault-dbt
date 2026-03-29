@@ -1,6 +1,6 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 29. März 2026  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 30. März 2026  
 **Agenten:** synapse-validator + vault-architect + db-monitor + staging-engineer  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects)
 
@@ -50,10 +50,10 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | Hub | Business Key | Abacus-Spalte | Staging-Quelle | Hash Key | Priorität |
 |---|---|---|---|---|---|
 | `hub_buchungskopf` | Buchungsnummer | `RECNUM` | `ewb_fibu_fhe_main` | `hk_buchungskopf` | P1 |
-| `hub_hauptbuch` | Belegnr + Konto ¹ | `DKBELEGNUMMER\|\|KTO` | `ewb_fibu_gl_e2x` | `hk_hauptbuch` | P1 |
-| `hub_kreditorenbeleg` | Belegnummer | `BELEGNR` | `ewb_kred_kbl_main` | `hk_kreditorenbeleg` | P2 |
+| `hub_hauptbuch` | RECNUM ² | `RECNUM` | `ewb_fibu_gl` | `hk_hauptbuch` | P1 |
+| `hub_kreditorenbeleg` | Belegnummer | `BELNR` | `ewb_kred_kbl_main` | `hk_kreditorenbeleg` | P2 ✅ |
 | `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_zahlung` | P3 |
-| `hub_kreditor` | Kreditoren-Nr | `KNR` | `ewb_kred_kbl_main` (Ghost Hub) | `hk_kreditor` | P2 |
+| `hub_kreditor` | Kreditoren-Nr | `KNR` | `ewb_kred_kbl_main` (Ghost Hub) | `hk_kreditor` | P2 ✅ |
 | `hub_adresse` | Adressnummer | `INR` | `ewb_publ_adr_main` | `hk_adresse` | P1 |
 | `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_projekt` | P1 |
 | ~~`hub_projekttaetigkeit`~~ | ~~Projekt + Positionsnr~~ | ~~`PRONR\|\|POSNR`~~ | ~~`ewb_proj_ntc_main`~~ | — | ~~P3~~ |
@@ -62,6 +62,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `hub_person` | Personalnummer | `EMPL_NR` | `ewb_lohn_len_main` | `hk_person` | P1 |
 
 > ¹ Klärungsbedarf → Offene Frage F1 — **GELÖST**: Composite BK `DKBELEGNUMMER||KTO` bestätigt  
+> ² **BK-Korrektur (29.3.2026):** `DKBELEGNUMMER||KTO` war NICHT unique (62% Nullen, bis zu 96 Duplikate). `RECNUM` ist der einzig unique Identifier auf Zeilenebene. Staging-Quelle von `ewb_fibu_gl_e2x` auf `ewb_fibu_gl` geändert (Folder-Scan aller Jahresscheiben).
 > ⁴ **Korrigiert (14.3.2026, erweitert 29.3.2026):** `PROJNR` in NSA = **ProjektNr** (97.5% Match zu NPO.PROJNR, datenbestätigt). DATASET ist fachlich relevant (10 Datasets mit unterschiedlichen Beträgen) und wurde am 29.3. zum Composite BK hinzugefügt. BK-Semantik: `ProjektNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich||Dataset`.  
 > ⁸ **NEU (14.3.2026):** NTC ist **Zeitstempelung** (Stempeluhr), nicht Projekttätigkeiten. Tatsächliche Spalten: `RECNUM, DATASET, EMPLNR, PROJDAT, FROM1-TO10, ANZAHL`. Es gibt KEINE Spalten `PRONR` oder `POSNR`. Ein Eintrag = ein Arbeitstag pro Mitarbeiter mit bis zu 10 Zeitintervallen.
 
@@ -82,10 +83,10 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | Satellite | Hub | Typ | Hauptpayload | Staging-Quelle | Priorität |
 |---|---|---|---|---|---|
 | `sat_buchungskopf` | `hub_buchungskopf` | STD | PLAN, LEVEL, VARIANTE, TYP, REF_ID | `ewb_fibu_fhe_main` | P1 |
-| `sat_hauptbuch` | `hub_hauptbuch` | STD | DATE, SH, SAM, BETRAG, GKTO, KST, KST2, WAEHR, MWSTBETR, MWSTTYP, MWSTCODE, MWSTINCL, MWSTSATZ, TEXT, TEXT2, DKKUNDENNUMMER, PROJEBENE | `ewb_fibu_gl_e2x` | P2 |
-| `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | KNR, ADRID, Umschreibung3, Betrag, Belegdatum | `ewb_kred_kbl_main` | P2 |
+| `sat_hauptbuch` | `hub_hauptbuch` | STD | **178 Spalten** — DATE, SH, SAM, BETRAG, GKTO, KST, KST2, WAEHR, MWSTBETR, MWSTTYP, MWSTCODE, MWSTINCL, MWSTSATZ, TEXT, TEXT2, DKKUNDENNUMMER, PROJ, ... | `ewb_fibu_gl` | P2 |
+| `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | 116 Spalten — Beleg, Finanzen, Skonto, Kreditor, Projekt, Währung, Status, Datum, Audit | `ewb_kred_kbl_main` | P2 ✅ |
 | `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 |
-| `sat_kreditor` | `hub_kreditor` | STD | ADRID (Kundenname/Adress-ID) | `ewb_kred_kbl_main` (Ghost Hub) | P2 |
+| `sat_kreditor` | `hub_kreditor` | STD | ADRID (Kundenname/Adress-ID) | `ewb_kred_kbl_main` (Ghost Hub) | P2 ✅ |
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
 | ~~`sat_projekt_status`~~ | — | — | — | — | — | → **Entfällt:** PST = 7 stabile Lookup-Werte → nur `ref_projektstatus` |
 | `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
@@ -107,13 +108,13 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 | Link | Beteiligte Hubs | DC-Sat | Staging-Quelle | Priorität |
 |---|---|---|---|---|
-| `link_buchungskopf_kreditorenbeleg` | `hub_buchungskopf` ↔ `hub_kreditorenbeleg` | Nein | `ewb_fibu_fhe_main` | P2 |
-| `link_hauptbuch_buchungskopf` | `hub_hauptbuch` ↔ `hub_buchungskopf` | Nein | `ewb_fibu_gl_e2x` | P2 |
-| `link_hauptbuch_projekt` | `hub_hauptbuch` ↔ `hub_projekt` | Nein | `ewb_fibu_gl_e2x` | P3 |
-| `link_hauptbuch_kreditor` | `hub_hauptbuch` ↔ `hub_kreditor` | Nein | `ewb_fibu_gl_e2x` | P3 |
-| `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl_e2x` | P3 |
-| `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl_e2x` | P3 |
-| `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 |
+| `link_buchungskopf_kreditorenbeleg` | `hub_buchungskopf` ↔ `hub_kreditorenbeleg` | Nein | `ewb_fibu_fhe_main` | P2 ⚠️ BLOCKED |
+| `link_hauptbuch_buchungskopf` | `hub_hauptbuch` ↔ `hub_buchungskopf` | Nein | `ewb_fibu_gl` | P2 ✅ |
+| `link_hauptbuch_projekt` | `hub_hauptbuch` ↔ `hub_projekt` | Nein | `ewb_fibu_gl` | P3 |
+| `link_hauptbuch_kreditor` | `hub_hauptbuch` ↔ `hub_kreditor` | Nein | `ewb_fibu_gl` | P3 |
+| `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl` | P3 |
+| `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl` | P3 |
+| `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 ✅ |
 | `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 |
 | `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
 | `link_zeiterfassung_person` ¹⁰ | `hub_zeiterfassung` ↔ `hub_person` | Nein | `ewb_proj_ntc_main` | P3 |
@@ -157,18 +158,25 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 ### Wave 2 — Transaktionsobjekte
 
-**Voraussetzung:** Wave 1 deployed (F1 gelöst ✅ — Composite BK `DKBELEGNUMMER||KTO` bestätigt)
+**Voraussetzung:** Wave 1 deployed (F1 gelöst ✅ — BK korrigiert: RECNUM statt DKBELEGNUMMER||KTO)
 
 **Staging:**
 - `ewb_fibu_fhe_main` (bereits vorhanden ✅)
+- `ewb_fibu_gl` ✅ (Folder-Scan aller Jahresscheiben E22-E26+)
 - `ewb_kred_kbl_main`
 - `ewb_kred_kbs_main` (Status-Konfiguration → `ref_kred_buchungsstatus`)
-- `ewb_fibu_gl_e22` bis `ewb_fibu_gl_e26` (Union oder 5 Views)
 
 **Raw Vault:**
-- Hubs: `hub_buchungskopf` ✅, `hub_hauptbuch`, `hub_kreditorenbeleg`, `hub_kreditor` (Ghost Hub aus KBL.KNR)
-- Sats: `sat_buchungskopf` ✅, `sat_hauptbuch`, `sat_kreditorenbeleg`, `sat_kreditor`
-- Links: `link_buchungskopf_kreditorenbeleg`, `link_hauptbuch_buchungskopf`, `link_kreditorenbeleg_kreditor`
+- Hubs: `hub_buchungskopf` ✅, `hub_hauptbuch` ✅, `hub_kreditorenbeleg` ✅, `hub_kreditor` ✅ (Ghost Hub aus KBL.KNR)
+- Sats: `sat_buchungskopf` ✅, `sat_hauptbuch__abacus` ✅, `sat_kreditorenbeleg` ✅, `sat_kreditor` ✅
+- Links: `link_kreditorenbeleg_kreditor` ✅, `link_hauptbuch_buchungskopf` ✅, `link_buchungskopf_kreditorenbeleg` ⚠️ BLOCKED
+
+> **link_buchungskopf_kreditorenbeleg — BLOCKED (30.3.2026):**
+> `ewb_fibu_fhe_main` hat **keinen** `hk_kreditorenbeleg` Hash Key und keinen `hk_link_buchungskopf_kreditorenbeleg`.
+> `REF_ID` ist nur im Satellite-Hashdiff (Payload), nicht als FK-Hash-Key konfiguriert.
+> **Optionen:** (a) FHE-Staging erweitern: `hk_kreditorenbeleg` aus `REF_ID` berechnen + Link-Hash-Key hinzufügen,
+> (b) Link aus KBL sourcing (KBL hat aber kein `hk_buchungskopf`), (c) Klärung ob REF_ID tatsächlich = KBL.BELNR.
+> **Nächster Schritt:** Datenanalyse `FHE.REF_ID ↔ KBL.BELNR` — bei Match Staging erweitern.
 
 ### Wave 3 — Komplexe Links + Restliche Objekte
 
@@ -196,12 +204,8 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | 4 | `ewb_proj_ntr_main` | `ref_leistungsart` — 29 Leistungsarten als Reference Table |
 | 5 | ~~`ewb_kred_kbs_main`~~ | ~~`hub_kreditor`~~ — **Verschoben nach Wave 2**: KBS ist Status-Konfiguration, nicht Kreditoren-Stammdaten |
 | 6 | `ewb_fibu_fhe_main` | `hub_buchungskopf` — bereits als Goldbeispiel vorhanden ✅ |
-| 7 | `ewb_kred_kbl_main` | `hub_kreditorenbeleg` — FK zu Kreditor (Dep. Wave 1) |
-| 8 | `ewb_fibu_gl_e22` | FIBU.GL — Jahresscheibe 2022 |
-| 9 | `ewb_fibu_gl_e23` | FIBU.GL — Jahresscheibe 2023 |
-| 10 | `ewb_fibu_gl_e24` | FIBU.GL — Jahresscheibe 2024 |
-| 11 | `ewb_fibu_gl_e25` | FIBU.GL — Jahresscheibe 2025 |
-| 12 | `ewb_fibu_gl_e26` | FIBU.GL — Jahresscheibe 2026 |
+| 7 | `ewb_kred_kbl_main` ✅ | `hub_kreditorenbeleg` ✅ + `hub_kreditor` ✅ (Ghost Hub) + `sat_kreditorenbeleg` ✅ + `sat_kreditor` ✅ |
+| 8 | `ewb_fibu_gl` ✅ | FIBU.GL — Folder-Scan aller Jahresscheiben E22-E26+ → `hub_hauptbuch` ✅ + `sat_hauptbuch__abacus` ✅ |
 | 13 | `ewb_kred_kvl_main` | `hub_zahlung` — FK zu KBL (Dep. #7) |
 | 14 | `ewb_proj_pst_main` | `ref_projektstatus` — 7 Statuswerte als Reference Table |
 | 15 | `ewb_proj_prt_main` | `sat_projektteil` — Projektstatus-Historie, FK zu NPO |
@@ -214,7 +218,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 ## 7. Offene Design-Fragen (vor Implementierungsstart klären)
 
-### F1 — FIBU.GL Business Key: Composite oder einfach? — **GELÖST** ✅
+### F1 — FIBU.GL Business Key: Composite oder einfach? — **GELÖST** ✅ (BK-Korrektur 29.3.2026)
 
 **Ergebnis (13. März 2026 — Datenanalyse `stg.ext_ewb_fibu_gl_e25`):**
 
@@ -227,7 +231,9 @@ Dieselbe `DKBELEGNUMMER` erscheint auf **mehreren Konten** (Soll/Haben-Buchung).
 
 29% aller Belegnummern erscheinen auf 2–5 verschiedenen Konten (z.B. Beleg 204188 → 22 Zeilen auf 5 Konten).
 
-**→ Option A bestätigt:** Composite BK `DKBELEGNUMMER||KTO` ist zwingend. Jede Buchungszeile ist eine eigene Hub-Instanz.
+~~**→ Option A bestätigt:** Composite BK `DKBELEGNUMMER||KTO` ist zwingend.~~
+
+**→ BK-Korrektur (29.3.2026):** Auch `DKBELEGNUMMER||KTO` ist **NICHT unique** (62% Nullen, bis zu 96 Duplikate). `RECNUM` ist der einzig unique Identifier auf GL-Zeilenebene. `DKBELEGNUMMER` und `KTO` bleiben als FK-Hash-Keys (`hk_buchungskopf` bzw. `hk_konto`) für Links erhalten, sind aber nicht mehr Teil des Business Key.
 
 > Hinweis: Spaltenname im Parquet ist `DKBELEGNUMMER` (nicht `BELEGNR` wie in Synapse-Views).
 
@@ -336,12 +342,12 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Mart Views | 7 | geplant (structured-tables Replika) |
 
 **Implementierungsstand (29. März 2026):**
-- Staging: **10/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
-- Vault: **16/35** Objekte implementiert — 6 Hubs, 7 Sats, 3 Links
-- Mart: **0/7** Views implementiert
+- Staging: **11/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
+- Vault: **19/35** Objekte implementiert — 7 Hubs, 8 Sats (+1 current_v), 3 Links
+- Mart: **5/7** Views implementiert — Projekt-Domain ✅
 - Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
-- **Wave 2: IN PROGRESS** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ (29.3.2026)
+- **Wave 2: IN PROGRESS** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ + `hub_hauptbuch` ✅ + `sat_hauptbuch__abacus` ✅ (29.3.2026)
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 
@@ -489,4 +495,4 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 
 > **Empfehlung:** Option A für Konten + Kostenstellen (kritische Dimensionen), Option B für Budget/Forecast/Kategorien (Planungs- und Enrichment-Daten).
 
-*EWB Analytics Platform | PPMC AG | Stand: 28. März 2026 — Wave 1 deployed*
+*EWB Analytics Platform | PPMC AG | Stand: 29. März 2026 — Wave 2 in progress (hub_hauptbuch + sat_hauptbuch__abacus deployed)*

@@ -4,7 +4,7 @@
  * Source: ext_ewb_fibu_fhe_main (Abacus FIBU.FHE.Main)
  * Business Key: RECNUM
  * Hash Key: hk_buchungskopf
- * Payload: 57 Spalten — Buchungskopf-Daten
+ * Payload: 20 Spalten — Buchungskopf-Struktur + Audit (Standard-Set)
  *
  * Note: Multiple SQL Server reserved keywords (PLAN, LEVEL, BEFORE, AFTER)
  *       handled via derived_columns escape mechanism.
@@ -35,61 +35,24 @@ hashed_columns:
   hd_buchungskopf:
     is_hashdiff: true
     columns:
-      - "AFTER"
-      - "APPDAT1"
-      - "APPDAT2"
-      - "APPGUID1"
-      - "APPGUID2"
-      - "APPGUID3"
-      - "APPNUM1"
-      - "APPNUM2"
-      - "APPNUM3"
-      - "APPNUM4"
-      - "APPNUM5"
-      - "APPNUM6"
-      - "APPSW1"
-      - "APPSW10"
-      - "APPSW2"
-      - "APPSW3"
-      - "APPSW4"
-      - "APPSW5"
-      - "APPSW6"
-      - "APPSW7"
-      - "APPSW8"
-      - "APPSW9"
-      - "BEFORE"
-      - "BOLDSW"
       - "BOTTOM"
       - "CREDAT"
       - "CREUSER"
-      - "DECIMALS"
       - "ENTERPRISE"
       - "FONTID"
-      - "FORMFEED"
       - "GUID"
       - "ID"
       - "ID_ASCII"
       - "IDTYP_ASCII"
       - "INDENT"
-      - "ITALICSW"
       - "LEVEL"
       - "MUTDAT"
       - "MUTUSER"
-      - "NODEFAULT"
-      - "NONUM"
       - "PLAN"
       - "REF_ID"
       - "REF_LEVEL"
       - "REF_TYP"
-      - "SUPPRESS"
-      - "SYSDAT1"
-      - "SYSDAT2"
-      - "SYSSW1"
-      - "SYSSW2"
-      - "SYSSW3"
-      - "SYSSW4"
       - "TYP"
-      - "ULINESW"
       - "VARIANTE"
       - "ZUONR"
 {%- endset -%}

@@ -1984,3 +1984,80 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+
+  - name: ewb_kred_kbs_main
+    description: "Staging: KRED.KBS.Main (Kreditorenstatus-Konfiguration) — Quelle fuer ref_kred_buchungsstatus. 7 stabile Status-Eintraege."
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_kred_kbs_main
+        business_keys:
+          - STATID
+    columns:
+      - name: hk_kred_buchungsstatus
+        description: Hash Key for kred_buchungsstatus (STATID)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kred_buchungsstatus
+        description: Hash Diff for kred_buchungsstatus change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: STATID
+        description: "Business Key — Status-ID (z.B. 'BEZ', 'ERF', 'GEP')"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+          - unique
+      - name: RECNUM
+        description: Record number (technical)
+        data_type: decimal(38,18)
+      - name: DB
+        description: Mandant/Datenbank-Nummer
+        data_type: decimal(38,18)
+      - name: STATDEF
+        description: Status-Definition (Referenz auf Status-Typ)
+        data_type: decimal(38,18)
+      - name: SWINAKT
+        description: Switch Inaktiv (0=aktiv, 1=inaktiv)
+        data_type: decimal(38,18)
+      - name: SWVORS
+        description: Switch Vorsystem
+        data_type: decimal(38,18)
+      - name: SWNOBLVAL
+        description: Switch keine BL-Validierung
+        data_type: decimal(38,18)
+      - name: SWNOPSVAL
+        description: Switch keine PS-Validierung
+        data_type: decimal(38,18)
+      - name: MUTDAT
+        description: Mutationsdatum
+        data_type: datetime2
+      - name: USER_F
+        description: Letzter Bearbeiter
+        data_type: nvarchar(4000)
+      - name: VERSION
+        description: Versionskennung
+        data_type: decimal(38,18)
+      - name: SWPBLDEL
+        description: Switch Public Delete erlaubt
+        data_type: decimal(38,18)
+      - name: timestamp_landing-zone
+        description: Landing Zone Zeitstempel
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+        data_type: nvarchar(4000)
