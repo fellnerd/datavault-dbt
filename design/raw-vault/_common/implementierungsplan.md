@@ -82,9 +82,9 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 | Satellite | Hub | Typ | Hauptpayload | Staging-Quelle | Priorität |
 |---|---|---|---|---|---|
-| `sat_buchungskopf` | `hub_buchungskopf` | STD | PLAN, LEVEL, VARIANTE, TYP, REF_ID | `ewb_fibu_fhe_main` | P1 |
-| `sat_hauptbuch` | `hub_hauptbuch` | STD | **178 Spalten** — DATE, SH, SAM, BETRAG, GKTO, KST, KST2, WAEHR, MWSTBETR, MWSTTYP, MWSTCODE, MWSTINCL, MWSTSATZ, TEXT, TEXT2, DKKUNDENNUMMER, PROJ, ... | `ewb_fibu_gl` | P2 |
-| `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | 116 Spalten — Beleg, Finanzen, Skonto, Kreditor, Projekt, Währung, Status, Datum, Audit | `ewb_kred_kbl_main` | P2 ✅ |
+| `sat_buchungskopf` | `hub_buchungskopf` | STD | **20 Spalten** (getrimmt von 57) — PLAN, LEVEL, VARIANTE, TYP, REF_ID, ID, GUID, ENTERPRISE, Audit | `ewb_fibu_fhe_main` | P1 ✅ |
+| `sat_hauptbuch` | `hub_hauptbuch` | STD | **34 Spalten** (getrimmt von 178, Synapse-aligned) — Core GL + MWST + Fremdwährung + Projekt + Konsolidierung | `ewb_fibu_gl` | P2 ✅ |
+| `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | **33 Spalten** (getrimmt von 116, Synapse-aligned) — Beleg, Finanzen, Skonto, Projekt, Status, Audit | `ewb_kred_kbl_main` | P2 ✅ |
 | `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 |
 | `sat_kreditor` | `hub_kreditor` | STD | ADRID (Kundenname/Adress-ID) | `ewb_kred_kbl_main` (Ghost Hub) | P2 ✅ |
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
@@ -108,7 +108,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 | Link | Beteiligte Hubs | DC-Sat | Staging-Quelle | Priorität |
 |---|---|---|---|---|
-| `link_buchungskopf_kreditorenbeleg` | `hub_buchungskopf` ↔ `hub_kreditorenbeleg` | Nein | `ewb_fibu_fhe_main` | P2 ⚠️ BLOCKED |
+| ~~`link_buchungskopf_kreditorenbeleg`~~ | ~~`hub_buchungskopf` ↔ `hub_kreditorenbeleg`~~ | — | — | ❌ ENTFÄLLT (kein direkter FK) |
 | `link_hauptbuch_buchungskopf` | `hub_hauptbuch` ↔ `hub_buchungskopf` | Nein | `ewb_fibu_gl` | P2 ✅ |
 | `link_hauptbuch_projekt` | `hub_hauptbuch` ↔ `hub_projekt` | Nein | `ewb_fibu_gl` | P3 |
 | `link_hauptbuch_kreditor` | `hub_hauptbuch` ↔ `hub_kreditor` | Nein | `ewb_fibu_gl` | P3 |
@@ -156,27 +156,37 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 > **Deployed auf `datavault-dev`:** 27/27 Modelle erfolgreich (28.3.2026, 184s, 0 Fehler).  
 > **Korrektur (28.3.2026):** `hub_kreditor` + `sat_kreditor` nach Wave 2 verschoben. `KRED.KBS` enthält keine Kreditoren-Stammdaten (kein LIEFNR, SALDO, KONTO) — ist eine Status-Konfigurationstabelle (STATID/STATDEF). `hub_kreditor` wird als Ghost Hub aus `KBL.KNR` abgeleitet.
 
-### Wave 2 — Transaktionsobjekte
+### Wave 2 — Transaktionsobjekte — ✅ COMPLETE (29.3.2026)
 
 **Voraussetzung:** Wave 1 deployed (F1 gelöst ✅ — BK korrigiert: RECNUM statt DKBELEGNUMMER||KTO)
 
 **Staging:**
-- `ewb_fibu_fhe_main` (bereits vorhanden ✅)
-- `ewb_fibu_gl` ✅ (Folder-Scan aller Jahresscheiben E22-E26+)
-- `ewb_kred_kbl_main`
-- `ewb_kred_kbs_main` (Status-Konfiguration → `ref_kred_buchungsstatus`)
+- `ewb_fibu_fhe_main` (bereits vorhanden ✅, Hashdiff getrimmt 57→20)
+- `ewb_fibu_gl` ✅ (Folder-Scan aller Jahresscheiben E22-E26+, Hashdiff getrimmt 178→34)
+- `ewb_kred_kbl_main` ✅ (Hashdiff getrimmt 116→33)
+- `ewb_kred_kbs_main` ✅ (Status-Konfiguration → `ref_kred_buchungsstatus`)
 
 **Raw Vault:**
 - Hubs: `hub_buchungskopf` ✅, `hub_hauptbuch` ✅, `hub_kreditorenbeleg` ✅, `hub_kreditor` ✅ (Ghost Hub aus KBL.KNR)
-- Sats: `sat_buchungskopf` ✅, `sat_hauptbuch__abacus` ✅, `sat_kreditorenbeleg` ✅, `sat_kreditor` ✅
-- Links: `link_kreditorenbeleg_kreditor` ✅, `link_hauptbuch_buchungskopf` ✅, `link_buchungskopf_kreditorenbeleg` ⚠️ BLOCKED
+- Sats: `sat_buchungskopf__abacus` ✅ (20 Spalten), `sat_hauptbuch__abacus` ✅ (34 Spalten), `sat_kreditorenbeleg__abacus` ✅ (33 Spalten), `sat_kreditor__abacus` ✅ (2 Spalten: ADRID, FADRINR)
+- Links: `link_kreditorenbeleg_kreditor` ✅, `link_hauptbuch_buchungskopf` ✅
+- Refs: `ref_kred_buchungsstatus` ✅ (16 Statuseinträge)
+- Current Views: 4× `sat_*_current_v` ✅
+- ~~`link_buchungskopf_kreditorenbeleg`~~ ❌ ENTFÄLLT
 
-> **link_buchungskopf_kreditorenbeleg — BLOCKED (30.3.2026):**
-> `ewb_fibu_fhe_main` hat **keinen** `hk_kreditorenbeleg` Hash Key und keinen `hk_link_buchungskopf_kreditorenbeleg`.
-> `REF_ID` ist nur im Satellite-Hashdiff (Payload), nicht als FK-Hash-Key konfiguriert.
-> **Optionen:** (a) FHE-Staging erweitern: `hk_kreditorenbeleg` aus `REF_ID` berechnen + Link-Hash-Key hinzufügen,
-> (b) Link aus KBL sourcing (KBL hat aber kein `hk_buchungskopf`), (c) Klärung ob REF_ID tatsächlich = KBL.BELNR.
-> **Nächster Schritt:** Datenanalyse `FHE.REF_ID ↔ KBL.BELNR` — bei Match Staging erweitern.
+> **Column Trimming (29.3.2026):** Satellite-Payloads wurden Synapse-aligned getrimmt:
+> - `sat_buchungskopf__abacus`: 57 → 20 Spalten (entfernt: APP*/SYS*-Reserve, Formatierung)
+> - `sat_hauptbuch__abacus`: 178 → 34 Spalten (behalten: Core GL + MWST + FW + Projekt + Konsolidierung)
+> - `sat_kreditorenbeleg__abacus`: 116 → 33 Spalten (behalten: Beleg/Status/Finanzen/Skonto/Projekt/Audit)
+> - `sat_kreditor__abacus`: 2 Spalten (ADRID + FADRINR, beide 100% befüllt, 1:1 pro KNR)
+
+> **Deployed auf `datavault-dev`:** 56/56 Tests PASS. Row Counts: hub_buchungskopf=60.377, hub_hauptbuch=9.868, hub_kreditorenbeleg=93.589, hub_kreditor=3.159, alle Sats/Links identisch.
+
+> **link_buchungskopf_kreditorenbeleg — ENTFÄLLT (29.3.2026):**
+> Datenanalyse: `FHE.REF_ID` matcht nur 48 von 93.589 `KBL.BELNR` Werten (**0,08%**). `REF_ID` ist kein FK zu KBL.
+> **Ergebnis:** Es gibt keinen direkten FK zwischen Buchungsköpfen (FHE) und Kreditorenbelegen (KBL) in Abacus.
+> Die Verknüpfung läuft indirekt über Hauptbuch-Zeilen (GL): `GL.DKBELEGNUMMER → FHE.RECNUM` + `GL.DKKUNDENNUMMER → KBL.KNR`.
+> → Beziehung wird im **Mart Layer** über GL-Joins aufgelöst, kein Raw Vault Link nötig.
 
 ### Wave 3 — Komplexe Links + Restliche Objekte
 
