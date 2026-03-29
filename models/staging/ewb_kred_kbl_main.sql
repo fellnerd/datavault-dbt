@@ -72,6 +72,7 @@ hashed_columns:
     is_hashdiff: true
     columns:
       - "ADRID"
+      - "FADRINR"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}

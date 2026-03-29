@@ -3,12 +3,12 @@
     Parent Hub: hub_kreditor (Ghost Hub)
     Source: ewb_kred_kbl_main
 
-    Payload (1 Spalte — minimaler Ghost-Hub-Satellite):
-      Stammdaten:  ADRID (Adress-ID / Kundenname)
+    Payload (2 Spalten — Ghost-Hub-Satellite):
+      Stammdaten:  ADRID (Adress-ID / Kreditorname), FADRINR (FK Adressstamm)
 
     Ghost Hub Satellite — Kreditoren-Stammdaten werden aus den
-    Kreditorenbelegen (KRED.KBL.Main) abgeleitet. ADRID ist das einzige
-    Attribut, das pro Kreditor variiert (Adress-Referenz).
+    Kreditorenbelegen (KRED.KBL.Main) abgeleitet. Beide Spalten sind
+    1:1 pro KNR (3159/3159 Kreditoren, 100% befüllt).
 
     Developer: Daniel Fellner, MSc
     Company:   ppmc analytics ag
@@ -33,6 +33,7 @@ src_hashdiff:
   alias: "HASHDIFF"
 src_payload:
     - "adrid"
+    - "fadrinr"
 src_extra_columns:
     - "dss_create_datetime"
 src_ldts: "dss_load_date"
