@@ -1,79 +1,47 @@
 /*
  * Staging Model: ewb_proj_npo_main
  *
- * Source: ext_ewb_proj_npo_main
+ * Source: ext_ewb_proj_npo_main (Abacus PROJ.NPO.Main)
  * Business Key: PROJNR
- * Hash Key Separator: '^^' (DV 2.1 Standard)
+ * Hash Key: hk_projekt
+ * Payload: 8 Spalten — Projektattribute
  *
- * Hash Keys calculated here (automate_dv pattern):
- *   - hk_projekt (Entity Hash Key)
+ * Uses automate_dv.stage() macro for standardized staging.
  */
 
-{%- set hashdiff_columns = [
-    'creation',
-    'inaktiv',
-    'projgroup',
-    'projname',
-    'refprojnr',
-    '[status]',
-    'status1',
-    'statusdef'
-] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_ewb_proj_npo_main"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_ewb_proj_npo_main') }}
-),
+derived_columns:
+  dss_record_source: "!ewb_abacus"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1'))"
+  _escape:
+    source_column:
+      - "STATUS"
+      - "timestamp_landing-zone"
+    escape: true
 
-staged AS (
-    SELECT
-        -- ===========================================
-        -- HASH KEY (Entity)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_projekt,
+hashed_columns:
+  hk_projekt: "PROJNR"
+  hd_projekt:
+    is_hashdiff: true
+    columns:
+      - "CREATION"
+      - "INAKTIV"
+      - "PROJGROUP"
+      - "PROJNAME"
+      - "REFPROJNR"
+      - "STATUS"
+      - "STATUS1"
+      - "STATUSDEF"
+{%- endset -%}
 
-        -- ===========================================
-        -- HASH DIFF (Change Detection - Satellite)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-                {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
-            )
-        ), 2) AS hd_projekt,
+{% set metadata_dict = fromyaml(yaml_metadata) %}
 
-        -- ===========================================
-        -- BUSINESS KEY(S)
-        -- ===========================================
-        PROJNR,
-
-        -- ===========================================
-        -- PAYLOAD
-        -- ===========================================
-        refprojnr,
-        inaktiv,
-        projgroup,
-        projname,
-        statusdef,
-        [status],
-        status1,
-        creation,
-
-        -- ===========================================
-        -- METADATA
-        -- ===========================================
-        CONCAT_WS('||', 'default', 'default',
-            ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1')
-        ) AS dss_business_key,
-        GETDATE() AS dss_create_datetime,
-        COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id
-
-    FROM source
-)
-
-SELECT * FROM staged
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}

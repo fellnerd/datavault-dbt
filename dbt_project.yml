@@ -4,6 +4,11 @@ config-version: 2
 
 profile: 'datavault'
 
+# automate_dv dispatch: Eigene Macros haben Vorrang
+dispatch:
+  - macro_namespace: automate_dv
+    search_order: ['datavault', 'automate_dv']
+
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
@@ -25,6 +30,16 @@ vars:
   
   # NULL-Placeholder für Hash-Berechnung
   null_placeholder_string: '-1'
+  
+  # Separator für Multi-Column Hashing
+  concat_string: '||'
+  
+  # Kein UPPER() auf Hash-Inputs (Case-sensitive Daten)
+  hash_content_casing: 'DISABLED'
+  
+  # SQL Server Reserved Keyword Escaping
+  escape_char_left: '['
+  escape_char_right: ']'
   
   # Datumsspalte für Load Date
   load_date: 'dss_load_date'

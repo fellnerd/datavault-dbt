@@ -1,110 +1,50 @@
 /*
  * Staging Model: ewb_publ_adr_main
  *
- * Source: ext_ewb_publ_adr_main
+ * Source: ext_ewb_publ_adr_main (Abacus PUBL.ADR.Main)
  * Business Key: INR
- * Hash Key Separator: '^^' (DV 2.1 Standard)
+ * Hash Key: hk_adresse
+ * Links: hk_link_adresse_person (INR, LOHNNR) → hub_person
+ * Multi-Satellite: hd_person_adresse (NAME, VORNAME), hd_adresse_kontakt (ORT, PLZ, STREET)
  *
- * Links (Foreign Keys):
- *   - _common.hub_person via lohnnr
- *
- * Hash Keys calculated here (automate_dv pattern):
- *   - hk_adresse (Entity Hash Key)
- *   - hk_person (FK Hash Key for _common.hub_person via lohnnr)
- *   - hk_link_adresse_person (Link Hash Key)
+ * Uses automate_dv.stage() macro for standardized staging.
  */
 
-{%- set hashdiff_person_adresse_columns = [
-    'name',
-    'vorname'
-] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_ewb_publ_adr_main"
 
-{%- set hashdiff_adresse_kontakt_columns = [
-    'ort',
-    'plz',
-    'street'
-] -%}
+derived_columns:
+  dss_record_source: "!ewb_abacus"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1'))"
+  _escape:
+    source_column: "timestamp_landing-zone"
+    escape: true
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_ewb_publ_adr_main') }}
-),
+hashed_columns:
+  hk_adresse: "INR"
+  hk_person: "LOHNNR"
+  hk_link_adresse_person:
+    - "INR"
+    - "LOHNNR"
+  hd_person_adresse:
+    is_hashdiff: true
+    columns:
+      - "NAME"
+      - "VORNAME"
+  hd_adresse_kontakt:
+    is_hashdiff: true
+    columns:
+      - "ORT"
+      - "PLZ"
+      - "STREET"
+{%- endset -%}
 
-staged AS (
-    SELECT
-        -- ===========================================
-        -- HASH KEY (Entity)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_adresse,
+{% set metadata_dict = fromyaml(yaml_metadata) %}
 
-        -- ===========================================
-        -- FK HASH KEYS (for Links)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(lohnnr AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_person,
-
-        -- ===========================================
-        -- LINK HASH KEYS
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1'),
-                '^^',
-                ISNULL(LTRIM(RTRIM(CAST(lohnnr AS NVARCHAR(MAX)))), '-1')
-            )
-        ), 2) AS hk_link_adresse_person,
-
-        -- ===========================================
-        -- HASH DIFFS (Change Detection - Multi-Satellite)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_person_adresse_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-                {%- if hashdiff_person_adresse_columns | length == 1 %}, ''{%- endif %}
-            )
-        ), 2) AS hd_person_adresse,
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_adresse_kontakt_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-                {%- if hashdiff_adresse_kontakt_columns | length == 1 %}, ''{%- endif %}
-            )
-        ), 2) AS hd_adresse_kontakt,
-
-        -- ===========================================
-        -- BUSINESS KEY(S)
-        -- ===========================================
-        INR,
-
-        -- ===========================================
-        -- PAYLOAD
-        -- ===========================================
-        name,
-        vorname,
-        plz,
-        ort,
-        street,
-        lohnnr,
-        lohnjn,
-        gesperrt,
-
-        -- ===========================================
-        -- METADATA
-        -- ===========================================
-        CONCAT_WS('||', 'default', 'default',
-            ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1')
-        ) AS dss_business_key,
-        GETDATE() AS dss_create_datetime,
-        COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id
-
-    FROM source
-)
-
-SELECT * FROM staged
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}

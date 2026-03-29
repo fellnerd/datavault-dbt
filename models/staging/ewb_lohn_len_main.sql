@@ -1,110 +1,59 @@
 /*
  * Staging Model: ewb_lohn_len_main
  *
- * Source: ext_ewb_lohn_len_main
+ * Source: ext_ewb_lohn_len_main (Abacus LOHN.LEN.Main)
  * Business Key: EMPL_NR
- * Hash Key Separator: '^^' (DV 2.1 Standard)
+ * Hash Key: hk_person
+ * Payload: 20 Spalten — nur gepflegte Spalten (datenbasiert bereinigt)
  *
- * Hash Keys calculated here (automate_dv pattern):
- *   - hk_person (Entity Hash Key)
- *
- * Payload (20 Spalten): Datenbasiert bereinigt — nur gepflegte Spalten.
- * Entfernt: alle konstanten Felder (0E-18, single value) und komplett leere Felder.
+ * Uses automate_dv.stage() macro for standardized staging.
  */
 
-{%- set hashdiff_columns = [
-    'abrv',
-    'adr_inr',
-    'badge_id',
-    'birth_place',
-    'birthday',
-    'date_in',
-    'date_out',
-    'empl_id',
-    'first_name',
-    'home_dept_nr',
-    'last_name',
-    'lpe_month',
-    'lpe_year',
-    'mutation_date',
-    'nationality',
-    'relevant_for_logib',
-    'sex',
-    'soc_insurance_nr',
-    '[type]',
-    'zemis_nr'
-] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_ewb_lohn_len_main"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_ewb_lohn_len_main') }}
-),
+derived_columns:
+  dss_record_source: "!ewb_abacus"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(EMPL_NR AS NVARCHAR(MAX)))), '-1'))"
+  _escape:
+    source_column:
+      - "TYPE"
+      - "timestamp_landing-zone"
+    escape: true
 
-staged AS (
-    SELECT
-        -- ===========================================
-        -- HASH KEY (Entity)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(EMPL_NR AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_person,
+hashed_columns:
+  hk_person: "EMPL_NR"
+  hd_person:
+    is_hashdiff: true
+    columns:
+      - "ABRV"
+      - "ADR_INR"
+      - "BADGE_ID"
+      - "BIRTH_PLACE"
+      - "BIRTHDAY"
+      - "DATE_IN"
+      - "DATE_OUT"
+      - "EMPL_ID"
+      - "FIRST_NAME"
+      - "HOME_DEPT_NR"
+      - "LAST_NAME"
+      - "LPE_MONTH"
+      - "LPE_YEAR"
+      - "MUTATION_DATE"
+      - "NATIONALITY"
+      - "RELEVANT_FOR_LOGIB"
+      - "SEX"
+      - "SOC_INSURANCE_NR"
+      - "TYPE"
+      - "ZEMIS_NR"
+{%- endset -%}
 
-        -- ===========================================
-        -- HASH DIFF (Change Detection - Satellite)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-                {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
-            )
-        ), 2) AS hd_person,
+{% set metadata_dict = fromyaml(yaml_metadata) %}
 
-        -- ===========================================
-        -- BUSINESS KEY(S)
-        -- ===========================================
-        EMPL_NR,
-
-        -- ===========================================
-        -- PAYLOAD
-        -- ===========================================
-        -- Identität
-        empl_id,
-        last_name,
-        first_name,
-        abrv,
-        badge_id,
-        birthday,
-        sex,
-        nationality,
-        birth_place,
-        -- Anstellung
-        home_dept_nr,
-        adr_inr,            -- FK → hub_adresse
-        date_in,
-        date_out,
-        [type],             -- Mitarbeitertyp: M=Mitarbeiter, S=Student, R=Rentner, J=Jugend
-        mutation_date,
-        lpe_year,
-        lpe_month,
-        -- Sozialversicherung (CH)
-        soc_insurance_nr,   -- AHV-Nummer
-        -- Compliance & Register
-        relevant_for_logib, -- LOGIB Lohngleichheitsanalyse
-        zemis_nr,           -- CH Ausländerregister (nur Ausländer befüllt)
-
-        -- ===========================================
-        -- METADATA
-        -- ===========================================
-        CONCAT_WS('||', 'default', 'default',
-            ISNULL(LTRIM(RTRIM(CAST(EMPL_NR AS NVARCHAR(MAX)))), '-1')
-        ) AS dss_business_key,
-        GETDATE() AS dss_create_datetime,
-        COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id
-
-    FROM source
-)
-
-SELECT * FROM staged
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}

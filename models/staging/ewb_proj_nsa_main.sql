@@ -1,137 +1,65 @@
 /*
  * Staging Model: ewb_proj_nsa_main
  *
- * Source: ext_ewb_proj_nsa_main (PROJ.NSA.Main.parquet)
- * System: Abacus EWB
- * Business Key: PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB^^DATASET (Composite)
+ * Source: ext_ewb_proj_nsa_main (Abacus PROJ.NSA.Main)
+ * Business Key: PROJNR, CODE, PERIYEAR, PERIMONTH, GB, DATASET (Composite)
+ * Hash Key: hk_projektsachkonto
+ * Link: hk_link_projektsachkonto_projekt → hub_projekt
+ * Payload: 12 Budget/Ist Spalten
  *
- * Hash Keys calculated here:
- *   - hk_projektsachkonto (Entity Hash Key)
- *   - hk_projekt (Foreign Key → hub_projekt)
- *   - hk_link_projektsachkonto_projekt (Link Hash Key)
- *   - hd_projektsachkonto (Hash Diff für Satellite)
- *
- * Developer: Daniel Fellner, MSc
- * Company:   ppmc analytics ag
- * Contact:   office@ppmcag.com
- * Version:   2026-07-14 V1.0 Initialversion
+ * Uses automate_dv.stage() macro for standardized staging.
  */
 
-{%- set hashdiff_columns = [
-    'BUDGETINT',
-    'BETRAGINT',
-    'VORTRAGINT',
-    'BUDGETEXT',
-    'BETRAGEXT',
-    'VORTRAGEXT',
-    'AZBUTINT',
-    'AZBETINT',
-    'AZVORTINT',
-    'AZBUTEXT',
-    'AZBETEXT',
-    'AZVORTEXT'
-] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_ewb_proj_nsa_main"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_ewb_proj_nsa_main') }}
-),
+derived_columns:
+  dss_record_source: "!ewb_abacus"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1'), ISNULL(LTRIM(RTRIM(CAST(CODE AS NVARCHAR(MAX)))), '-1'), ISNULL(LTRIM(RTRIM(CAST(PERIYEAR AS NVARCHAR(MAX)))), '-1'), ISNULL(LTRIM(RTRIM(CAST(PERIMONTH AS NVARCHAR(MAX)))), '-1'), ISNULL(LTRIM(RTRIM(CAST(GB AS NVARCHAR(MAX)))), '-1'), ISNULL(LTRIM(RTRIM(CAST(DATASET AS NVARCHAR(MAX)))), '-1'))"
+  _escape:
+    source_column: "timestamp_landing-zone"
+    escape: true
 
-staged AS (
-    SELECT
-        -- ===========================================
-        -- HASH KEY (Entity)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-            CONCAT(
-                ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1'), '^^',
-                ISNULL(LTRIM(RTRIM(CAST(CODE AS NVARCHAR(MAX)))), '-1'), '^^',
-                ISNULL(LTRIM(RTRIM(CAST(PERIYEAR AS NVARCHAR(MAX)))), '-1'), '^^',
-                ISNULL(LTRIM(RTRIM(CAST(PERIMONTH AS NVARCHAR(MAX)))), '-1'), '^^',
-                ISNULL(LTRIM(RTRIM(CAST(GB AS NVARCHAR(MAX)))), '-1'), '^^',
-                ISNULL(LTRIM(RTRIM(CAST(DATASET AS NVARCHAR(MAX)))), '-1')
-            )
-        ), 2) AS hk_projektsachkonto,
+hashed_columns:
+  hk_projektsachkonto:
+    - "PROJNR"
+    - "CODE"
+    - "PERIYEAR"
+    - "PERIMONTH"
+    - "GB"
+    - "DATASET"
+  hk_projekt: "PROJNR"
+  hk_link_projektsachkonto_projekt:
+    - "PROJNR"
+    - "CODE"
+    - "PERIYEAR"
+    - "PERIMONTH"
+    - "GB"
+    - "DATASET"
+    - "PROJNR"
+  hd_projektsachkonto:
+    is_hashdiff: true
+    columns:
+      - "AZBETEXT"
+      - "AZBETINT"
+      - "AZBUTEXT"
+      - "AZBUTINT"
+      - "AZVORTEXT"
+      - "AZVORTINT"
+      - "BETRAGEXT"
+      - "BETRAGINT"
+      - "BUDGETEXT"
+      - "BUDGETINT"
+      - "VORTRAGEXT"
+      - "VORTRAGINT"
+{%- endset -%}
 
-        -- ===========================================
-        -- FOREIGN KEY (→ hub_projekt)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-            ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_projekt,
+{% set metadata_dict = fromyaml(yaml_metadata) %}
 
-        -- ===========================================
-        -- LINK HASH KEY (→ link_projektsachkonto_projekt)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-            CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-                CONCAT(
-                    ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1'), '^^',
-                    ISNULL(LTRIM(RTRIM(CAST(CODE AS NVARCHAR(MAX)))), '-1'), '^^',
-                    ISNULL(LTRIM(RTRIM(CAST(PERIYEAR AS NVARCHAR(MAX)))), '-1'), '^^',
-                    ISNULL(LTRIM(RTRIM(CAST(PERIMONTH AS NVARCHAR(MAX)))), '-1'), '^^',
-                    ISNULL(LTRIM(RTRIM(CAST(GB AS NVARCHAR(MAX)))), '-1'), '^^',
-                    ISNULL(LTRIM(RTRIM(CAST(DATASET AS NVARCHAR(MAX)))), '-1')
-                )
-            ), 2) + '^^' +
-            CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-                ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1')
-            ), 2)
-        ), 2) AS hk_link_projektsachkonto_projekt,
-
-        -- ===========================================
-        -- HASH DIFF (Change Detection - Satellite)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_projektsachkonto,
-
-        -- ===========================================
-        -- BUSINESS KEY(S)
-        -- ===========================================
-        PROJNR,
-        CODE,
-        PERIYEAR,
-        PERIMONTH,
-        GB,
-        DATASET,
-
-        -- ===========================================
-        -- PAYLOAD
-        -- ===========================================
-        BUDGETINT,
-        BETRAGINT,
-        VORTRAGINT,
-        BUDGETEXT,
-        BETRAGEXT,
-        VORTRAGEXT,
-        AZBUTINT,
-        AZBETINT,
-        AZVORTINT,
-        AZBUTEXT,
-        AZBETEXT,
-        AZVORTEXT,
-
-        -- ===========================================
-        -- METADATA
-        -- ===========================================
-        CONCAT_WS('||', 'default', 'default',
-            ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1'),
-            ISNULL(LTRIM(RTRIM(CAST(CODE AS NVARCHAR(MAX)))), '-1'),
-            ISNULL(LTRIM(RTRIM(CAST(PERIYEAR AS NVARCHAR(MAX)))), '-1'),
-            ISNULL(LTRIM(RTRIM(CAST(PERIMONTH AS NVARCHAR(MAX)))), '-1'),
-            ISNULL(LTRIM(RTRIM(CAST(GB AS NVARCHAR(MAX)))), '-1'),
-            ISNULL(LTRIM(RTRIM(CAST(DATASET AS NVARCHAR(MAX)))), '-1')
-        ) AS dss_business_key,
-        GETDATE() AS dss_create_datetime,
-        COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id
-
-    FROM source
-)
-
-SELECT * FROM staged
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
