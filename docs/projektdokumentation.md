@@ -266,7 +266,7 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 |---|---|---|
 | `models/raw_vault/_common/` | Zielordner für EWB Vault-Modelle (hubs/, satellites/, links/) | Konfiguriert |
 | `dbt_project.yml` | EWB-Modelle nutzen `_common` (Schema: `vault`, `as_columnstore: false`) | Erstellt (9. März 2026) |
-| `models/staging/ewb_fibu_fhe_main.sql` | Referenz-Staging-View (5-Block-Struktur, VARBINARY-Pattern) | Erstellt |
+| `models/staging/ewb_fibu_fhe_main.sql` | Referenz-Staging-View (automate_dv.stage() Pattern, VARBINARY-Pattern) | Erstellt |
 | `models/staging/sources.yml` | Alle 19 External Tables `ext_ewb_*` konfiguriert | Erstellt (9. März 2026) |
 
 ---

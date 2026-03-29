@@ -65,29 +65,24 @@ Diese Abacus-Spalten sind SQL Server Reserved Keywords und **müssen** in eckige
 - `[KEY]`, `[INDEX]` — Falls vorhanden
 
 ## Goldenes Referenz-Beispiel
-```
-models/staging/ewb_fibu_fhe_main.sql
-```
-Dieses Modell zeigt das korrekte Pattern für alle EWB Staging-Views:
-- 5-Block-Struktur (Header, hashdiff_columns, source CTE, staged CTE, SELECT)
-- T-SQL native HASHBYTES (kein automate_dv Hashing)
-- Reserved Keywords korrekt escaped
-- `dss_record_source` Default: `'ewb_abacus'`
-- APPSTR als VARBINARY(8000) belassen, nicht in NVARCHAR konvertieren
+EWB Staging-Views verwenden das **automate_dv.stage() YAML Metadata Pattern**:
+- Single BK + Reserved Keyword: `models/staging/ewb_lohn_len_main.sql`
+- Composite BK: `models/staging/ewb_proj_nsa_main.sql`
+- Multiple Reserved Keywords: `models/staging/ewb_fibu_fhe_main.sql`
 
-## Adworks als Referenz-Pattern
-EWB Staging-Views **müssen** exakt dem gleichen Pattern folgen wie die Adworks-Modelle:
-- Gleiche 5-Block-Struktur (Header-Kommentar, hashdiff_columns, source CTE, staged CTE, SELECT)
-- Gleiche Hash-Berechnung (T-SQL nativ, `CONVERT(CHAR(64), HASHBYTES(...), 2)`)
-- Gleiche Metadata-Spalten (`dss_record_source`, `dss_load_date`, `dss_run_id`)
-- Referenz: `models/staging/adworks_kunde.sql`
+Dieses Pattern enthält:
+- automate_dv.stage() Macro mit YAML Metadata Block
+- Hash-Berechnung via Custom Overrides (`macros/hash_override.sql`)
+- Reserved Keywords via `_escape` derived column escaped
+- `dss_record_source` Default: `'ewb_abacus'` (Literal mit `!` Prefix)
+- APPSTR als VARBINARY(8000) belassen, nicht in NVARCHAR konvertieren
 
 ## Checkliste für neue EWB Staging-Modelle
 1. ☐ Parquet-Schema abfragen (`get_parquet_schema` Macro)
 2. ☐ Types korrigieren (DECIMAL 38,18 statt 38,10; VARBINARY 8000 für APPSTR)
-3. ☐ Reserved Keywords identifizieren und escapen
+3. ☐ Reserved Keywords identifizieren (→ `_escape` derived column)
 4. ☐ `sources.yml` Eintrag unter `# ===== EWB / ABACUS =====`
-5. ☐ Staging `.sql` mit 5-Block-Struktur erstellen
+5. ☐ Staging `.sql` mit automate_dv.stage() YAML Metadata Pattern erstellen
 6. ☐ `_staging__models.yml` Eintrag mit `config.meta` (entity_type, source_type, business_keys)
 7. ☐ `.vscode/entity-designer/<concept>_<entity>.json` für Extension-Kompatibilität
 8. ☐ Deploy: `dbt run-operation stage_external_sources --target ewb-dev && dbt run --select <model> --target ewb-dev`

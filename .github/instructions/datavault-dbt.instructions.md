@@ -90,11 +90,10 @@ dbt test           # Tests ausführen
 - Incremental Strategy: `append`
 
 ### Hash-Berechnung (SQL Server)
-```sql
-CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-    ISNULL(LTRIM(RTRIM(CAST(column AS NVARCHAR(MAX)))), '-1')
-), 2)
-```
+Hash-Berechnung erfolgt via **automate_dv.stage()** Macro mit Custom Overrides:
+- `macros/hash_override.sql` enthält `sqlserver__cast_binary` (→ `CHAR(64)`) und `sqlserver__type_string` (→ `NVARCHAR`)
+- Konfiguriert via `dispatch` in `dbt_project.yml` (Projekt-Macros haben Vorrang)
+- `null_placeholder_string: '-1'`, `concat_string: '||'`, `hash_content_casing: 'DISABLED'`
 
 ## OFFENE PUNKTE
 

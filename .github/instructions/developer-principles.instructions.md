@@ -89,31 +89,91 @@ hd_<entity>_ma        -- Hash Diff
 - **Transaktionsdaten** → eigener Satellite (z.B. `sat_buchung`)
 - **System-Metadaten** (CREUSER, MUTUSER, etc.) → ggf. eigener Satellite oder im Haupt-Satellite
 
-## Hash-Berechnung im Staging
-- **Alle** Hash Keys und Hash Diffs werden **im Staging** berechnet (automate_dv Best Practice)
-- **NULL-Handling:** `ISNULL(..., '-1')` — Null-Placeholder ist `'-1'` (nicht leerer String)
-- **Trimming:** Alle Hash-Inputs werden mit `LTRIM(RTRIM(...))` normalisiert
-- Hub Hash Key = `SHA2_256(LTRIM(RTRIM(Business Key)))`
-- Link Hash Key = `SHA2_256(FK1 ^^ FK2)` mit `^^` als Separator
-- DC Link Hash Key = `SHA2_256(Parent_FK ^^ DCK1 ^^ DCK2)`
-- Hash Diff = `SHA2_256(CONCAT(alle_payload_spalten))` — **keine Separatoren** im Hash Diff
+## Hash-Berechnung im Staging (automate_dv.stage())
+
+Staging-Modelle verwenden das **automate_dv.stage()** Macro mit YAML-Metadaten. Hash Keys und Hash Diffs werden automatisch berechnet.
+
+- **Custom Overrides** in `macros/hash_override.sql`:
+  - `sqlserver__cast_binary` → `CHAR(64)` hex-encoded (statt `BINARY(32)`)
+  - `sqlserver__type_string` → `NVARCHAR` (Unicode-safe)
+- **NULL-Handling:** `'-1'` als Null-Placeholder (konfiguriert in dbt_project.yml `null_placeholder_string`)
+- **Trimming:** `LTRIM(RTRIM(...))` wird automatisch von automate_dv angewendet
+- **Hash content casing:** `DISABLED` (kein `UPPER()` — case-sensitive Daten)
+- **Concat separator:** `'||'` (konfiguriert in dbt_project.yml `concat_string`)
+- **Hashdiff-Spalten** werden automatisch **alphabetisch sortiert** durch automate_dv
 - **dss_business_key** = `CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(BK AS NVARCHAR(MAX)))), '-1'))`
 - **dss_create_datetime** = `GETDATE()`
 
-### Hash-Beispiel (T-SQL)
-```sql
--- Hash Key mit LTRIM/RTRIM und '-1' Null-Placeholder
-CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-    ISNULL(LTRIM(RTRIM(CAST(BUSINESS_KEY AS NVARCHAR(MAX)))), '-1')
-), 2) AS hk_<entity>
+### Staging-Pattern (automate_dv.stage() YAML Metadata)
 
--- Hash Diff mit LTRIM/RTRIM und '-1' Null-Placeholder
-CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-    CONCAT(
-        ISNULL(LTRIM(RTRIM(CAST(col1 AS NVARCHAR(MAX)))), '-1'),
-        ISNULL(LTRIM(RTRIM(CAST(col2 AS NVARCHAR(MAX)))), '-1')
-    )
-), 2) AS hd_<entity>
+**Single Business Key** (Referenz: `models/staging/ewb_lohn_len_main.sql`):
+```sql
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_ewb_lohn_len_main"
+
+derived_columns:
+  dss_record_source: "!ewb_abacus"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(EMPL_NR AS NVARCHAR(MAX)))), '-1'))"
+  _escape:
+    source_column:
+      - "TYPE"
+      - "timestamp_landing-zone"
+    escape: true
+
+hashed_columns:
+  hk_person: "EMPL_NR"
+  hd_person:
+    is_hashdiff: true
+    columns:
+      - "COL1"
+      - "COL2"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
+```
+
+**Composite Business Key** (Referenz: `models/staging/ewb_proj_nsa_main.sql`):
+```yaml
+hashed_columns:
+  hk_projektsachkonto:
+    - "PROJNR"
+    - "CODE"
+    - "PERIYEAR"
+    - "PERIMONTH"
+    - "GB"
+    - "DATASET"
+```
+
+### Escaping von Reserved Keywords
+
+Verwende `_escape` als derived column mit `source_column` Liste + `escape: true`. Dies fügt die Spalten zu `columns_to_escape` hinzu, ohne problematische Aliase zu erzeugen:
+```yaml
+derived_columns:
+  _escape:
+    source_column:
+      - "PLAN"
+      - "LEVEL"
+      - "BEFORE"
+      - "AFTER"
+      - "timestamp_landing-zone"
+    escape: true
+```
+Referenz: `models/staging/ewb_fibu_fhe_main.sql` (multiple reserved keywords)
+
+### Date-Spalten in Hash Keys
+
+Für deterministische ISO-Datums-Hashing verwende derived columns:
+```yaml
+derived_columns:
+  PROJDAT_KEY: "CONVERT(NVARCHAR(30), PROJDAT, 126)"
 ```
 
 ## automate_dv Macros (Vault-Schicht)

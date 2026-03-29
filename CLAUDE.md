@@ -108,16 +108,17 @@ Stable lookup values?                   → REFERENCE TABLE
 
 1. **Always** `as_columnstore: false` on incremental models (Basic tier limitation)
 2. **Never** hardcode database names — use `{{ target.database }}`
-3. **Never** use automate_dv hash macros — they are incompatible with SQL Server. Use native hashing:
-   ```sql
-   CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(LTRIM(RTRIM(CAST(col AS NVARCHAR(MAX)))), '-1')), 2)
-   ```
-   For composite keys: `CONCAT_WS('||', col1, col2, ...)`
+3. **Hashing via automate_dv.stage()** with custom overrides in `macros/hash_override.sql`:
+   - `sqlserver__cast_binary` — produces `CHAR(64)` hex-encoded hashes (instead of automate_dv's default `BINARY(32)`)
+   - `sqlserver__type_string` — returns `NVARCHAR` (Unicode-safe for Swiss data with Umlauts)
+   - Configured via `dispatch` in `dbt_project.yml` to prioritize project macros over automate_dv
 4. **Null placeholder:** `'-1'` (configured as `null_placeholder_string` in dbt_project.yml vars)
+5. **Hash content casing:** `DISABLED` (no `UPPER()` on hash inputs — case-sensitive data)
+6. **Concat string:** `'||'` as multi-column hash separator
 
 ## Custom Macros (macros/)
 
-- `hash_override.sql` — SQL Server SHA2_256/MD5 hash implementation
+- `hash_override.sql` — Overrides `automate_dv.cast_binary` (→ `CHAR(64)`) and `automate_dv.type_string` (→ `NVARCHAR`)
 - `generate_schema_name.sql` — Overrides dbt-sqlserver schema naming
 - `stage_external_sources_selective.sql` — Creates individual external tables from sources.yml
 - `satellite_current_flag.sql` — Post-hook: updates `dss_is_current` flag

@@ -29,35 +29,43 @@ IF OBJECT_ID('[stg].[ext_table_name]', 'U') IS NOT NULL
     DROP EXTERNAL TABLE [stg].[ext_table_name]
 ```
 
-## Hash-Berechnung (T-SQL nativ)
-Verwende **immer** native SQL Server HASHBYTES — **niemals** automate_dv Hash-Macros (inkompatibel mit SQL Server).
+## Hash-Berechnung (automate_dv.stage() mit Custom Overrides)
 
-**Null-Handling:** `'-1'` als Null-Placeholder (konfiguriert als `null_placeholder_string` in dbt_project.yml).
-**Trimming:** `LTRIM(RTRIM(...))` um alle Hash-Inputs.
+Staging-Modelle verwenden das **automate_dv.stage()** Macro. Hash-Berechnung wird von automate_dv übernommen, mit zwei Custom Overrides in `macros/hash_override.sql`:
 
-```sql
--- Entity Hash Key (einzelner Business Key)
-CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-    ISNULL(LTRIM(RTRIM(CAST(BUSINESS_KEY AS NVARCHAR(MAX)))), '-1')
-), 2) AS hk_<entity>
+### Override 1: `sqlserver__cast_binary`
+automate_dv Default: `CONVERT(BINARY(32), HASHBYTES(...), 2)` → **Unser Override:** `CONVERT(CHAR(64), HASHBYTES(...), 2)` — hex-encoded, lesbar, kompatibel mit bestehenden Vault-Tabellen.
 
--- Link Hash Key (zusammengesetzt mit Separator)
-CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-    CONCAT(
-        ISNULL(LTRIM(RTRIM(CAST(BK1 AS NVARCHAR(MAX)))), '-1'),
-        '^^',
-        ISNULL(LTRIM(RTRIM(CAST(BK2 AS NVARCHAR(MAX)))), '-1')
-    )
-), 2) AS hk_link_<e1>_<e2>
+### Override 2: `sqlserver__type_string`
+automate_dv Default: `VARCHAR` → **Unser Override:** `NVARCHAR` — Unicode-safe für CH-Daten mit Umlauten. Wichtig: `HASHBYTES('SHA2_256', NVARCHAR)` ≠ `HASHBYTES('SHA2_256', VARCHAR)`.
 
--- Hash Diff (mehrere Spalten)
-CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-    CONCAT(
-        ISNULL(LTRIM(RTRIM(CAST(col1 AS NVARCHAR(MAX)))), '-1'),
-        ISNULL(LTRIM(RTRIM(CAST(col2 AS NVARCHAR(MAX)))), '-1')
-    )
-), 2) AS hd_<entity>
+### dbt_project.yml Konfiguration
+```yaml
+dispatch:
+  - macro_namespace: automate_dv
+    search_order: ['datavault', 'automate_dv']
+
+vars:
+  hash: 'SHA'
+  null_placeholder_string: '-1'
+  concat_string: '||'
+  hash_content_casing: 'DISABLED'
+  escape_char_left: '['
+  escape_char_right: ']'
 ```
+
+### Escaping von Reserved Keywords (in Staging)
+Verwende `_escape` als derived column im YAML-Metadata Block:
+```yaml
+derived_columns:
+  _escape:
+    source_column:
+      - "PLAN"
+      - "LEVEL"
+      - "timestamp_landing-zone"
+    escape: true
+```
+Dies fügt Spalten zu automate_dv's `columns_to_escape` hinzu, ohne problematische Aliase zu erzeugen.
 
 ## Azure SQL Serverless Limitationen
 - **Columnstore Indexes:** Nicht verfügbar im Basic/Serverless Tier

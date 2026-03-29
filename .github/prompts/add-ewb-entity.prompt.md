@@ -17,7 +17,7 @@ Verwende den @staging-engineer Workflow:
 1. `get_parquet_schema` für die Parquet-Datei ausführen
 2. Types korrigieren (DECIMAL(38,18), VARBINARY(8000) für APPSTR)
 3. `sources.yml` Eintrag unter `# ===== EWB / ABACUS =====`
-4. Staging SQL mit 5-Block-Struktur (`models/staging/ewb_<modul>_<tabelle>_<suffix>.sql`)
+4. Staging SQL mit automate_dv.stage() YAML Metadata Pattern (`models/staging/ewb_<modul>_<tabelle>_<suffix>.sql`)
 5. `_staging__models.yml` Eintrag mit config.meta + Tests
 6. `.vscode/entity-designer/<entity>.json` erstellen
 7. `design/staging/ewb/<entity>.md` erstellen
@@ -44,6 +44,8 @@ Verwende den @vault-architect Workflow:
 - DB-Objekte via MSSQL MCP prüfen
 
 ## Referenzen
-- Goldenes Staging-Beispiel: `models/staging/ewb_fibu_fhe_main.sql`
+- Goldenes Staging-Beispiel (Single BK): `models/staging/ewb_lohn_len_main.sql`
+- Composite BK Beispiel: `models/staging/ewb_proj_nsa_main.sql`
+- Multiple Reserved Keywords: `models/staging/ewb_fibu_fhe_main.sql`
 - Adworks Hub-Pattern: `models/raw_vault/adworks/hubs/hub_kunde.sql`
 - Adworks Sat-Pattern: `models/raw_vault/adworks/satellites/sat_kunde.sql`

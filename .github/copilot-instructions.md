@@ -76,10 +76,10 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 
 - **Immer** `as_columnstore: false` bei Incremental-Modellen
 - **Nie** Datenbanknamen hardcoden → `{{ target.database }}`
-- Hash-Berechnung **nativ** (kein automate_dv-Hash-Macro — inkompatibel mit SQL Server):
-  ```sql
-  CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(LTRIM(RTRIM(CAST(col AS NVARCHAR(MAX)))), '-1')), 2)
-  ```
+- Hash-Berechnung via **automate_dv.stage()** mit Custom Overrides in `macros/hash_override.sql`:
+  - `sqlserver__cast_binary` → `CHAR(64)` (hex-encoded, statt automate_dv Default `BINARY(32)`)
+  - `sqlserver__type_string` → `NVARCHAR` (Unicode-safe für CH-Daten)
+  - Konfiguriert via `dispatch` in `dbt_project.yml` (Projekt-Macros haben Vorrang vor automate_dv)
 
 ## dbt Targets
 
@@ -102,8 +102,9 @@ dbt run --select +raw_vault._common.hub_<entity> # Mit Upstream
 
 - [dbt_project.yml](dbt_project.yml) — Schema-Konfigurationen
 - [models/staging/sources.yml](models/staging/sources.yml) — External Table Definitionen
-- [models/staging/ewb_fibu_fhe_main.sql](models/staging/ewb_fibu_fhe_main.sql) — **Goldenes EWB Staging-Beispiel**
-- [models/staging/adworks_kunde.sql](models/staging/adworks_kunde.sql) — Adworks als Dev-Template
+- [models/staging/ewb_lohn_len_main.sql](models/staging/ewb_lohn_len_main.sql) — **Goldenes EWB Staging-Beispiel** (single BK, reserved keyword)
+- [models/staging/ewb_proj_nsa_main.sql](models/staging/ewb_proj_nsa_main.sql) — **Composite BK Staging-Beispiel**
+- [models/staging/ewb_fibu_fhe_main.sql](models/staging/ewb_fibu_fhe_main.sql) — **Multiple Reserved Keywords Staging-Beispiel**
 - [models/raw_vault/adworks/](models/raw_vault/adworks/) — Adworks als Vault-Dev-Template
 - [docs/projektdokumentation.md](docs/projektdokumentation.md) — Scope, Phasen, 19 Pilot-Tabellen
 - [instructions/ewb-abacus.instructions.md](instructions/ewb-abacus.instructions.md) — EWB-spezifische Regeln (Type-Mapping, Reserved Keywords)

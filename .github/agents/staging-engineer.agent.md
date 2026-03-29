@@ -1,5 +1,5 @@
 ---
-description: 'Erstellt vollständige EWB Staging-Views nach dem Adworks-Pattern. Workflow:
+description: 'Erstellt vollständige EWB Staging-Views mit automate_dv.stage() Macro. Workflow:
   Parquet-Schema → Type-Korrektur → sources.yml → Staging SQL → _staging__models.yml
   → Entity-Designer JSON → Design-Doku → Deploy.'
 name: staging-engineer
@@ -10,8 +10,10 @@ Du bist ein spezialisierter Staging Engineer für das EWB Data Vault 2.1 Projekt
 ## Kontext
 - Projekt: Data Vault 2.1 auf Azure SQL mit dbt Core + automate_dv
 - Quellsystem: Abacus ERP (EWB), Daten als Parquet in ADLS stage-fs
-- Referenz-Pattern: `models/staging/adworks_kunde.sql` (Adworks-Muster)
-- Goldenes EWB-Beispiel: `models/staging/ewb_fibu_fhe_main.sql`
+- Staging-Pattern: **automate_dv.stage() YAML Metadata** (kein Custom SQL)
+- Goldenes EWB-Beispiel (Single BK): `models/staging/ewb_lohn_len_main.sql`
+- Composite BK Beispiel: `models/staging/ewb_proj_nsa_main.sql`
+- Multiple Reserved Keywords: `models/staging/ewb_fibu_fhe_main.sql`
 
 ## Workflow (Schritt für Schritt)
 
@@ -35,31 +37,61 @@ dbt run-operation get_parquet_schema --args '{"file_path": "ewb/abacus/<MODUL>.<
 Füge den neuen Eintrag unter dem Kommentar `# ===== EWB / ABACUS =====` in `models/staging/sources.yml` ein.
 Folge exakt dem Schema des bestehenden `ext_ewb_fibu_fhe_main` Eintrags.
 
-### 4. Staging SQL erstellen
-Erstelle `models/staging/ewb_<modul>_<tabelle>_<suffix>.sql` mit der 5-Block-Struktur:
-1. Header-Kommentar (Source, Business Key, Hash Keys, **Branding**)
-2. `hashdiff_columns` Jinja-Variable (alle Payload-Spalten für Change Detection)
-3. `source` CTE: `SELECT * FROM {{ source('staging', 'ext_ewb_...') }}`
-4. `staged` CTE: Hash Key, Hash Diff, Business Key, Payload, Metadata
-5. Output: `SELECT * FROM staged`
+### 4. Staging SQL erstellen (automate_dv.stage() Pattern)
+Erstelle `models/staging/ewb_<modul>_<tabelle>_<suffix>.sql` mit dem **automate_dv.stage() YAML Metadata Pattern**:
 
-**Header-Branding (Pflicht in jedem SQL-Objekt):**
-```
-Developer: Daniel Fellner, MSc
-Company:   ppmc analytics ag
-Contact:   office@ppmcag.com
-Version:   <YYYY-MM-DD> V1.0 Initialversion
+```sql
+/*
+ * Staging Model: ewb_<modul>_<tabelle>_<suffix>
+ *
+ * Source: ext_ewb_<modul>_<tabelle>_<suffix> (Abacus <MODUL>.<TABELLE>.<SUFFIX>)
+ * Business Key: <BK>
+ * Hash Key: hk_<entity>
+ * Payload: N Spalten — Beschreibung
+ *
+ * Uses automate_dv.stage() macro for standardized staging.
+ */
+
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_ewb_<modul>_<tabelle>_<suffix>"
+
+derived_columns:
+  dss_record_source: "!ewb_abacus"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(<BK> AS NVARCHAR(MAX)))), '-1'))"
+  _escape:
+    source_column:
+      - "<RESERVED_KEYWORD>"
+      - "timestamp_landing-zone"
+    escape: true
+
+hashed_columns:
+  hk_<entity>: "<BK>"
+  hd_<entity>:
+    is_hashdiff: true
+    columns:
+      - "COL1"
+      - "COL2"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
 
 **Wichtig:**
-- Reserved Keywords escapen: `[PLAN]`, `[LEVEL]`, `[BEFORE]`, `[AFTER]`, etc.
+- **Reserved Keywords:** Verwende `_escape` derived column mit `source_column` Liste + `escape: true`
 - APPSTR-Spalten NICHT in hashdiff_columns aufnehmen (VARBINARY kann nicht gehasht werden)
-- `dss_record_source` Default: `'ewb_abacus'`
-- Hash-Berechnung: T-SQL nativ (`CONVERT(CHAR(64), HASHBYTES(...), 2)`)
-- NULL-Handling: `ISNULL(..., '-1')` — Null-Placeholder ist `'-1'`
-- Trimming: `LTRIM(RTRIM(...))` um alle Hash-Inputs
-- `dss_business_key`: `CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(BK AS NVARCHAR(MAX)))), '-1'))`
-- `dss_create_datetime`: `GETDATE()`
+- `dss_record_source`: Prefix mit `!` für Literal-Wert (z.B. `"!ewb_abacus"`)
+- `include_source_columns=true`: Alle Quellspalten werden durchgereicht
+- Hashdiff-Spalten werden **automatisch alphabetisch sortiert** durch automate_dv
+- Date-Spalten in Hash Keys: Derived column mit `CONVERT(NVARCHAR(30), <DATE_COL>, 126)` für deterministische ISO-Hashing
+- Composite BK: Liste statt String in `hashed_columns` (siehe `ewb_proj_nsa_main.sql`)
 
 ### 5. _staging__models.yml Eintrag
 Füge unter `# ===== EWB / ABACUS =====` in `models/staging/_staging__models.yml` einen Eintrag hinzu mit:
@@ -114,19 +146,19 @@ dbt run --select "ewb_<modul>_<tabelle>_<suffix>" --target ewb-dev
 ## Checkliste (vor Abschluss prüfen)
 
 - [ ] `sources.yml` — External Table Eintrag
-- [ ] `ewb_<entity>.sql` — Staging SQL mit 5-Block-Struktur
+- [ ] `ewb_<entity>.sql` — Staging SQL mit automate_dv.stage() YAML Metadata Pattern
 - [ ] `_staging__models.yml` — YAML-Dokumentation mit Tests
 - [ ] `.vscode/entity-designer/_common_<entity>.json` — Extension-Datei
 - [ ] `design/staging/ewb/<entity>.md` — Design-Doku
 - [ ] Kein Schiefstand: SQL-Spalten = JSON-Spalten = YAML-Spalten
 
 ## Fehlerbehandlung
-- Bei SQL-Fehlern: Reserved Keywords prüfen, DROP EXTERNAL TABLE via IF OBJECT_ID Pattern
+- Bei SQL-Fehlern: Reserved Keywords prüfen (→ `_escape` derived column)
 - Bei Type-Fehlern: sys.columns auf der DB abfragen
 - Bei Macro-Fehlern: Types manuell in sources.yml korrigieren
 
 # Staging Engineer
 
-Erstellt vollständige EWB Staging-Views nach dem Adworks-Pattern.
+Erstellt vollständige EWB Staging-Views mit automate_dv.stage() Macro.
 
 **Verwendung:** `@staging-engineer Erstelle staging für KRED.KBL.Main.parquet`

@@ -589,25 +589,22 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 📄 **Datei:** [models/staging/jira_company.sql](../models/staging/jira_company.sql)
 
-```sql
--- 1. Füge Spalte zur SELECT-Liste hinzu
-client_source AS (
-    SELECT 
-        object_id,
-        -- ... bestehende Spalten ...
-        tax_number,              -- ← NEU
-        -- ...
-    FROM {{ source('staging', 'ext_jira_company') }}
-),
+Staging Views verwenden das automate_dv.stage() YAML Metadata Pattern. Füge die neue Spalte zum `hashed_columns` Block hinzu:
 
--- 2. Falls im Hash Diff: Füge zur hashdiff_columns Liste hinzu
-{%- set hashdiff_columns = [
-    'name',
-    'street',
-    -- ... bestehende ...
-    'tax_number'                 -- ← NEU (falls Änderungen getrackt werden sollen)
-] -%}
+```yaml
+# In der yaml_metadata Sektion:
+hashed_columns:
+  hk_company: "object_id"
+  hd_company:
+    is_hashdiff: true
+    columns:
+      - "name"
+      - "street"
+      # ... bestehende ...
+      - "tax_number"               # ← NEU (falls Änderungen getrackt werden sollen)
 ```
+
+> **Hinweis:** Hashdiff-Spalten werden automatisch alphabetisch sortiert durch automate_dv. Die Spalte muss an der richtigen alphabetischen Position eingefügt werden.
 
 #### Schritt 3: Satellite erweitern
 
@@ -712,77 +709,57 @@ sources:
 
 📄 **Neue Datei:** `models/staging/jira_product.sql`
 
+Staging Views verwenden das **automate_dv.stage() YAML Metadata Pattern**. Alle Hash Keys und Hash Diffs werden automatisch von automate_dv berechnet (mit Custom Overrides in `macros/hash_override.sql`).
+
 ```sql
 /*
  * Staging Model: jira_product
- * 
- * Bereitet Product-Daten für das Data Vault vor.
- * Hash Key Separator: '^^' (DV 2.1 Standard)
+ *
+ * Source: ext_jira_product (Product-Daten)
+ * Business Key: object_id
+ * Hash Key: hk_product
+ * Payload: 4 Spalten — Product-Attribute
+ *
+ * Uses automate_dv.stage() macro for standardized staging.
  */
 
-{%- set hashdiff_columns = [
-    'name',
-    'description',
-    'price',
-    'category_id'
-] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_jira_product"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_jira_product') }}
-),
+derived_columns:
+  dss_record_source: "!jira"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(object_id AS NVARCHAR(MAX)))), '-1'))"
 
-staged AS (
-    SELECT
-        -- ===========================================
-        -- HASH KEYS
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(object_id AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_product,
-        
-        -- FK zu anderen Hubs (falls vorhanden)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(category_id AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_category,
-        
-        -- ===========================================
-        -- HASH DIFF (Change Detection)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_product,
-        
-        -- ===========================================
-        -- BUSINESS KEY
-        -- ===========================================
-        object_id,
-        
-        -- ===========================================
-        -- PAYLOAD
-        -- ===========================================
-        name,
-        description,
-        price,
-        category_id,
-        
-        -- ===========================================
-        -- METADATA
-        -- ===========================================
-        COALESCE(dss_record_source, 'jira') AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id,
-        CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(object_id AS NVARCHAR(MAX)))), '-1')) AS dss_business_key,
-        GETDATE() AS dss_create_datetime
-        
-    FROM source
-)
+hashed_columns:
+  hk_product: "object_id"
+  hk_category: "category_id"
+  hk_link_product_category:
+    - "object_id"
+    - "category_id"
+  hd_product:
+    is_hashdiff: true
+    columns:
+      - "category_id"
+      - "description"
+      - "name"
+      - "price"
+{%- endset -%}
 
-SELECT * FROM staged
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
+
+> **EWB-spezifische Referenz-Beispiele:**
+> - Single BK + Reserved Keyword: `models/staging/ewb_lohn_len_main.sql`
+> - Composite BK: `models/staging/ewb_proj_nsa_main.sql`
+> - Multiple Reserved Keywords: `models/staging/ewb_fibu_fhe_main.sql`
 
 ### Schritt 3: Hub erstellen
 
@@ -1477,68 +1454,48 @@ Ein **Dependent Child Satellite** wird verwendet, wenn ein Link zusätzliche Sch
 
 #### Staging-View Anforderungen
 
-Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten:
+Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten. Mit automate_dv.stage() werden alle Hashes im YAML-Metadata Block definiert:
 
 ```sql
 -- Beispiel: jira_order_item.sql (mit DCK: line_item_no)
 
-{%- set hashdiff_columns = ['quantity', 'unit_price', 'discount'] -%}
-{%- set hashdiff_dc_columns = ['line_item_no', 'quantity', 'unit_price', 'discount'] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_jira_order_item"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_jira_order_item') }}
-),
+derived_columns:
+  dss_record_source: "!jira"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(order_id AS NVARCHAR(MAX)))), '-1'))"
 
-staged AS (
-    SELECT
-        -- HASH KEY (Entity)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(order_id AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_order_item,
-        
-        -- LINK HASH KEY (Order → Product + DCK)
-        -- Enthält DCK für DC Sat Eindeutigkeit
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                ISNULL(LTRIM(RTRIM(CAST(order_id AS NVARCHAR(MAX)))), '-1'),
-                '^^',
-                ISNULL(LTRIM(RTRIM(CAST(product_id AS NVARCHAR(MAX)))), '-1'),
-                '^^',
-                ISNULL(LTRIM(RTRIM(CAST(line_item_no AS NVARCHAR(MAX)))), '-1')  -- DCK
-            )
-        ), 2) AS hk_link_order_product,
-        
-        -- HASH DIFF (Standard Satellite)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_order_item,
-        
-        -- HASH DIFF (DC Satellite - inkl. DCK)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_dc_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_order_product_dc,
-        
-        -- Business Keys + Payload + Metadata
-        order_id,
-        product_id,
-        line_item_no,  -- DCK
-        quantity,
-        unit_price,
-        discount,
-        dss_record_source,
-        dss_load_date
-    FROM source
-)
+hashed_columns:
+  hk_order_item: "order_id"
+  hk_link_order_product:
+    - "order_id"
+    - "product_id"
+    - "line_item_no"
+  hd_order_item:
+    is_hashdiff: true
+    columns:
+      - "discount"
+      - "quantity"
+      - "unit_price"
+  hd_order_product_dc:
+    is_hashdiff: true
+    columns:
+      - "discount"
+      - "line_item_no"
+      - "quantity"
+      - "unit_price"
+{%- endset -%}
 
-SELECT * FROM staged
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
 
 #### DC Satellite Model
@@ -1600,49 +1557,37 @@ Ein **Multi-Active Satellite** erlaubt **mehrere gleichzeitig gültige Werte** f
 ```sql
 -- Beispiel: jira_employee_phone.sql (mit CDK: phone_type)
 
-{%- set hashdiff_columns = ['phone_number', 'is_primary'] -%}
-{%- set hashdiff_ma_columns = ['phone_type', 'phone_number', 'is_primary'] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_jira_employee_phone"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_jira_employee_phone') }}
-),
+derived_columns:
+  dss_record_source: "!jira"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(employee_id AS NVARCHAR(MAX)))), '-1'))"
 
-staged AS (
-    SELECT
-        -- HASH KEY (Entity)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(LTRIM(RTRIM(CAST(employee_id AS NVARCHAR(MAX)))), '-1')
-        ), 2) AS hk_employee,
-        
-        -- HASH DIFF (für regulären Satellite)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_employee,
-        
-        -- HASH DIFF (MA Satellite - inkl. CDK)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_ma_columns %}
-                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_employee_ma,
-        
-        -- Business Key + CDK + Payload + Metadata
-        employee_id,
-        phone_type,      -- CDK (Child Dependent Key)
-        phone_number,
-        is_primary,
-        dss_record_source,
-        dss_load_date
-    FROM source
-)
+hashed_columns:
+  hk_employee: "employee_id"
+  hd_employee:
+    is_hashdiff: true
+    columns:
+      - "is_primary"
+      - "phone_number"
+  hd_employee_ma:
+    is_hashdiff: true
+    columns:
+      - "is_primary"
+      - "phone_number"
+      - "phone_type"
+{%- endset -%}
 
-SELECT * FROM staged
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
 
 #### MA Satellite Model
@@ -2357,9 +2302,11 @@ dbt debug
 ```
 □ External Table in sources.yml definiert
 □ Staging View erstellt (<concept>_<entity>.sql)
-  □ Hash Key berechnet
-  □ Hash Diff berechnet (falls Satellite)
-  □ Metadata-Spalten gemappt
+  □ automate_dv.stage() YAML Metadata Pattern
+  □ Hash Key definiert in hashed_columns
+  □ Hash Diff definiert (falls Satellite)
+  □ Reserved Keywords via _escape escaped
+  □ Metadata-Spalten als derived_columns
 □ Hub erstellt (hub_<entity>.sql)
 □ Satellite erstellt (sat_<entity>.sql)
   □ Post-Hook für dss_is_current
@@ -2376,9 +2323,8 @@ dbt debug
 
 ```
 □ Spalte in sources.yml hinzugefügt
-□ Spalte in Staging View hinzugefügt
-□ Spalte in Hash Diff (falls getrackt)
-□ Spalte in Satellite hinzugefügt
+□ Spalte in Staging View hashed_columns/hashdiff hinzugefügt (falls getrackt)
+□ Spalte in Satellite src_payload hinzugefügt
 □ dbt run-operation stage_external_sources
 □ dbt run --full-refresh --select <concept>_* sat_*
 □ dbt test
@@ -2391,7 +2337,7 @@ dbt debug
 □ SQL kompiliert und geprüft
 □ Keine hardcoded Datenbanknamen
 □ +as_columnstore: false gesetzt
-□ Hash-Separator ist '^^'
+□ Hash-Separator ist '||' (concat_string in dbt_project.yml)
 □ Git committed und gepusht
 □ PR erstellt und CI erfolgreich ✓
 ```
