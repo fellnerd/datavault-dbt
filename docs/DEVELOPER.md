@@ -94,7 +94,9 @@ Data Vault trennt strikt zwischen:
 -- Struktur
 hk_<entity>         -- Hash Key (PK)
 <business_key>      -- Business Key (z.B. object_id)
+dss_business_key    -- Normierter Business Key (CONCAT_WS-basiert)
 dss_load_date       -- Ladezeitpunkt
+dss_create_datetime -- Erstellungszeitpunkt
 dss_record_source   -- Quelle
 ```
 
@@ -116,6 +118,7 @@ dss_load_date       -- Ladezeitpunkt (Teil des PK)
 hd_<entity>         -- Hash Diff (Änderungserkennung)
 <attribute_1>       -- Fachliche Attribute
 <attribute_n>       
+dss_create_datetime -- Erstellungszeitpunkt
 dss_is_current      -- 'Y' = aktuell, 'N' = historisch
 dss_end_date        -- Gültigkeitsende (NULL = aktuell)
 ```
@@ -734,12 +737,12 @@ staged AS (
         -- HASH KEYS
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(object_id AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(object_id AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_product,
         
         -- FK zu anderen Hubs (falls vorhanden)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(category_id AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(category_id AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_category,
         
         -- ===========================================
@@ -748,7 +751,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
                 {%- endfor %}
             )
         ), 2) AS hd_product,
@@ -771,7 +774,9 @@ staged AS (
         -- ===========================================
         COALESCE(dss_record_source, 'jira') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id
+        dss_run_id,
+        CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(object_id AS NVARCHAR(MAX)))), '-1')) AS dss_business_key,
+        GETDATE() AS dss_create_datetime
         
     FROM source
 )
@@ -1207,9 +1212,9 @@ SELECT * FROM new_records
 -- In <concept>_<source>.sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
     CONCAT(
-        ISNULL(CAST(<entity1_bk> AS NVARCHAR(MAX)), ''),
+        ISNULL(LTRIM(RTRIM(CAST(<entity1_bk> AS NVARCHAR(MAX)))), '-1'),
         '^^',
-        ISNULL(CAST(<entity2_bk> AS NVARCHAR(MAX)), '')
+        ISNULL(LTRIM(RTRIM(CAST(<entity2_bk> AS NVARCHAR(MAX)))), '-1')
     )
 ), 2) AS hk_link_<entity1>_<entity2>
 ```
@@ -1488,18 +1493,18 @@ staged AS (
     SELECT
         -- HASH KEY (Entity)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(order_id AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(order_id AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_order_item,
         
         -- LINK HASH KEY (Order → Product + DCK)
         -- Enthält DCK für DC Sat Eindeutigkeit
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
-                ISNULL(CAST(order_id AS NVARCHAR(MAX)), ''),
+                ISNULL(LTRIM(RTRIM(CAST(order_id AS NVARCHAR(MAX)))), '-1'),
                 '^^',
-                ISNULL(CAST(product_id AS NVARCHAR(MAX)), ''),
+                ISNULL(LTRIM(RTRIM(CAST(product_id AS NVARCHAR(MAX)))), '-1'),
                 '^^',
-                ISNULL(CAST(line_item_no AS NVARCHAR(MAX)), '')  -- DCK
+                ISNULL(LTRIM(RTRIM(CAST(line_item_no AS NVARCHAR(MAX)))), '-1')  -- DCK
             )
         ), 2) AS hk_link_order_product,
         
@@ -1507,7 +1512,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
                 {%- endfor %}
             )
         ), 2) AS hd_order_item,
@@ -1516,7 +1521,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_dc_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
                 {%- endfor %}
             )
         ), 2) AS hd_order_product_dc,
@@ -1550,15 +1555,16 @@ source_model: "jira_order_item"
 src_pk: "hk_link_order_product"
 src_hashdiff: 
   source_column: "hd_order_product_dc"
-  alias: "hashdiff"
+  alias: "HASHDIFF"
 src_payload:
     - "line_item_no"
     - "quantity"
     - "unit_price"
     - "discount"
-src_eff: "dss_load_date"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
+src_extra_columns:
+  - "dss_create_datetime"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
@@ -1567,9 +1573,9 @@ src_source: "dss_record_source"
     src_pk=metadata_dict["src_pk"],
     src_hashdiff=metadata_dict["src_hashdiff"],
     src_payload=metadata_dict["src_payload"],
-    src_eff=metadata_dict["src_eff"],
     src_ldts=metadata_dict["src_ldts"],
     src_source=metadata_dict["src_source"],
+    src_extra_columns=metadata_dict["src_extra_columns"],
     source_model=metadata_dict["source_model"]
 ) }}
 ```
@@ -1605,14 +1611,14 @@ staged AS (
     SELECT
         -- HASH KEY (Entity)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(employee_id AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(employee_id AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_employee,
         
         -- HASH DIFF (für regulären Satellite)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
                 {%- endfor %}
             )
         ), 2) AS hd_employee,
@@ -1621,7 +1627,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_ma_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last }}
                 {%- endfor %}
             )
         ), 2) AS hd_employee_ma,
@@ -1655,7 +1661,7 @@ src_cdk:
     - "phone_type"
 src_hashdiff: 
   source_column: "hd_employee_ma"
-  alias: "hashdiff"
+  alias: "HASHDIFF"
 src_payload:
     - "phone_number"
     - "is_primary"
@@ -1747,6 +1753,31 @@ WHERE sat_<entity>_hk IS NOT NULL
 
 ---
 
+### 5.9 Current View erstellen (sat_*_current_v)
+
+Für jeden Satellite wird eine Current View erstellt, die den aktuellen Stand bereitstellt. Mart-Modelle referenzieren diese Views statt der Satellites direkt.
+
+📄 **Datei:** `models/raw_vault/_common/satellites/sat_<entity>_current_v.sql`
+
+```sql
+{{ config(materialized='view') }}
+{{ satellite_current_view(
+    satellite_model='sat_<entity>',
+    hashkey_column='hk_<entity>'
+) }}
+```
+
+**Zugriffsmuster:**
+- **SCD1 (aktueller Stand):** `WHERE dss_is_current = 'Y'`
+- **SCD2 (volle Historie):** Kein Filter, alle Records
+
+**Datenfluss:**
+```
+Hub/Sat (vault.*) → Current View (sat_*_current_v) → Mart (mart_*.*)
+```
+
+---
+
 ## 📊 Mart — Dimensionale Modellierung
 
 ### Überblick
@@ -1756,7 +1787,7 @@ Dimensionen und Faktentabellen verwenden deterministische BIGINT Surrogate Keys.
 
 **Datenfluss:**
 ```
-Hub/Sat/Link (vault.*) → Dimension/Fakt (mart_<concept>.*)
+Hub/Sat/Link (vault.*) → Current View (sat_*_current_v) → Dimension/Fakt (mart_<concept>.*)
 ```
 
 ### Surrogate Key Macro

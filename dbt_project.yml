@@ -23,6 +23,9 @@ vars:
   # Hash-Algorithmus: MD5 (16 Byte) oder SHA (32 Byte)
   hash: 'SHA'
   
+  # NULL-Placeholder für Hash-Berechnung
+  null_placeholder_string: '-1'
+  
   # Datumsspalte für Load Date
   load_date: 'dss_load_date'
   

@@ -8,7 +8,7 @@ Data Vault 2.1 implementation on Azure SQL Server using dbt. Source data flows f
 
 **Full data flow:**
 ```
-ADLS Parquet → stg.ext_ewb_* (External Table) → stg.ewb_* (Staging View) → vault.* (Hub/Sat/Link) → mart_* (Dim/Fakt)
+ADLS Parquet → stg.ext_ewb_* (External Table) → stg.ewb_* (Staging View) → vault.* (Hub/Sat/Link) → vault.sat_*_current_v (Current View) → mart_* (Dim/Fakt)
 ```
 
 ## Commands
@@ -86,8 +86,12 @@ All Raw Vault objects use `incremental_strategy: append` with `on_schema_change:
 | Dimension | `mart_<concept>.dim_<entity>` | `mart_project.dim_person` |
 | Fact table | `mart_<concept>.fakt_<content>` | `mart_project.fakt_stunden` |
 
-Standard metadata columns: `dss_load_date`, `dss_record_source`, `dss_run_id`, `dss_is_current`, `dss_end_date`.
+Standard metadata columns: `dss_load_date`, `dss_record_source`, `dss_run_id`, `dss_is_current`, `dss_end_date`, `dss_business_key`, `dss_create_datetime`.
 `dss_record_source = 'ewb_abacus'` for all EWB objects.
+
+### Additional Staging Columns
+- `dss_business_key` — Normalized business key: `CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(BK AS NVARCHAR(MAX)))), '-1'))`
+- `dss_create_datetime` — Row creation timestamp: `GETDATE()`
 
 ### DV 2.1 Object Decision Logic
 
@@ -106,9 +110,10 @@ Stable lookup values?                   → REFERENCE TABLE
 2. **Never** hardcode database names — use `{{ target.database }}`
 3. **Never** use automate_dv hash macros — they are incompatible with SQL Server. Use native hashing:
    ```sql
-   CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(CAST(col AS NVARCHAR(MAX)), '')), 2)
+   CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(LTRIM(RTRIM(CAST(col AS NVARCHAR(MAX)))), '-1')), 2)
    ```
    For composite keys: `CONCAT_WS('||', col1, col2, ...)`
+4. **Null placeholder:** `'-1'` (configured as `null_placeholder_string` in dbt_project.yml vars)
 
 ## Custom Macros (macros/)
 
@@ -116,6 +121,7 @@ Stable lookup values?                   → REFERENCE TABLE
 - `generate_schema_name.sql` — Overrides dbt-sqlserver schema naming
 - `stage_external_sources_selective.sql` — Creates individual external tables from sources.yml
 - `satellite_current_flag.sql` — Post-hook: updates `dss_is_current` flag
+- `satellite_current_view.sql` — Generates `sat_*_current_v` views (SCD1/SCD2 access pattern)
 - `create_hash_index.sql` — Post-hook: creates indexes on hash key columns
 - `get_parquet_schema.sql` / `get_parquet_data.sql` / `list_parquet_files.sql` — ADLS Parquet introspection
 - `run_sql.sql` — **Ad-hoc SQL runner** for arbitrary queries against Azure SQL (use with `dbt run-operation run_sql --args '{"sql": "..."}'`)

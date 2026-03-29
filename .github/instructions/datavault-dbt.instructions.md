@@ -15,7 +15,7 @@ Dieses Projekt implementiert eine virtualisierte Data Vault 2.1 Architektur als 
 
 ### Datenfluss
 ```
-PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View → dbt Hub/Sat/Link
+PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View → dbt Hub/Sat/Link → Current View (sat_*_current_v) → Mart
 ```
 
 ### Schema-Naming-Konvention
@@ -46,6 +46,7 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View
 
 ### Custom Macros (Mart)
 - `surrogate_key(column)` — Deterministischer BIGINT Surrogate Key via MD5
+- `satellite_current_view(satellite_model, hashkey_column)` — Generiert `sat_*_current_v` Views (SCD1/SCD2 Zugriffsmuster)
 
 ### Agent
 - `@mart-architect` — Erstellt Dimensionen und Faktentabellen aus dem Raw Vault
@@ -64,7 +65,7 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → dbt View
 - Hash Key: `hk_<entity>` (SHA2_256, CHAR(64))
 - Hash Diff: `hd_<entity>` (für Satellites)
 - Business Key: Original-Name oder `<entity>_id`
-- Metadata: `dss_` Prefix (dss_load_date, dss_record_source, dss_run_id)
+- Metadata: `dss_` Prefix (dss_load_date, dss_record_source, dss_run_id, dss_business_key, dss_create_datetime)
 
 ## DBT BEFEHLE
 
@@ -91,7 +92,7 @@ dbt test           # Tests ausführen
 ### Hash-Berechnung (SQL Server)
 ```sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-    ISNULL(CAST(column AS NVARCHAR(MAX)), '')
+    ISNULL(LTRIM(RTRIM(CAST(column AS NVARCHAR(MAX)))), '-1')
 ), 2)
 ```
 

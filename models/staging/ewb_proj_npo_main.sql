@@ -30,7 +30,7 @@ staged AS (
         -- HASH KEY (Entity)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(PROJNR AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_projekt,
 
         -- ===========================================
@@ -39,7 +39,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
                 {%- endfor %}
                 {%- if hashdiff_columns | length == 1 %}, ''{%- endif %}
             )
@@ -65,6 +65,10 @@ staged AS (
         -- ===========================================
         -- METADATA
         -- ===========================================
+        CONCAT_WS('||', 'default', 'default',
+            ISNULL(LTRIM(RTRIM(CAST(PROJNR AS NVARCHAR(MAX)))), '-1')
+        ) AS dss_business_key,
+        GETDATE() AS dss_create_datetime,
         COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
         dss_run_id

@@ -35,14 +35,14 @@ staged AS (
         -- HASH KEY (Entity)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(INR AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_adresse,
 
         -- ===========================================
         -- FK HASH KEYS (for Links)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(lohnnr AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(lohnnr AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_person,
 
         -- ===========================================
@@ -50,9 +50,9 @@ staged AS (
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
-                ISNULL(CAST(INR AS NVARCHAR(MAX)), ''),
+                ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1'),
                 '^^',
-                ISNULL(CAST(lohnnr AS NVARCHAR(MAX)), '')
+                ISNULL(LTRIM(RTRIM(CAST(lohnnr AS NVARCHAR(MAX)))), '-1')
             )
         ), 2) AS hk_link_adresse_person,
 
@@ -62,7 +62,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_person_adresse_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
                 {%- endfor %}
                 {%- if hashdiff_person_adresse_columns | length == 1 %}, ''{%- endif %}
             )
@@ -70,7 +70,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
             CONCAT(
                 {%- for col in hashdiff_adresse_kontakt_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
                 {%- endfor %}
                 {%- if hashdiff_adresse_kontakt_columns | length == 1 %}, ''{%- endif %}
             )
@@ -96,6 +96,10 @@ staged AS (
         -- ===========================================
         -- METADATA
         -- ===========================================
+        CONCAT_WS('||', 'default', 'default',
+            ISNULL(LTRIM(RTRIM(CAST(INR AS NVARCHAR(MAX)))), '-1')
+        ) AS dss_business_key,
+        GETDATE() AS dss_create_datetime,
         COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
         dss_run_id

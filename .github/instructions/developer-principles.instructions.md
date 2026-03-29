@@ -37,7 +37,9 @@ Performance-Problem bei Zeitabfragen?
 ```
 hk_<entity>           -- Hash Key (PK), SHA2_256, CHAR(64)
 <business_key>        -- Business Key (original)
+dss_business_key      -- Normierter Business Key (CONCAT_WS-basiert)
 dss_load_date         -- Ladezeitpunkt, DATETIME2
+dss_create_datetime   -- Erstellungszeitpunkt, DATETIME2
 dss_record_source     -- Quelle, VARCHAR(100)
 ```
 
@@ -47,6 +49,7 @@ hk_<entity>           -- Hash Key (FK zum Hub), PK Teil 1
 dss_load_date         -- Ladezeitpunkt, PK Teil 2
 hd_<entity>           -- Hash Diff (Änderungserkennung)
 <attribute_1..n>      -- Fachliche Attribute
+dss_create_datetime   -- Erstellungszeitpunkt, DATETIME2
 dss_record_source     -- Quelle
 dss_is_current        -- 'Y' = aktuell, 'N' = historisch (via post_hook)
 dss_end_date          -- Gültigkeitsende, NULL = aktuell (via post_hook)
@@ -88,22 +91,57 @@ hd_<entity>_ma        -- Hash Diff
 
 ## Hash-Berechnung im Staging
 - **Alle** Hash Keys und Hash Diffs werden **im Staging** berechnet (automate_dv Best Practice)
-- Hub Hash Key = `SHA2_256(Business Key)`
+- **NULL-Handling:** `ISNULL(..., '-1')` — Null-Placeholder ist `'-1'` (nicht leerer String)
+- **Trimming:** Alle Hash-Inputs werden mit `LTRIM(RTRIM(...))` normalisiert
+- Hub Hash Key = `SHA2_256(LTRIM(RTRIM(Business Key)))`
 - Link Hash Key = `SHA2_256(FK1 ^^ FK2)` mit `^^` als Separator
 - DC Link Hash Key = `SHA2_256(Parent_FK ^^ DCK1 ^^ DCK2)`
 - Hash Diff = `SHA2_256(CONCAT(alle_payload_spalten))` — **keine Separatoren** im Hash Diff
+- **dss_business_key** = `CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(BK AS NVARCHAR(MAX)))), '-1'))`
+- **dss_create_datetime** = `GETDATE()`
+
+### Hash-Beispiel (T-SQL)
+```sql
+-- Hash Key mit LTRIM/RTRIM und '-1' Null-Placeholder
+CONVERT(CHAR(64), HASHBYTES('SHA2_256',
+    ISNULL(LTRIM(RTRIM(CAST(BUSINESS_KEY AS NVARCHAR(MAX)))), '-1')
+), 2) AS hk_<entity>
+
+-- Hash Diff mit LTRIM/RTRIM und '-1' Null-Placeholder
+CONVERT(CHAR(64), HASHBYTES('SHA2_256',
+    CONCAT(
+        ISNULL(LTRIM(RTRIM(CAST(col1 AS NVARCHAR(MAX)))), '-1'),
+        ISNULL(LTRIM(RTRIM(CAST(col2 AS NVARCHAR(MAX)))), '-1')
+    )
+), 2) AS hd_<entity>
+```
 
 ## automate_dv Macros (Vault-Schicht)
-- Hub: `automate_dv.hub(src_pk, src_nk, src_ldts, src_source, source_model)`
-- Satellite: `automate_dv.sat(src_pk, src_hashdiff, src_payload, src_eff, src_ldts, src_source, source_model)`
+- Hub: `automate_dv.hub(src_pk, src_nk, src_ldts, src_source, source_model, src_extra_columns)`
+- Satellite: `automate_dv.sat(src_pk, src_hashdiff, src_payload, src_ldts, src_source, source_model, src_extra_columns)`
 - Link: `automate_dv.link(src_pk, src_fk, src_ldts, src_source, source_model)`
 - MA Satellite: `automate_dv.ma_sat(src_pk, src_cdk, src_hashdiff, src_payload, src_eff, src_ldts, src_source, source_model)`
+
+### Hub Extra Columns
+Hubs erhalten `dss_business_key` und `dss_create_datetime` als Extra-Spalten:
+```yaml
+src_extra_columns:
+  - "dss_business_key"
+  - "dss_create_datetime"
+```
+
+### Satellite Extra Columns
+Satellites erhalten `dss_create_datetime` als Extra-Spalte (kein `src_eff`):
+```yaml
+src_extra_columns:
+  - "dss_create_datetime"
+```
 
 ### Hashdiff-Alias Konvention
 ```yaml
 src_hashdiff:
   source_column: "hd_<entity>"   # Name im Staging
-  alias: "hashdiff"              # IMMER "hashdiff" als Alias
+  alias: "HASHDIFF"              # IMMER "HASHDIFF" als Alias (uppercase)
 ```
 
 ## Modell-Konfiguration (config Block)
@@ -120,6 +158,8 @@ src_hashdiff:
 
 ## Inline YAML Metadata Pattern
 Vault-Modelle verwenden ein Inline-YAML-Pattern mit `fromyaml()`:
+
+### Hub Metadata
 ```sql
 {%- set yaml_metadata -%}
 source_model: "<staging_model>"
@@ -127,11 +167,57 @@ src_pk: "hk_<entity>"
 src_nk: "<business_key>"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
+src_extra_columns:
+  - "dss_business_key"
+  - "dss_create_datetime"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
-{{ automate_dv.hub(...metadata_dict...) }}
+{{ automate_dv.hub(src_pk=metadata_dict["src_pk"], src_nk=metadata_dict["src_nk"], src_ldts=metadata_dict["src_ldts"], src_source=metadata_dict["src_source"], src_extra_columns=metadata_dict["src_extra_columns"], source_model=metadata_dict["source_model"]) }}
 ```
+
+### Satellite Metadata
+```sql
+{%- set yaml_metadata -%}
+source_model: "<staging_model>"
+src_pk: "hk_<entity>"
+src_hashdiff:
+  source_column: "hd_<entity>"
+  alias: "HASHDIFF"
+src_payload:
+  - "<attribute_1>"
+  - "<attribute_n>"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+src_extra_columns:
+  - "dss_create_datetime"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+{{ automate_dv.sat(src_pk=metadata_dict["src_pk"], src_hashdiff=metadata_dict["src_hashdiff"], src_payload=metadata_dict["src_payload"], src_ldts=metadata_dict["src_ldts"], src_source=metadata_dict["src_source"], src_extra_columns=metadata_dict["src_extra_columns"], source_model=metadata_dict["source_model"]) }}
+```
+
+## Current Views (sat_*_current_v)
+
+Für jeden Satellite wird eine Current View erstellt, die den aktuellen Stand (SCD1) oder die volle Historie (SCD2) bereitstellt.
+
+### Pattern
+```
+models/raw_vault/_common/satellites/sat_<entity>_current_v.sql
+```
+
+### Verwendung
+```sql
+{{ config(materialized='view') }}
+{{ satellite_current_view(
+    satellite_model='sat_<entity>',
+    hashkey_column='hk_<entity>'
+) }}
+```
+
+- **SCD1 (aktueller Stand):** `WHERE dss_is_current = 'Y'` — Standard-Filter
+- **SCD2 (volle Historie):** Kein Filter, alle Records
+- Mart-Modelle referenzieren `*_current_v` Views statt Satellites direkt
 
 ## Mart Layer — Dimensionale Modellierung
 

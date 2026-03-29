@@ -64,23 +64,23 @@ staged AS (
         -- HASH KEYS (Entities & Link)
         -- ===========================================
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-            ISNULL(CAST(EMPLNR AS NVARCHAR(MAX)), '') + '^^' +
-            ISNULL(CONVERT(NVARCHAR(MAX), PROJDAT, 126), '')
+            ISNULL(LTRIM(RTRIM(CAST(EMPLNR AS NVARCHAR(MAX)))), '-1') + '^^' +
+            ISNULL(LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), PROJDAT, 126))), '-1')
         ), 2) AS hk_zeiterfassung,
 
         -- Cross-Reference: hk_person für Link (EMPLNR = EMPL_NR in LEN)
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-            ISNULL(CAST(EMPLNR AS NVARCHAR(MAX)), '')
+            ISNULL(LTRIM(RTRIM(CAST(EMPLNR AS NVARCHAR(MAX)))), '-1')
         ), 2) AS hk_person,
 
         -- Link Hash Key: link_zeiterfassung_person
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
             CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-                ISNULL(CAST(EMPLNR AS NVARCHAR(MAX)), '') + '^^' +
-                ISNULL(CONVERT(NVARCHAR(MAX), PROJDAT, 126), '')
+                ISNULL(LTRIM(RTRIM(CAST(EMPLNR AS NVARCHAR(MAX)))), '-1') + '^^' +
+                ISNULL(LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), PROJDAT, 126))), '-1')
             ), 2) + '^^' +
             CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-                ISNULL(CAST(EMPLNR AS NVARCHAR(MAX)), '')
+                ISNULL(LTRIM(RTRIM(CAST(EMPLNR AS NVARCHAR(MAX)))), '-1')
             ), 2)
         ), 2) AS hk_link_zeiterfassung_person,
 
@@ -90,7 +90,7 @@ staged AS (
         CONVERT(CHAR(64), HASHBYTES('SHA2_256',
             CONCAT(
                 {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
+                ISNULL(LTRIM(RTRIM(CAST({{ col }} AS NVARCHAR(MAX)))), '-1'){{ ',' if not loop.last else '' }}
                 {%- endfor %}
             )
         ), 2) AS hd_zeiterfassung,
@@ -128,6 +128,11 @@ staged AS (
         -- ===========================================
         -- METADATA
         -- ===========================================
+        CONCAT_WS('||', 'default', 'default',
+            ISNULL(LTRIM(RTRIM(CAST(EMPLNR AS NVARCHAR(MAX)))), '-1'),
+            ISNULL(LTRIM(RTRIM(CONVERT(NVARCHAR(MAX), PROJDAT, 126))), '-1')
+        ) AS dss_business_key,
+        GETDATE() AS dss_create_datetime,
         COALESCE(dss_record_source, 'ewb_abacus') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
         dss_run_id

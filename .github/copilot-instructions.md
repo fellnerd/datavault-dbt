@@ -5,7 +5,7 @@ Data Vault 2.1 auf Azure SQL für EWB (Energie Wasser Bern). Quellsystem: Abacus
 
 **Datenfluss:**
 ```
-ADLS Parquet → External Table (stg.ext_ewb_*) → Staging View (stg.ewb_*) → Hub/Sat/Link (vault.*) → Dim/Fakt (mart.*)
+ADLS Parquet → External Table (stg.ext_ewb_*) → Staging View (stg.ewb_*) → Hub/Sat/Link (vault.*) → Current View (sat_*_current_v) → Dim/Fakt (mart.*)
 ```
 
 ## Agent-Delegation (WICHTIG)
@@ -62,10 +62,13 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Hash Diff | `hd_<entity>` | `hd_buchungskopf` |
 | Hub | `vault.hub_<entity>` | `vault.hub_fibu_fhe` |
 | Satellite | `vault.sat_<entity>` | `vault.sat_fibu_fhe` |
+| Current View | `vault.sat_<entity>_current_v` | `vault.sat_fibu_fhe_current_v` |
 | Link | `vault.link_<e1>_<e2>` | `vault.link_beleg_lieferant` |
 | Dimension | `mart.dim_<entity>` | `mart_project.dim_person` |
 | Faktentabelle | `mart.fakt_<content>` | `mart_project.fakt_stunden` |
 | Metadata | `dss_*` | `dss_load_date`, `dss_record_source` |
+| Business Key (norm.) | `dss_business_key` | `CONCAT_WS('||', ...)` |
+| Erstellungszeitpunkt | `dss_create_datetime` | `GETDATE()` |
 
 `dss_record_source = 'ewb_abacus'`
 
@@ -75,7 +78,7 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 - **Nie** Datenbanknamen hardcoden → `{{ target.database }}`
 - Hash-Berechnung **nativ** (kein automate_dv-Hash-Macro — inkompatibel mit SQL Server):
   ```sql
-  CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(CAST(col AS NVARCHAR(MAX)), '')), 2)
+  CONVERT(CHAR(64), HASHBYTES('SHA2_256', ISNULL(LTRIM(RTRIM(CAST(col AS NVARCHAR(MAX)))), '-1')), 2)
   ```
 
 ## dbt Targets

@@ -21,6 +21,9 @@ src_pk: "hk_zeiterfassung"
 src_nk:
     - "emplnr"
     - "projdat"
+src_extra_columns:
+    - "dss_business_key"
+    - "dss_create_datetime"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}
@@ -30,6 +33,7 @@ src_source: "dss_record_source"
 {{ automate_dv.hub(
     src_pk=metadata_dict["src_pk"],
     src_nk=metadata_dict["src_nk"],
+    src_extra_columns=metadata_dict["src_extra_columns"],
     src_ldts=metadata_dict["src_ldts"],
     src_source=metadata_dict["src_source"],
     source_model=metadata_dict["source_model"]

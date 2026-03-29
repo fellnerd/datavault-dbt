@@ -34,7 +34,7 @@ WITH aktive_adressen AS (
 
 person_name AS (
     SELECT hk_adresse, name, vorname, dss_load_date, dss_record_source
-    FROM {{ ref('sat_person_adresse') }}
+    FROM {{ ref('sat_person_adresse_current_v') }}
     WHERE dss_is_current = 'Y'
 ),
 
@@ -46,7 +46,7 @@ person_details AS (
         TRY_CAST(mutation_date AS DATE) AS mutation_date,
         TRY_CAST(date_in AS DATE) AS date_in,
         TRY_CAST(date_out AS DATE) AS date_out
-    FROM {{ ref('sat_person') }}
+    FROM {{ ref('sat_person_current_v') }}
     WHERE dss_is_current = 'Y'
 ),
 

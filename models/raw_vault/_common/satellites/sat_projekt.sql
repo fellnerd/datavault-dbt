@@ -22,7 +22,7 @@ source_model: "ewb_proj_npo_main"
 src_pk: "hk_projekt"
 src_hashdiff: 
   source_column: "hd_projekt"
-  alias: "hashdiff"
+  alias: "HASHDIFF"
 src_payload: 
     - "refprojnr"
     - "inaktiv"
@@ -32,7 +32,8 @@ src_payload:
     - "status"
     - "status1"
     - "creation"
-src_eff: "dss_load_date"
+src_extra_columns:
+    - "dss_create_datetime"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}
@@ -43,7 +44,7 @@ src_source: "dss_record_source"
     src_pk=metadata_dict["src_pk"],
     src_hashdiff=metadata_dict["src_hashdiff"],
     src_payload=metadata_dict["src_payload"],
-    src_eff=metadata_dict["src_eff"],
+    src_extra_columns=metadata_dict["src_extra_columns"],
     src_ldts=metadata_dict["src_ldts"],
     src_source=metadata_dict["src_source"],
     source_model=metadata_dict["source_model"]

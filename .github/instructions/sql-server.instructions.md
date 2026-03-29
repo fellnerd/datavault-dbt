@@ -30,28 +30,31 @@ IF OBJECT_ID('[stg].[ext_table_name]', 'U') IS NOT NULL
 ```
 
 ## Hash-Berechnung (T-SQL nativ)
-Verwende **immer** native SQL Server HASHBYTES — **niemals** automate_dv Hash-Macros (inkompatibel mit SQL Server):
+Verwende **immer** native SQL Server HASHBYTES — **niemals** automate_dv Hash-Macros (inkompatibel mit SQL Server).
+
+**Null-Handling:** `'-1'` als Null-Placeholder (konfiguriert als `null_placeholder_string` in dbt_project.yml).
+**Trimming:** `LTRIM(RTRIM(...))` um alle Hash-Inputs.
 
 ```sql
 -- Entity Hash Key (einzelner Business Key)
 CONVERT(CHAR(64), HASHBYTES('SHA2_256',
-    ISNULL(CAST(BUSINESS_KEY AS NVARCHAR(MAX)), '')
+    ISNULL(LTRIM(RTRIM(CAST(BUSINESS_KEY AS NVARCHAR(MAX)))), '-1')
 ), 2) AS hk_<entity>
 
 -- Link Hash Key (zusammengesetzt mit Separator)
 CONVERT(CHAR(64), HASHBYTES('SHA2_256',
     CONCAT(
-        ISNULL(CAST(BK1 AS NVARCHAR(MAX)), ''),
+        ISNULL(LTRIM(RTRIM(CAST(BK1 AS NVARCHAR(MAX)))), '-1'),
         '^^',
-        ISNULL(CAST(BK2 AS NVARCHAR(MAX)), '')
+        ISNULL(LTRIM(RTRIM(CAST(BK2 AS NVARCHAR(MAX)))), '-1')
     )
 ), 2) AS hk_link_<e1>_<e2>
 
 -- Hash Diff (mehrere Spalten)
 CONVERT(CHAR(64), HASHBYTES('SHA2_256',
     CONCAT(
-        ISNULL(CAST(col1 AS NVARCHAR(MAX)), ''),
-        ISNULL(CAST(col2 AS NVARCHAR(MAX)), '')
+        ISNULL(LTRIM(RTRIM(CAST(col1 AS NVARCHAR(MAX)))), '-1'),
+        ISNULL(LTRIM(RTRIM(CAST(col2 AS NVARCHAR(MAX)))), '-1')
     )
 ), 2) AS hd_<entity>
 ```

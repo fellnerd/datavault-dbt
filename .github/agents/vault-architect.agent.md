@@ -79,6 +79,9 @@ src_pk: "hk_<entity>"
 src_nk: "<business_key>"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
+src_extra_columns:
+  - "dss_business_key"
+  - "dss_create_datetime"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
@@ -88,9 +91,23 @@ src_source: "dss_record_source"
 ### 5. Satellite erstellen
 Datei: `models/raw_vault/_common/satellites/sat_<entity>.sql`
 Pattern (analog `sat_kunde.sql`):
-- `src_hashdiff`: source_column mit alias "hashdiff"
+- `src_hashdiff`: source_column mit alias "HASHDIFF" (uppercase)
 - `src_payload`: Alle Attribut-Spalten aus dem Staging
+- `src_extra_columns`: `["dss_create_datetime"]`
+- **Kein** `src_eff` — nicht Teil des Standards
 - `post_hook`: `create_hash_index` + `update_satellite_current_flag`
+
+### 5a. Current View erstellen (PFLICHT für jeden Satellite)
+Datei: `models/raw_vault/_common/satellites/sat_<entity>_current_v.sql`
+Pattern:
+```sql
+{{ config(materialized='view') }}
+{{ satellite_current_view(
+    satellite_model='sat_<entity>',
+    hashkey_column='hk_<entity>'
+) }}
+```
+Mart-Modelle referenzieren `*_current_v` Views statt Satellites direkt.
 
 ### 6. Link erstellen (wenn FK vorhanden)
 Datei: `models/raw_vault/_common/links/link_<e1>_<e2>.sql`
@@ -188,6 +205,7 @@ dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM [vault].[sat_<ent
 ## Checkliste (vor Abschluss prüfen)
 
 - [ ] Hub/Sat/Link SQL-Dateien erstellt
+- [ ] `sat_*_current_v.sql` Current Views für jeden Satellite erstellt
 - [ ] `_common__models.yml` aktualisiert (YAML mit Tests)
 - [ ] `.vscode/entity-designer/_common_<entity>.json` aktualisiert (`generatedObjects`, Spalten-Mapping)
 - [ ] `design/raw-vault/_common/er-diagram.mmd` aktualisiert (neue Entities + Relationen)

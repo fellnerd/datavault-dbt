@@ -56,6 +56,10 @@ Version:   <YYYY-MM-DD> V1.0 Initialversion
 - APPSTR-Spalten NICHT in hashdiff_columns aufnehmen (VARBINARY kann nicht gehasht werden)
 - `dss_record_source` Default: `'ewb_abacus'`
 - Hash-Berechnung: T-SQL nativ (`CONVERT(CHAR(64), HASHBYTES(...), 2)`)
+- NULL-Handling: `ISNULL(..., '-1')` — Null-Placeholder ist `'-1'`
+- Trimming: `LTRIM(RTRIM(...))` um alle Hash-Inputs
+- `dss_business_key`: `CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(BK AS NVARCHAR(MAX)))), '-1'))`
+- `dss_create_datetime`: `GETDATE()`
 
 ### 5. _staging__models.yml Eintrag
 Füge unter `# ===== EWB / ABACUS =====` in `models/staging/_staging__models.yml` einen Eintrag hinzu mit:
