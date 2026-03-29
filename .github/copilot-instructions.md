@@ -14,6 +14,7 @@ Delegiere task-spezifische Arbeit immer an den passenden Sub-Agenten:
 
 | Aufgabe | Agent |
 |---------|-------|
+| **Multi-Task Orchestrierung** | `@project-agent` |
 | Staging-View für EWB Parquet erstellen | `@staging-engineer` |
 | Hub / Satellite / Link modellieren | `@vault-architect` |
 | Mart Dimensionen / Fakten erstellen | `@mart-architect` |
