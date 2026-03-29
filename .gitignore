@@ -7,19 +7,15 @@ logs/
 # Python
 __pycache__/
 *.pyc
-
 # IDE
 .vscode/*
 !.vscode/entity-designer/
 !.vscode/mart-designer/
 *.swp
-
 # OS
 .DS_Store
-
 # Credentials
 profiles.yml
-
 # Agent session files
 agent/.agent-session.json
 masterdata/*.tsbuildinfo
