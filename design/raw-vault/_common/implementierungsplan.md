@@ -58,11 +58,11 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_projekt` | P1 |
 | ~~`hub_projekttaetigkeit`~~ | ~~Projekt + Positionsnr~~ | ~~`PRONR\|\|POSNR`~~ | ~~`ewb_proj_ntc_main`~~ | — | ~~P3~~ |
 | `hub_zeiterfassung` ⁸ | Mitarbeiter + Tag | `EMPLNR\|\|PROJDAT` | `ewb_proj_ntc_main` | `hk_zeiterfassung` | P3 |
-| `hub_projektsachkonto` ⁴ | Projekt + Code + Periode | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB` | `ewb_proj_nsa_main` | `hk_projektsachkonto` | P3 |
+| `hub_projektsachkonto` ⁴ | Projekt + Code + Periode + Dataset | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB\|\|DATASET` | `ewb_proj_nsa_main` | `hk_projektsachkonto` | P3 |
 | `hub_person` | Personalnummer | `EMPL_NR` | `ewb_lohn_len_main` | `hk_person` | P1 |
 
 > ¹ Klärungsbedarf → Offene Frage F1 — **GELÖST**: Composite BK `DKBELEGNUMMER||KTO` bestätigt  
-> ⁴ **Korrigiert (14.3.2026):** `PROJNR` in NSA = **ProjektNr** (97.5% Match zu NPO.PROJNR, datenbestätigt). Die Synapse-View `Projekt.Stunden` benennt dies fälschlicherweise als "PersonalNr" und joint `PROJNR = LOHNNR` (nur 2.5% Match — Synapse-Bug). BK-Semantik: `ProjektNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich`.  
+> ⁴ **Korrigiert (14.3.2026, erweitert 29.3.2026):** `PROJNR` in NSA = **ProjektNr** (97.5% Match zu NPO.PROJNR, datenbestätigt). DATASET ist fachlich relevant (10 Datasets mit unterschiedlichen Beträgen) und wurde am 29.3. zum Composite BK hinzugefügt. BK-Semantik: `ProjektNr||LeistungsartNr||Jahr||Monat||Geschäftsbereich||Dataset`.  
 > ⁸ **NEU (14.3.2026):** NTC ist **Zeitstempelung** (Stempeluhr), nicht Projekttätigkeiten. Tatsächliche Spalten: `RECNUM, DATASET, EMPLNR, PROJDAT, FROM1-TO10, ANZAHL`. Es gibt KEINE Spalten `PRONR` oder `POSNR`. Ein Eintrag = ein Arbeitstag pro Mitarbeiter mit bis zu 10 Zeitintervallen.
 
 **Hinweis `hub_person`** (korrigiert): BK-Spalte in LEN heisst `EMPL_NR` (nicht `PERSNR`).

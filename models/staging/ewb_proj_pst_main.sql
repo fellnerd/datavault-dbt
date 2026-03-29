@@ -14,8 +14,11 @@
  *   BEZEICHN — Bezeichnung des Projektstatus
  *   LANGCODE — Sprachcode
  *
- * Hinweis: Synapse filtert WHERE LEN(TRIM(BEZEICHN)) > 2 —
+ * Hinweis: PST hat 7 Zeilen über 3 Datasets.
+ *          DATASET=2 enthält die Bezeichnungen, andere Datasets sind leer.
+ *          Synapse filtert WHERE LEN(TRIM(BEZEICHN)) > 2 —
  *          diese Logik gehoert in den Mart, NICHT ins Staging.
+ *          Wir filtern stattdessen WHERE DATASET = 2 (= Bezeichnungen vorhanden).
  */
 
 WITH source AS (
@@ -31,6 +34,7 @@ staged AS (
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())  AS dss_load_date
 
     FROM source
+    WHERE DATASET = 2
 )
 
 SELECT * FROM staged

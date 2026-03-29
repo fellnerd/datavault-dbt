@@ -15,8 +15,9 @@
  *   TYPE        — Typ
  *   INAKTIV     — Inaktiv-Flag
  *
- * Hinweis: NTR hat ~1000 Zeilen aber nur 29 distinct NUMBER-Werte
- *          (Duplikate pro Mitarbeiter). SELECT DISTINCT dedupliziert.
+ * Hinweis: NTR hat ~1000 Zeilen über 3 Datasets aber nur 29 distinct NUMBER-Werte.
+ *          DATASET=2 enthält die vollständigen Definitionen.
+ *          SELECT DISTINCT + WHERE DATASET=2 dedupliziert auf 29 Leistungsarten.
  */
 
 WITH source AS (
@@ -30,6 +31,7 @@ deduplicated AS (
         [TYPE],
         INAKTIV
     FROM source
+    WHERE DATASET = 2
 ),
 
 staged AS (

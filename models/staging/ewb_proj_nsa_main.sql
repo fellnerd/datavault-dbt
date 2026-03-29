@@ -3,7 +3,7 @@
  *
  * Source: ext_ewb_proj_nsa_main (PROJ.NSA.Main.parquet)
  * System: Abacus EWB
- * Business Key: PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB (Composite)
+ * Business Key: PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB^^DATASET (Composite)
  *
  * Hash Keys calculated here:
  *   - hk_projektsachkonto (Entity Hash Key)
@@ -47,7 +47,8 @@ staged AS (
                 ISNULL(CAST(CODE AS NVARCHAR(MAX)), ''), '^^',
                 ISNULL(CAST(PERIYEAR AS NVARCHAR(MAX)), ''), '^^',
                 ISNULL(CAST(PERIMONTH AS NVARCHAR(MAX)), ''), '^^',
-                ISNULL(CAST(GB AS NVARCHAR(MAX)), '')
+                ISNULL(CAST(GB AS NVARCHAR(MAX)), ''), '^^',
+                ISNULL(CAST(DATASET AS NVARCHAR(MAX)), '')
             )
         ), 2) AS hk_projektsachkonto,
 
@@ -68,7 +69,8 @@ staged AS (
                     ISNULL(CAST(CODE AS NVARCHAR(MAX)), ''), '^^',
                     ISNULL(CAST(PERIYEAR AS NVARCHAR(MAX)), ''), '^^',
                     ISNULL(CAST(PERIMONTH AS NVARCHAR(MAX)), ''), '^^',
-                    ISNULL(CAST(GB AS NVARCHAR(MAX)), '')
+                    ISNULL(CAST(GB AS NVARCHAR(MAX)), ''), '^^',
+                    ISNULL(CAST(DATASET AS NVARCHAR(MAX)), '')
                 )
             ), 2) + '^^' +
             CONVERT(CHAR(64), HASHBYTES('SHA2_256',
@@ -95,6 +97,7 @@ staged AS (
         PERIYEAR,
         PERIMONTH,
         GB,
+        DATASET,
 
         -- ===========================================
         -- PAYLOAD

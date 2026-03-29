@@ -1,10 +1,10 @@
 {#
     Hub: hub_projektsachkonto
     Source: ewb_proj_nsa_main
-    Business Keys: PROJNR, CODE, PERIYEAR, PERIMONTH, GB (Composite)
+    Business Keys: PROJNR, CODE, PERIYEAR, PERIMONTH, GB, DATASET (Composite)
 
-    Composite BK: ProjektNr || Sachkonto-Code || Periodenjahr || Periodenmonat || Geschaeftsbereich
-    Semantik: Projektsachkonto = Budget/Ist-Vergleich pro Projekt und Periode
+    Composite BK: ProjektNr || Sachkonto-Code || Periodenjahr || Periodenmonat || Geschaeftsbereich || Dataset
+    Semantik: Projektsachkonto = Budget/Ist-Vergleich pro Projekt, Periode und Dataset
 
     Developer: Daniel Fellner, MSc
     Company:   ppmc analytics ag
@@ -27,6 +27,7 @@ src_nk:
     - "periyear"
     - "perimonth"
     - "gb"
+    - "dataset"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}
