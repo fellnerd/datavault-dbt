@@ -28,8 +28,7 @@ SELECT
     sp.dss_load_date,
     sp.dss_record_source
 FROM {{ ref('hub_projekt') }} hp
-INNER JOIN {{ ref('sat_projekt_current_v') }} sp
+INNER JOIN {{ ref('sat_projekt__abacus_current_v') }} sp
     ON hp.hk_projekt = sp.hk_projekt
-    AND sp.dss_is_current = 'Y'
 LEFT JOIN {{ ref('ref_projektstatus') }} ref_ps
     ON TRY_CAST(sp.status AS INT) = TRY_CAST(ref_ps.status AS INT)

@@ -19,5 +19,6 @@
 
 SELECT *
 FROM {{ ref(satellite_model) }}
+WHERE dss_is_current = 'Y'
 
 {% endmacro %}

@@ -1,5 +1,5 @@
 {#
-    Satellite: sat_person_adresse
+    Satellite: sat_person__abacus_adresse__abacus
     Parent Hub: hub_adresse
     Source: ewb_publ_adr_main
     Payload: NAME, VORNAME

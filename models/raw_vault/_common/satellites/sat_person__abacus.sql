@@ -1,5 +1,5 @@
 {#
-    Satellite: sat_person
+    Satellite: sat_person__abacus
     Parent Hub: hub_person
     Source: ewb_lohn_len_main
 

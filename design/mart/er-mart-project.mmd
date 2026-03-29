@@ -14,11 +14,11 @@ erDiagram
         nvarchar person_id "Technische ID"
         nvarchar person_code "Initialen, Fallback PersonalNr"
         nvarchar person_name "Nachname Vorname, Fallback UNKNOWN"
-        int abteilung_nr "sat_person.home_dept_nr"
+        int abteilung_nr "sat_person__abacus.home_dept_nr"
         nvarchar abteilung "ref_abteilung, Fallback UNKNOWN"
         date mutation_date "Letzte Aenderung"
-        date eintritt "sat_person.date_in"
-        date austritt "sat_person.date_out"
+        date eintritt "sat_person__abacus.date_in"
+        date austritt "sat_person__abacus.date_out"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }
@@ -61,7 +61,7 @@ erDiagram
         bigint projekt_key FK "dim_projekt"
         bigint leistungsart_key FK "dim_leistungsart"
         int datum_key FK "dim_date"
-        decimal betrag "sat_projektsachkonto.azbetint"
+        decimal betrag "sat_projektsachkonto__abacus.azbetint"
         nvarchar gb "Geschaeftsbereich"
         int dataset "Abacus Dataset-Nr"
         datetime2 dss_load_date "Ladezeitpunkt"
@@ -83,20 +83,20 @@ erDiagram
     %% VAULT-LINEAGE (Quell-Objekte pro Dimension/Fakt)
     %% =====================================================================
     %%
-    %% dim_person       ← hub_adresse + sat_person_adresse (Name/Vorname)
-    %%                    + hub_person + sat_person (Initialen, Abteilung)
+    %% dim_person       ← hub_adresse + sat_person_adresse__abacus (Name/Vorname)
+    %%                    + hub_person + sat_person__abacus (Initialen, Abteilung)
     %%                    + link_adresse_person (ADR ↔ LEN)
     %%                    + ref_abteilung (Abteilungsname, GROUP=1)
     %%                    + ewb_publ_adr_main (Filter: LOHNJN=1, GESPERRT=0)
     %%
-    %% dim_projekt      ← hub_projekt + sat_projekt (Stammdaten)
+    %% dim_projekt      ← hub_projekt + sat_projekt__abacus (Stammdaten)
     %%                    + ref_projektstatus (Status-Aufloesung)
     %%
     %% dim_leistungsart ← ref_leistungsart (Beschreibung, Type, Inaktiv)
     %%
     %% dim_date         ← existiert bereits (mart._common.dim_date)
     %%
-    %% fakt_stunden     ← hub_projektsachkonto + sat_projektsachkonto (Betraege)
+    %% fakt_stunden     ← hub_projektsachkonto + sat_projektsachkonto__abacus (Betraege)
     %%                    + link_projektsachkonto_projekt (NSA → NPO)
     %%                    + hub_projekt (ProjektNr fuer FK)
     %%

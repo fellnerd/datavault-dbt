@@ -1829,7 +1829,7 @@ SELECT
     sat.dss_load_date,
     sat.dss_record_source
 FROM {{ ref('hub_person') }} hub
-INNER JOIN {{ ref('sat_person') }} sat
+INNER JOIN {{ ref('sat_person__abacus') }} sat
     ON hub.hk_person = sat.hk_person
     AND sat.dss_is_current = 'Y'
 ```

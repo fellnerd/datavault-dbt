@@ -1,5 +1,5 @@
 {#
-    Satellite: sat_zeiterfassung
+    Satellite: sat_zeiterfassung__abacus
     Parent Hub: hub_zeiterfassung
     Source: ewb_proj_ntc_main
 

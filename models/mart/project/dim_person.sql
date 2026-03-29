@@ -11,7 +11,7 @@
  *
  * Business-Logik:
  *   1. Nur aktive Mitarbeiter: LOHNJN='1', GESPERRT=0, LOHNNR<>0
- *   2. Initialen via dss_is_current='Y'
+ *   2. Initialen via current_v (nur aktuelle Records)
  *   3. Abteilung: Nur GROUP=1
  *   4. Dedup: ROW_NUMBER nach MutationDate DESC
  *
@@ -34,8 +34,7 @@ WITH aktive_adressen AS (
 
 person_name AS (
     SELECT hk_adresse, name, vorname, dss_load_date, dss_record_source
-    FROM {{ ref('sat_person_adresse_current_v') }}
-    WHERE dss_is_current = 'Y'
+    FROM {{ ref('sat_person_adresse__abacus_current_v') }}
 ),
 
 person_details AS (
@@ -46,8 +45,7 @@ person_details AS (
         TRY_CAST(mutation_date AS DATE) AS mutation_date,
         TRY_CAST(date_in AS DATE) AS date_in,
         TRY_CAST(date_out AS DATE) AS date_out
-    FROM {{ ref('sat_person_current_v') }}
-    WHERE dss_is_current = 'Y'
+    FROM {{ ref('sat_person__abacus_current_v') }}
 ),
 
 joined AS (

@@ -41,9 +41,8 @@ SELECT
     spsk.dss_load_date,
     spsk.dss_record_source
 FROM {{ ref('hub_projektsachkonto') }} hpsk
-INNER JOIN {{ ref('sat_projektsachkonto_current_v') }} spsk
+INNER JOIN {{ ref('sat_projektsachkonto__abacus_current_v') }} spsk
     ON hpsk.hk_projektsachkonto = spsk.hk_projektsachkonto
-    AND spsk.dss_is_current = 'Y'
 INNER JOIN {{ ref('link_projektsachkonto_projekt') }} lpp
     ON hpsk.hk_projektsachkonto = lpp.hk_projektsachkonto
 INNER JOIN {{ ref('hub_projekt') }} hp

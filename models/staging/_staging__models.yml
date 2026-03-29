@@ -930,12 +930,12 @@ models:
         tests:
           - not_null
       - name: hd_person_adresse
-        description: Hash Diff for sat_person_adresse
+        description: Hash Diff for sat_person__abacus_adresse__abacus
         data_type: char(64)
         tests:
           - not_null
       - name: hd_adresse_kontakt
-        description: Hash Diff for sat_adresse_kontakt
+        description: Hash Diff for sat_adresse_kontakt__abacus
         data_type: char(64)
         tests:
           - not_null

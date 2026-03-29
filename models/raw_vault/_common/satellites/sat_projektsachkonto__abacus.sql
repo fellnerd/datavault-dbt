@@ -1,5 +1,5 @@
 {#
-    Satellite: sat_projektsachkonto
+    Satellite: sat_projekt__abacussachkonto__abacus
     Parent Hub: hub_projektsachkonto
     Source: ewb_proj_nsa_main
 
