@@ -36,7 +36,7 @@ jobs:
   deploy-dev:
     name: Deploy → ewb-dev (datavault-dev)
     runs-on: [self-hosted, linux, dbt, aca]
-    environment: development
+    environment: ewb-dev
 
     steps:
       - name: Checkout code

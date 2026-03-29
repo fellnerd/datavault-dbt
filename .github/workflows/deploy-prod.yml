@@ -30,7 +30,7 @@ jobs:
   deploy-prod:
     name: Deploy → ewb (datavault)
     runs-on: [self-hosted, linux, dbt, aca]
-    environment: production
+    environment: ewb-prod
 
     steps:
       - name: Checkout code

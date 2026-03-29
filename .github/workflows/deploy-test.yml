@@ -36,7 +36,7 @@ jobs:
   deploy-test:
     name: Deploy → ewb-test (datavault-test)
     runs-on: [self-hosted, linux, dbt, aca]
-    environment: test
+    environment: ewb-test
 
     steps:
       - name: Checkout code
