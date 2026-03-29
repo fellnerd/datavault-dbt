@@ -311,8 +311,8 @@ function deriveNodesAndEdges(
           id: `${name}->${parentHub}`,
           source: name,
           target: parentHub,
-          sourceHandle: 'sat-out',
-          targetHandle: 'hub-in',
+          sourceHandle: 'hub-source',
+          targetHandle: 'sat-target',
           style: { stroke: NODE_COLORS.satellite },
           animated: true,
         });
@@ -343,8 +343,8 @@ function deriveNodesAndEdges(
             id: `${name}->${hubName}`,
             source: name,
             target: hubName,
-            sourceHandle: 'link-out',
-            targetHandle: 'hub-link-in',
+            sourceHandle: `fk-${fk}`,
+            targetHandle: 'link-target',
             style: { stroke: NODE_COLORS.link },
           });
         }

@@ -1,6 +1,6 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 28. März 2026  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 29. März 2026  
 **Agenten:** synapse-validator + vault-architect + db-monitor + staging-engineer  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects)
 
@@ -166,8 +166,8 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 - `ewb_fibu_gl_e22` bis `ewb_fibu_gl_e26` (Union oder 5 Views)
 
 **Raw Vault:**
-- Hubs: `hub_buchungskopf`, `hub_hauptbuch`, `hub_kreditorenbeleg`, `hub_kreditor` (Ghost Hub aus KBL.KNR)
-- Sats: `sat_buchungskopf`, `sat_hauptbuch`, `sat_kreditorenbeleg`, `sat_kreditor`
+- Hubs: `hub_buchungskopf` ✅, `hub_hauptbuch`, `hub_kreditorenbeleg`, `hub_kreditor` (Ghost Hub aus KBL.KNR)
+- Sats: `sat_buchungskopf` ✅, `sat_hauptbuch`, `sat_kreditorenbeleg`, `sat_kreditor`
 - Links: `link_buchungskopf_kreditorenbeleg`, `link_hauptbuch_buchungskopf`, `link_kreditorenbeleg_kreditor`
 
 ### Wave 3 — Komplexe Links + Restliche Objekte
@@ -335,13 +335,13 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
 | Mart Views | 7 | geplant (structured-tables Replika) |
 
-**Implementierungsstand (28. März 2026):**
+**Implementierungsstand (29. März 2026):**
 - Staging: **10/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
-- Vault: **14/35** Objekte implementiert — 5 Hubs, 6 Sats, 3 Links
+- Vault: **16/35** Objekte implementiert — 6 Hubs, 7 Sats, 3 Links
 - Mart: **0/7** Views implementiert
 - Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
-- Wave 2 kann **sofort starten** — keine Blocker
+- **Wave 2: IN PROGRESS** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ (29.3.2026)
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 

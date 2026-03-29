@@ -1,19 +1,48 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
-    %% Stand: 2026-03-14 | Hubs: 10 | Sats: 11 | Links: 11 | Refs: 3
+    %% Stand: 2026-03-29 | Hubs: 10 (+1 impl.) | Sats: 11 (+1 impl.) | Links: 11 | Refs: 3
     %% + Project Domain: hub_projektsachkonto, sat_projektsachkonto__abacus, link_projektsachkonto_projekt, ref_leistungsart, ref_projektstatus
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
-    HUB_BUCHUNGSKOPF { char64 hk PK }
+    HUB_BUCHUNGSKOPF {
+        char64 hk_buchungskopf PK "computed"
+        decimal recnum "ext_ewb_fibu_fhe_main.RECNUM"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     HUB_HAUPTBUCH { char64 hk PK }
     HUB_KREDITORENBELEG { char64 hk PK }
     HUB_ZAHLUNG { char64 hk PK }
     HUB_KREDITOR { char64 hk PK }
     HUB_KONTO { char64 hk PK "ghost" }
     HUB_KOSTENSTELLE { char64 hk PK "ghost" }
-    SAT_BUCHUNGSKOPF { char64 hk FK }
+    SAT_BUCHUNGSKOPF {
+        char64 hk_buchungskopf FK "computed"
+        char64 hd_buchungskopf "computed"
+        decimal plan "PLAN (reserved)"
+        decimal level "LEVEL (reserved)"
+        decimal variante "VARIANTE"
+        decimal typ "TYP"
+        decimal id "ID"
+        decimal ref_level "REF_LEVEL"
+        decimal ref_id "REF_ID"
+        decimal ref_typ "REF_TYP"
+        decimal before "BEFORE (reserved)"
+        decimal after "AFTER (reserved)"
+        nvarchar creuser "CREUSER"
+        datetime2 credat "CREDAT"
+        nvarchar mutuser "MUTUSER"
+        datetime2 mutdat "MUTDAT"
+        decimal enterprise "ENTERPRISE"
+        nvarchar guid "GUID"
+        decimal zuonr "ZUONR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
     SAT_HAUPTBUCH { char64 hk FK }
     SAT_KREDITORENBELEG { char64 hk FK }
     SAT_ZAHLUNG { char64 hk FK }

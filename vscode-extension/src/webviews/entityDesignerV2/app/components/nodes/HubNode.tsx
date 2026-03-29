@@ -75,7 +75,7 @@ export const HubNode = memo(({ data, selected }: NodeProps) => {
   return (
     <div style={{ ...styles.container, ...(selected ? styles.containerSelected : {}) }}>
       <Handle type="target" position={Position.Left} id="sat-target" />
-      <Handle type="source" position={Position.Right} id="link-source" />
+      <Handle type="target" position={Position.Right} id="link-target" />
 
       {/* Header */}
       <div style={styles.header}>

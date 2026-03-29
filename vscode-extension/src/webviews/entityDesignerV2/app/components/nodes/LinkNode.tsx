@@ -80,12 +80,12 @@ export const LinkNode = memo(({ data, selected }: NodeProps) => {
 
   return (
     <div style={{ ...styles.container, ...(selected ? styles.containerSelected : {}) }}>
-      {/* One target handle per FK for connections from Hubs */}
+      {/* Source handles on right — one per FK, connecting to Hub targets */}
       {foreignKeys.map((fk, idx) => (
         <Handle
           key={fk}
-          type="target"
-          position={Position.Left}
+          type="source"
+          position={Position.Right}
           id={`fk-${fk}`}
           style={{ top: `${64 + idx * 22}px` }}
         />

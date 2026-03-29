@@ -2,7 +2,7 @@
   "name": "datavault-dbt",
   "displayName": "Data Vault dbt Explorer",
   "description": "Visualize and navigate dbt Data Vault 2.1 projects with hierarchical tree views",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "datavault",
   "engines": {
     "vscode": "^1.85.0"

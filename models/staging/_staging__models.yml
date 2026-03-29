@@ -155,6 +155,606 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_fibu_gl
+    description: >
+      Staging view for FIBU.GL (Hauptbuch) — Folder-Scan aller Jahresscheiben E22-E26+.
+      BK: RECNUM (unique row identifier). DKBELEGNUMMER+KTO ist NICHT unique (62% Nullen, bis zu 96 Duplikate).
+      ~890.000 Buchungszeilen über alle Jahresscheiben.
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_fibu_gl
+        business_keys:
+          - RECNUM
+    columns:
+      - name: hk_hauptbuch
+        description: >
+          Hash Key basierend auf RECNUM (unique row identifier).
+          BK-Entscheidung 29.3.2026: DKBELEGNUMMER+KTO nicht unique → RECNUM als alleiniger BK.
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_hauptbuch
+        description: Hash Diff for change detection (178 Payload-Spalten)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_buchungskopf
+        description: Hash Key FK → hub_buchungskopf (DKBELEGNUMMER = FHE.RECNUM)
+        data_type: char(64)
+      - name: hk_kreditor
+        description: Hash Key FK → hub_kreditor (DKKUNDENNUMMER)
+        data_type: char(64)
+      - name: hk_konto
+        description: Hash Key FK → hub_konto Ghost Hub (KTO)
+        data_type: char(64)
+      - name: hk_kostenstelle
+        description: Hash Key FK → hub_kostenstelle Ghost Hub (KST)
+        data_type: char(64)
+      - name: hk_projekt
+        description: Hash Key FK → hub_projekt (PROJ)
+        data_type: char(64)
+      - name: hk_link_hauptbuch_buchungskopf
+        description: Link Hash Key — hauptbuch ↔ buchungskopf
+        data_type: char(64)
+      - name: DKBELEGNUMMER
+        description: Belegnummer (FK → hub_buchungskopf via DKBELEGNUMMER = FHE.RECNUM)
+        data_type: decimal(38,18)
+      - name: KTO
+        description: Kontonummer (FK → hub_konto Ghost Hub)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: SYSKEY
+        description: Abacus System Key
+        data_type: nvarchar(4000)
+      - name: RECNUM
+        description: Business Key — unique Row Identifier (GL-intern)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: DATE
+        description: Buchungsdatum (Reserved Keyword — escaped)
+        data_type: datetime2
+      - name: BELNR
+        description: Belegnummer (Abacus-intern)
+        data_type: nvarchar(4000)
+      - name: GKTO
+        description: Gegenkonto
+        data_type: decimal(38,18)
+      - name: SAM
+        description: Sammelkonto-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: TEXT
+        description: Buchungstext (Reserved Keyword — escaped)
+        data_type: nvarchar(4000)
+      - name: BETRAG
+        description: Buchungsbetrag in Leitwährung
+        data_type: decimal(38,18)
+      - name: SH
+        description: Soll/Haben-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: PANR
+        description: PA-Nummer
+        data_type: nvarchar(4000)
+      - name: BDATE
+        description: Belegdatum
+        data_type: datetime2
+      - name: KST
+        description: Kostenstelle
+        data_type: decimal(38,18)
+      - name: WAEHR
+        description: Währungscode
+        data_type: nvarchar(4000)
+      - name: FRW
+        description: Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: FWAUTO
+        description: FW-Auto-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: FBETR
+        description: Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: KST2
+        description: Kostenstelle 2
+        data_type: decimal(38,18)
+      - name: SPEC1
+        description: Spezialfeld 1
+        data_type: nvarchar(4000)
+      - name: SPEC2
+        description: Spezialfeld 2
+        data_type: nvarchar(4000)
+      - name: TEXT2
+        description: Zusätzlicher Buchungstext
+        data_type: nvarchar(4000)
+      - name: SAMNR
+        description: Sammelbuchungsnummer
+        data_type: decimal(38,18)
+      - name: VDATE
+        description: Valuta-Datum
+        data_type: datetime2
+      - name: KART_REF
+        description: Kontoart Referenz
+        data_type: decimal(38,18)
+      - name: GKART_REF
+        description: Gegenkontoart Referenz
+        data_type: decimal(38,18)
+      - name: KURS2
+        description: Wechselkurs 2
+        data_type: decimal(38,18)
+      - name: IMMO_HKNK_DAT
+        description: Immobilien HK/NK Datum
+        data_type: datetime2
+      - name: PROJ
+        description: Projektnummer
+        data_type: decimal(38,18)
+      - name: COMPANY
+        description: Mandantennummer
+        data_type: decimal(38,18)
+      - name: MENGE
+        description: Menge
+        data_type: decimal(38,18)
+      - name: MENGE_BEZ
+        description: Mengenbezeichnung
+        data_type: nvarchar(4000)
+      - name: FWWHO
+        description: FW-Who Kennzeichen
+        data_type: nvarchar(4000)
+      - name: CODE
+        description: Buchungscode
+        data_type: nvarchar(4000)
+      - name: KORR
+        description: Korrektur-Kennzeichen
+        data_type: decimal(38,18)
+      - name: GPROJ
+        description: Gegenprojekt
+        data_type: decimal(38,18)
+      - name: MWSTKTO
+        description: MWST-Konto
+        data_type: decimal(38,18)
+      - name: KSTNR
+        description: Kostenstellennummer
+        data_type: decimal(38,18)
+      - name: DRUCK
+        description: Druck-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: KART
+        description: Kontoart
+        data_type: nvarchar(4000)
+      - name: KFR
+        description: KFR-Kennzeichen
+        data_type: decimal(38,18)
+      - name: MWSTINCL
+        description: MWST inklusive Kennzeichen
+        data_type: nvarchar(4000)
+      - name: ISO
+        description: ISO-Währungscode
+        data_type: nvarchar(4000)
+      - name: ISO2
+        description: ISO-Währungscode 2
+        data_type: nvarchar(4000)
+      - name: ANSATZ
+        description: Ansatz
+        data_type: decimal(38,18)
+      - name: MWSTBETR
+        description: MWST-Betrag
+        data_type: decimal(38,18)
+      - name: AUFTRNR
+        description: Auftragsnummer
+        data_type: decimal(38,18)
+      - name: K_BETRAG
+        description: Konsolidierungsbetrag
+        data_type: decimal(38,18)
+      - name: FBETR2
+        description: Fremdwährungsbetrag 2
+        data_type: decimal(38,18)
+      - name: DIVISION
+        description: Division
+        data_type: decimal(38,18)
+      - name: MANDANT
+        description: Mandant
+        data_type: decimal(38,18)
+      - name: MWSTSATZ
+        description: MWST-Satz
+        data_type: decimal(38,18)
+      - name: MWSTKTO2
+        description: MWST-Konto 2
+        data_type: decimal(38,18)
+      - name: FOND1
+        description: Fonds 1
+        data_type: decimal(38,18)
+      - name: FOND2
+        description: Fonds 2
+        data_type: decimal(38,18)
+      - name: MWSTTYP
+        description: MWST-Typ
+        data_type: decimal(38,18)
+      - name: A1
+        description: Attribut A1
+        data_type: nvarchar(4000)
+      - name: VISIERT
+        description: Visiert-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: A3
+        description: Attribut A3
+        data_type: nvarchar(4000)
+      - name: A4
+        description: Attribut A4
+        data_type: nvarchar(4000)
+      - name: VERSION
+        description: Versionsnummer
+        data_type: decimal(38,18)
+      - name: N2
+        description: Numerisches Feld 2
+        data_type: decimal(38,18)
+      - name: SOLLIST
+        description: Soll/Ist-Kennzeichen
+        data_type: decimal(38,18)
+      - name: MWSTSH
+        description: MWST Soll/Haben
+        data_type: decimal(38,18)
+      - name: GATTUNG
+        description: Buchungsgattung
+        data_type: decimal(38,18)
+      - name: DATE1
+        description: Zusatzdatum
+        data_type: datetime2
+      - name: MWSTCODE
+        description: MWST-Code
+        data_type: nvarchar(4000)
+      - name: MWSTFWBETR
+        description: MWST-Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: MWSTKOEFF
+        description: MWST-Koeffizient
+        data_type: decimal(38,18)
+      - name: MWSTMONAT
+        description: MWST-Abrechnungsmonat
+        data_type: decimal(38,18)
+      - name: MWSTJAHR
+        description: MWST-Abrechnungsjahr
+        data_type: decimal(38,18)
+      - name: MWSTLAND
+        description: MWST-Land
+        data_type: nvarchar(4000)
+      - name: MWSTMETH
+        description: MWST-Methode
+        data_type: decimal(38,18)
+      - name: RESTBETR
+        description: Restbetrag
+        data_type: decimal(38,18)
+      - name: RESTFWBETR
+        description: Rest-Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: KAT1
+        description: Kategorie 1
+        data_type: nvarchar(4000)
+      - name: KAT2
+        description: Kategorie 2
+        data_type: nvarchar(4000)
+      - name: INVEANLAGENNR
+        description: Investitions-Anlagennummer
+        data_type: nvarchar(4000)
+      - name: REC
+        description: Buchungsreihenfolge
+        data_type: decimal(38,18)
+      - name: EBSORT
+        description: EB-Sortierung
+        data_type: decimal(38,18)
+      - name: DEB_NUM1
+        description: Debitor Nummer 1
+        data_type: decimal(38,18)
+      - name: DEB_NUM2
+        description: Debitor Nummer 2
+        data_type: decimal(38,18)
+      - name: DEB_NUM3
+        description: Debitor Nummer 3
+        data_type: decimal(38,18)
+      - name: DEB_ASCII
+        description: Debitor ASCII
+        data_type: nvarchar(4000)
+      - name: EURKOEF1
+        description: EUR-Koeffizient 1
+        data_type: decimal(38,18)
+      - name: EURKOEF2
+        description: EUR-Koeffizient 2
+        data_type: decimal(38,18)
+      - name: GUID1
+        description: GUID Referenz
+        data_type: nvarchar(4000)
+      - name: MWSTKFR1
+        description: MWST KFR 1
+        data_type: decimal(38,18)
+      - name: MWSTKFR2
+        description: MWST KFR 2
+        data_type: decimal(38,18)
+      - name: ZINSARID
+        description: Zins ARID
+        data_type: decimal(38,18)
+      - name: OUTARID
+        description: Out ARID
+        data_type: decimal(38,18)
+      - name: B2BARID
+        description: B2B ARID
+        data_type: decimal(38,18)
+      - name: KONSMUARID
+        description: Konsumenten ARID
+        data_type: decimal(38,18)
+      - name: COMPANY2
+        description: Mandant 2
+        data_type: decimal(38,18)
+      - name: MATCH1
+        description: Matching-Feld
+        data_type: nvarchar(4000)
+      - name: MWSTFWISO
+        description: MWST FW ISO
+        data_type: nvarchar(4000)
+      - name: MWSTARID
+        description: MWST ARID
+        data_type: decimal(38,18)
+      - name: KONSTOARID
+        description: Konsolidierung ARID
+        data_type: decimal(38,18)
+      - name: KURSARID
+        description: Kurs ARID
+        data_type: decimal(38,18)
+      - name: ELIARID
+        description: Eliminierungs ARID
+        data_type: decimal(38,18)
+      - name: ELIGRPNR
+        description: Eliminierungsgruppen-Nr
+        data_type: decimal(38,18)
+      - name: KONSCODE
+        description: Konsolidierungscode
+        data_type: nvarchar(4000)
+      - name: CLEARINGARIDCREDIT
+        description: Clearing ARID Credit
+        data_type: decimal(38,18)
+      - name: ISREMOTEUSER
+        description: Remote User Kennzeichen
+        data_type: decimal(38,18)
+      - name: FBUCHART
+        description: Fremdwährungs-Buchungsart
+        data_type: nvarchar(4000)
+      - name: NUMRES3
+        description: Numerische Reserve 3
+        data_type: decimal(38,18)
+      - name: NUMRES4
+        description: Numerische Reserve 4
+        data_type: decimal(38,18)
+      - name: PROJEBENE
+        description: Projektebene
+        data_type: decimal(38,18)
+      - name: GPROJEBENE
+        description: Gegenprojektebene
+        data_type: decimal(38,18)
+      - name: FREMDIDNUMMER
+        description: Fremd-ID Nummer
+        data_type: decimal(38,18)
+      - name: FREMDIDBEZEICHNUNG
+        description: Fremd-ID Bezeichnung
+        data_type: nvarchar(4000)
+      - name: CLEARINGTEXT
+        description: Clearing-Text
+        data_type: nvarchar(4000)
+      - name: CLEARINGARIDDEBIT
+        description: Clearing ARID Debit
+        data_type: decimal(38,18)
+      - name: MWSTKTOISO
+        description: MWST-Konto ISO
+        data_type: nvarchar(4000)
+      - name: MWSTKTOKURS
+        description: MWST-Konto Kurs
+        data_type: decimal(38,18)
+      - name: KOREBASIS
+        description: Korrekturbasis
+        data_type: decimal(38,18)
+      - name: PROZWERT
+        description: Prozentwert
+        data_type: decimal(38,18)
+      - name: DKKUNDENNUMMER
+        description: DK-Kundennummer (FK → hub_kreditor)
+        data_type: decimal(38,18)
+      - name: DKPOSNUMMER
+        description: DK-Positionsnummer
+        data_type: decimal(38,18)
+      - name: ABEAAUFTRAGNR
+        description: ABEA Auftragsnummer
+        data_type: decimal(38,18)
+      - name: ABEARUECKNR
+        description: ABEA Rückrechnungsnummer
+        data_type: decimal(38,18)
+      - name: IMMO_ABR_ART
+        description: Immobilien Abrechnungsart
+        data_type: decimal(38,18)
+      - name: IMMO_ABR_ABR_DAT
+        description: Immobilien Abrechnungsdatum
+        data_type: datetime2
+      - name: IMMO_ABR_ABR_DAT_2
+        description: Immobilien Abrechnungsdatum 2
+        data_type: datetime2
+      - name: ABGRENZNR
+        description: Abgrenzungsnummer
+        data_type: decimal(38,18)
+      - name: ABGRENZVON
+        description: Abgrenzung von
+        data_type: datetime2
+      - name: ABGRENZBIS
+        description: Abgrenzung bis
+        data_type: datetime2
+      - name: CONTRADIVKTO
+        description: Contra-Division Konto
+        data_type: decimal(38,18)
+      - name: ENTERPRISE
+        description: Enterprise-Kennzeichen
+        data_type: decimal(38,18)
+      - name: CONTRADIVGKTO
+        description: Contra-Division Gegenkonto
+        data_type: decimal(38,18)
+      - name: CONTRADIVGUID
+        description: Contra-Division GUID
+        data_type: nvarchar(4000)
+      - name: CONTRADIVID
+        description: Contra-Division ID
+        data_type: nvarchar(4000)
+      - name: CONTRADIVARID
+        description: Contra-Division ARID
+        data_type: decimal(38,18)
+      - name: ZIELGBKTO
+        description: Ziel-GB Konto
+        data_type: decimal(38,18)
+      - name: ZIELGBKST
+        description: Ziel-GB Kostenstelle
+        data_type: decimal(38,18)
+      - name: ZIELGBPRO
+        description: Ziel-GB Projekt
+        data_type: decimal(38,18)
+      - name: ZIELGBPROJ
+        description: Ziel-GB Projektnummer
+        data_type: decimal(38,18)
+      - name: ABGRENZID
+        description: Abgrenzungs-ID
+        data_type: nvarchar(4000)
+      - name: ZIELABGRENZNR
+        description: Ziel-Abgrenzungsnummer
+        data_type: decimal(38,18)
+      - name: ZIELABGRENZVON
+        description: Ziel-Abgrenzung von
+        data_type: datetime2
+      - name: ZIELABGRENZBIS
+        description: Ziel-Abgrenzung bis
+        data_type: datetime2
+      - name: ACCESSID
+        description: Access-ID
+        data_type: decimal(38,18)
+      - name: MWSTAUTOARIDTYP
+        description: MWST Auto-ARID Typ
+        data_type: decimal(38,18)
+      - name: BUGUID
+        description: Buchungs-GUID
+        data_type: nvarchar(4000)
+      - name: SAMGUID
+        description: Sammel-GUID
+        data_type: nvarchar(4000)
+      - name: KORRGUID
+        description: Korrektur-GUID
+        data_type: nvarchar(4000)
+      - name: BUREL
+        description: Buchungsrelation
+        data_type: decimal(38,18)
+      - name: MWSTKTOBETR
+        description: MWST-Konto Betrag
+        data_type: decimal(38,18)
+      - name: MWSTKTORESTBETR
+        description: MWST-Konto Restbetrag
+        data_type: decimal(38,18)
+      - name: CONTRADIVINVDATE
+        description: Contra-Division Invoice Date
+        data_type: datetime2
+      - name: MWSTARIDAUSLAND
+        description: MWST ARID Ausland
+        data_type: decimal(38,18)
+      - name: BUDOVERARID
+        description: Budget Override ARID
+        data_type: decimal(38,18)
+      - name: INVEVB
+        description: Investition VB
+        data_type: decimal(38,18)
+      - name: INVEBA
+        description: Investition BA
+        data_type: decimal(38,18)
+      - name: INVEID
+        description: Investition ID
+        data_type: decimal(38,18)
+      - name: INVEVBART
+        description: Investition VB-Art
+        data_type: decimal(38,18)
+      - name: INVEBUPOSRF
+        description: Investition Buchungsposition RF
+        data_type: decimal(38,18)
+      - name: STAPEL
+        description: Stapelnummer
+        data_type: decimal(38,18)
+      - name: ORGSTAPEL
+        description: Original-Stapelnummer
+        data_type: decimal(38,18)
+      - name: FDK
+        description: FDK-Kennzeichen
+        data_type: decimal(38,18)
+      - name: GROBPLAN
+        description: Grobplan-Kennzeichen
+        data_type: decimal(38,18)
+      - name: DETAILPLAN
+        description: Detailplan-Kennzeichen
+        data_type: decimal(38,18)
+      - name: MWSTREV
+        description: MWST Revision
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTCODE
+        description: Ziel-GB MWST-Code
+        data_type: nvarchar(4000)
+      - name: ZIELGBMWSTINCL
+        description: Ziel-GB MWST inklusive
+        data_type: nvarchar(4000)
+      - name: ZIELGBMWSTKOEFF
+        description: Ziel-GB MWST-Koeffizient
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTSATZ
+        description: Ziel-GB MWST-Satz
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTBETR
+        description: Ziel-GB MWST-Betrag
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTFWBETR
+        description: Ziel-GB MWST FW-Betrag
+        data_type: decimal(38,18)
+      - name: ZIELGBRESTBETR
+        description: Ziel-GB Restbetrag
+        data_type: decimal(38,18)
+      - name: ZIELGBRESTFWBETR
+        description: Ziel-GB Rest-FW-Betrag
+        data_type: decimal(38,18)
+      - name: MERCHANTCATEGORYCODE
+        description: Merchant Category Code
+        data_type: decimal(38,18)
+      - name: MERCHANTCATEGORYGRP
+        description: Merchant Category Group
+        data_type: decimal(38,18)
+      - name: ADDRESS
+        description: Adress-Referenz
+        data_type: decimal(38,18)
+      - name: FUPGUID
+        description: FUP GUID
+        data_type: nvarchar(4000)
+      - name: FUPBUSINESSCASE
+        description: FUP Business Case
+        data_type: decimal(38,18)
+      - name: FUPENTRYSET
+        description: FUP Entry Set
+        data_type: decimal(38,18)
+      - name: FUPID
+        description: FUP ID
+        data_type: nvarchar(4000)
+      - name: MWSTAUTOARID
+        description: MWST Auto-ARID
+        data_type: decimal(38,18)
+      - name: IMMOGB
+        description: Immobilien Geschäftsbereich
+        data_type: decimal(38,18)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
   - name: ewb_lohn_len_main
     description: Staging view for person from _common
     config:
@@ -953,6 +1553,425 @@ models:
         description: Payload attribute
       - name: street
         description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  # ===== KRED / Kreditoren =====
+  - name: ewb_kred_kbl_main
+    description: "Staging: KRED.KBL.Main (Kreditorenbelege) — Quelle für hub_kreditorenbeleg, ghost hub_kreditor, link_kreditorenbeleg_kreditor"
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_kred_kbl_main
+        business_keys:
+          - BELNR
+    columns:
+      - name: hk_kreditorenbeleg
+        description: Hash Key for hub_kreditorenbeleg (BELNR)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_kreditor
+        description: Hash Key for ghost hub_kreditor (KNR)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_kreditorenbeleg_kreditor
+        description: Hash Key for link_kreditorenbeleg_kreditor (BELNR + KNR)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_kreditorenbeleg
+        description: Hash Diff for sat_kreditorenbeleg change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_kreditor
+        description: Hash Diff for sat_kreditor (ghost hub attributes)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: BELNR
+        description: Business Key — Belegnummer (Kreditorenbeleg)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: KNR
+        description: Business Key — Kreditoren-Nummer (Ghost Hub)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: SYSKEY
+        description: System key (technical)
+        data_type: nvarchar(4000)
+      - name: RECNUM
+        description: Record number (technical)
+        data_type: decimal(38,18)
+      - name: DB
+        description: Mandant/Datenbank-Nummer
+        data_type: decimal(38,18)
+      - name: STATID
+        description: Status-Identifikation
+        data_type: nvarchar(4000)
+      - name: STATDEF
+        description: Status-Definition
+        data_type: decimal(38,18)
+      - name: GF
+        description: Geschäftsjahr
+        data_type: decimal(38,18)
+      - name: GFRFOLGE
+        description: Geschäftsjahr-Reihenfolge
+        data_type: decimal(38,18)
+      - name: BELREF
+        description: Beleg-Referenz
+        data_type: nvarchar(4000)
+      - name: BELART
+        description: Belegart
+        data_type: nvarchar(4000)
+      - name: BELDEF
+        description: Beleg-Definition
+        data_type: decimal(38,18)
+      - name: FBELDAT
+        description: Fremdbelegdatum
+        data_type: datetime2
+      - name: KBELDAT
+        description: Kreditoren-Belegdatum
+        data_type: datetime2
+      - name: KDSPDAT
+        description: Konditions-Sperrdatum
+        data_type: datetime2
+      - name: ADRID
+        description: Adress-Identifikation
+        data_type: nvarchar(4000)
+      - name: KID
+        description: Kreditoren-Identifikation
+        data_type: nvarchar(4000)
+      - name: FADRINR
+        description: Fakturierungsadresse-Nummer
+        data_type: decimal(38,18)
+      - name: FADRID
+        description: Fakturierungsadresse-ID
+        data_type: nvarchar(4000)
+      - name: GB
+        description: Geschäftsbereich
+        data_type: decimal(38,18)
+      - name: INTERCO
+        description: Intercompany-Kennzeichen
+        data_type: decimal(38,18)
+      - name: BWWRC
+        description: Belegwährungscode
+        data_type: nvarchar(4000)
+      - name: LWWRC
+        description: Leitwährungscode
+        data_type: nvarchar(4000)
+      - name: BWKURS
+        description: Belegwährungs-Kurs
+        data_type: decimal(38,18)
+      - name: BWKSKF
+        description: Belegwährungs-Kursfaktor
+        data_type: decimal(38,18)
+      - name: BEWKURS
+        description: Bewertungskurs
+        data_type: decimal(38,18)
+      - name: BEWKSKF
+        description: Bewertungskurs-Faktor
+        data_type: decimal(38,18)
+      - name: BWBTR
+        description: Belegwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: LWBTR
+        description: Leitwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: BWOPBTR
+        description: Offener Betrag Belegwährung
+        data_type: decimal(38,18)
+      - name: LWOPBTR
+        description: Offener Betrag Leitwährung
+        data_type: decimal(38,18)
+      - name: URELWBTR
+        description: Ursprünglicher Leitwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: URELWOP
+        description: Ursprünglicher offener Betrag Leitwährung
+        data_type: decimal(38,18)
+      - name: MWSBWBTR
+        description: MwSt-Betrag Belegwährung
+        data_type: decimal(38,18)
+      - name: MWSLWBTR
+        description: MwSt-Betrag Leitwährung
+        data_type: decimal(38,18)
+      - name: MWSMETH
+        description: MwSt-Methode
+        data_type: decimal(38,18)
+      - name: MWSPATYP
+        description: MwSt-Pauschaltyp
+        data_type: decimal(38,18)
+      - name: MWSKORR
+        description: MwSt-Korrektur
+        data_type: decimal(38,18)
+      - name: SAMKTO
+        description: Sammelkonto
+        data_type: decimal(38,18)
+      - name: SAMKST1
+        description: Sammelkostenstelle 1
+        data_type: decimal(38,18)
+      - name: SAMKST2
+        description: Sammelkostenstelle 2
+        data_type: decimal(38,18)
+      - name: HILFSKTO
+        description: Hilfskonto
+        data_type: decimal(38,18)
+      - name: HILFSKST1
+        description: Hilfskostenstelle 1
+        data_type: decimal(38,18)
+      - name: HILFSKST2
+        description: Hilfskostenstelle 2
+        data_type: decimal(38,18)
+      - name: ZLGWEG
+        description: Zahlungsweg
+        data_type: decimal(38,18)
+      - name: BEGEZRF
+        description: Begünstigter ESR/Referenz
+        data_type: nvarchar(4000)
+      - name: BEGTLNR
+        description: Begünstigter Teilnehmernummer
+        data_type: nvarchar(4000)
+      - name: BEMERK
+        description: Bemerkung
+        data_type: nvarchar(4000)
+      - name: KDINR
+        description: Konditions-Nummer
+        data_type: decimal(38,18)
+      - name: KVSSTAT
+        description: KVS-Status
+        data_type: decimal(38,18)
+      - name: KVSNR
+        description: KVS-Nummer
+        data_type: decimal(38,18)
+      - name: KSTGRP
+        description: Kostenstellengruppe
+        data_type: decimal(38,18)
+      - name: AUFTRAG
+        description: Auftragsnummer
+        data_type: decimal(38,18)
+      - name: VERBMAND
+        description: Verbundmandant
+        data_type: decimal(38,18)
+      - name: BELGRPNR1
+        description: Beleggruppen-Nummer 1
+        data_type: decimal(38,18)
+      - name: BELGRPNR2
+        description: Beleggruppen-Nummer 2
+        data_type: decimal(38,18)
+      - name: BELGRPNR3
+        description: Beleggruppen-Nummer 3
+        data_type: decimal(38,18)
+      - name: BELGRPCD1
+        description: Beleggruppen-Code 1
+        data_type: nvarchar(4000)
+      - name: BELGRPCD2
+        description: Beleggruppen-Code 2
+        data_type: nvarchar(4000)
+      - name: BELGRPCD3
+        description: Beleggruppen-Code 3
+        data_type: nvarchar(4000)
+      - name: BELUWRS1
+        description: Beleg-Umrechnungswährung 1
+        data_type: nvarchar(4000)
+      - name: BELUWTX3
+        description: Beleg-Umrechnungstext 3
+        data_type: nvarchar(4000)
+      - name: BELUWTX4
+        description: Beleg-Umrechnungstext 4
+        data_type: nvarchar(4000)
+      - name: BELUWRS2
+        description: Beleg-Umrechnungswährung 2
+        data_type: nvarchar(4000)
+      - name: UMSK
+        description: Umsatzsteuer-Kennzeichen
+        data_type: decimal(38,18)
+      - name: SAMK
+        description: Sammelkennzeichen
+        data_type: decimal(38,18)
+      - name: FVBART
+        description: Fremdverrechnungs-Belegart
+        data_type: decimal(38,18)
+      - name: FVBARTAZ
+        description: Fremdverrechnungs-Belegart Anzahl
+        data_type: decimal(38,18)
+      - name: MWSABG
+        description: MwSt-Abgrenzung
+        data_type: decimal(38,18)
+      - name: EXTGESP
+        description: Extern gesperrt
+        data_type: decimal(38,18)
+      - name: GSPRES2
+        description: Gesperrt Reserve 2
+        data_type: decimal(38,18)
+      - name: DISGESP
+        description: Dispositiv gesperrt
+        data_type: decimal(38,18)
+      - name: GESPERRT
+        description: Gesperrt-Kennzeichen
+        data_type: decimal(38,18)
+      - name: LETZTEZLG
+        description: Letzte Zahlung Datum
+        data_type: datetime2
+      - name: FRIST
+        description: Zahlungsfrist
+        data_type: decimal(38,18)
+      - name: SKONTO1T
+        description: Skonto 1 Tage
+        data_type: decimal(38,18)
+      - name: SKONTO1P
+        description: Skonto 1 Prozent
+        data_type: decimal(38,18)
+      - name: SKONTO2T
+        description: Skonto 2 Tage
+        data_type: decimal(38,18)
+      - name: SKONTO2P
+        description: Skonto 2 Prozent
+        data_type: decimal(38,18)
+      - name: SKONTO3T
+        description: Skonto 3 Tage
+        data_type: decimal(38,18)
+      - name: SKONTO3P
+        description: Skonto 3 Prozent
+        data_type: decimal(38,18)
+      - name: DIVRES1
+        description: Diverse Reserve 1
+        data_type: decimal(38,18)
+      - name: DIVRES2
+        description: Diverse Reserve 2
+        data_type: decimal(38,18)
+      - name: TAXART
+        description: Steuerart
+        data_type: decimal(38,18)
+      - name: EZRFSTR
+        description: ESR-Referenzstruktur
+        data_type: decimal(38,18)
+      - name: UMSKNR
+        description: Umsatzsteuer-Kontrollnummer
+        data_type: decimal(38,18)
+      - name: UMSORIG
+        description: Umsatz-Original
+        data_type: decimal(38,18)
+      - name: IGSWITCH
+        description: IG-Switch (Intercompany)
+        data_type: decimal(38,18)
+      - name: IGBELNR
+        description: IG-Belegnummer
+        data_type: decimal(38,18)
+      - name: IGLAUFNR
+        description: IG-Laufnummer
+        data_type: decimal(38,18)
+      - name: EXTLFDAT
+        description: Externes Lieferdatum
+        data_type: datetime2
+      - name: EXTLFNR
+        description: Externe Liefernummer
+        data_type: decimal(38,18)
+      - name: EXTBELNR
+        description: Externe Belegnummer
+        data_type: decimal(38,18)
+      - name: ERFART
+        description: Erfassungsart
+        data_type: decimal(38,18)
+      - name: ERFDAT
+        description: Erfassungsdatum
+        data_type: datetime2
+      - name: ERFZEIT
+        description: Erfassungszeit
+        data_type: decimal(38,18)
+      - name: MUTDAT
+        description: Mutationsdatum
+        data_type: datetime2
+      - name: USER_F
+        description: Benutzer-Feld
+        data_type: nvarchar(4000)
+      - name: VERSION
+        description: Datensatz-Version
+        data_type: decimal(38,18)
+      - name: HILFSPROJ
+        description: Hilfsprojekt
+        data_type: decimal(38,18)
+      - name: SAMPROJ
+        description: Sammelprojekt
+        data_type: decimal(38,18)
+      - name: EXTAPPL
+        description: Externe Applikation
+        data_type: decimal(38,18)
+      - name: ABEA_BES_NR
+        description: AbaEA Bestellnummer
+        data_type: decimal(38,18)
+      - name: ABEA_BES_RNR
+        description: AbaEA Bestell-Rechnungsnummer
+        data_type: decimal(38,18)
+      - name: IMMONR
+        description: Immobilien-Nummer
+        data_type: decimal(38,18)
+      - name: ERFUSER
+        description: Erfassungs-Benutzer
+        data_type: nvarchar(4000)
+      - name: VISSTRUCTNR
+        description: Visierungsstruktur-Nummer
+        data_type: decimal(38,18)
+      - name: PROJEKT
+        description: Projektnummer
+        data_type: decimal(38,18)
+      - name: KST1
+        description: Kostenstelle 1
+        data_type: decimal(38,18)
+      - name: KST2
+        description: Kostenstelle 2
+        data_type: decimal(38,18)
+      - name: INTBWBTR
+        description: Interner Belegwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: INTLWBTR
+        description: Interner Leitwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: SAVESTATUS
+        description: Speicher-Status
+        data_type: decimal(38,18)
+      - name: RESBOL1
+        description: Reserve Boolean 1
+        data_type: decimal(38,18)
+      - name: VERTRAGID
+        description: Vertrags-ID
+        data_type: decimal(38,18)
+      - name: STANDINGORDERID
+        description: Dauerauftrags-ID
+        data_type: nvarchar(4000)
+      - name: SUPPLIERUNVERIFIED
+        description: Lieferant nicht verifiziert
+        data_type: decimal(38,18)
+      - name: ID
+        description: Datensatz-ID
+        data_type: nvarchar(4000)
+      - name: ACCESSID
+        description: Zugriffs-ID
+        data_type: decimal(38,18)
+      - name: MARKEDASPAID
+        description: Als bezahlt markiert
+        data_type: decimal(38,18)
+      - name: APPROVALEMPLOYEENR
+        description: Genehmigender Mitarbeiter-Nr
+        data_type: decimal(38,18)
+      - name: timestamp_landing-zone
+        description: Landing Zone Zeitstempel
+        data_type: nvarchar(4000)
       - name: dss_record_source
         description: Data source identifier
         data_type: varchar(100)

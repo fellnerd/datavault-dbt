@@ -89,8 +89,14 @@ src_extra_columns:
 ```
 
 ### 5. Satellite erstellen
-Datei: `models/raw_vault/_common/satellites/sat_<entity>.sql`
-Pattern (analog `sat_kunde.sql`):
+Datei: `models/raw_vault/_common/satellites/sat_<entity>__<quelle>.sql`
+
+**Naming-Konvention:** Satellites tragen immer ein Doppel-Underscore-Suffix mit dem Quellsystem:
+- EWB/Abacus-Quellen: `sat_<entity>__abacus` (z.B. `sat_buchungskopf__abacus`)
+- Sharepoint-Quellen: `sat_<entity>__sharepoint`
+- Hubs haben **kein** Suffix (DV2.1 Cross-Source-Konsolidierung)
+
+Pattern (analog `sat_person__abacus.sql`):
 - `src_hashdiff`: source_column mit alias "HASHDIFF" (uppercase)
 - `src_payload`: Alle Attribut-Spalten aus dem Staging
 - `src_extra_columns`: `["dss_create_datetime"]`
@@ -98,12 +104,12 @@ Pattern (analog `sat_kunde.sql`):
 - `post_hook`: `create_hash_index` + `update_satellite_current_flag`
 
 ### 5a. Current View erstellen (PFLICHT für jeden Satellite)
-Datei: `models/raw_vault/_common/satellites/sat_<entity>_current_v.sql`
+Datei: `models/raw_vault/_common/satellites/sat_<entity>__<quelle>_current_v.sql`
 Pattern:
 ```sql
 {{ config(materialized='view') }}
 {{ satellite_current_view(
-    satellite_model='sat_<entity>',
+    satellite_model='sat_<entity>__<quelle>',
     hashkey_column='hk_<entity>'
 ) }}
 ```
@@ -151,7 +157,7 @@ HUB_<ENTITY> {
 
 **Bei neuem Satellite:**
 ```mermaid
-SAT_<ENTITY> {
+SAT_<ENTITY>__<QUELLE> {
     char64 hk_<entity> FK "computed"
     char64 hd_<entity> "computed"
     <type> <attr1> "<source_column>"
@@ -161,7 +167,7 @@ SAT_<ENTITY> {
     char1 dss_is_current "computed"
     datetime2 dss_end_date "computed"
 }
-HUB_<ENTITY> ||--o{ SAT_<ENTITY> : "has"
+HUB_<ENTITY> ||--o{ SAT_<ENTITY>__<QUELLE> : "has"
 ```
 
 **Bei neuem Link:**
@@ -204,8 +210,8 @@ dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM [vault].[sat_<ent
 
 ## Checkliste (vor Abschluss prüfen)
 
-- [ ] Hub/Sat/Link SQL-Dateien erstellt
-- [ ] `sat_*_current_v.sql` Current Views für jeden Satellite erstellt
+- [ ] Hub/Sat/Link SQL-Dateien erstellt (Satellites: `sat_<entity>__<quelle>.sql`)
+- [ ] `sat_*__<quelle>_current_v.sql` Current Views für jeden Satellite erstellt
 - [ ] `_common__models.yml` aktualisiert (YAML mit Tests)
 - [ ] `.vscode/entity-designer/_common_<entity>.json` aktualisiert (`generatedObjects`, Spalten-Mapping)
 - [ ] `design/raw-vault/_common/er-diagram.mmd` aktualisiert (neue Entities + Relationen)
