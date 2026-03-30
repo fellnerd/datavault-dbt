@@ -3,7 +3,8 @@
     Parent Hub: hub_hauptbuch
     Source: ewb_fibu_gl
 
-    Payload (34 Spalten — Standard-Set, Synapse-aligned + Business-Erweiterungen):
+    Payload (36 Spalten — Standard-Set, Synapse-aligned + Business-Erweiterungen):
+      FK-Denorm:     KTO, DKBELEGNUMMER (auch in Links, hier fuer Mart-Zugriff ohne Cross-Product)
       Kernbuchung:   BELNR, DATE, SH, BETRAG, GKTO, KST, KST2, WAEHR, TEXT, TEXT2, SAM, SAMNR, CODE
       MWST:          MWSTBETR, MWSTTYP, MWSTCODE, MWSTINCL, MWSTSATZ, MWSTKTO, MWSTMONAT, MWSTJAHR, MWSTLAND, MWSTMETH
       Fremdwährung:  FRW, FBETR, ISO, FWAUTO
@@ -11,7 +12,7 @@
       Projekt-Refs:  PROJ, PROJEBENE
       Kunden-Refs:   DKKUNDENNUMMER, DKPOSNUMMER
 
-    Entfernt (144 Spalten): Immo/Inve/Clearing/Zielgb/Reserve/Debug + APP/SYS-Felder
+    Entfernt (142 Spalten): Immo/Inve/Clearing/Zielgb/Reserve/Debug + APP/SYS-Felder
 
     BK-Hinweis: RECNUM als Hub-BK (nicht DKBELEGNUMMER+KTO).
     Reserved Keywords: DATE, TEXT — im Staging via derived_columns escaped.
@@ -38,6 +39,8 @@ src_hashdiff:
   source_column: "hd_hauptbuch"
   alias: "HASHDIFF"
 src_payload:
+    - "kto"
+    - "dkbelegnummer"
     - "belnr"
     - "betrag"
     - "code"

@@ -24,14 +24,19 @@
  * Granularitaet: 2 Zeilen pro GL-Buchungszeile (Direct + Counter Perspektive)
  *
  * Vault-Lineage:
- *   hub_hauptbuch.recnum + sat_hauptbuch__abacus_current_v (Buchungs-Attribute)
- *   + link_hauptbuch_konto → hub_konto (KTO)
- *   + link_hauptbuch_buchungskopf → hub_buchungskopf (DKBELEGNUMMER)
+ *   hub_hauptbuch.recnum + sat_hauptbuch__abacus_current_v (Buchungs-Attribute + KTO/DKBELEGNUMMER)
+ *   KTO und DKBELEGNUMMER als denormalisierte Payload-Spalten im Satellite statt ueber Links,
+ *   da link_hauptbuch_konto N:1 ist (RECNUM nicht unique ueber GL-Jahresscheiben → Cross-Product).
  *
  * Wave 3 Refactoring (2026-03-30):
  *   Staging-Join durch Vault-Links ersetzt. KTO aus hub_konto via link,
  *   DKBELEGNUMMER aus hub_buchungskopf via link. GKTO/KST/KST2 aus Satellite.
  *   Neue FK-Spalten: konto_key → dim_konto, kostenstelle_key → dim_kostenstelle.
+ *
+ * Bugfix (2026-03-31):
+ *   Cross-Product durch link_hauptbuch_konto (871K Links fuer 433K Hubs, avg 2.01x).
+ *   Fix: KTO + DKBELEGNUMMER direkt aus Satellite-Payload lesen statt ueber Links.
+ *   Links bleiben im Vault korrekt, werden aber nicht im Mart-Join verwendet.
  */
 
 {{ config(
@@ -49,12 +54,12 @@ WITH buchung_base AS (
         sh.mwstincl,
         sh.mwstcode,
         sh.mwstsatz,
-        hko.kto,
+        sh.kto,
         sh.gkto,
         sh.kst,
         sh.kst2,
         sh.projebene,
-        hbk.recnum AS dkbelegnummer,
+        sh.dkbelegnummer,
         sh.dkkundennummer,
         sh.sam,
         sh.[text],
@@ -64,15 +69,6 @@ WITH buchung_base AS (
     FROM {{ ref('hub_hauptbuch') }} hh
     INNER JOIN {{ ref('sat_hauptbuch__abacus_current_v') }} sh
         ON hh.hk_hauptbuch = sh.hk_hauptbuch
-    -- Wave 3: Links statt Staging-Join
-    LEFT JOIN {{ ref('link_hauptbuch_konto') }} lhk
-        ON hh.hk_hauptbuch = lhk.hk_hauptbuch
-    LEFT JOIN {{ ref('hub_konto') }} hko
-        ON lhk.hk_konto = hko.hk_konto
-    LEFT JOIN {{ ref('link_hauptbuch_buchungskopf') }} lhb
-        ON hh.hk_hauptbuch = lhb.hk_hauptbuch
-    LEFT JOIN {{ ref('hub_buchungskopf') }} hbk
-        ON lhb.hk_buchungskopf = hbk.hk_buchungskopf
 )
 
 -- =====================================================
