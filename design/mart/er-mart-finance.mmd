@@ -1,0 +1,92 @@
+%% ER-Diagramm: Finance Mart (Star Schema)
+%% Schema: mart_finance
+%% Erstellt: 2025-07-22
+%%
+%% Vault-Lineage:
+%%   dim_kreditor         ← hub_kreditor (Ghost Hub) + sat_kreditor__abacus
+%%   dim_buchungsstatus   ← ref_kred_buchungsstatus
+%%   fakt_belege          ← hub_kreditorenbeleg + sat_kreditorenbeleg__abacus
+%%                          + link_kreditorenbeleg_kreditor → hub_kreditor
+%%   fakt_buchungen       ← hub_hauptbuch + sat_hauptbuch__abacus
+%%                          + ewb_fibu_gl (Staging, temporaer fuer KTO/DKBELEGNUMMER)
+%%
+%% Blockierte Objekte (Wave 3):
+%%   dim_konto            ← hub_konto (Ghost Hub, noch nicht erstellt)
+%%   dim_kostenstelle     ← hub_kostenstelle (Ghost Hub, noch nicht erstellt)
+%%   dim_visa             ← KVL-Daten (noch nicht im Vault)
+%%   link_hauptbuch_konto, link_hauptbuch_kostenstelle (noch nicht erstellt)
+
+erDiagram
+
+    dim_kreditor {
+        bigint kreditor_key PK "SK = MD5(KNR)"
+        nvarchar kreditor_id "Technische ID (KNR)"
+        nvarchar kreditor_code "Business Code (= KNR)"
+        nvarchar kreditor_name "Kundenname (ADRID), Fallback UNKNOWN"
+        nvarchar fadrinr "Adress-Referenz (100pct befuellt)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_buchungsstatus {
+        bigint buchungsstatus_key PK "SK = MD5(STATID)"
+        nvarchar buchungsstatus_id "Technische ID (STATID)"
+        nvarchar buchungsstatus_code "Status-Code (= STATID)"
+        nvarchar buchungsstatus_name "Status-Name, Fallback UNKNOWN"
+        int sort_order "Sortierung (STATDEF als INT)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_date {
+        int date_key PK "YYYYMMDD (shared, mart._common)"
+        date full_date "Natuerlicher Schluessel"
+        int year "Jahr"
+        int quarter "Quartal"
+        nvarchar month_name "Monatsname"
+        nvarchar year_month "YYYY-MM"
+        int iso_week "ISO Kalenderwoche"
+    }
+
+    fakt_belege {
+        bigint kreditor_key FK "dim_kreditor (surrogate_key KNR)"
+        bigint buchungsstatus_key FK "dim_buchungsstatus (surrogate_key STATID)"
+        int datum_key FK "dim_date (YYYYMMDD aus KBELDAT)"
+        nvarchar belegnummer "BELNR (degenerate dim)"
+        decimal betrag "BWBTR Buchungswaehrung brutto"
+        decimal nettobetrag "BWBTR minus MWSBWBTR"
+        nvarchar waehrung "BWWRC Waehrungscode"
+        nvarchar umschreibung "BELREF Belegtext"
+        nvarchar visierende_id "ERFUSER Erfassungsbenutzer"
+        nvarchar visierende "USER_F Freigabebenutzer"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_buchungen {
+        int datum_key FK "dim_date (YYYYMMDD aus GL.DATE)"
+        decimal betrag "Vorzeichenbereinigt mit MWST-Adj"
+        nvarchar soll_haben "SH S=Soll H=Haben"
+        int konto_nr "KTO oder GKTO (degenerate dim Wave 3)"
+        int konto_nr_gegen "GKTO oder KTO"
+        int kostenstelle_nr "KST oder KST2 (degenerate dim Wave 3)"
+        int kostenstelle_nr_gegen "KST2 oder KST"
+        int projekt_nr "PROJEBENE (degenerate dim)"
+        int belegnummer "DKBELEGNUMMER (degenerate dim)"
+        int kundennummer "DKKUNDENNUMMER"
+        decimal mwst_betrag "MWSTBETR"
+        nvarchar mwst_typ "MWSTTYP"
+        nvarchar mwst_code "MWSTCODE"
+        nvarchar mwst_incl "MWSTINCL"
+        decimal mwst_satz "MWSTSATZ"
+        nvarchar umschreibung "GL.TEXT Buchungstext"
+        nvarchar umschreibung2 "GL.TEXT2"
+        nvarchar sam "SAM Sammelbuchungsflag"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_belege }o--|| dim_kreditor : "kreditor_key"
+    fakt_belege }o--|| dim_buchungsstatus : "buchungsstatus_key"
+    fakt_belege }o--|| dim_date : "datum_key"
+    fakt_buchungen }o--|| dim_date : "datum_key"
