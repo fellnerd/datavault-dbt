@@ -1,6 +1,6 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 30. März 2026  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 31. März 2026  
 **Agenten:** synapse-validator + vault-architect + db-monitor + staging-engineer  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects)
 
@@ -181,7 +181,14 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 > - `sat_kreditorenbeleg__abacus`: 116 → 33 Spalten (behalten: Beleg/Status/Finanzen/Skonto/Projekt/Audit)
 > - `sat_kreditor__abacus`: 2 Spalten (ADRID + FADRINR, beide 100% befüllt, 1:1 pro KNR)
 
-> **Deployed auf `datavault-dev`:** 56/56 Tests PASS. Row Counts: hub_buchungskopf=60.377, hub_hauptbuch=9.868, hub_kreditorenbeleg=93.589, hub_kreditor=3.159, alle Sats/Links identisch.
+> **Deployed auf `datavault-dev`:** 56/56 Tests PASS. Row Counts: hub_buchungskopf=60.377, hub_kreditorenbeleg=93.589, hub_kreditor=3.159, alle Sats/Links identisch.
+>
+> **⚠️ ADF Pipeline Fix (31.3.2026):** `Copy_FIBU_GL_Folder` hatte einen Bug: `cw_fileName: "*"` führte dazu, dass alle GL-Parquet-Dateien zu einer einzigen Datei gemerged wurden (hub_hauptbuch hatte nur 9.868 Zeilen statt 433.076). Fix: `PreserveHierarchy` + leerer fileName (Commit `9a46c031`). Nach Korrektur + Full DB Reset wurden alle GL-abhängigen Objekte korrekt befüllt:
+> - hub_hauptbuch: **433.076** Zeilen (vorher 9.868 — Faktor 44×)
+> - sat_hauptbuch__abacus: **943.844** Zeilen
+> - link_hauptbuch_buchungskopf: **558.049** Zeilen
+> - link_hauptbuch_konto: **871.726** Zeilen
+> - hub_konto (Ghost): **517** Zeilen, hub_kostenstelle (Ghost): **145** Zeilen
 
 > **link_buchungskopf_kreditorenbeleg — ENTFÄLLT (29.3.2026):**
 > Datenanalyse: `FHE.REF_ID` matcht nur 48 von 93.589 `KBL.BELNR` Werten (**0,08%**). `REF_ID` ist kein FK zu KBL.
@@ -189,9 +196,9 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 > Die Verknüpfung läuft indirekt über Hauptbuch-Zeilen (GL): `GL.DKBELEGNUMMER → FHE.RECNUM` + `GL.DKKUNDENNUMMER → KBL.KNR`.
 > → Beziehung wird im **Mart Layer** über GL-Joins aufgelöst, kein Raw Vault Link nötig.
 
-### Wave 3 — Komplexe Links + Restliche Objekte — IN PROGRESS (30.3.2026)
+### Wave 3 — Komplexe Links + Restliche Objekte — ✅ GL-OBJEKTE POPULATED (31.3.2026)
 
-**Voraussetzung:** Wave 2 deployed ✅
+**Voraussetzung:** Wave 2 deployed ✅, ADF Pipeline Fix ✅ (GL-Daten korrekt geladen)
 
 **Staging:**
 - `ewb_fibu_gl` ✅ (erweitert um hk_link_hauptbuch_projekt, hk_link_hauptbuch_kreditor)
@@ -205,8 +212,22 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 - Links: `link_hauptbuch_projekt` ✅, `link_hauptbuch_kreditor` ✅, `link_kreditorenbeleg_zahlung` ✅, `link_projektteil_projekt` ✅, `link_hauptbuch_konto` ✅, `link_hauptbuch_kostenstelle` ✅
 - Current Views: `sat_projektteil__abacus_current_v` ✅, `sat_zahlung__abacus_current_v` ✅
 
-**Finance Mart (mart_finance):** 🔨 (parallel in Arbeit)
-- `dim_kreditor`, `dim_buchungsstatus`, `fakt_belege`, `fakt_buchungen` (4-way UNION Synapse-Logik)
+> **Full DB Reset + Redeploy (31.3.2026):** Alle Objekte gedroppt und frisch aufgebaut nach ADF Pipeline Fix.
+>
+> **Row Counts (nach Reset):** hub_hauptbuch=433.076, hub_konto=517, hub_kostenstelle=145, sat_hauptbuch__abacus=943.844, link_hauptbuch_buchungskopf=558.049, link_hauptbuch_konto=871.726, fakt_buchungen=13.519.009
+>
+> **Zero-Count Links (erwartet):**
+> - `link_hauptbuch_kostenstelle` = 0 Zeilen (KST ist NULL in GL-Quelle — Kostenstellen werden via GL.KOSTNR nicht als FK geführt)
+> - `link_hauptbuch_kreditor` = 0 Zeilen (DKKUNDENNUMMER ist NULL in GL-Quelle)
+> - `link_hauptbuch_projekt` = 0 Zeilen (PROJ ist NULL in GL-Quelle)
+>
+> **Tests (31.3.2026):** 415 PASS, 5 WARN, 1 ERROR
+> - ❌ ERROR: `unique_ewb_fibu_gl_hk_hauptbuch` — 67k Duplikate, RECNUM nicht unique über Jahresscheiben hinweg (bekanntes Issue, BK-Korrektur erforderlich)
+> - ⚠️ WARN: dim_date FK-Beziehungen (dim_date Range unvollständig) + konto_key Orphans
+
+**Finance Mart (mart_finance):** ✅ DEPLOYED (31.3.2026)
+- `dim_konto` ✅ (517 Zeilen), `dim_kostenstelle` ✅ (145 Zeilen), `dim_kreditor` ✅, `dim_buchungsstatus` ✅
+- `fakt_belege` ✅, `fakt_buchungen` ✅ (**13.519.009 Zeilen** — 4-way UNION Synapse-Logik)
 
 ---
 
@@ -361,19 +382,21 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Satellites | 12 | 4×P1, 2×P2, 6×P3 |
 | Links | 12 | 1×P1, 3×P2, 8×P3 (5×P3 ✅) |
 | **Total Vault-Objekte** | **39** | |
+| Marts | 7 | Projekt ✅ + Finance ✅ |
 | Reference Tables | 5 (NTR, PST, LTC, Konto, Kostenstelle) | 3×Abacus + 2×Sharepoint ✅ |
 | Staging-Views | 19 + 8 Sharepoint | 11 Abacus + 8 Sharepoint = 19 implementiert |
-| Mart Views | 7 | geplant (structured-tables Replika) |
+| Mart Views | 7 | ✅ COMPLETE (Projekt + Finance) |
 
-**Implementierungsstand (30. März 2026):**
+**Implementierungsstand (31. März 2026):**
 - Staging Abacus: **11/19** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
 - Staging Sharepoint: **8/8** — `ewb_sp_konten` ✅, `ewb_sp_kostenstellen` ✅, `ewb_sp_budget` ✅, `ewb_sp_forecast` ✅, `ewb_sp_actualforecast` ✅, `ewb_sp_zugangsrechte` ✅, `ewb_sp_kategorisierungprojekte` ✅, `ewb_sp_projektekategorien` ✅
 - Vault: **34/39** Objekte implementiert — 11 Hubs (+2 Ghost), 10 Sats (+3 current_v), 9 Links, 5 Refs
-- Mart: **5/7** Views implementiert — Projekt-Domain ✅
-- Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
+- Mart: **7/7** Views implementiert — Projekt-Domain ✅, Finance-Domain ✅
+- Reference Tables: **5/5** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅, `ref_konto` ✅, `ref_kostenstelle` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
-- **Wave 2: ✅ COMPLETE** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ + `hub_hauptbuch` ✅ + `sat_hauptbuch__abacus` ✅ (29.3.2026)
-- **Wave 3: IN PROGRESS** — `link_hauptbuch_projekt` ✅ + `link_hauptbuch_kreditor` ✅ + `hub_projektteil` ✅ + `sat_projektteil__abacus` ✅ + `link_projektteil_projekt` ✅ + `hub_zahlung` ✅ + `sat_zahlung__abacus` ✅ + `link_kreditorenbeleg_zahlung` ✅ (30.3.2026)
+- **Wave 2: ✅ COMPLETE** — Hub/Sat Buchungskopf + Hauptbuch + Kreditorenbeleg + Kreditor (29.3.2026). Row Counts korrigiert nach ADF Fix (31.3.2026)
+- **Wave 3: ✅ GL-OBJEKTE POPULATED** — Full DB Reset + Redeploy (31.3.2026). Alle GL-abhängigen Links + Finance Mart deployed. hub_hauptbuch=433.076, sat_hauptbuch=943.844, fakt_buchungen=13.519.009
+- **Bekannte Issues:** RECNUM nicht unique über GL-Jahresscheiben (67k Duplikate), 3 Zero-Count Links (KST/Kreditor/Projekt NULL in GL), dim_date Range unvollständig
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 
@@ -381,11 +404,11 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 |---|---|---|---|
 | Schema `stg` | ✅ | ✅ | OK |
 | Schema `vault` | ✅ | ✅ | OK |
-| Schema `mart_finance` | ✅ | ⏳ | Wird bei erstem `dbt run` erstellt |
-| Schema `mart_project` | ✅ | ⏳ | Wird bei erstem `dbt run` erstellt |
+| Schema `mart_finance` | ✅ | ✅ | OK (erstellt 31.3.2026) |
+| Schema `mart_project` | ✅ | ✅ | OK (erstellt 29.3.2026) |
 | External Data Source `StageFileSystem` | ✅ | ✅ | OK |
 | External Tables (EWB) | 19 | 19 | OK ✅ |
-| Staging Views (EWB) | 19 | 10 | 🟡 53% |
+| Staging Views (EWB) | 19 | 11 | 🟢 58% (+ dim_date) |
 | ~~Schema `vault_ewb`~~ | — | Gelöscht ✅ | War stale |
 | ~~Schema `mart_ewb`~~ | — | Gelöscht ✅ | War stale |
 | Ordner `models/raw_vault/_common/hubs/` | ✅ | ✅ | Angelegt ✅ |
@@ -426,16 +449,16 @@ fakt_stunden.DatumKey       → dim_date.date_key            (WARN: Daten vor 20
 - fakt_stunden: ⚠️ PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
 - LeistungsartNr: NSA.CODE = Sachkonto (389 Werte), nicht 1:1 NTR (15 Werte) — entspricht Synapse LEFT JOIN Verhalten
 
-### 10b. Finance-Domain ✅ (Wave 3 komplett)
+### 10b. Finance-Domain ✅ (Wave 3 komplett, GL populated 31.3.2026)
 
-| Synapse View | Mart-Modell | Status |
-|---|---|---|
-| Finance.Buchungen | `mart_finance.fakt_buchungen` | ✅ Wave 3: Links statt Staging-Join, konto_key + kostenstelle_key FK |
-| Finance.Belege | `mart_finance.fakt_belege` | ✅ Wave 2 deployed |
-| Finance.Kunden | `mart_finance.dim_kreditor` | ✅ Ghost Hub Dimension |
-| — | `mart_finance.dim_konto` | ✅ Wave 3: Ghost Hub + Sharepoint Kontenplan-Hierarchie |
-| — | `mart_finance.dim_kostenstelle` | ✅ Wave 3: Ghost Hub + Sharepoint Kostenstellenplan-Hierarchie |
-| — | `mart_finance.dim_buchungsstatus` | ✅ Referenz-Dimension |
+| Synapse View | Mart-Modell | Zeilen | Status |
+|---|---|---|---|
+| Finance.Buchungen | `mart_finance.fakt_buchungen` | **13.519.009** | ✅ Wave 3: 4-way UNION, Links statt Staging-Join, konto_key + kostenstelle_key FK |
+| Finance.Belege | `mart_finance.fakt_belege` | — | ✅ Wave 2 deployed |
+| Finance.Kunden | `mart_finance.dim_kreditor` | — | ✅ Ghost Hub Dimension |
+| — | `mart_finance.dim_konto` | **517** | ✅ Wave 3: Ghost Hub + Sharepoint Kontenplan-Hierarchie |
+| — | `mart_finance.dim_kostenstelle` | **145** | ✅ Wave 3: Ghost Hub + Sharepoint Kostenstellenplan-Hierarchie |
+| — | `mart_finance.dim_buchungsstatus` | — | ✅ Referenz-Dimension |
 
 ### 10c. Kritische Business-Regeln (zu konservieren)
 
@@ -524,4 +547,4 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 
 > **Empfehlung:** Option A für Konten + Kostenstellen (kritische Dimensionen), Option B für Budget/Forecast/Kategorien (Planungs- und Enrichment-Daten).
 
-*EWB Analytics Platform | PPMC AG | Stand: 29. März 2026 — Wave 2 in progress (hub_hauptbuch + sat_hauptbuch__abacus deployed)*
+*EWB Analytics Platform | PPMC AG | Stand: 31. März 2026 — Wave 3 GL-Objekte populated (Full DB Reset + ADF Fix). 415 Tests PASS, 1 ERROR (RECNUM uniqueness), 5 WARN.*
