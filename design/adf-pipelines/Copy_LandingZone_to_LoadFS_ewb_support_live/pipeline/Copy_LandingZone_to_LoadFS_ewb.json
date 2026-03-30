@@ -42,7 +42,8 @@
                     "sink": {
                         "type": "ParquetSink",
                         "storeSettings": {
-                            "type": "AzureBlobFSWriteSettings"
+                            "type": "AzureBlobFSWriteSettings",
+                            "copyBehavior": "PreserveHierarchy"
                         },
                         "formatSettings": {
                             "type": "ParquetWriteSettings"
@@ -80,7 +81,7 @@
                                 "value": "@concat(pipeline().parameters.cw_business_concept, '/', pipeline().parameters.cw_source, '/historized/', formatDateTime(utcNow(), 'yyyy/MM/dd'), '/', pipeline().RunId, '/FIBU/GL')",
                                 "type": "Expression"
                             },
-                            "cw_fileName": "*"
+                            "cw_fileName": ""
                         }
                     }
                 ]
