@@ -1,11 +1,12 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
-    %% Stand: 2026-03-30 | Hubs: 12 (+2 impl.) | Sats: 13 (+2 impl.) | Links: 11 (+4 impl.) | Refs: 3
+    %% Stand: 2026-03-30 | Hubs: 13 (+3 impl.) | Sats: 14 (+3 impl.) | Links: 12 (+4 impl.) | Refs: 3
     %% + Project Domain: hub_projektsachkonto, sat_projektsachkonto__abacus, link_projektsachkonto_projekt, ref_leistungsart, ref_projektstatus
     %% + Finance Domain: hub_kreditorenbeleg, sat_kreditorenbeleg__abacus, hub_kreditor (Ghost Hub), sat_kreditor__abacus
     %% + Wave 2 Links: link_kreditorenbeleg_kreditor, link_hauptbuch_buchungskopf
     %% + Wave 3 Links: link_hauptbuch_projekt, link_hauptbuch_kreditor (GL-Dimension-Links)
+    %% + Wave 3 PRT: hub_projektteil, sat_projektteil__abacus, link_projektteil_projekt
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
@@ -27,7 +28,15 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    HUB_ZAHLUNG { char64 hk PK }
+    HUB_ZAHLUNG {
+        char64 hk_zahlung PK "computed"
+        decimal documentnr "ext_ewb_kred_kvl_main.DOCUMENTNR"
+        decimal positionnr "ext_ewb_kred_kvl_main.POSITIONNR"
+        decimal elementtyp "ext_ewb_kred_kvl_main.ELEMENTTYP"
+        decimal inr "ext_ewb_kred_kvl_main.INR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     HUB_KREDITOR {
         char64 hk_kreditor PK "computed — Ghost Hub"
         decimal knr "ext_ewb_kred_kbl_main.KNR"
@@ -113,7 +122,31 @@ erDiagram
         char1 dss_is_current "computed"
         datetime2 dss_end_date "computed"
     }
-    SAT_ZAHLUNG { char64 hk FK }
+    SAT_ZAHLUNG__ABACUS {
+        char64 hk_zahlung FK "computed"
+        char64 hd_zahlung "computed"
+        nvarchar abacus_usr_guid "ABACUS_USR_GUID"
+        nvarchar abacus_usr_name "ABACUS_USR_NAME"
+        decimal abgelehnt "ABGELEHNT"
+        datetime2 aktion_datum_zeit "AKTION_DATUM_ZEIT"
+        nvarchar bemerkung "BEMERKUNG"
+        decimal benach_gesandt "BENACH_GESANDT"
+        datetime2 datum_zeit "DATUM_ZEIT"
+        decimal freigabebetrag "FREIGABEBETRAG"
+        decimal msgtaskstatus "MSGTASKSTATUS"
+        decimal rgpruefung "RGPRUEFUNG"
+        decimal statusid "STATUSID"
+        decimal stvvisa "STVVISA"
+        decimal subdocumentnr "SUBDOCUMENTNR"
+        decimal validvisum "VALIDVISUM"
+        decimal ver "VER"
+        decimal visiert "VISIERT"
+        decimal visumstyp "VISUMSTYP"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
     SAT_KREDITOR__ABACUS {
         char64 hk_kreditor FK "computed"
         char64 hd_kreditor "computed"
@@ -192,6 +225,31 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
+    HUB_PROJEKTTEIL {
+        char64 hk_projektteil PK "computed"
+        decimal recnum "ext_ewb_proj_prt_main.RECNUM"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    SAT_PROJEKTTEIL__ABACUS {
+        char64 hk_projektteil FK "computed"
+        char64 hd_projektteil "computed"
+        datetime2 date "DATE (reserved)"
+        decimal stat1 "STAT1"
+        decimal stat2 "STAT2"
+        nvarchar user_f "USER_F"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    LINK_PROJEKTTEIL_PROJEKT {
+        char64 hk_link_projektteil_projekt PK "computed"
+        char64 hk_projektteil FK "hub_projektteil"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_ZEITERFASSUNG_PERSON {
         char64 hk_link_zeiterfassung_person PK "computed"
         char64 hk_zeiterfassung FK "computed"
@@ -253,14 +311,20 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    LINK_KREDITORENBELEG_ZAHLUNG { char64 hk PK }
+    LINK_KREDITORENBELEG_ZAHLUNG {
+        char64 hk_link_kreditorenbeleg_zahlung PK "computed"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hk_zahlung FK "hub_zahlung"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_PERSON_ADRESSE { char64 hk PK }
 
     %% Hub → Satellite
     HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF : has
     HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH__ABACUS : has
     HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG__ABACUS : has
-    HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG : has
+    HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG__ABACUS : has
     HUB_KREDITOR ||--o{ SAT_KREDITOR__ABACUS : has
     HUB_PROJEKT ||--o{ SAT_PROJEKT : has
     HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
@@ -290,6 +354,9 @@ erDiagram
     %% Project Links
     HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
     HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    HUB_PROJEKTTEIL ||--o{ SAT_PROJEKTTEIL__ABACUS : has
+    HUB_PROJEKTTEIL ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
     HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
     HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
     HUB_PERSON ||--o{ LINK_PERSON_ADRESSE : ""
