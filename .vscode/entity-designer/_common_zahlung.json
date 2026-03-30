@@ -1,0 +1,339 @@
+{
+    "concept": "_common",
+    "entityName": "zahlung",
+    "sourceTable": "ext_ewb_kred_kvl_main",
+    "sourceType": "external_table",
+    "columns": [
+        {
+            "name": "RECNUM",
+            "sourceName": "RECNUM",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "DB",
+            "sourceName": "DB",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "DOCUMENTNR",
+            "sourceName": "DOCUMENTNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "hub",
+            "includeInHashDiff": false,
+            "nullable": false
+        },
+        {
+            "name": "POSITIONNR",
+            "sourceName": "POSITIONNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "hub",
+            "includeInHashDiff": false,
+            "nullable": false
+        },
+        {
+            "name": "ELEMENTTYP",
+            "sourceName": "ELEMENTTYP",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "hub",
+            "includeInHashDiff": false,
+            "nullable": false
+        },
+        {
+            "name": "INR",
+            "sourceName": "INR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "hub",
+            "includeInHashDiff": false,
+            "nullable": false
+        },
+        {
+            "name": "DATUM_ZEIT",
+            "sourceName": "DATUM_ZEIT",
+            "dataType": "DATETIME2",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "VISIERT",
+            "sourceName": "VISIERT",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "ABGELEHNT",
+            "sourceName": "ABGELEHNT",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "BEMERKUNG",
+            "sourceName": "BEMERKUNG",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "VER",
+            "sourceName": "VER",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "VER_UEBERST",
+            "sourceName": "VER_UEBERST",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "BENACH_GESANDT",
+            "sourceName": "BENACH_GESANDT",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "SIGN_VER",
+            "sourceName": "SIGN_VER",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "ABACUS_USR_GUID",
+            "sourceName": "ABACUS_USR_GUID",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "ABACUS_USR_NAME",
+            "sourceName": "ABACUS_USR_NAME",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "ABACUS_USR_FULL_NAME",
+            "sourceName": "ABACUS_USR_FULL_NAME",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "AKTION_DATUM_ZEIT",
+            "sourceName": "AKTION_DATUM_ZEIT",
+            "dataType": "DATETIME2",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "VISSTRUCTNR",
+            "sourceName": "VISSTRUCTNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "VISPOOLID",
+            "sourceName": "VISPOOLID",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "VISPOOLGRPNR",
+            "sourceName": "VISPOOLGRPNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "VALIDVISUM",
+            "sourceName": "VALIDVISUM",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "RGPRUEFUNG",
+            "sourceName": "RGPRUEFUNG",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "STATUSID",
+            "sourceName": "STATUSID",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "MSGTASKSTATUS",
+            "sourceName": "MSGTASKSTATUS",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "VISUMSTYP",
+            "sourceName": "VISUMSTYP",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "SUBDOCUMENTNR",
+            "sourceName": "SUBDOCUMENTNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "SUBPOSITIONNR",
+            "sourceName": "SUBPOSITIONNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "EXTSUBPOSITIONNR",
+            "sourceName": "EXTSUBPOSITIONNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "FREIGABEBETRAG",
+            "sourceName": "FREIGABEBETRAG",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "STVVISA",
+            "sourceName": "STVVISA",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true
+        },
+        {
+            "name": "timestamp_landing-zone",
+            "sourceName": "timestamp_landing-zone",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "metadata",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "dss_record_source",
+            "sourceName": "dss_record_source",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "metadata",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "dss_load_date",
+            "sourceName": "dss_load_date",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "metadata",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "dss_run_id",
+            "sourceName": "dss_run_id",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "metadata",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "dss_stage_timestamp",
+            "sourceName": "dss_stage_timestamp",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "metadata",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        },
+        {
+            "name": "dss_source_file_name",
+            "sourceName": "dss_source_file_name",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "metadata",
+            "includeInHashDiff": false,
+            "includeInPayload": false,
+            "nullable": true
+        }
+    ],
+    "savedAt": "2026-07-21T08:45:00.000Z",
+    "generatedObjects": ["hub", "satellite", "link"]
+}
