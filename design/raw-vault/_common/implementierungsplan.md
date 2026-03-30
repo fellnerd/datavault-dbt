@@ -110,8 +110,8 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 |---|---|---|---|---|
 | ~~`link_buchungskopf_kreditorenbeleg`~~ | ~~`hub_buchungskopf` ↔ `hub_kreditorenbeleg`~~ | — | — | ❌ ENTFÄLLT (kein direkter FK) |
 | `link_hauptbuch_buchungskopf` | `hub_hauptbuch` ↔ `hub_buchungskopf` | Nein | `ewb_fibu_gl` | P2 ✅ |
-| `link_hauptbuch_projekt` | `hub_hauptbuch` ↔ `hub_projekt` | Nein | `ewb_fibu_gl` | P3 |
-| `link_hauptbuch_kreditor` | `hub_hauptbuch` ↔ `hub_kreditor` | Nein | `ewb_fibu_gl` | P3 |
+| `link_hauptbuch_projekt` | `hub_hauptbuch` ↔ `hub_projekt` | Nein | `ewb_fibu_gl` | P3 ✅ |
+| `link_hauptbuch_kreditor` | `hub_hauptbuch` ↔ `hub_kreditor` | Nein | `ewb_fibu_gl` | P3 ✅ |
 | `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl` | P3 |
 | `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl` | P3 |
 | `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 ✅ |
@@ -188,19 +188,23 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 > Die Verknüpfung läuft indirekt über Hauptbuch-Zeilen (GL): `GL.DKBELEGNUMMER → FHE.RECNUM` + `GL.DKKUNDENNUMMER → KBL.KNR`.
 > → Beziehung wird im **Mart Layer** über GL-Joins aufgelöst, kein Raw Vault Link nötig.
 
-### Wave 3 — Komplexe Links + Restliche Objekte
+### Wave 3 — Komplexe Links + Restliche Objekte — IN PROGRESS (30.3.2026)
 
-**Voraussetzung:** Wave 2 deployed
+**Voraussetzung:** Wave 2 deployed ✅
 
 **Staging:**
-- `ewb_kred_kvl_main`
+- `ewb_fibu_gl` ✅ (erweitert um hk_link_hauptbuch_projekt, hk_link_hauptbuch_kreditor)
+- `ewb_kred_kvl_main` 🔨 (in Arbeit)
 - `ewb_proj_ntb_main` (ggf. Mart-Level)
-- `ewb_proj_prt_main`
+- `ewb_proj_prt_main` 🔨 (in Arbeit)
 
 **Raw Vault:**
 - Hubs: `hub_zahlung`
-- Sats: `sat_zahlung`, `sat_projektteil`
-- Links: `link_kreditorenbeleg_zahlung`, `link_projektteil_projekt` + alle GL-Dimension-Links
+- Sats: `sat_zahlung__abacus`, `sat_projektteil__abacus`
+- Links: `link_hauptbuch_projekt` ✅, `link_hauptbuch_kreditor` ✅, `link_kreditorenbeleg_zahlung`, `link_projektteil_projekt` + restliche GL-Dimension-Links (konto, kostenstelle — blocked: Sharepoint-Quellen fehlen)
+
+**Finance Mart (mart_finance):** 🔨 (parallel in Arbeit)
+- `dim_kreditor`, `dim_buchungsstatus`, `fakt_belege`, `fakt_buchungen` (4-way UNION Synapse-Logik)
 
 ---
 
@@ -345,7 +349,7 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 |---|---|---|
 | Hubs | 10 (+2 Ghost) | 5×P1, 1×P2, 1×P3 (+2 Ghost) |
 | Satellites | 11 | 4×P1, 2×P2, 5×P3 |
-| Links | 12 | 1×P1, 3×P2, 8×P3 |
+| Links | 12 | 1×P1, 3×P2, 8×P3 (2×P3 ✅) |
 | **Total Vault-Objekte** | **35** | |
 | Reference Tables | 3 (NTR, PST, LTC) | + bis zu 8 Sharepoint |
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
@@ -353,11 +357,12 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 **Implementierungsstand (29. März 2026):**
 - Staging: **11/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
-- Vault: **19/35** Objekte implementiert — 7 Hubs, 8 Sats (+1 current_v), 3 Links
+- Vault: **21/35** Objekte implementiert — 7 Hubs, 8 Sats (+1 current_v), 5 Links
 - Mart: **5/7** Views implementiert — Projekt-Domain ✅
 - Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
-- **Wave 2: IN PROGRESS** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ + `hub_hauptbuch` ✅ + `sat_hauptbuch__abacus` ✅ (29.3.2026)
+- **Wave 2: ✅ COMPLETE** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ + `hub_hauptbuch` ✅ + `sat_hauptbuch__abacus` ✅ (29.3.2026)
+- **Wave 3: IN PROGRESS** — `link_hauptbuch_projekt` ✅ + `link_hauptbuch_kreditor` ✅ (30.3.2026, GL-Dimension-Links)
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 
