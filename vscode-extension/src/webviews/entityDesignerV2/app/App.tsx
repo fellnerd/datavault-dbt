@@ -1,16 +1,19 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
   Background,
   MiniMap,
-  useNodesState,
-  useEdgesState,
   BackgroundVariant,
   NodeTypes,
   Node,
+  Edge,
+  NodeChange,
+  EdgeChange,
   OnSelectionChangeFunc,
   OnNodesDelete,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from '@xyflow/react';
 
 import { HubNode } from './components/nodes/HubNode';
@@ -36,48 +39,54 @@ const nodeTypes: NodeTypes = {
  *
  * Object-first Data Vault 2.1 designer with React Flow canvas.
  * Users model Hub/Sat/Link objects; staging is auto-derived.
+ *
+ * Uses React Flow controlled mode to avoid state sync loops.
+ * Nodes/edges come from designer hook; local state only for drag positions.
  */
 export function App() {
   const designer = useEntityDesigner();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(designer.nodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(designer.edges);
+  // Local state for React Flow interactions (drag, select)
+  const [localNodes, setLocalNodes] = useState<Node[]>([]);
+  const [localEdges, setLocalEdges] = useState<Edge[]>([]);
 
-  // Sync derived nodes/edges into React Flow state (guarded to prevent infinite loop)
-  const prevNodesKeyRef = useRef('');
-  const prevEdgesKeyRef = useRef('');
+  // Track which config objects we've synced to avoid re-sync loops
+  const syncedObjectsRef = useRef('');
 
+  // Sync designer nodes → local state when objects actually change
   React.useEffect(() => {
-    const nodesKey = designer.nodes.map(n => n.id + (n.data as Record<string, unknown>)?.objectName).join(',');
-    if (nodesKey !== prevNodesKeyRef.current) {
-      prevNodesKeyRef.current = nodesKey;
-      setNodes(designer.nodes);
+    const objectsKey = Object.keys(designer.config?.objects || {}).sort().join(',');
+    if (objectsKey !== syncedObjectsRef.current) {
+      syncedObjectsRef.current = objectsKey;
+      setLocalNodes(designer.nodes);
+      setLocalEdges(designer.edges);
     }
-  }, [designer.nodes, setNodes]);
+  }, [designer.nodes, designer.edges, designer.config]);
 
-  React.useEffect(() => {
-    const edgesKey = designer.edges.map(e => e.id).join(',');
-    if (edgesKey !== prevEdgesKeyRef.current) {
-      prevEdgesKeyRef.current = edgesKey;
-      setEdges(designer.edges);
-    }
-  }, [designer.edges, setEdges]);
+  // Handle React Flow node changes (drag, select, remove)
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setLocalNodes(nds => applyNodeChanges(changes, nds));
+  }, []);
 
-  // Selection handling
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setLocalEdges(eds => applyEdgeChanges(changes, eds));
+  }, []);
+
+  // Selection handling — only updates property editor, does NOT re-derive nodes
   const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: selectedNodes }) => {
     if (selectedNodes.length === 1) {
       designer.selectObject(selectedNodes[0].id);
     } else if (selectedNodes.length === 0) {
       designer.selectObject(null);
     }
-  }, [designer]);
+  }, [designer.selectObject]);
 
   // Node deletion
   const onNodesDelete: OnNodesDelete = useCallback((deletedNodes) => {
     for (const node of deletedNodes) {
       designer.removeObject(node.id);
     }
-  }, [designer]);
+  }, [designer.removeObject]);
 
   // Node position updates → save to layout
   const onNodeDragStop = useCallback((_: React.MouseEvent, node: Node) => {
@@ -94,7 +103,7 @@ export function App() {
         panY: config.layout?.panY || 0,
       },
     }));
-  }, [designer]);
+  }, [designer.updateConfig]);
 
   // Add object with auto-naming
   const handleAddObject = useCallback((type: DvObjectType) => {
@@ -212,8 +221,8 @@ export function App() {
         {/* Center: React Flow Canvas */}
         <div style={{ flex: 1, position: 'relative' }}>
           <ReactFlow
-            nodes={nodes}
-            edges={edges}
+            nodes={localNodes}
+            edges={localEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onSelectionChange={onSelectionChange}

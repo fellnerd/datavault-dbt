@@ -1,20 +1,4 @@
-%% ER-Diagramm: Finance Mart (Star Schema)
-%% Schema: mart_finance
-%% Erstellt: 2025-07-22
-%%
-%% Vault-Lineage:
-%%   dim_kreditor         ← hub_kreditor (Ghost Hub) + sat_kreditor__abacus
-%%   dim_buchungsstatus   ← ref_kred_buchungsstatus
-%%   fakt_belege          ← hub_kreditorenbeleg + sat_kreditorenbeleg__abacus
-%%                          + link_kreditorenbeleg_kreditor → hub_kreditor
-%%   fakt_buchungen       ← hub_hauptbuch + sat_hauptbuch__abacus
-%%                          + ewb_fibu_gl (Staging, temporaer fuer KTO/DKBELEGNUMMER)
-%%
-%% Blockierte Objekte (Wave 3):
-%%   dim_konto            ← hub_konto (Ghost Hub, noch nicht erstellt)
-%%   dim_kostenstelle     ← hub_kostenstelle (Ghost Hub, noch nicht erstellt)
-%%   dim_visa             ← KVL-Daten (noch nicht im Vault)
-%%   link_hauptbuch_konto, link_hauptbuch_kostenstelle (noch nicht erstellt)
+
 
 erDiagram
 

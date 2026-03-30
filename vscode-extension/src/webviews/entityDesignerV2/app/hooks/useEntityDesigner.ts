@@ -133,7 +133,10 @@ export function useEntityDesigner() {
   }, [updateConfig]);
 
   const selectObject = useCallback((name: string | null) => {
-    setState(prev => ({ ...prev, selectedObjectName: name }));
+    setState(prev => {
+      if (prev.selectedObjectName === name) return prev; // no-op guard
+      return { ...prev, selectedObjectName: name };
+    });
     if (name) {
       vscode.postMessage({ type: 'previewCode', objectName: name });
     }
@@ -163,14 +166,14 @@ export function useEntityDesigner() {
   }, []);
 
   // ─── Derived Data: Nodes & Edges ──────────────────────────────
-  // Memoize to prevent infinite re-render loop (React Error #185):
-  // Without memo, new arrays are created every render → useEffect in App.tsx
-  // calls setNodes → re-render → new arrays → loop.
+  // Memoize to prevent re-computation on every render.
+  // IMPORTANT: selectedObjectName is NOT a dependency — selection is
+  // handled by React Flow internally to avoid infinite loops.
   const objectsKey = JSON.stringify(state.config?.objects || {});
   const { nodes, edges } = useMemo(
-    () => deriveNodesAndEdges(state.config, state.selectedObjectName),
+    () => deriveNodesAndEdges(state.config),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [objectsKey, state.selectedObjectName]
+    [objectsKey]
   );
 
   // Assigned columns mapping
@@ -286,8 +289,7 @@ const NODE_COLORS: Record<string, string> = {
 };
 
 function deriveNodesAndEdges(
-  config: EntityConfigV2 | null,
-  selectedName: string | null
+  config: EntityConfigV2 | null
 ): { nodes: Node[]; edges: Edge[] } {
   if (!config) return { nodes: [], edges: [] };
 
@@ -308,8 +310,7 @@ function deriveNodesAndEdges(
       id: name,
       type: nodeType,
       position: pos,
-      selected: name === selectedName,
-      data: { objectName: name, object: obj, isSelected: name === selectedName },
+      data: { objectName: name, object: obj },
     });
 
     // Derive edges from relationships
