@@ -52,7 +52,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `hub_buchungskopf` | Buchungsnummer | `RECNUM` | `ewb_fibu_fhe_main` | `hk_buchungskopf` | P1 |
 | `hub_hauptbuch` | RECNUM ² | `RECNUM` | `ewb_fibu_gl` | `hk_hauptbuch` | P1 |
 | `hub_kreditorenbeleg` | Belegnummer | `BELNR` | `ewb_kred_kbl_main` | `hk_kreditorenbeleg` | P2 ✅ |
-| `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_zahlung` | P3 |
+| `hub_zahlung` | Beleg + Zahlnr | `BELEGNR\|\|ZAHLNR` | `ewb_kred_kvl_main` | `hk_zahlung` | P3 ✅ |
 | `hub_kreditor` | Kreditoren-Nr | `KNR` | `ewb_kred_kbl_main` (Ghost Hub) | `hk_kreditor` | P2 ✅ |
 | `hub_adresse` | Adressnummer | `INR` | `ewb_publ_adr_main` | `hk_adresse` | P1 |
 | `hub_projekt` | Projektnummer | `PROJNR` | `ewb_proj_npo_main` | `hk_projekt` | P1 |
@@ -60,6 +60,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `hub_zeiterfassung` ⁸ | Mitarbeiter + Tag | `EMPLNR\|\|PROJDAT` | `ewb_proj_ntc_main` | `hk_zeiterfassung` | P3 |
 | `hub_projektsachkonto` ⁴ | Projekt + Code + Periode + Dataset | `PROJNR\|\|CODE\|\|PERIYEAR\|\|PERIMONTH\|\|GB\|\|DATASET` | `ewb_proj_nsa_main` | `hk_projektsachkonto` | P3 |
 | `hub_person` | Personalnummer | `EMPL_NR` | `ewb_lohn_len_main` | `hk_person` | P1 |
+| `hub_projektteil` | Projektteil-Nr | `RECNUM` | `ewb_proj_prt_main` | `hk_projektteil` | P3 ✅ |
 
 > ¹ Klärungsbedarf → Offene Frage F1 — **GELÖST**: Composite BK `DKBELEGNUMMER||KTO` bestätigt  
 > ² **BK-Korrektur (29.3.2026):** `DKBELEGNUMMER||KTO` war NICHT unique (62% Nullen, bis zu 96 Duplikate). `RECNUM` ist der einzig unique Identifier auf Zeilenebene. Staging-Quelle von `ewb_fibu_gl_e2x` auf `ewb_fibu_gl` geändert (Folder-Scan aller Jahresscheiben).
@@ -85,7 +86,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `sat_buchungskopf` | `hub_buchungskopf` | STD | **20 Spalten** (getrimmt von 57) — PLAN, LEVEL, VARIANTE, TYP, REF_ID, ID, GUID, ENTERPRISE, Audit | `ewb_fibu_fhe_main` | P1 ✅ |
 | `sat_hauptbuch` | `hub_hauptbuch` | STD | **34 Spalten** (getrimmt von 178, Synapse-aligned) — Core GL + MWST + Fremdwährung + Projekt + Konsolidierung | `ewb_fibu_gl` | P2 ✅ |
 | `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | **33 Spalten** (getrimmt von 116, Synapse-aligned) — Beleg, Finanzen, Skonto, Projekt, Status, Audit | `ewb_kred_kbl_main` | P2 ✅ |
-| `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 |
+| `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 ✅ |
 | `sat_kreditor` | `hub_kreditor` | STD | ADRID (Kundenname/Adress-ID) | `ewb_kred_kbl_main` (Ghost Hub) | P2 ✅ |
 | `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
 | ~~`sat_projekt_status`~~ | — | — | — | — | — | → **Entfällt:** PST = 7 stabile Lookup-Werte → nur `ref_projektstatus` |
@@ -93,7 +94,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `sat_projektsachkonto` | `hub_projektsachkonto` | STD | BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT | `ewb_proj_nsa_main` | P3 |
 | `sat_person` | `hub_person` | STD | **20 Spalten (datenbasiert)** — Identität: EMPL_ID, LAST_NAME, FIRST_NAME, ABRV, BADGE_ID, BIRTHDAY, SEX, NATIONALITY, BIRTH_PLACE — Anstellung: HOME_DEPT_NR, ADR_INR, DATE_IN, DATE_OUT, TYPE, MUTATION_DATE, LPE_YEAR, LPE_MONTH — CH-SV: SOC_INSURANCE_NR — Compliance: RELEVANT_FOR_LOGIB, ZEMIS_NR | `ewb_lohn_len_main` | P1 |
 | `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
-| `sat_projektteil` | `hub_projekt` | STD | Status (STAT1/STAT2), Datum | `ewb_proj_prt_main` | P3 |
+| `sat_projektteil` | `hub_projektteil` | STD | DATE, STAT1, STAT2, USER_F (4 Spalten) | `ewb_proj_prt_main` | P3 ✅ |
 
 > ⁸ NTC = Zeitstempelung. Payload = 10 Zeitintervalle pro Tag (FROM1/TO1 bis FROM10/TO10) plus ANZAHL (Gesamtstunden). NTB (Budget) hat **keinen direkten Bezug** zu NTC — NTB ist eine separate Budget-Verwaltung (7 Programme, 359K Bezugsgrößen).
 >
@@ -115,10 +116,10 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl` | P3 |
 | `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl` | P3 |
 | `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 ✅ |
-| `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 |
+| `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 ✅ |
 | `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
 | `link_zeiterfassung_person` ¹⁰ | `hub_zeiterfassung` ↔ `hub_person` | Nein | `ewb_proj_ntc_main` | P3 |
-| `link_projektteil_projekt` | `hub_projekt` (PRT.PROJNR → NPO.PROJNR) | Nein | `ewb_proj_prt_main` | P3 |
+| `link_projektteil_projekt` | `hub_projektteil` ↔ `hub_projekt` (PRT.PROJNR → NPO.PROJNR) | Nein | `ewb_proj_prt_main` | P3 ✅ |
 | `link_person_adresse` | `hub_person` ↔ `hub_adresse` | Nein | `ewb_publ_adr_main` ¹¹ | P1 |
 
 > ⁵ **Aus Synapse `Finance.Belege` abgeleitet:** `KBL.BELNR = KVL.DOCUMENTNR`. Dieser JOIN bildet die natürliche Beziehung Beleg↔Zahlung ab.  
@@ -194,14 +195,15 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 
 **Staging:**
 - `ewb_fibu_gl` ✅ (erweitert um hk_link_hauptbuch_projekt, hk_link_hauptbuch_kreditor)
-- `ewb_kred_kvl_main` 🔨 (in Arbeit)
+- `ewb_kred_kvl_main` ✅ (deployed)
 - `ewb_proj_ntb_main` (ggf. Mart-Level)
-- `ewb_proj_prt_main` 🔨 (in Arbeit)
+- `ewb_proj_prt_main` ✅ (deployed)
 
 **Raw Vault:**
-- Hubs: `hub_zahlung`
-- Sats: `sat_zahlung__abacus`, `sat_projektteil__abacus`
-- Links: `link_hauptbuch_projekt` ✅, `link_hauptbuch_kreditor` ✅, `link_kreditorenbeleg_zahlung`, `link_projektteil_projekt` + restliche GL-Dimension-Links (konto, kostenstelle — blocked: Sharepoint-Quellen fehlen)
+- Hubs: `hub_zahlung` ✅, `hub_projektteil` ✅
+- Sats: `sat_zahlung__abacus` ✅, `sat_projektteil__abacus` ✅
+- Links: `link_hauptbuch_projekt` ✅, `link_hauptbuch_kreditor` ✅, `link_kreditorenbeleg_zahlung` ✅, `link_projektteil_projekt` ✅ + restliche GL-Dimension-Links (konto, kostenstelle — blocked: Sharepoint-Quellen fehlen)
+- Current Views: `sat_projektteil__abacus_current_v` ✅, `sat_zahlung__abacus_current_v` ✅
 
 **Finance Mart (mart_finance):** 🔨 (parallel in Arbeit)
 - `dim_kreditor`, `dim_buchungsstatus`, `fakt_belege`, `fakt_buchungen` (4-way UNION Synapse-Logik)
@@ -347,22 +349,22 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 10 (+2 Ghost) | 5×P1, 1×P2, 1×P3 (+2 Ghost) |
-| Satellites | 11 | 4×P1, 2×P2, 5×P3 |
-| Links | 12 | 1×P1, 3×P2, 8×P3 (2×P3 ✅) |
-| **Total Vault-Objekte** | **35** | |
+| Hubs | 11 (+2 Ghost) | 5×P1, 1×P2, 2×P3 (+2 Ghost) |
+| Satellites | 12 | 4×P1, 2×P2, 6×P3 |
+| Links | 12 | 1×P1, 3×P2, 8×P3 (3×P3 ✅) |
+| **Total Vault-Objekte** | **37** | |
 | Reference Tables | 3 (NTR, PST, LTC) | + bis zu 8 Sharepoint |
 | Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
 | Mart Views | 7 | geplant (structured-tables Replika) |
 
 **Implementierungsstand (29. März 2026):**
 - Staging: **11/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
-- Vault: **21/35** Objekte implementiert — 7 Hubs, 8 Sats (+1 current_v), 5 Links
+- Vault: **28/37** Objekte implementiert — 9 Hubs, 10 Sats (+3 current_v), 7 Links
 - Mart: **5/7** Views implementiert — Projekt-Domain ✅
 - Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
 - **Wave 2: ✅ COMPLETE** — `hub_buchungskopf` ✅ + `sat_buchungskopf__abacus` ✅ + `hub_hauptbuch` ✅ + `sat_hauptbuch__abacus` ✅ (29.3.2026)
-- **Wave 3: IN PROGRESS** — `link_hauptbuch_projekt` ✅ + `link_hauptbuch_kreditor` ✅ (30.3.2026, GL-Dimension-Links)
+- **Wave 3: IN PROGRESS** — `link_hauptbuch_projekt` ✅ + `link_hauptbuch_kreditor` ✅ + `hub_projektteil` ✅ + `sat_projektteil__abacus` ✅ + `link_projektteil_projekt` ✅ + `hub_zahlung` ✅ + `sat_zahlung__abacus` ✅ + `link_kreditorenbeleg_zahlung` ✅ (30.3.2026)
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 
