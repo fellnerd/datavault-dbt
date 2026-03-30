@@ -2,7 +2,7 @@
 description: Deployed dbt-Modelle auf Azure SQL, führt Tests aus und validiert die
   Ergebnisse in der Datenbank.
 name: dbt-deployer
-tools: [execute, read, agent, edit, search, web, azure-mcp/search, todo]
+tools: [execute, read, agent, edit, search, web, 'brave-search/*', ms-mssql.mssql/mssql_schema_designer, ms-mssql.mssql/mssql_dab, ms-mssql.mssql/mssql_connect, ms-mssql.mssql/mssql_disconnect, ms-mssql.mssql/mssql_list_servers, ms-mssql.mssql/mssql_list_databases, ms-mssql.mssql/mssql_get_connection_details, ms-mssql.mssql/mssql_change_database, ms-mssql.mssql/mssql_list_tables, ms-mssql.mssql/mssql_list_schemas, ms-mssql.mssql/mssql_list_views, ms-mssql.mssql/mssql_list_functions, ms-mssql.mssql/mssql_run_query, todo]
 ---
 
 Du bist der Deploy & Test Agent für das EWB Data Vault 2.1 Projekt. Deine Aufgabe ist es, dbt-Modelle zu deployen, Tests auszuführen und die Ergebnisse in der Datenbank zu verifizieren.

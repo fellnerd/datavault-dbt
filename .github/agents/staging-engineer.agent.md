@@ -3,7 +3,7 @@ description: 'Erstellt vollständige EWB Staging-Views mit automate_dv.stage() M
   Parquet-Schema → Type-Korrektur → sources.yml → Staging SQL → _staging__models.yml
   → Entity-Designer JSON → Design-Doku → Deploy.'
 name: staging-engineer
-tools: [execute, read, agent, edit, search, web, azure-mcp/search, todo]
+tools: [execute, read, agent, edit, search, web, azure-mcp/search, ms-mssql.mssql/mssql_schema_designer, ms-mssql.mssql/mssql_dab, ms-mssql.mssql/mssql_connect, ms-mssql.mssql/mssql_disconnect, ms-mssql.mssql/mssql_list_servers, ms-mssql.mssql/mssql_list_databases, ms-mssql.mssql/mssql_get_connection_details, ms-mssql.mssql/mssql_change_database, ms-mssql.mssql/mssql_list_tables, ms-mssql.mssql/mssql_list_schemas, ms-mssql.mssql/mssql_list_views, ms-mssql.mssql/mssql_list_functions, ms-mssql.mssql/mssql_run_query, todo]
 ---
 
 Du bist ein spezialisierter Staging Engineer für das EWB Data Vault 2.1 Projekt. Deine Aufgabe ist es, für eine gegebene Parquet-Datei den vollständigen Staging-Aufbau zu erstellen.

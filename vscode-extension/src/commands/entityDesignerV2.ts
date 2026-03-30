@@ -24,43 +24,43 @@ function loadExternalTablesFromSources(projectPath: string): SourceTable[] {
   if (!fs.existsSync(sourcesPath)) return [];
 
   try {
-    // Use simple YAML parsing (sources.yml has a predictable structure)
     const content = fs.readFileSync(sourcesPath, 'utf-8');
-    // Dynamic import yaml would be complex, parse the table names with regex
     const tables: SourceTable[] = [];
     let currentTable: SourceTable | null = null;
     let inColumns = false;
 
     for (const line of content.split('\n')) {
-      const tableMatch = line.match(/^\s+-\s+name:\s+["']?(ext_\w+)["']?\s*$/);
+      // Match table name: - "name": "ext_..." or - name: ext_...
+      const tableMatch = line.match(/^\s+-\s+"?name"?:\s+"?(ext_\w+)"?\s*$/);
       if (tableMatch) {
         if (currentTable) tables.push(currentTable);
         currentTable = { name: tableMatch[1], columns: [] };
         inColumns = false;
         continue;
       }
-      if (currentTable && line.match(/^\s+columns:\s*$/)) {
+      // Match columns: key (quoted or not)
+      if (currentTable && line.match(/^\s+"?columns"?:\s*$/)) {
         inColumns = true;
         continue;
       }
       if (inColumns && currentTable) {
-        const colMatch = line.match(/^\s+-\s+name:\s+["']?(\w+)["']?\s*$/);
+        const colMatch = line.match(/^\s+-\s+"?name"?:\s+"?(\w[\w-]*)"?\s*$/);
         if (colMatch) {
           currentTable.columns.push({ name: colMatch[1] });
           continue;
         }
-        const dtMatch = line.match(/^\s+data_type:\s+["']?(.+?)["']?\s*$/);
+        const dtMatch = line.match(/^\s+"?data_type"?:\s+"?(.+?)"?\s*$/);
         if (dtMatch && currentTable.columns.length > 0) {
           currentTable.columns[currentTable.columns.length - 1].data_type = dtMatch[1];
           continue;
         }
-        const descMatch = line.match(/^\s+description:\s+["']?(.+?)["']?\s*$/);
+        const descMatch = line.match(/^\s+"?description"?:\s+"?(.+?)"?\s*$/);
         if (descMatch && currentTable.columns.length > 0) {
           currentTable.columns[currentTable.columns.length - 1].description = descMatch[1];
           continue;
         }
-        // If we hit a non-column line at same or higher indent, stop parsing columns
-        if (!line.match(/^\s{8,}/) && line.trim() !== '') {
+        // New table section or non-column content → stop column parsing
+        if (line.match(/^\s+-\s+"?name"?:/) && !line.match(/ext_/)) {
           inColumns = false;
         }
       }

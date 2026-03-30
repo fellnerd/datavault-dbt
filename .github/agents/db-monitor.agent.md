@@ -3,7 +3,7 @@ description: 'Verbindet sich via dbt run_sql mit Azure SQL und prüft den Implem
   der Data Vault Architektur auf datavault-dev, datavault-test und datavault (prod).
   Server: sql-analytics-ewb-001.database.windows.net'
 name: db-monitor
-tools: [execute, read, agent, edit, search, web, azure-mcp/search, todo]
+tools: [execute, read, agent, search, web, azure-mcp/search, ms-mssql.mssql/mssql_schema_designer, ms-mssql.mssql/mssql_dab, ms-mssql.mssql/mssql_connect, ms-mssql.mssql/mssql_disconnect, ms-mssql.mssql/mssql_list_servers, ms-mssql.mssql/mssql_list_databases, ms-mssql.mssql/mssql_get_connection_details, ms-mssql.mssql/mssql_change_database, ms-mssql.mssql/mssql_list_tables, ms-mssql.mssql/mssql_list_schemas, ms-mssql.mssql/mssql_list_views, ms-mssql.mssql/mssql_list_functions, ms-mssql.mssql/mssql_run_query, todo]
 ---
 
 Du bist ein Datenbank-Monitor für das EWB Data Vault 2.1 Projekt. Deine Aufgabe ist es, den aktuellen Implementierungsstand auf Azure SQL zu prüfen und zu reporten.

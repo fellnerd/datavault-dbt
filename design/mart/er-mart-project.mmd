@@ -1,14 +1,6 @@
----
-title: "EWB Mart Layer — Projekt-Domain Star Schema (mart_project)"
----
+
 erDiagram
-    %% =====================================================================
-    %% STAR SCHEMA — Projekt-Domain (mart_project)
-    %% Stand: 2026-03-30 | 3 Dimensionen + 1 Fakt + 1 shared dim_date
-    %% Pflicht-Spalten: {dim}_key, {dim}_id, {dim}_code, {dim}_name
-    %% Ghost Records: vorerst nicht implementiert
-    %% Materialisierung: view (ausser dim_date = table)
-    %% =====================================================================
+
 
     dim_person {
         bigint person_key PK "SK = MD5(LOHNNR)"
@@ -78,53 +70,10 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    %% =====================================================================
-    %% BEZIEHUNGEN (Star Schema)
-    %% =====================================================================
+  
 
     fakt_stunden }o--|| dim_projekt : "projekt_key"
     fakt_stunden }o--|| dim_leistungsart : "leistungsart_key"
     fakt_stunden }o--|| dim_date : "datum_key"
 
-    %% dim_person ist eigenstaendig (kein FK von fakt_stunden)
-    %% NSA hat keinen PersonalNr-Bezug — Person nicht in Stundenbuchungen enthalten
-
-    %% =====================================================================
-    %% VAULT-LINEAGE (Quell-Objekte pro Dimension/Fakt)
-    %% =====================================================================
-    %%
-    %% dim_person       <- ewb_publ_adr_main (Filter: LOHNJN=1, GESPERRT=0, LOHNNR<>0)
-    %%                    + sat_person_adresse__abacus_current_v (Name, Vorname)
-    %%                    + link_adresse_person (ADR <-> LEN)
-    %%                    + sat_person__abacus_current_v (abrv, home_dept_nr, date_in/out)
-    %%                    + ref_abteilung (Abteilungsname, GROUP=1)
-    %%                    Dedup: ROW_NUMBER PARTITION BY person_key ORDER BY mutation_date DESC
-    %%
-    %% dim_projekt      <- hub_projekt + sat_projekt__abacus_current_v (Stammdaten)
-    %%                    + ref_projektstatus (Status-Aufloesung via status -> status INT)
-    %%
-    %% dim_leistungsart <- ref_leistungsart (number, type, description, inaktiv)
-    %%
-    %% dim_date         <- generiert (2020-2035), materialized='table', de-DE Locale
-    %%
-    %% fakt_stunden     <- hub_projektsachkonto + sat_projektsachkonto__abacus_current_v
-    %%                    + link_projektsachkonto_projekt (NSA -> NPO)
-    %%                    + hub_projekt (PROJNR fuer surrogate_key)
-    %%                    Filter: azbetint <> 0
-    %%                    datum_key: DATEFROMPARTS(periyear, perimonth, 1) -> YYYYMMDD
-    %%
-    %% =====================================================================
-    %% KORREKTUREN gegenueber Synapse structured-tables:
-    %%
-    %% 1. fakt_stunden: NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse)
-    %% 2. dim_projekt: Sharepoint-Anreicherung nicht verfuegbar
-    %% 3. dim_person: Initialen via dss_is_current statt alphabetisch
-    %% 4. Ghost Records: vorerst nicht implementiert
-    %% =====================================================================
-    %%
-    %% Finance-Mart (mart_finance): noch nicht implementiert
-    %% Vault-Objekte bereit: hub_buchungskopf, hub_hauptbuch, hub_kreditorenbeleg,
-    %% hub_kreditor, sat_*__abacus, link_hauptbuch_buchungskopf,
-    %% link_kreditorenbeleg_kreditor, ref_kred_buchungsstatus
-    %% Blockiert: dim_konto + dim_kostenstelle (Wave 3 Ghost Hubs)
-    %% =====================================================================
+    
