@@ -25,12 +25,13 @@
  *
  * Vault-Lineage:
  *   hub_hauptbuch.recnum + sat_hauptbuch__abacus_current_v (Buchungs-Attribute)
- *   + ewb_fibu_gl (Staging — temporaer fuer KTO + DKBELEGNUMMER,
- *     bis hub_konto + hub_kostenstelle + Links in Wave 3 verfuegbar)
+ *   + link_hauptbuch_konto → hub_konto (KTO)
+ *   + link_hauptbuch_buchungskopf → hub_buchungskopf (DKBELEGNUMMER)
  *
- * NOTE: KTO ist NICHT im Satellite-Payload (extrahiert als hk_konto fuer Ghost Hub).
- *       Temporaerer Staging-Join bis Wave 3 (hub_konto + link_hauptbuch_konto).
- *       KST/GKTO/KST2 sind im Satellite verfuegbar.
+ * Wave 3 Refactoring (2026-03-30):
+ *   Staging-Join durch Vault-Links ersetzt. KTO aus hub_konto via link,
+ *   DKBELEGNUMMER aus hub_buchungskopf via link. GKTO/KST/KST2 aus Satellite.
+ *   Neue FK-Spalten: konto_key → dim_konto, kostenstelle_key → dim_kostenstelle.
  */
 
 {{ config(
@@ -48,12 +49,12 @@ WITH buchung_base AS (
         sh.mwstincl,
         sh.mwstcode,
         sh.mwstsatz,
-        stg.kto,
+        hko.kto,
         sh.gkto,
         sh.kst,
         sh.kst2,
         sh.projebene,
-        stg.dkbelegnummer,
+        hbk.recnum AS dkbelegnummer,
         sh.dkkundennummer,
         sh.sam,
         sh.[text],
@@ -63,10 +64,15 @@ WITH buchung_base AS (
     FROM {{ ref('hub_hauptbuch') }} hh
     INNER JOIN {{ ref('sat_hauptbuch__abacus_current_v') }} sh
         ON hh.hk_hauptbuch = sh.hk_hauptbuch
-    -- Temporaer: KTO + DKBELEGNUMMER aus Staging (nicht im Satellite Payload)
-    -- Wave 3 Refactoring: Ersetzen durch hub_konto + link_hauptbuch_konto
-    INNER JOIN {{ ref('ewb_fibu_gl') }} stg
-        ON hh.hk_hauptbuch = stg.hk_hauptbuch
+    -- Wave 3: Links statt Staging-Join
+    LEFT JOIN {{ ref('link_hauptbuch_konto') }} lhk
+        ON hh.hk_hauptbuch = lhk.hk_hauptbuch
+    LEFT JOIN {{ ref('hub_konto') }} hko
+        ON lhk.hk_konto = hko.hk_konto
+    LEFT JOIN {{ ref('link_hauptbuch_buchungskopf') }} lhb
+        ON hh.hk_hauptbuch = lhb.hk_hauptbuch
+    LEFT JOIN {{ ref('hub_buchungskopf') }} hbk
+        ON lhb.hk_buchungskopf = hbk.hk_buchungskopf
 )
 
 -- =====================================================
@@ -75,6 +81,8 @@ WITH buchung_base AS (
 -- =====================================================
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    {{ surrogate_key('b.kto') }}                                      AS konto_key,
+    {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     -1 * CASE
         WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
@@ -114,6 +122,8 @@ UNION ALL
 -- =====================================================
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    {{ surrogate_key('b.gkto') }}                                     AS konto_key,
+    {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     CASE
         WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
@@ -153,6 +163,8 @@ UNION ALL
 -- =====================================================
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    {{ surrogate_key('b.kto') }}                                      AS konto_key,
+    {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     CASE
         WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
@@ -192,6 +204,8 @@ UNION ALL
 -- =====================================================
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    {{ surrogate_key('b.gkto') }}                                     AS konto_key,
+    {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     -1 * CASE
         WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))

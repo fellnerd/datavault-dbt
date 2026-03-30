@@ -82,6 +82,117 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
+  - name: dim_konto
+    description: |
+      Kontenplan (Chart of Accounts) mit Sharepoint-Hierarchie.
+      Ghost Hub: Konto-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
+      Stammdaten aus Sharepoint ref_konto (254 Konten).
+      Hierarchie: L1 (Kontogruppe) → L2 (Unterkategorie) → Konto (Detail).
+      Quelle: hub_konto LEFT JOIN ref_konto (Sharepoint Kontenplan).
+    columns:
+      - name: konto_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KTO))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: konto_id
+        description: "Technische ID (KTO-Nummer als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_code
+        description: "Sprechender Konto-Code (Sharepoint 'Konto'), Fallback = KTO"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_name
+        description: "Kontoname (Sharepoint 'KontoName'), Fallback = Code → KTO → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_gruppe
+        description: "Kontogruppe L1 (Sharepoint-Hierarchie, z.B. '3 Personalaufw.')"
+        data_type: nvarchar(255)
+      - name: konto_gruppe_name
+        description: "Kontogruppenname L1 (Sharepoint-Hierarchie)"
+        data_type: nvarchar(255)
+      - name: konto_subgruppe
+        description: "Konto-Subgruppe L2 (Sharepoint-Hierarchie)"
+        data_type: nvarchar(255)
+      - name: konto_subgruppe_name
+        description: "Konto-Subgruppenname L2 (Sharepoint-Hierarchie)"
+        data_type: nvarchar(255)
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: dim_kostenstelle
+    description: |
+      Kostenstellenplan mit Sharepoint-Hierarchie.
+      Ghost Hub: Kostenstellen-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
+      Stammdaten aus Sharepoint ref_kostenstelle (151 Kostenstellen).
+      Hierarchie: Bereich L1/L2 (alt + neu), Investitionsrechnung.
+      Quelle: hub_kostenstelle LEFT JOIN ref_kostenstelle (Sharepoint Kostenstellenplan).
+    columns:
+      - name: kostenstelle_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KST))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: kostenstelle_id
+        description: "Technische ID (KST-Nummer als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kostenstelle_code
+        description: "Sprechender Kostenstellen-Code (Sharepoint), Fallback = KST"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kostenstelle_name
+        description: "Kostenstellenname (Sharepoint), Fallback = Code → KST → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: bereich
+        description: "Bereich L1 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_name
+        description: "Bereichsname L1 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_detail
+        description: "Bereich L2 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_detail_name
+        description: "Bereichsname L2 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_neu
+        description: "Bereich L1 NEU (Sharepoint-Hierarchie neu)"
+        data_type: nvarchar(255)
+      - name: bereich_neu_name
+        description: "Bereichsname L1 NEU"
+        data_type: nvarchar(255)
+      - name: bereich_neu_detail
+        description: "Bereich L2 NEU"
+        data_type: nvarchar(255)
+      - name: bereich_neu_detail_name
+        description: "Bereichsname L2 NEU"
+        data_type: nvarchar(255)
+      - name: investitionsrechnung
+        description: "Investitionsrechnung-Flag (0/1)"
+        data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
   # ===================================================================
   # FAKTENTABELLEN
   # ===================================================================
@@ -161,9 +272,9 @@ models:
       Filter: SAM<>'#', KST NOT IN Konsolidierung, KTO nur Erfolgsrechnung.
       Granularitaet: 2 Zeilen pro GL-Record (Direct + Counter Perspektive).
       Quelle: hub_hauptbuch + sat_hauptbuch__abacus_current_v
-              + ewb_fibu_gl (Staging — temporaer fuer KTO/DKBELEGNUMMER, Wave 3 Refactoring).
-      NOTE: KTO/KST sind degenerate Dimensions (kein FK zu dim_konto/dim_kostenstelle).
-            In Wave 3: hub_konto + hub_kostenstelle + Links → Refactoring auf FK-Joins.
+              + link_hauptbuch_konto → hub_konto (KTO)
+              + link_hauptbuch_buchungskopf → hub_buchungskopf (DKBELEGNUMMER).
+      Wave 3: Staging-Join entfernt, durch Vault-Links ersetzt.
     columns:
       - name: datum_key
         description: "FK → dim_date.date_key (YYYYMMDD aus GL.DATE)"
@@ -174,6 +285,24 @@ models:
               field: date_key
               config:
                 severity: warn
+      - name: konto_key
+        description: "FK → dim_konto.konto_key (Direct: KTO via Link, Counter: GKTO aus Satellite)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_konto')
+              field: konto_key
+              config:
+                severity: warn
+      - name: kostenstelle_key
+        description: "FK → dim_kostenstelle.kostenstelle_key (Direct: KST, Counter: KST2 aus Satellite)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_kostenstelle')
+              field: kostenstelle_key
+              config:
+                severity: warn
       - name: betrag
         description: "Vorzeichenbereinigter Betrag mit MWST-Adjustierung (DECIMAL)"
         data_type: decimal(18,4)
@@ -181,13 +310,13 @@ models:
         description: "Soll/Haben-Kennzeichen (SH: 'S'=Soll, 'H'=Haben)"
         data_type: nvarchar(10)
       - name: konto_nr
-        description: "Kontonummer (KTO bei Direct, GKTO bei Counter — degenerate dim bis Wave 3)"
+        description: "Kontonummer (KTO bei Direct via Hub, GKTO bei Counter aus Satellite)"
         data_type: int
       - name: konto_nr_gegen
         description: "Gegenkonto (GKTO bei Direct, KTO bei Counter)"
         data_type: int
       - name: kostenstelle_nr
-        description: "Kostenstelle (KST bei Direct, KST2 bei Counter — degenerate dim bis Wave 3)"
+        description: "Kostenstelle (KST bei Direct, KST2 bei Counter aus Satellite)"
         data_type: int
       - name: kostenstelle_nr_gegen
         description: "Gegen-Kostenstelle (KST2 bei Direct, KST bei Counter)"

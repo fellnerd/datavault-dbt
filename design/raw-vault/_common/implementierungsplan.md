@@ -88,12 +88,12 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `sat_kreditorenbeleg` | `hub_kreditorenbeleg` | STD | **33 Spalten** (getrimmt von 116, Synapse-aligned) — Beleg, Finanzen, Skonto, Projekt, Status, Audit | `ewb_kred_kbl_main` | P2 ✅ |
 | `sat_zahlung` | `hub_zahlung` | STD | Zahlbetrag, Valuta, Zahlungsart, Konto, Status, ABACUS_USR_NAME, ABACUS_USR_FULL_NAME | `ewb_kred_kvl_main` | P3 ✅ |
 | `sat_kreditor` | `hub_kreditor` | STD | ADRID (Kundenname/Adress-ID) | `ewb_kred_kbl_main` (Ghost Hub) | P2 ✅ |
-| `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 |
+| `sat_projekt` | `hub_projekt` | STD | ProjektName, Inaktiv, GruppeNr, StatusNr, Erstellt | `ewb_proj_npo_main` | P1 ✅ |
 | ~~`sat_projekt_status`~~ | — | — | — | — | — | → **Entfällt:** PST = 7 stabile Lookup-Werte → nur `ref_projektstatus` |
-| `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 |
-| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT | `ewb_proj_nsa_main` | P3 |
-| `sat_person` | `hub_person` | STD | **20 Spalten (datenbasiert)** — Identität: EMPL_ID, LAST_NAME, FIRST_NAME, ABRV, BADGE_ID, BIRTHDAY, SEX, NATIONALITY, BIRTH_PLACE — Anstellung: HOME_DEPT_NR, ADR_INR, DATE_IN, DATE_OUT, TYPE, MUTATION_DATE, LPE_YEAR, LPE_MONTH — CH-SV: SOC_INSURANCE_NR — Compliance: RELEVANT_FOR_LOGIB, ZEMIS_NR | `ewb_lohn_len_main` | P1 |
-| `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 |
+| `sat_zeiterfassung` ⁸ | `hub_zeiterfassung` | STD | FROM1-TO10, ANZAHL (Stunden), USER_F | `ewb_proj_ntc_main` | P3 ✅ |
+| `sat_projektsachkonto` | `hub_projektsachkonto` | STD | BUDGETINT, BETRAGINT, VORTRAGINT, BUDGETEXT, BETRAGEXT, VORTRAGEXT, AZBUTINT, AZBETINT, AZVORTINT, AZBUTEXT, AZBETEXT, AZVORTEXT | `ewb_proj_nsa_main` | P3 ✅ |
+| `sat_person` | `hub_person` | STD | **20 Spalten (datenbasiert)** — Identität: EMPL_ID, LAST_NAME, FIRST_NAME, ABRV, BADGE_ID, BIRTHDAY, SEX, NATIONALITY, BIRTH_PLACE — Anstellung: HOME_DEPT_NR, ADR_INR, DATE_IN, DATE_OUT, TYPE, MUTATION_DATE, LPE_YEAR, LPE_MONTH — CH-SV: SOC_INSURANCE_NR — Compliance: RELEVANT_FOR_LOGIB, ZEMIS_NR | `ewb_lohn_len_main` | P1 ✅ |
+| `sat_person_adresse` | `hub_adresse` | STD | Name, Vorname, Strasse, PLZ, Ort | `ewb_publ_adr_main` | P2 ✅ |
 | `sat_projektteil` | `hub_projektteil` | STD | DATE, STAT1, STAT2, USER_F (4 Spalten) | `ewb_proj_prt_main` | P3 ✅ |
 
 > ⁸ NTC = Zeitstempelung. Payload = 10 Zeitintervalle pro Tag (FROM1/TO1 bis FROM10/TO10) plus ANZAHL (Gesamtstunden). NTB (Budget) hat **keinen direkten Bezug** zu NTC — NTB ist eine separate Budget-Verwaltung (7 Programme, 359K Bezugsgrößen).
@@ -117,10 +117,10 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl` | P3 ✅ |
 | `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 ✅ |
 | `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 ✅ |
-| `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
-| `link_zeiterfassung_person` ¹⁰ | `hub_zeiterfassung` ↔ `hub_person` | Nein | `ewb_proj_ntc_main` | P3 |
+| `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 ✅ |
+| `link_zeiterfassung_person` ¹⁰ | `hub_zeiterfassung` ↔ `hub_person` | Nein | `ewb_proj_ntc_main` | P3 ✅ |
 | `link_projektteil_projekt` | `hub_projektteil` ↔ `hub_projekt` (PRT.PROJNR → NPO.PROJNR) | Nein | `ewb_proj_prt_main` | P3 ✅ |
-| `link_person_adresse` | `hub_person` ↔ `hub_adresse` | Nein | `ewb_publ_adr_main` ¹¹ | P1 |
+| `link_person_adresse` | `hub_person` ↔ `hub_adresse` | Nein | `ewb_publ_adr_main` ¹¹ | P1 ✅ |
 
 > ⁵ **Aus Synapse `Finance.Belege` abgeleitet:** `KBL.BELNR = KVL.DOCUMENTNR`. Dieser JOIN bildet die natürliche Beziehung Beleg↔Zahlung ab.  
 > ⁹ **NEU (14.3.2026):** `NSA.PROJNR = NPO.PROJNR` — Datenanalyse bestätigt: 97.5% (11.600 von 11.895 distinkten PROJNR-Werten) matchen direkt auf Projekte. Projektzuordnung ist direkt aus NSA ableitbar. `NSA.CODE = NTR.RECNUM` (70% Match) für Leistungsart-Bezug — im Mart via `ref_leistungsart` aufgelöst.  
@@ -426,13 +426,16 @@ fakt_stunden.DatumKey       → dim_date.date_key            (WARN: Daten vor 20
 - fakt_stunden: ⚠️ PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
 - LeistungsartNr: NSA.CODE = Sachkonto (389 Werte), nicht 1:1 NTR (15 Werte) — entspricht Synapse LEFT JOIN Verhalten
 
-### 10b. Finance-Domain (OFFEN — Wave 2 Abhängigkeit)
+### 10b. Finance-Domain ✅ (Wave 3 komplett)
 
-| Synapse View | Mart-Modell | Abhängigkeit |
+| Synapse View | Mart-Modell | Status |
 |---|---|---|
-| Finance.Buchungen | `mart_finance.fakt_buchungen` + Dimensionen | Wave 2: GL-Staging, hub_hauptbuch |
-| Finance.Belege | `mart_finance.fakt_belege` + Dimensionen | Wave 2: KBL/KVL-Staging |
-| Finance.Kunden | `mart_finance.dim_kunde` | Wave 2: PUBL.ADR-Erweiterung |
+| Finance.Buchungen | `mart_finance.fakt_buchungen` | ✅ Wave 3: Links statt Staging-Join, konto_key + kostenstelle_key FK |
+| Finance.Belege | `mart_finance.fakt_belege` | ✅ Wave 2 deployed |
+| Finance.Kunden | `mart_finance.dim_kreditor` | ✅ Ghost Hub Dimension |
+| — | `mart_finance.dim_konto` | ✅ Wave 3: Ghost Hub + Sharepoint Kontenplan-Hierarchie |
+| — | `mart_finance.dim_kostenstelle` | ✅ Wave 3: Ghost Hub + Sharepoint Kostenstellenplan-Hierarchie |
+| — | `mart_finance.dim_buchungsstatus` | ✅ Referenz-Dimension |
 
 ### 10c. Kritische Business-Regeln (zu konservieren)
 
