@@ -3,19 +3,20 @@ title: "EWB Mart Layer — Projekt-Domain Star Schema (mart_project)"
 ---
 erDiagram
     %% =====================================================================
-    %% STAR SCHEMA — Projekt-Domain
+    %% STAR SCHEMA — Projekt-Domain (mart_project)
+    %% Stand: 2026-03-30 | 3 Dimensionen + 1 Fakt + 1 shared dim_date
     %% Pflicht-Spalten: {dim}_key, {dim}_id, {dim}_code, {dim}_name
     %% Ghost Records: vorerst nicht implementiert
-    %% Materialisierung: view (Virtualisierung bevorzugt)
+    %% Materialisierung: view (ausser dim_date = table)
     %% =====================================================================
 
     dim_person {
         bigint person_key PK "SK = MD5(LOHNNR)"
         nvarchar person_id "Technische ID"
-        nvarchar person_code "Initialen, Fallback PersonalNr"
+        nvarchar person_code "Initialen (abrv), Fallback PersonalNr"
         nvarchar person_name "Nachname Vorname, Fallback UNKNOWN"
         int abteilung_nr "sat_person__abacus.home_dept_nr"
-        nvarchar abteilung "ref_abteilung, Fallback UNKNOWN"
+        nvarchar abteilung "ref_abteilung (GROUP=1), Fallback UNKNOWN"
         date mutation_date "Letzte Aenderung"
         date eintritt "sat_person__abacus.date_in"
         date austritt "sat_person__abacus.date_out"
@@ -29,18 +30,18 @@ erDiagram
         nvarchar projekt_code "ProjektNr als String"
         nvarchar projekt_name "Projektbezeichnung, Fallback UNKNOWN"
         int inaktiv "0=aktiv 1=inaktiv"
-        int gruppe_nr "Referenz-Projektnummer"
-        date erstellt "Erstellungsdatum"
+        int gruppe_nr "Referenz-Projektnummer (refprojnr)"
+        date erstellt "Erstellungsdatum (creation)"
         int status_nr "Status-Code"
-        nvarchar status "ref_projektstatus, Fallback UNKNOWN"
-        date status_datum "Letzte Statusaenderung"
+        nvarchar status "ref_projektstatus.bezeichn, Fallback UNKNOWN"
+        date status_datum "Letzte Statusaenderung (status1)"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }
 
     dim_leistungsart {
         bigint leistungsart_key PK "SK = MD5(NUMBER)"
-        nvarchar leistungsart_id "Technische ID"
+        nvarchar leistungsart_id "Technische ID (number)"
         nvarchar leistungsart_code "Typ, Fallback NUMBER"
         nvarchar leistungsart_name "Beschreibung, Fallback UNKNOWN"
         int inaktiv "Inaktiv-Flag"
@@ -49,21 +50,30 @@ erDiagram
     }
 
     dim_date {
-        int date_key PK "SK YYYYMMDD"
+        int date_key PK "YYYYMMDD (materialized table)"
         date full_date "Natuerlicher Schluessel"
         int year "Jahr"
-        int month "Monat"
         int quarter "Quartal"
-        nvarchar month_name "Monatsname"
+        nvarchar quarter_name "Q1-Q4"
+        int month "Monat"
+        nvarchar month_name "Monatsname (de-DE)"
+        nvarchar year_month "YYYY-MM"
+        int iso_week "ISO Kalenderwoche"
+        int day_of_month "Tag im Monat"
+        nvarchar day_name "Wochentag (de-DE)"
+        char is_weekend "Y/N"
+        char is_weekday "Y/N"
+        char is_last_day_of_month "Y/N"
+        datetime2 dss_load_date "Ladezeitpunkt"
     }
 
     fakt_stunden {
-        bigint projekt_key FK "dim_projekt"
-        bigint leistungsart_key FK "dim_leistungsart"
-        int datum_key FK "dim_date"
+        bigint projekt_key FK "dim_projekt (surrogate_key projnr)"
+        bigint leistungsart_key FK "dim_leistungsart (surrogate_key code)"
+        int datum_key FK "dim_date (YYYYMMDD aus periyear+perimonth)"
         decimal betrag "sat_projektsachkonto__abacus.azbetint"
-        nvarchar gb "Geschaeftsbereich"
-        int dataset "Abacus Dataset-Nr"
+        nvarchar gb "Geschaeftsbereich (degenerate dim)"
+        int dataset "Abacus Dataset-Nr (degenerate dim)"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }
@@ -77,34 +87,44 @@ erDiagram
     fakt_stunden }o--|| dim_date : "datum_key"
 
     %% dim_person ist eigenstaendig (kein FK von fakt_stunden)
-    %% NSA hat keinen PersonalNr-Bezug
+    %% NSA hat keinen PersonalNr-Bezug — Person nicht in Stundenbuchungen enthalten
 
     %% =====================================================================
     %% VAULT-LINEAGE (Quell-Objekte pro Dimension/Fakt)
     %% =====================================================================
     %%
-    %% dim_person       ← hub_adresse + sat_person_adresse__abacus (Name/Vorname)
-    %%                    + hub_person + sat_person__abacus (Initialen, Abteilung)
-    %%                    + link_adresse_person (ADR ↔ LEN)
+    %% dim_person       <- ewb_publ_adr_main (Filter: LOHNJN=1, GESPERRT=0, LOHNNR<>0)
+    %%                    + sat_person_adresse__abacus_current_v (Name, Vorname)
+    %%                    + link_adresse_person (ADR <-> LEN)
+    %%                    + sat_person__abacus_current_v (abrv, home_dept_nr, date_in/out)
     %%                    + ref_abteilung (Abteilungsname, GROUP=1)
-    %%                    + ewb_publ_adr_main (Filter: LOHNJN=1, GESPERRT=0)
+    %%                    Dedup: ROW_NUMBER PARTITION BY person_key ORDER BY mutation_date DESC
     %%
-    %% dim_projekt      ← hub_projekt + sat_projekt__abacus (Stammdaten)
-    %%                    + ref_projektstatus (Status-Aufloesung)
+    %% dim_projekt      <- hub_projekt + sat_projekt__abacus_current_v (Stammdaten)
+    %%                    + ref_projektstatus (Status-Aufloesung via status -> status INT)
     %%
-    %% dim_leistungsart ← ref_leistungsart (Beschreibung, Type, Inaktiv)
+    %% dim_leistungsart <- ref_leistungsart (number, type, description, inaktiv)
     %%
-    %% dim_date         ← existiert bereits (mart._common.dim_date)
+    %% dim_date         <- generiert (2020-2035), materialized='table', de-DE Locale
     %%
-    %% fakt_stunden     ← hub_projektsachkonto + sat_projektsachkonto__abacus (Betraege)
-    %%                    + link_projektsachkonto_projekt (NSA → NPO)
-    %%                    + hub_projekt (ProjektNr fuer FK)
+    %% fakt_stunden     <- hub_projektsachkonto + sat_projektsachkonto__abacus_current_v
+    %%                    + link_projektsachkonto_projekt (NSA -> NPO)
+    %%                    + hub_projekt (PROJNR fuer surrogate_key)
+    %%                    Filter: azbetint <> 0
+    %%                    datum_key: DATEFROMPARTS(periyear, perimonth, 1) -> YYYYMMDD
     %%
     %% =====================================================================
     %% KORREKTUREN gegenueber Synapse structured-tables:
     %%
-    %% 1. fakt_stunden: NSA.PROJNR = ProjektNr (nicht PersonalNr)
+    %% 1. fakt_stunden: NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse)
     %% 2. dim_projekt: Sharepoint-Anreicherung nicht verfuegbar
     %% 3. dim_person: Initialen via dss_is_current statt alphabetisch
     %% 4. Ghost Records: vorerst nicht implementiert
+    %% =====================================================================
+    %%
+    %% Finance-Mart (mart_finance): noch nicht implementiert
+    %% Vault-Objekte bereit: hub_buchungskopf, hub_hauptbuch, hub_kreditorenbeleg,
+    %% hub_kreditor, sat_*__abacus, link_hauptbuch_buchungskopf,
+    %% link_kreditorenbeleg_kreditor, ref_kred_buchungsstatus
+    %% Blockiert: dim_konto + dim_kostenstelle (Wave 3 Ghost Hubs)
     %% =====================================================================
