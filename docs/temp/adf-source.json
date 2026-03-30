@@ -1,0 +1,86 @@
+[
+    {
+        "source": {
+            "folder": "FIBU/FHE",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "KRED/KBL",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "KRED/KVL",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "KRED/KBS",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/NPO",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/NTC",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/NTB",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/NSA",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/NTR",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/PST",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PROJ/PRT",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "LOHN/LEN",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "LOHN/LTC",
+            "file": "Main.parquet"
+        }
+    },
+    {
+        "source": {
+            "folder": "PUBL/ADR",
+            "file": "Main.parquet"
+        }
+    }
+]
