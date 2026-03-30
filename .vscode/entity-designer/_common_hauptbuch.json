@@ -250,7 +250,7 @@
             "name": "PROJ",
             "sourceName": "PROJ",
             "dataType": "DECIMAL(38,18)",
-            "columnType": "satellite",
+            "columnType": "link",
             "includeInHashDiff": true,
             "includeInPayload": true,
             "nullable": true
@@ -1059,7 +1059,7 @@
             "name": "DKKUNDENNUMMER",
             "sourceName": "DKKUNDENNUMMER",
             "dataType": "DECIMAL(38,18)",
-            "columnType": "satellite",
+            "columnType": "link",
             "includeInHashDiff": true,
             "includeInPayload": true,
             "nullable": true

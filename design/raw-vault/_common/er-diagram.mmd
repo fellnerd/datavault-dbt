@@ -1,10 +1,11 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
-    %% Stand: 2026-03-30 | Hubs: 12 (+2 impl.) | Sats: 13 (+2 impl.) | Links: 11 (+2 impl.) | Refs: 3
+    %% Stand: 2026-03-30 | Hubs: 12 (+2 impl.) | Sats: 13 (+2 impl.) | Links: 11 (+4 impl.) | Refs: 3
     %% + Project Domain: hub_projektsachkonto, sat_projektsachkonto__abacus, link_projektsachkonto_projekt, ref_leistungsart, ref_projektstatus
     %% + Finance Domain: hub_kreditorenbeleg, sat_kreditorenbeleg__abacus, hub_kreditor (Ghost Hub), sat_kreditor__abacus
     %% + Wave 2 Links: link_kreditorenbeleg_kreditor, link_hauptbuch_buchungskopf
+    %% + Wave 3 Links: link_hauptbuch_projekt, link_hauptbuch_kreditor (GL-Dimension-Links)
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
@@ -229,8 +230,20 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    LINK_HAUPTBUCH_PROJEKT { char64 hk PK }
-    LINK_HAUPTBUCH_KREDITOR { char64 hk PK }
+    LINK_HAUPTBUCH_PROJEKT {
+        char64 hk_link_hauptbuch_projekt PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_HAUPTBUCH_KREDITOR {
+        char64 hk_link_hauptbuch_kreditor PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_kreditor FK "hub_kreditor"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_HAUPTBUCH_KONTO { char64 hk PK }
     LINK_HAUPTBUCH_KOSTENSTELLE { char64 hk PK }
     LINK_KREDITORENBELEG_KREDITOR {
