@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -43,13 +43,24 @@ export function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState(designer.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(designer.edges);
 
-  // Sync derived nodes/edges into React Flow state
+  // Sync derived nodes/edges into React Flow state (guarded to prevent infinite loop)
+  const prevNodesKeyRef = useRef('');
+  const prevEdgesKeyRef = useRef('');
+
   React.useEffect(() => {
-    setNodes(designer.nodes);
+    const nodesKey = designer.nodes.map(n => n.id + (n.data as Record<string, unknown>)?.objectName).join(',');
+    if (nodesKey !== prevNodesKeyRef.current) {
+      prevNodesKeyRef.current = nodesKey;
+      setNodes(designer.nodes);
+    }
   }, [designer.nodes, setNodes]);
 
   React.useEffect(() => {
-    setEdges(designer.edges);
+    const edgesKey = designer.edges.map(e => e.id).join(',');
+    if (edgesKey !== prevEdgesKeyRef.current) {
+      prevEdgesKeyRef.current = edgesKey;
+      setEdges(designer.edges);
+    }
   }, [designer.edges, setEdges]);
 
   // Selection handling

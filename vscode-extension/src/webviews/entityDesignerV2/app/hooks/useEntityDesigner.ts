@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import type {
   EntityConfigV2,
@@ -163,13 +163,22 @@ export function useEntityDesigner() {
   }, []);
 
   // ─── Derived Data: Nodes & Edges ──────────────────────────────
-  const { nodes, edges } = deriveNodesAndEdges(
-    state.config,
-    state.selectedObjectName
+  // Memoize to prevent infinite re-render loop (React Error #185):
+  // Without memo, new arrays are created every render → useEffect in App.tsx
+  // calls setNodes → re-render → new arrays → loop.
+  const objectsKey = JSON.stringify(state.config?.objects || {});
+  const { nodes, edges } = useMemo(
+    () => deriveNodesAndEdges(state.config, state.selectedObjectName),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [objectsKey, state.selectedObjectName]
   );
 
   // Assigned columns mapping
-  const assignedColumns = deriveAssignedColumns(state.config);
+  const assignedColumns = useMemo(
+    () => deriveAssignedColumns(state.config),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [objectsKey]
+  );
 
   // Available hubs/links from config
   const configHubs = state.config

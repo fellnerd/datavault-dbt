@@ -49,6 +49,8 @@ export class EntityDesignerV2Provider {
   private _concept: string;
   private _entityName: string;
   private _sourceTable: string;
+  private _sourceColumns: Record<string, { dataType: string; description?: string }>;
+  private _reservedKeywords: string[];
   private _isDirty: boolean = false;
 
   private constructor(
@@ -57,7 +59,9 @@ export class EntityDesignerV2Provider {
     projectPath: string,
     concept: string,
     entityName: string,
-    sourceTable: string
+    sourceTable: string,
+    sourceColumns: Record<string, { dataType: string; description?: string }>,
+    reservedKeywords: string[]
   ) {
     this._panel = panel;
     this._extensionUri = extensionUri;
@@ -65,6 +69,8 @@ export class EntityDesignerV2Provider {
     this._concept = concept;
     this._entityName = entityName;
     this._sourceTable = sourceTable;
+    this._sourceColumns = sourceColumns;
+    this._reservedKeywords = reservedKeywords;
 
     this._panel.webview.html = getWebviewContent(this._panel.webview, extensionUri);
 
@@ -86,7 +92,9 @@ export class EntityDesignerV2Provider {
     projectPath: string,
     concept: string,
     entityName: string,
-    sourceTable: string
+    sourceTable: string,
+    sourceColumns: Record<string, { dataType: string; description?: string }> = {},
+    reservedKeywords: string[] = []
   ): Promise<EntityDesignerV2Provider> {
     const column = vscode.window.activeTextEditor?.viewColumn;
 
@@ -101,6 +109,8 @@ export class EntityDesignerV2Provider {
         EntityDesignerV2Provider.currentPanel._entityName = entityName;
         EntityDesignerV2Provider.currentPanel._sourceTable = sourceTable;
         EntityDesignerV2Provider.currentPanel._projectPath = projectPath;
+        EntityDesignerV2Provider.currentPanel._sourceColumns = sourceColumns;
+        EntityDesignerV2Provider.currentPanel._reservedKeywords = reservedKeywords;
         EntityDesignerV2Provider.currentPanel.updateTitle();
         await EntityDesignerV2Provider.currentPanel.loadAndSendConfig();
       }
@@ -122,7 +132,8 @@ export class EntityDesignerV2Provider {
     );
 
     const provider = new EntityDesignerV2Provider(
-      panel, extensionUri, projectPath, concept, entityName, sourceTable
+      panel, extensionUri, projectPath, concept, entityName, sourceTable,
+      sourceColumns, reservedKeywords
     );
     EntityDesignerV2Provider.currentPanel = provider;
     return provider;
@@ -211,8 +222,8 @@ export class EntityDesignerV2Provider {
       sourceTable: this._sourceTable,
       stagingModel,
       objects: {},
-      columns: {},
-      reservedKeywords: [],
+      columns: this._sourceColumns || {},
+      reservedKeywords: this._reservedKeywords || [],
       savedAt: new Date().toISOString(),
     };
   }

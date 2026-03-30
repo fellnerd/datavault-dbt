@@ -2,7 +2,7 @@
   "name": "datavault-dbt",
   "displayName": "Data Vault dbt Explorer",
   "description": "Visualize and navigate dbt Data Vault 2.1 projects with hierarchical tree views",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publisher": "datavault",
   "engines": {
     "vscode": "^1.85.0"
@@ -509,6 +509,11 @@
           "command": "datavault.openEntityDesigner",
           "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
           "group": "design@1"
+        },
+        {
+          "command": "datavault.openEntityDesignerV2",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
+          "group": "design@2"
         },
         {
           "command": "datavault.createAllExternalTables",
