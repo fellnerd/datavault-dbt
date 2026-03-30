@@ -3145,3 +3145,225 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
+
+# ===== HUBS: Konto + Kostenstelle (Ghost Hubs from GL) =====
+
+- name: hub_konto
+  description: >
+    Hub: hub_konto (Ghost Hub).
+    Business Key: KTO (Konto-Nummer aus FIBU.GL).
+    Ghost Hub — keine eigene Abacus-Staging-Quelle.
+    Stammdaten via ref_konto (Sharepoint Finance/Konten).
+    Wave 3 Sharepoint-Integration.
+  columns:
+  - name: "hk_konto"
+    description: "Hash Key (Primary Key), SHA2_256 of KTO"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "kto"
+    description: "Konto-Nummer (Business Key aus FIBU.GL)"
+    data_type: "nvarchar(4000)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier (ewb_abacus)"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_create_datetime"
+    description: "Row creation timestamp"
+    data_type: "datetime2(7)"
+
+- name: hub_kostenstelle
+  description: >
+    Hub: hub_kostenstelle (Ghost Hub).
+    Business Key: KST (Kostenstellen-Nummer aus FIBU.GL).
+    Ghost Hub — keine eigene Abacus-Staging-Quelle.
+    Stammdaten via ref_kostenstelle (Sharepoint Finance/Kostenstellen).
+    Wave 3 Sharepoint-Integration.
+  columns:
+  - name: "hk_kostenstelle"
+    description: "Hash Key (Primary Key), SHA2_256 of KST"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "kst"
+    description: "Kostenstellen-Nummer (Business Key aus FIBU.GL)"
+    data_type: "nvarchar(4000)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier (ewb_abacus)"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_create_datetime"
+    description: "Row creation timestamp"
+    data_type: "datetime2(7)"
+
+# ===== REFERENCE TABLES: Konto + Kostenstelle (Sharepoint) =====
+
+- name: ref_konto
+  description: >
+    Reference Table: ref_konto.
+    Kontenplan aus Sharepoint Finance/Konten (254 Einträge).
+    Hierarchie: L1 (Kontogruppe) → L2 (Unterkategorie) → Konto (Detail).
+    Join mit hub_konto über KTO = KontoNr.
+    Wave 3 Sharepoint-Integration.
+  columns:
+  - name: "KontoNr"
+    description: "Konto-Nummer (Primary Key)"
+    tests:
+    - not_null
+    - unique
+  - name: "KontoName"
+    description: "Kontobezeichnung"
+    tests:
+    - not_null
+  - name: "Konto"
+    description: "Konto (formatiert: Nr - Name)"
+  - name: "Konto_L1"
+    description: "Kontogruppe Level 1"
+  - name: "KontoName_L1"
+    description: "Kontogruppen-Bezeichnung Level 1"
+  - name: "Konto_L2"
+    description: "Kontogruppe Level 2"
+  - name: "KontoName_L2"
+    description: "Kontogruppen-Bezeichnung Level 2"
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier (ewb_sharepoint)"
+    tests:
+    - not_null
+
+- name: ref_kostenstelle
+  description: >
+    Reference Table: ref_kostenstelle.
+    Kostenstellenplan aus Sharepoint Finance/Kostenstellen (151 Einträge).
+    Hierarchie: Bereich L1/L2 (alt + neu), Investitionsrechnung.
+    Join mit hub_kostenstelle über KST = KostenstelleNr.
+    Wave 3 Sharepoint-Integration.
+  columns:
+  - name: "KostenstelleNr"
+    description: "Kostenstellen-Nummer (Primary Key)"
+    tests:
+    - not_null
+    - unique
+  - name: "KostenstelleName"
+    description: "Kostenstellen-Bezeichnung"
+    tests:
+    - not_null
+  - name: "Kostenstelle"
+    description: "Kostenstelle (formatiert: Nr - Name)"
+  - name: "Bereich_L1"
+    description: "Bereich Level 1"
+  - name: "Bereich_L2"
+    description: "Bereich Level 2"
+  - name: "Bereichsname_L1"
+    description: "Bereichs-Bezeichnung Level 1"
+  - name: "Bereichsname_L2"
+    description: "Bereichs-Bezeichnung Level 2"
+  - name: "BereichNeu_L1"
+    description: "Bereich Neu Level 1"
+  - name: "BereichNeu_L2"
+    description: "Bereich Neu Level 2"
+  - name: "BereichsnameNeu_L1"
+    description: "Bereichsname Neu Level 1"
+  - name: "BereichsnameNeu_L2"
+    description: "Bereichsname Neu Level 2"
+  - name: "Investitionsrechnung"
+    description: "Investitionsrechnung-Flag"
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier (ewb_sharepoint)"
+    tests:
+    - not_null
+
+# ===== LINKS: Hauptbuch → Konto / Kostenstelle =====
+
+- name: link_hauptbuch_konto
+  description: >
+    Link: link_hauptbuch_konto.
+    Verbindet hub_hauptbuch (GL.RECNUM) mit hub_konto (GL.KTO).
+    GL.KTO referenziert den Kontenplan (hub_konto / ref_konto).
+    Wave 3 GL-Dimension-Links.
+  columns:
+  - name: "hk_link_hauptbuch_konto"
+    description: "Link Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_hauptbuch"
+    description: "FK to hub_hauptbuch"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_konto"
+    description: "FK to hub_konto"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: link_hauptbuch_kostenstelle
+  description: >
+    Link: link_hauptbuch_kostenstelle.
+    Verbindet hub_hauptbuch (GL.RECNUM) mit hub_kostenstelle (GL.KST).
+    GL.KST referenziert den Kostenstellenplan (hub_kostenstelle / ref_kostenstelle).
+    Wave 3 GL-Dimension-Links.
+  columns:
+  - name: "hk_link_hauptbuch_kostenstelle"
+    description: "Link Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_hauptbuch"
+    description: "FK to hub_hauptbuch"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_kostenstelle"
+    description: "FK to hub_kostenstelle"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null

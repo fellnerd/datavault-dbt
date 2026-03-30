@@ -3,4 +3,4 @@ selected resource type:		pipeline
 factory name:			analytics-datafactory001
 factory location:		switzerlandnorth
 subscription id:		68defcb4-5f61-4456-90f5-ff6bb0305183
-time of download (UTC):		Mon, 09 Mar 2026 19:19:09 GMT
+time of download (UTC):		Mon, 30 Mar 2026 11:44:37 GMT

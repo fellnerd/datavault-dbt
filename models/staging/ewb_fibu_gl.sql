@@ -17,9 +17,11 @@
  *   - hk_konto:         KTO → hub_konto (Ghost Hub)
  *   - hk_kostenstelle:  KST → hub_kostenstelle (Ghost Hub)
  *   - hk_projekt:       PROJ → hub_projekt
- *   - hk_link_hauptbuch_buchungskopf: [RECNUM, DKBELEGNUMMER]
- *   - hk_link_hauptbuch_projekt:     [RECNUM, PROJ]
- *   - hk_link_hauptbuch_kreditor:    [RECNUM, DKKUNDENNUMMER]
+ *   - hk_link_hauptbuch_buchungskopf:  [RECNUM, DKBELEGNUMMER]
+ *   - hk_link_hauptbuch_projekt:      [RECNUM, PROJ]
+ *   - hk_link_hauptbuch_kreditor:     [RECNUM, DKKUNDENNUMMER]
+ *   - hk_link_hauptbuch_konto:        [RECNUM, KTO]
+ *   - hk_link_hauptbuch_kostenstelle: [RECNUM, KST]
  *
  * Uses automate_dv.stage() macro for standardized staging.
  */
@@ -56,6 +58,12 @@ hashed_columns:
   hk_link_hauptbuch_kreditor:
     - "RECNUM"
     - "DKKUNDENNUMMER"
+  hk_link_hauptbuch_konto:
+    - "RECNUM"
+    - "KTO"
+  hk_link_hauptbuch_kostenstelle:
+    - "RECNUM"
+    - "KST"
   hd_hauptbuch:
     is_hashdiff: true
     columns:

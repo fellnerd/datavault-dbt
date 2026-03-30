@@ -113,8 +113,8 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 | `link_hauptbuch_buchungskopf` | `hub_hauptbuch` ↔ `hub_buchungskopf` | Nein | `ewb_fibu_gl` | P2 ✅ |
 | `link_hauptbuch_projekt` | `hub_hauptbuch` ↔ `hub_projekt` | Nein | `ewb_fibu_gl` | P3 ✅ |
 | `link_hauptbuch_kreditor` | `hub_hauptbuch` ↔ `hub_kreditor` | Nein | `ewb_fibu_gl` | P3 ✅ |
-| `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl` | P3 |
-| `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl` | P3 |
+| `link_hauptbuch_konto` | `hub_hauptbuch` ↔ `hub_konto` | Nein | `ewb_fibu_gl` | P3 ✅ |
+| `link_hauptbuch_kostenstelle` | `hub_hauptbuch` ↔ `hub_kostenstelle` | Nein | `ewb_fibu_gl` | P3 ✅ |
 | `link_kreditorenbeleg_kreditor` | `hub_kreditorenbeleg` ↔ `hub_kreditor` | Nein | `ewb_kred_kbl_main` | P2 ✅ |
 | `link_kreditorenbeleg_zahlung` ⁵ | `hub_kreditorenbeleg` ↔ `hub_zahlung` | Nein | `ewb_kred_kvl_main` | P3 ✅ |
 | `link_projektsachkonto_projekt` ⁹ | `hub_projektsachkonto` ↔ `hub_projekt` | Nein | `ewb_proj_nsa_main` | P3 |
@@ -202,7 +202,7 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 **Raw Vault:**
 - Hubs: `hub_zahlung` ✅, `hub_projektteil` ✅
 - Sats: `sat_zahlung__abacus` ✅, `sat_projektteil__abacus` ✅
-- Links: `link_hauptbuch_projekt` ✅, `link_hauptbuch_kreditor` ✅, `link_kreditorenbeleg_zahlung` ✅, `link_projektteil_projekt` ✅ + restliche GL-Dimension-Links (konto, kostenstelle — blocked: Sharepoint-Quellen fehlen)
+- Links: `link_hauptbuch_projekt` ✅, `link_hauptbuch_kreditor` ✅, `link_kreditorenbeleg_zahlung` ✅, `link_projektteil_projekt` ✅, `link_hauptbuch_konto` ✅, `link_hauptbuch_kostenstelle` ✅
 - Current Views: `sat_projektteil__abacus_current_v` ✅, `sat_zahlung__abacus_current_v` ✅
 
 **Finance Mart (mart_finance):** 🔨 (parallel in Arbeit)
@@ -313,7 +313,15 @@ Beispieldaten: "Normalzeit", "Überzeit ohne Zuschlag", "Bezug Überzeit", "Bezu
 - GROUP=1 = Abteilungen (für Mart-Filter relevant)
 - `ref_abteilung` mit `GROUP=1` Filter für Mart `v_abteilung`
 
-### F4 — Sharepoint-Datenquellen: Reference Tables oder Mart-Level?
+### F4 — Sharepoint-Datenquellen: Reference Tables oder Mart-Level? ✅ GELÖST
+
+**Status (30.3.2026):** Sharepoint-Integration komplett umgesetzt:
+- **Pipeline:** ADF `Copy_LandingZone_to_LoadFS_ewb` (JSON copy) → `Copy_Stage_ewb` (Binary copy) → stage-fs/ewb/sharepoint/
+- **External Tables:** 8× `stg.ext_ewb_sp_*_json` (JsonAsCsvFormat + OPENJSON)
+- **Staging Views:** 8× `stg.ewb_sp_*` (OPENJSON-Pattern, dss_record_source='ewb_sharepoint')
+- **Reference Tables:** `vault.ref_konto` (254 Konten), `vault.ref_kostenstelle` (151 Kostenstellen)
+- **Ghost Hubs:** `vault.hub_konto` (GL.KTO), `vault.hub_kostenstelle` (GL.KST)
+- **Links:** `vault.link_hauptbuch_konto`, `vault.link_hauptbuch_kostenstelle`
 
 Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktkopien (ohne Transformation) nach `structured-tables/Finance/` geladen. Zusätzlich nutzt `Projekt.Projekt` 2 weitere Sharepoint-Tabellen (`KategorisierungProjekte`, `ProjekteKategorien`) im JOIN.
 
@@ -336,7 +344,7 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | # | Lücke | Impact | Status | Empfehlung |
 |---|---|---|---|---|
 | 1 | ~~`Projekt.Stunden` (Synapse) ohne ProjektNr~~ | ~~Synapse-Join-Logik unvollständig~~ | **GELÖST** ✅ | `PROJNR` = **ProjektNr** (97.5% Match zu NPO). Synapse-View `PROJNR = LOHNNR` ist fehlerhaft. |
-| 2 | `hub_konto` / `hub_kostenstelle` ohne Stammdaten-Quelle | Ghost Records ohne Beschreibung | Geklärt ✅ | Sharepoint `Finance.Konten` + `Finance.Kostenstellen` als Reference Tables importieren (→ F4) |
+| 2 | `hub_konto` / `hub_kostenstelle` ohne Stammdaten-Quelle | Ghost Records ohne Beschreibung | **GELÖST** ✅ | Ghost Hubs aus GL + `ref_konto` / `ref_kostenstelle` aus Sharepoint implementiert (30.3.2026) |
 | 3 | Sharepoint-Daten in `Projekt.Projekt` | Hybride Quelle (Abacus + Sharepoint) | Offen | Separater `sat_projekt_sharepoint` mit `dss_record_source = 'ewb_sharepoint'` |
 | 4 | ~~Keine `Finance.Konten` / `Finance.Kostenstellen` im Pilot-Scope~~ | ~~Stammdaten für Dimensionen fehlen~~ | **GELÖST** ✅ | Konten + Kostenstellen sind als Sharepoint-Referenztabellen verfügbar — Import als Reference Tables empfohlen |
 | 5 | ~~`PROJNR`-Semantik unterscheidet sich zwischen Tabellen~~ | ~~Verwechslungsgefahr~~ | **GELÖST** ✅ | **Keine Kollision!** `PROJNR` = ProjektNr in ALLEN Tabellen (NPO, NSA). Synapse-Interpretation als PersonalNr war **falsch**. |
@@ -349,17 +357,18 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 11 (+2 Ghost) | 5×P1, 1×P2, 2×P3 (+2 Ghost) |
+| Hubs | 13 (+2 Ghost: konto, kostenstelle) | 5×P1, 1×P2, 2×P3, 2×Ghost ✅ |
 | Satellites | 12 | 4×P1, 2×P2, 6×P3 |
-| Links | 12 | 1×P1, 3×P2, 8×P3 (3×P3 ✅) |
-| **Total Vault-Objekte** | **37** | |
-| Reference Tables | 3 (NTR, PST, LTC) | + bis zu 8 Sharepoint |
-| Staging-Views | 19 | 1 vorhanden, 18 ausstehend |
+| Links | 12 | 1×P1, 3×P2, 8×P3 (5×P3 ✅) |
+| **Total Vault-Objekte** | **39** | |
+| Reference Tables | 5 (NTR, PST, LTC, Konto, Kostenstelle) | 3×Abacus + 2×Sharepoint ✅ |
+| Staging-Views | 19 + 8 Sharepoint | 11 Abacus + 8 Sharepoint = 19 implementiert |
 | Mart Views | 7 | geplant (structured-tables Replika) |
 
-**Implementierungsstand (29. März 2026):**
-- Staging: **11/19** implementiert — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
-- Vault: **28/37** Objekte implementiert — 9 Hubs, 10 Sats (+3 current_v), 7 Links
+**Implementierungsstand (30. März 2026):**
+- Staging Abacus: **11/19** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
+- Staging Sharepoint: **8/8** — `ewb_sp_konten` ✅, `ewb_sp_kostenstellen` ✅, `ewb_sp_budget` ✅, `ewb_sp_forecast` ✅, `ewb_sp_actualforecast` ✅, `ewb_sp_zugangsrechte` ✅, `ewb_sp_kategorisierungprojekte` ✅, `ewb_sp_projektekategorien` ✅
+- Vault: **34/39** Objekte implementiert — 11 Hubs (+2 Ghost), 10 Sats (+3 current_v), 9 Links, 5 Refs
 - Mart: **5/7** Views implementiert — Projekt-Domain ✅
 - Reference Tables: **3/3** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)

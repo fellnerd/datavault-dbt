@@ -104,7 +104,7 @@
                         "storeSettings": {
                             "type": "AzureBlobFSReadSettings",
                             "recursive": true,
-                            "wildcardFileName": "*"
+                            "wildcardFileName": "*.parquet"
                         },
                         "formatSettings": {
                             "type": "ParquetReadSettings"
@@ -148,6 +148,72 @@
                         }
                     }
                 ]
+            },
+            {
+                "name": "Copy_Stage_Sharepoint",
+                "type": "Copy",
+                "dependsOn": [
+                    {
+                        "activity": "Delete_Stage_Files",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.00:30:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "source": {
+                        "type": "BinarySource",
+                        "storeSettings": {
+                            "type": "AzureBlobFSReadSettings",
+                            "recursive": true,
+                            "wildcardFileName": "*.json",
+                            "deleteFilesAfterCompletion": false
+                        },
+                        "formatSettings": {
+                            "type": "BinaryReadSettings"
+                        }
+                    },
+                    "sink": {
+                        "type": "BinarySink",
+                        "storeSettings": {
+                            "type": "AzureBlobFSWriteSettings",
+                            "copyBehavior": "PreserveHierarchy"
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "BinaryFolderDataset_ewb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "cw_fileSystem": "load-fs",
+                            "cw_folderPath": {
+                                "value": "@concat(pipeline().parameters.cw_business_context, '/', pipeline().parameters.cw_source, '/historized/', pipeline().parameters.cw_load_date, '/', trim(pipeline().parameters.cw_runId))",
+                                "type": "Expression"
+                            }
+                        }
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "BinaryFolderDataset_ewb",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "cw_fileSystem": "stage-fs",
+                            "cw_folderPath": {
+                                "value": "@concat(pipeline().parameters.cw_business_context, '/', pipeline().parameters.cw_source)",
+                                "type": "Expression"
+                            }
+                        }
+                    }
+                ]
             }
         ],
         "parameters": {
@@ -172,7 +238,7 @@
             "name": "load-fs_ewb"
         },
         "annotations": [],
-        "lastPublishTime": "2026-03-04T19:56:28Z"
+        "lastPublishTime": "2026-03-17T21:30:12Z"
     },
     "type": "Microsoft.DataFactory/factories/pipelines"
 }

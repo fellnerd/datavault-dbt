@@ -2286,3 +2286,263 @@ models:
       - name: dss_run_id
         description: dbt run identifier
         data_type: nvarchar(4000)
+
+  # ===== EWB / SHAREPOINT (JSON via OPENJSON) =====
+
+  - name: ewb_sp_konten
+    description: "Staging: Sharepoint Konten (Kontenplan). JSON→OPENJSON. 254 rows."
+    config:
+      meta:
+        entity_type: reference
+        source_type: json_external_table
+        external_table: ext_ewb_sp_konten_json
+        business_keys:
+          - KontoNr
+    columns:
+      - name: hk_konto
+        description: Hash Key (SHA2_256 of KontoNr)
+        tests:
+          - not_null
+          - unique
+      - name: KontoNr
+        description: Kontonummer (Business Key)
+        tests:
+          - not_null
+      - name: KontoName
+        description: Kontobezeichnung
+      - name: Konto
+        description: "Konto (Nr + Name kombiniert)"
+      - name: Konto_L1
+        description: Konto Level 1 (Aggregation)
+      - name: KontoName_L1
+        description: Kontoname Level 1
+      - name: Konto_L2
+        description: Konto Level 2 (Aggregation)
+      - name: KontoName_L2
+        description: Kontoname Level 2
+      - name: dss_record_source
+        description: Data source identifier
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        tests:
+          - not_null
+
+  - name: ewb_sp_kostenstellen
+    description: "Staging: Sharepoint Kostenstellen (Kostenstellenstamm). JSON→OPENJSON. 151 rows."
+    config:
+      meta:
+        entity_type: reference
+        source_type: json_external_table
+        external_table: ext_ewb_sp_kostenstellen_json
+        business_keys:
+          - KostenstelleNr
+    columns:
+      - name: hk_kostenstelle
+        description: Hash Key (SHA2_256 of KostenstelleNr)
+        tests:
+          - not_null
+          - unique
+      - name: KostenstelleNr
+        description: Kostenstellennummer (Business Key)
+        tests:
+          - not_null
+      - name: KostenstelleName
+        description: Kostenstellenbezeichnung
+      - name: Kostenstelle
+        description: "Kostenstelle (Nr + Name kombiniert)"
+      - name: Bereich_L1
+        description: Bereich Level 1
+      - name: Bereich_L2
+        description: Bereich Level 2
+      - name: Bereichsname_L1
+        description: Bereichsname Level 1
+      - name: Bereichsname_L2
+        description: Bereichsname Level 2
+      - name: BereichNeu_L1
+        description: Bereich Neu Level 1
+      - name: BereichNeu_L2
+        description: Bereich Neu Level 2
+      - name: BereichsnameNeu_L1
+        description: Bereichsname Neu Level 1
+      - name: BereichsnameNeu_L2
+        description: Bereichsname Neu Level 2
+      - name: Investitionsrechnung
+        description: Investitionsrechnung Flag
+      - name: dss_record_source
+        description: Data source identifier
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        tests:
+          - not_null
+
+  - name: ewb_sp_budget
+    description: "Staging: Sharepoint Budget (Planungsdaten). JSON→OPENJSON. ~52k rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_budget_json
+        business_keys:
+          - Datum
+          - Kostenstelle
+          - Konto
+          - Szenario
+    columns:
+      - name: Datum
+        description: Buchungsdatum
+        tests:
+          - not_null
+      - name: Kostenstelle
+        description: Kostenstelle (FK zu Kostenstellen)
+      - name: Konto
+        description: Konto (FK zu Konten)
+      - name: Szenario
+        description: Budget-Szenario
+      - name: KST_KOA
+        description: Kostenstelle-Kostenart Kombination
+      - name: Betrag
+        description: Budget-Betrag
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_forecast
+    description: "Staging: Sharepoint Forecast (Planungsdaten). JSON→OPENJSON. ~13k rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_forecast_json
+        business_keys:
+          - Datum
+          - Kostenstelle
+          - Konto
+          - Szenario
+    columns:
+      - name: Datum
+        description: Buchungsdatum
+        tests:
+          - not_null
+      - name: Kostenstelle
+        description: Kostenstelle (FK zu Kostenstellen)
+      - name: Konto
+        description: Konto (FK zu Konten)
+      - name: Szenario
+        description: Forecast-Szenario
+      - name: KST_KOA
+        description: Kostenstelle-Kostenart Kombination
+      - name: Betrag
+        description: Forecast-Betrag
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_actualforecast
+    description: "Staging: Sharepoint ActualForecast (Actual vs Forecast Flags). JSON→OPENJSON. 24 rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_actualforecast_json
+        business_keys:
+          - Y_Month
+    columns:
+      - name: Y_Month
+        description: "Jahr-Monat (YYYY-MM)"
+        tests:
+          - not_null
+      - name: Actual_Forecast
+        description: "Actual oder Forecast Flag"
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_zugangsrechte
+    description: "Staging: Sharepoint Zugangsrechte (Berechtigungsmatrix). JSON→OPENJSON. 27 rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_zugangsrechte_json
+        business_keys:
+          - Email
+          - KostenstelleNr
+          - Konto
+    columns:
+      - name: Email
+        description: Benutzer-Email
+        tests:
+          - not_null
+      - name: Konto
+        description: Konto-Berechtigung
+      - name: KostenstelleNr
+        description: Kostenstelle-Berechtigung
+      - name: ProjektNr
+        description: Projekt-Berechtigung
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_kategorisierungprojekte
+    description: "Staging: Sharepoint KategorisierungProjekte (Projekt-Kategorie-Zuordnung). JSON→OPENJSON. 263 rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_kategorisierungprojekte_json
+        business_keys:
+          - Projektnummer
+    columns:
+      - name: Projektnummer
+        description: Projektnummer (FK zu Projekte)
+        tests:
+          - not_null
+      - name: KategorieNr
+        description: Kategorienummer (FK zu ProjekteKategorien)
+      - name: KostenstelleName
+        description: Kostenstellenbezeichnung
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_projektekategorien
+    description: "Staging: Sharepoint ProjekteKategorien (Kategorie-Lookup). JSON→OPENJSON. 24 rows."
+    config:
+      meta:
+        entity_type: reference
+        source_type: json_external_table
+        external_table: ext_ewb_sp_projektekategorien_json
+        business_keys:
+          - KategorieNr
+    columns:
+      - name: KategorieNr
+        description: Kategorienummer (Business Key)
+        tests:
+          - not_null
+      - name: KategorieName
+        description: Kategoriebezeichnung
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null

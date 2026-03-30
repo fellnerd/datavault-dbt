@@ -204,7 +204,7 @@
                     "batchCount": 5,
                     "activities": [
                         {
-                            "name": "Copy_Sharepoint_JSON_to_Parquet",
+                            "name": "Copy_Sharepoint_JSON",
                             "description": "Liest Sharepoint Main.json und konvertiert zu Parquet in load-fs/ewb/sharepoint/historized/",
                             "type": "Copy",
                             "dependsOn": [],
@@ -234,28 +234,22 @@
                                         "enablePartitionDiscovery": false
                                     },
                                     "formatSettings": {
-                                        "type": "JsonReadSettings"
+                                        "type": "JsonReadSettings",
+                                        "documentForm": "documentPerLine"
                                     }
                                 },
                                 "sink": {
-                                    "type": "ParquetSink",
+                                    "type": "JsonSink",
                                     "storeSettings": {
                                         "type": "AzureBlobFSWriteSettings"
                                     },
                                     "formatSettings": {
-                                        "type": "ParquetWriteSettings"
+                                        "type": "JsonWriteSettings",
+                                        "filePattern": "setOfObjects"
                                     }
                                 },
                                 "enableStaging": false,
-                                "validateDataConsistency": false,
-                                "translator": {
-                                    "type": "TabularTranslator",
-                                    "typeConversion": true,
-                                    "typeConversionSettings": {
-                                        "allowDataTruncation": true,
-                                        "treatBooleanAsNumber": false
-                                    }
-                                }
+                                "validateDataConsistency": false
                             },
                             "inputs": [
                                 {
@@ -276,7 +270,7 @@
                             ],
                             "outputs": [
                                 {
-                                    "referenceName": "GenericParquetDataset_ewb",
+                                    "referenceName": "GenericJsonDataset_ewb",
                                     "type": "DatasetReference",
                                     "parameters": {
                                         "cw_fileSystem": "load-fs",
@@ -403,7 +397,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.Konten.Main.parquet"
+                            "fileName": "SP.Konten.Main.json"
                         }
                     },
                     {
@@ -412,7 +406,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.Kostenstellen.Main.parquet"
+                            "fileName": "SP.Kostenstellen.Main.json"
                         }
                     },
                     {
@@ -421,7 +415,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.Budget.Main.parquet"
+                            "fileName": "SP.Budget.Main.json"
                         }
                     },
                     {
@@ -430,7 +424,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.Forecast.Main.parquet"
+                            "fileName": "SP.Forecast.Main.json"
                         }
                     },
                     {
@@ -439,7 +433,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.ActualForecast.Main.parquet"
+                            "fileName": "SP.ActualForecast.Main.json"
                         }
                     },
                     {
@@ -448,7 +442,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.Zugangsrechte.Main.parquet"
+                            "fileName": "SP.Zugangsrechte.Main.json"
                         }
                     },
                     {
@@ -457,7 +451,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.KategorisierungProjekte.Main.parquet"
+                            "fileName": "SP.KategorisierungProjekte.Main.json"
                         }
                     },
                     {
@@ -466,7 +460,7 @@
                             "file": "Main.json"
                         },
                         "destination": {
-                            "fileName": "SP.ProjekteKategorien.Main.parquet"
+                            "fileName": "SP.ProjekteKategorien.Main.json"
                         }
                     }
                 ]

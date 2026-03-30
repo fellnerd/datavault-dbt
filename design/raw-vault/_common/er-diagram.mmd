@@ -1,12 +1,9 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
-    %% Schema: vault | Quelle: Abacus ERP (dss_record_source = 'ewb_abacus')
-    %% Stand: 2026-03-30 | Hubs: 13 (+3 impl.) | Sats: 14 (+3 impl.) | Links: 12 (+4 impl.) | Refs: 3
-    %% + Project Domain: hub_projektsachkonto, sat_projektsachkonto__abacus, link_projektsachkonto_projekt, ref_leistungsart, ref_projektstatus
-    %% + Finance Domain: hub_kreditorenbeleg, sat_kreditorenbeleg__abacus, hub_kreditor (Ghost Hub), sat_kreditor__abacus
-    %% + Wave 2 Links: link_kreditorenbeleg_kreditor, link_hauptbuch_buchungskopf
-    %% + Wave 3 Links: link_hauptbuch_projekt, link_hauptbuch_kreditor (GL-Dimension-Links)
-    %% + Wave 3 PRT: hub_projektteil, sat_projektteil__abacus, link_projektteil_projekt
+    %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Sharepoint ('ewb_sharepoint')
+    %% Stand: 2026-03-30 | Hubs: 13 | Sats: 14 | Links: 12 | Refs: 5
+    %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle
+    %% + Wave 3 Links: link_hauptbuch_konto, link_hauptbuch_kostenstelle (GL→Sharepoint)
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
 
     %% === FINANCE ===
@@ -43,8 +40,18 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    HUB_KONTO { char64 hk PK "ghost" }
-    HUB_KOSTENSTELLE { char64 hk PK "ghost" }
+    HUB_KONTO {
+        char64 hk_konto PK "computed — Ghost Hub"
+        nvarchar kto "ext_ewb_fibu_gl.KTO"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_KOSTENSTELLE {
+        char64 hk_kostenstelle PK "computed — Ghost Hub"
+        nvarchar kst "ext_ewb_fibu_gl.KST"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     SAT_BUCHUNGSKOPF {
         char64 hk_buchungskopf FK "computed"
         char64 hd_buchungskopf "computed"
@@ -278,6 +285,23 @@ erDiagram
         nvarchar langcode "Sprachcode"
     }
     REF_ABTEILUNG { int nr PK }
+    REF_KONTO {
+        int KontoNr PK "ewb_sp_konten — 254 Eintraege"
+        nvarchar KontoName "Kontobezeichnung"
+        nvarchar Konto "Nr - Name"
+        nvarchar Konto_L1 "Kontogruppe L1"
+        nvarchar KontoName_L1 "Gruppenname L1"
+        nvarchar Konto_L2 "Kontogruppe L2"
+        nvarchar KontoName_L2 "Gruppenname L2"
+    }
+    REF_KOSTENSTELLE {
+        int KostenstelleNr PK "ewb_sp_kostenstellen — 151 Eintraege"
+        nvarchar KostenstelleName "Bezeichnung"
+        nvarchar Kostenstelle "Nr - Name"
+        nvarchar Bereich_L1 "Bereich L1"
+        nvarchar Bereich_L2 "Bereich L2"
+        int Investitionsrechnung "Inv.-Flag"
+    }
 
     %% === LINKS ===
     LINK_BUCHUNGSKOPF_KREDITORENBELEG { char64 hk PK }
@@ -302,8 +326,20 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    LINK_HAUPTBUCH_KONTO { char64 hk PK }
-    LINK_HAUPTBUCH_KOSTENSTELLE { char64 hk PK }
+    LINK_HAUPTBUCH_KONTO {
+        char64 hk_link_hauptbuch_konto PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_konto FK "hub_konto"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_HAUPTBUCH_KOSTENSTELLE {
+        char64 hk_link_hauptbuch_kostenstelle PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_kostenstelle FK "hub_kostenstelle"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     LINK_KREDITORENBELEG_KREDITOR {
         char64 hk_link_kreditorenbeleg_kreditor PK "computed"
         char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
@@ -366,3 +402,5 @@ erDiagram
     SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE"
     SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUSNR"
     SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR"
+    HUB_KONTO }o--|| REF_KONTO : "KTO = KontoNr"
+    HUB_KOSTENSTELLE }o--|| REF_KOSTENSTELLE : "KST = KostenstelleNr"

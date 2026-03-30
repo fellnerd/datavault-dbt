@@ -2308,3 +2308,88 @@
             "data_type": "NVARCHAR(4000)"
           - "name": "dss_source_file_name"
             "data_type": "NVARCHAR(4000)"
+
+      # ===== EWB / SHAREPOINT (JSON via OPENJSON) =====
+      # These tables use JsonAsCsvFormat (single NVARCHAR(MAX) column).
+      # Column parsing happens in dbt staging views via CROSS APPLY OPENJSON().
+      # Created manually (not via stage_external_sources macro).
+
+      - "name": "ext_ewb_sp_konten_json"
+        "description": "Sharepoint Konten (JSON). 254 rows. BK: KontoNr"
+        "external":
+          "location": "ewb/sharepoint/SP.Konten.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_kostenstellen_json"
+        "description": "Sharepoint Kostenstellen (JSON). 151 rows. BK: KostenstelleNr"
+        "external":
+          "location": "ewb/sharepoint/SP.Kostenstellen.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_budget_json"
+        "description": "Sharepoint Budget (JSON). ~52k rows. BK: Datum+Kostenstelle+Konto+Szenario"
+        "external":
+          "location": "ewb/sharepoint/SP.Budget.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_forecast_json"
+        "description": "Sharepoint Forecast (JSON). ~13k rows. BK: Datum+Kostenstelle+Konto+Szenario"
+        "external":
+          "location": "ewb/sharepoint/SP.Forecast.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_actualforecast_json"
+        "description": "Sharepoint ActualForecast (JSON). 24 rows. BK: Y-Month"
+        "external":
+          "location": "ewb/sharepoint/SP.ActualForecast.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_zugangsrechte_json"
+        "description": "Sharepoint Zugangsrechte (JSON). 27 rows. BK: Email+KostenstelleNr+Konto"
+        "external":
+          "location": "ewb/sharepoint/SP.Zugangsrechte.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_kategorisierungprojekte_json"
+        "description": "Sharepoint KategorisierungProjekte (JSON). 263 rows. BK: ProjektNr"
+        "external":
+          "location": "ewb/sharepoint/SP.KategorisierungProjekte.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
+
+      - "name": "ext_ewb_sp_projektekategorien_json"
+        "description": "Sharepoint ProjekteKategorien (JSON). 24 rows. BK: Bezeichnung"
+        "external":
+          "location": "ewb/sharepoint/SP.ProjekteKategorien.Main.json"
+          "file_format": "JsonAsCsvFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "jsonline"
+            "data_type": "NVARCHAR(MAX)"
