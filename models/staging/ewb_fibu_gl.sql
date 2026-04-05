@@ -2,14 +2,15 @@
  * Staging Model: ewb_fibu_gl
  *
  * Source: ext_ewb_fibu_gl (Abacus FIBU/GL — Folder-Scan aller Jahresscheiben E22-E26+)
- * Business Key: RECNUM (unique row identifier — DKBELEGNUMMER+KTO ist NICHT unique)
+ * Business Key: RECNUM + dss_source_file_name (Composite — RECNUM ist nur INNERHALB einer Datei unique)
  * Hash Key: hk_hauptbuch
  * Payload: 34 Spalten — Hauptbuch-Buchungszeilen (Standard-Set)
  *
  * Note: SQL Server reserved keywords (DATE, TEXT) handled via derived_columns escape mechanism.
  *
- * BK-Entscheidung (29.3.2026): DKBELEGNUMMER+KTO hat 62% Nullen und bis zu 96 Duplikate
- * pro Kombination. RECNUM ist der einzig unique Identifier auf Zeilenebene.
+ * BK-Entscheidung (5.4.2026): RECNUM allein ist NICHT global unique — 12 Jahresscheiben
+ * (E15-E26) vergeben RECNUM je neu ab 1. dss_source_file_name (z.B. "E22.parquet") ist
+ * als Metadataspalte verfügbar und macht RECNUM+dss_source_file_name 100% unique (944534/944534).
  *
  * Link Hash Keys:
  *   - hk_buchungskopf:  DKBELEGNUMMER → hub_buchungskopf (FHE.RECNUM = GL.DKBELEGNUMMER)
@@ -34,7 +35,7 @@ derived_columns:
   dss_record_source: "!ewb_abacus"
   dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
   dss_create_datetime: "GETDATE()"
-  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(RECNUM AS NVARCHAR(MAX)))), '-1'))"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(RECNUM AS NVARCHAR(MAX)))), '-1'), ISNULL(dss_source_file_name, '-1'))"
   _escape:
     source_column:
       - "DATE"
@@ -43,7 +44,9 @@ derived_columns:
     escape: true
 
 hashed_columns:
-  hk_hauptbuch: "RECNUM"
+  hk_hauptbuch:
+    - "RECNUM"
+    - "dss_source_file_name"
   hk_buchungskopf: "DKBELEGNUMMER"
   hk_kreditor: "DKKUNDENNUMMER"
   hk_konto: "KTO"
@@ -51,18 +54,23 @@ hashed_columns:
   hk_projekt: "PROJ"
   hk_link_hauptbuch_buchungskopf:
     - "RECNUM"
+    - "dss_source_file_name"
     - "DKBELEGNUMMER"
   hk_link_hauptbuch_projekt:
     - "RECNUM"
+    - "dss_source_file_name"
     - "PROJ"
   hk_link_hauptbuch_kreditor:
     - "RECNUM"
+    - "dss_source_file_name"
     - "DKKUNDENNUMMER"
   hk_link_hauptbuch_konto:
     - "RECNUM"
+    - "dss_source_file_name"
     - "KTO"
   hk_link_hauptbuch_kostenstelle:
     - "RECNUM"
+    - "dss_source_file_name"
     - "KST"
   hd_hauptbuch:
     is_hashdiff: true
