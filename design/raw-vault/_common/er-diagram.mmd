@@ -1,7 +1,7 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Sharepoint ('ewb_sharepoint')
-    %% Stand: 2026-03-30 | Hubs: 13 | Sats: 14 | Links: 12 | Refs: 5
+    %% Stand: 2026-05-29 | Hubs: 13 | Sats: 12 | Links: 11 | Refs: 6
     %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle
     %% + Wave 3 Links: link_hauptbuch_konto, link_hauptbuch_kostenstelle (GL→Sharepoint)
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
@@ -15,7 +15,8 @@ erDiagram
     }
     HUB_HAUPTBUCH {
         char64 hk_hauptbuch PK "computed"
-        decimal recnum "ext_ewb_fibu_gl.RECNUM (BK)"
+        decimal recnum "ext_ewb_fibu_gl.RECNUM (BK Teil 1)"
+        nvarchar dss_source_file_name "ext_ewb_fibu_gl.dss_source_file_name (BK Teil 2)"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -52,7 +53,7 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    SAT_BUCHUNGSKOPF {
+    SAT_BUCHUNGSKOPF__ABACUS {
         char64 hk_buchungskopf FK "computed"
         char64 hd_buchungskopf "computed"
         decimal plan "PLAN (reserved)"
@@ -174,8 +175,8 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    SAT_PROJEKT { char64 hk FK }
-    SAT_ZEITERFASSUNG {
+    SAT_PROJEKT__ABACUS { char64 hk FK }
+    SAT_ZEITERFASSUNG__ABACUS {
         char64 hk_zeiterfassung FK "computed"
         char64 hd_zeiterfassung "computed"
         decimal from1 "FROM1"
@@ -205,7 +206,7 @@ erDiagram
         char1 dss_is_current "computed"
         datetime2 dss_end_date "computed"
     }
-    SAT_PROJEKTSACHKONTO {
+    SAT_PROJEKTSACHKONTO__ABACUS {
         char64 hk_projektsachkonto FK "hub_projektsachkonto"
         char64 hd_projektsachkonto "hash diff"
         decimal budgetint "Budget intern"
@@ -268,9 +269,9 @@ erDiagram
     %% === STAMMDATEN ===
     HUB_PERSON { char64 hk PK }
     HUB_ADRESSE { char64 hk PK }
-    SAT_PERSON { char64 hk FK }
-    SAT_PERSON_ADRESSE { char64 hk FK }
-    SAT_ADRESSE_KONTAKT { char64 hk FK }
+    SAT_PERSON__ABACUS { char64 hk FK }
+    SAT_PERSON_ADRESSE__ABACUS { char64 hk FK }
+    SAT_ADRESSE_KONTAKT__ABACUS { char64 hk FK }
 
     %% === REFERENCE ===
     REF_LEISTUNGSART {
@@ -303,8 +304,12 @@ erDiagram
         int Investitionsrechnung "Inv.-Flag"
     }
 
+    REF_KRED_BUCHUNGSSTATUS {
+        int statusid PK "ext_ewb_kred_kbl_main.STATID — Buchungsstatus"
+        nvarchar bezeichnung "Statusbezeichnung"
+    }
+
     %% === LINKS ===
-    LINK_BUCHUNGSKOPF_KREDITORENBELEG { char64 hk PK }
     LINK_HAUPTBUCH_BUCHUNGSKOPF {
         char64 hk_link_hauptbuch_buchungskopf PK "computed"
         char64 hk_hauptbuch FK "hub_hauptbuch"
@@ -354,24 +359,22 @@ erDiagram
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
-    LINK_PERSON_ADRESSE { char64 hk PK }
+    LINK_ADRESSE_PERSON { char64 hk PK }
 
     %% Hub → Satellite
-    HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF : has
+    HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF__ABACUS : has
     HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH__ABACUS : has
     HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG__ABACUS : has
     HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG__ABACUS : has
     HUB_KREDITOR ||--o{ SAT_KREDITOR__ABACUS : has
-    HUB_PROJEKT ||--o{ SAT_PROJEKT : has
-    HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
-    HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has
-    HUB_PERSON ||--o{ SAT_PERSON : has
-    HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
-    HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
+    HUB_PROJEKT ||--o{ SAT_PROJEKT__ABACUS : has
+    HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG__ABACUS : has
+    HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO__ABACUS : has
+    HUB_PERSON ||--o{ SAT_PERSON__ABACUS : has
+    HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE__ABACUS : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT__ABACUS : has
 
     %% Finance Links
-    HUB_BUCHUNGSKOPF ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
-    HUB_KREDITORENBELEG ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
     HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
     HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
     HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
@@ -395,12 +398,13 @@ erDiagram
     HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
     HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
     HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
-    HUB_PERSON ||--o{ LINK_PERSON_ADRESSE : ""
-    HUB_ADRESSE ||--o{ LINK_PERSON_ADRESSE : ""
+    HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : ""
+    HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : ""
 
     %% Reference Tables
-    SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE"
-    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUSNR"
-    SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR"
+    SAT_PROJEKTSACHKONTO__ABACUS }o--|| REF_LEISTUNGSART : "CODE"
+    SAT_PROJEKT__ABACUS }o--|| REF_PROJEKTSTATUS : "STATUSNR"
+    SAT_PERSON__ABACUS }o--|| REF_ABTEILUNG : "HOME_DEPT_NR"
     HUB_KONTO }o--|| REF_KONTO : "KTO = KontoNr"
     HUB_KOSTENSTELLE }o--|| REF_KOSTENSTELLE : "KST = KostenstelleNr"
+    SAT_KREDITORENBELEG__ABACUS }o--|| REF_KRED_BUCHUNGSSTATUS : "STATID = statusid"
