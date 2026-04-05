@@ -4,10 +4,24 @@ models:
   # =============================================================================
   # GEMEINSAME DIMENSIONEN
   # =============================================================================
+  - name: dim_date_v
+    description: |
+      View-Wrapper auf dim_date (Tabelle). Stellt konsistentes View-Interface
+      für BI-Tools sicher (kein gemischtes Tabellen-/View-Schema im mart Schema).
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+      - name: full_date
+        tests:
+          - not_null
+
   - name: dim_date
     description: |
-      Date Dimension für Reporting und Analyse.
+      Date Dimension für Reporting und Analyse (materialized='table').
       Enthält alle Datumswerte mit diversen Aggregationsebenen.
+      Zugriff via dim_date_v (View-Wrapper).
     columns:
       - name: date_key
         description: Surrogate Key (YYYYMMDD Format)
