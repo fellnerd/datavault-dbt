@@ -59,9 +59,7 @@ jobs:
           if [ -n "$SELECT" ]; then
             dbt run --target ewb-test --select "$SELECT"
           else
-            # sat_hauptbuch__abacus separat laden (944k Zeilen → TCP-Timeout bei Full-Load)
-            dbt run --target ewb-test --exclude sat_hauptbuch__abacus
-            dbt run-operation batch_load_sat_hauptbuch --target ewb-test
+            dbt run --target ewb-test
           fi
 
       - name: dbt test
