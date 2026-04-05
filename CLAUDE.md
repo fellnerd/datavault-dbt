@@ -160,6 +160,7 @@ datavault:
       authentication: cli
       encrypt: true
       trust_cert: false
+      query_timeout: 600   # 10 min — verhindert TCP-Timeout bei Full-Refresh auf grossen External Tables
     ewb-test:
       type: sqlserver
       driver: 'ODBC Driver 18 for SQL Server'
@@ -170,6 +171,7 @@ datavault:
       authentication: cli
       encrypt: true
       trust_cert: false
+      query_timeout: 600
     ewb:
       type: sqlserver
       driver: 'ODBC Driver 18 for SQL Server'
@@ -180,6 +182,7 @@ datavault:
       authentication: cli
       encrypt: true
       trust_cert: false
+      query_timeout: 600
 ```
 
 ## MCP Server
