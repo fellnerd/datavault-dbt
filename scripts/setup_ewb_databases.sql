@@ -38,6 +38,14 @@ IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'mart')
     EXEC('CREATE SCHEMA mart');
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'mart_finance')
+    EXEC('CREATE SCHEMA mart_finance');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'mart_project')
+    EXEC('CREATE SCHEMA mart_project');
+GO
+
 -- =============================================================================
 -- 2. MASTER KEY
 -- =============================================================================
@@ -74,6 +82,26 @@ IF NOT EXISTS (
 GO
 
 -- =============================================================================
+-- 5. EXTERNAL FILE FORMAT (JSON via CSV-Trick für SharePoint-Daten)
+-- =============================================================================
+-- JsonAsCsvFormat: JSON-Dateien als einspaltiges DELIMITEDTEXT einlesen.
+-- Feldtrennzeichen 0x0b (vertikaler Tabulator) kommt in JSON nicht vor,
+-- sodass jede JSON-Zeile als eine Spalte (NVARCHAR(MAX)) gelesen wird.
+IF NOT EXISTS (
+    SELECT 1 FROM sys.external_file_formats WHERE name = 'JsonAsCsvFormat'
+)
+    CREATE EXTERNAL FILE FORMAT JsonAsCsvFormat
+        WITH (
+            FORMAT_TYPE = DELIMITEDTEXT,
+            FORMAT_OPTIONS (
+                FIELD_TERMINATOR = '0x0b',
+                STRING_DELIMITER = '0x0b',
+                FIRST_ROW = 1
+            )
+        );
+GO
+
+-- =============================================================================
 -- 5. EXTERNAL DATA SOURCE: StageFileSystem
 -- =============================================================================
 -- Zeigt auf Container "stage-fs" im Storage Account "analyticsstoraccount001"
@@ -93,19 +121,31 @@ IF NOT EXISTS (
 GO
 
 -- =============================================================================
--- 6. VALIDIERUNG
+-- 6. EXTERNAL DATA SOURCE: LandingZoneFS
+-- =============================================================================
+IF NOT EXISTS (
+    SELECT 1 FROM sys.external_data_sources WHERE name = 'LandingZoneFS'
+)
+    CREATE EXTERNAL DATA SOURCE LandingZoneFS
+        WITH (
+            LOCATION = 'adls://analyticsstoraccount001.dfs.core.windows.net/landing-zone',
+            CREDENTIAL = managed_identity
+        );
+GO
+-- =============================================================================
+-- 7. VALIDIERUNG
 -- =============================================================================
 SELECT 'Schema'       AS [Typ], name AS [Name] FROM sys.schemas
-    WHERE name IN ('stg', 'vault', 'bv', 'mart')
+    WHERE name IN ('stg', 'vault', 'bv', 'mart', 'mart_finance', 'mart_project')
 UNION ALL
 SELECT 'Credential',  name FROM sys.database_scoped_credentials
     WHERE name = 'managed_identity'
 UNION ALL
 SELECT 'File Format', name FROM sys.external_file_formats
-    WHERE name = 'ParquetFormat'
+    WHERE name IN ('ParquetFormat', 'JsonAsCsvFormat')
 UNION ALL
 SELECT 'Data Source', name FROM sys.external_data_sources
-    WHERE name = 'StageFileSystem';
+    WHERE name IN ('StageFileSystem', 'LandingZoneFS');
 GO
 
 -- =============================================================================
