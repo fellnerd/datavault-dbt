@@ -29,7 +29,7 @@ Abacus ERP
 
 ---
 
-## 2. Abacus-Quellen (19 Pilot-Tabellen)
+## 2. Abacus-Quellen (14 Pilot-Tabellen)
 
 ### 2.1 Finance-Domain
 

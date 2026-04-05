@@ -15,7 +15,7 @@ flowchart TB
 
     subgraph ADF["⚙️ Azure Data Factory analytics-datafactory001"]
         direction TB
-        P1["Copy_LandingZone_to_LoadFS_ewb\n(19 Pilot-Tabellen, ForEach)"]
+        P1["Copy_LandingZone_to_LoadFS_ewb\n(14 Abacus-Tabellen, ForEach)"]
         P2["Copy_Stage_ewb\n(Bulk-Copy + DSS-Metadaten)"]
         PX["bestehende Pipelines\n(FIBU/KRED/PROJ/LOHN/PUBL)"]
     end
@@ -84,7 +84,7 @@ flowchart LR
 
 **Pipeline 1: `Copy_LandingZone_to_LoadFS_ewb`**
 - Historisierter Pfad: `load-fs/ewb/abacus/historized/{Datum}/{RunId}/`
-- 19 Pilot-Tabellen, 5 parallele Kopien
+- 14 Abacus-Tabellen + 8 SharePoint-Quellen = 22 Pilot-Quellen, 5 parallele Kopien
 
 **Pipeline 2: `Copy_Stage_ewb`**
 - Löscht staging-Ordner, kopiert vollständigen Run-Snapshot
