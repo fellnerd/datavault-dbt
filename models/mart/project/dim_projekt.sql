@@ -22,9 +22,11 @@ SELECT
     CAST(sp.inaktiv AS INT)               AS inaktiv,
     CAST(sp.refprojnr AS INT)             AS gruppe_nr,
     TRY_CAST(sp.creation AS DATE)         AS erstellt,
+    TRY_CAST(FORMAT(TRY_CAST(sp.creation AS DATE), 'yyyyMMdd') AS INT) AS erstellt_date_key,
     CAST(sp.status AS INT)                AS status_nr,
     ISNULL(ref_ps.bezeichn, 'UNKNOWN')    AS status,
     TRY_CAST(sp.status1 AS DATE)          AS status_datum,
+    TRY_CAST(FORMAT(TRY_CAST(sp.status1 AS DATE), 'yyyyMMdd') AS INT)  AS status_datum_date_key,
     sp.dss_load_date,
     sp.dss_record_source
 FROM {{ ref('hub_projekt') }} hp

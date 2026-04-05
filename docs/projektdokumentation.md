@@ -5,7 +5,7 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 31. März 2026 |
+| **Stand** | 5. April 2026 |
 | **Verfasser** | PPMC AG |
 
 ---
@@ -182,7 +182,7 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 31. März 2026)
+### 5.1 Implementierungsfortschritt (Stand 5. April 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
@@ -278,7 +278,7 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 | `models/raw_vault/_common/` | Zielordner für EWB Vault-Modelle (hubs/, satellites/, links/) | Konfiguriert |
 | `dbt_project.yml` | EWB-Modelle nutzen `_common` (Schema: `vault`, `as_columnstore: false`) | Erstellt (9. März 2026) |
 | `models/staging/ewb_fibu_fhe_main.sql` | Referenz-Staging-View (automate_dv.stage() Pattern, VARBINARY-Pattern) | Erstellt |
-| `models/staging/sources.yml` | Alle 19 External Tables `ext_ewb_*` konfiguriert | Erstellt (9. März 2026) |
+| `models/staging/sources.yml` | 23 External Tables `ext_ewb_*` konfiguriert (15 Abacus + 8 Sharepoint) | Erstellt (9. März 2026) |
 
 ---
 
@@ -300,6 +300,75 @@ Alle drei Design-Fragen wurden durch Datenanalyse gelöst. Vollständige technis
 | hub_kreditor = Ghost Hub | Wird aus `KBL.KNR` abgeleitet (Wave 2), da keine dedizierte Kreditoren-Stammdatentabelle existiert |
 | NTC = Zeitstempelung | PROJ.NTC enthält Stempeluhr-Daten (EMPLNR+PROJDAT+FROM1-TO10), keine Projekttätigkeiten. Kein PRONR/POSNR vorhanden. |
 | Synapse-Bugs | Zwei Fehler in Synapse Views identifiziert: (1) `PROJNR=LOHNNR` Join, (2) `CODE=RECNUM` statt `CODE=NUMBER` |
+
+
+### 5.7 Artefakt-Sync-Status (Stand 5. April 2026)
+
+Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer und ER-Diagramm.
+
+#### Staging Layer
+| Staging-Modell (SQL) | _staging__models.yml | sources.yml (ext_ewb_) | stg-View DB | Status |
+|---|---|---|---|---|
+| `ewb_fibu_fhe_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_fibu_gl` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_kred_kbl_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_kred_kbs_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_kred_kvl_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_lohn_len_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_lohn_ltc_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_proj_npo_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_proj_nsa_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_proj_ntc_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_proj_ntr_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_proj_prt_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_proj_pst_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_publ_adr_main` | ✅ | ✅ | ✅ | Synchron |
+| `ewb_sp_konten` | ✅ | ✅ (`_json`) | ✅ | Synchron (SP-JSON-Format) |
+| `ewb_sp_kostenstellen` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| `ewb_sp_budget` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| `ewb_sp_forecast` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| `ewb_sp_actualforecast` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| `ewb_sp_zugangsrechte` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| `ewb_sp_kategorisierungprojekte` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| `ewb_sp_projektekategorien` | ✅ | ✅ (`_json`) | ✅ | Synchron |
+| *(kein SQL)* | ❌ | ✅ `ext_ewb_proj_ntb_main` | ✅ ET in DB | ⚠️ Out-of-scope ET ohne Staging-View |
+
+> **Hinweis:** Sharepoint External Tables nutzen den Suffix `_json` in sources.yml (z. B. `ext_ewb_sp_konten_json`), was dem effektiven DB-Tabellennamen entspricht.
+
+#### Raw Vault Layer (_common__models.yml vs. SQL-Dateien)
+| Objekt | SQL-Datei | _common__models.yml | DB (datavault-dev) | Status |
+|---|---|---|---|---|
+| **13 Hubs** (inkl. 2 Ghost) | ✅ 13 Dateien | ✅ 13 Einträge | ✅ 13 Tabellen | Synchron |
+| **12 Satellites** | ✅ 12 Dateien | ✅ 12 Einträge | ✅ 12 Tabellen | Synchron |
+| **12 current_v Views** | ✅ 12 Dateien | ✅ 12 Einträge | ✅ 12 Views | Synchron |
+| **11 Links** | ✅ 11 Dateien | ✅ 11 Einträge | ✅ 11 Tabellen | Synchron |
+| **6 References** | ✅ 6 Dateien | ✅ 6 Einträge | ✅ 6 Views | Synchron |
+
+> **Hinweis (Stand 5.4.2026):** `hub_konto`, `hub_kostenstelle`, `link_hauptbuch_konto`, `link_hauptbuch_kostenstelle` sind vollständig in `_common__models.yml` dokumentiert — bekannte Lücke aus vorheriger Session **behoben** ✅.
+
+#### ER-Diagramm vs. Vault-Modelle
+| Bereich | ER-Header | Tatsächlich | Status |
+|---|---|---|---|
+| Hubs | 13 | 13 SQL-Dateien | ✅ Korrekt |
+| Satellites | **14** | **12** SQL-Dateien | ⚠️ Header-Zähler falsch (um 2 zu hoch) |
+| Links | **12** | **11** SQL-Dateien | ⚠️ `LINK_BUCHUNGSKOPF_KREDITORENBELEG` im Diagramm, aber kein SQL (entfernt per Entscheidung März 2026) |
+| References | **5** | **6** SQL-Dateien | ⚠️ `ref_kred_buchungsstatus` fehlt im ER-Diagramm |
+| Link-Name | `LINK_PERSON_ADRESSE` | `link_adresse_person` | ⚠️ Namensabweichung ER ↔ SQL-Datei |
+
+#### Entity-Designer JSONs vs. Vault-Entitäten
+| Entität | Entity-Designer JSON | Status |
+|---|---|---|
+| adresse, buchungskopf, hauptbuch, kreditor, kreditorenbeleg, person, projekt, projektsachkonto, projektteil, zahlung, zeiterfassung | ✅ vorhanden | Synchron |
+| leistungsart, projektstatus, kred_buchungsstatus | ✅ vorhanden (Refs) | Synchron |
+| **konto** (Ghost Hub) | ❌ kein `_common_konto.json` | ⚠️ Ghost Hub ohne Entity-Designer JSON |
+| **kostenstelle** (Ghost Hub) | ❌ kein `_common_kostenstelle.json` | ⚠️ Ghost Hub ohne Entity-Designer JSON |
+
+#### Bekannte Cleanup-Tasks (DB)
+| Objekt | Schema | Problem | Priorität |
+|---|---|---|---|
+| `testview_29e1c7320897c0e96f3dca80df756f0e_10548` | `stg` | Debug-View aus dbt run_sql — sollte entfernt werden | Niedrig |
+| `ext_ewb_sp_zugangsrechte_main` | `stg` | Extra ET in DB, nicht in sources.yml registriert (veraltetes Artefakt?) | Niedrig |
+| `dv` Schema | DB | Leeres Schema in datavault-dev vorhanden, nicht dokumentiert | Niedrig |
 
 ---
 
@@ -455,6 +524,6 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 31. März 2026 — Wave 1+2+3 + Finance Mart deployed auf datavault-dev*
+*EWB Analytics Platform | PPMC AG | Stand: 5. April 2026 — Wave 1+2+3 + Finance Mart deployed auf datavault-dev*
 
 > Letztes Update: Wave 3 + Finance Mart deployed (31. März 2026). Alle 36 Vault-Objekte + 8 Mart-Views auf `datavault-dev`. Nächster Schritt: Deployment auf `datavault` (Produktion) + GitHub Actions CI/CD.

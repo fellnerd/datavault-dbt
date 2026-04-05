@@ -230,7 +230,7 @@ models:
               field: buchungsstatus_key
               config:
                 severity: warn
-      - name: datum_key
+      - name: belegdatum_date_key
         description: "FK → dim_date.date_key (YYYYMMDD aus KBELDAT = Kreditoren-Belegdatum)"
         data_type: int
         tests:
@@ -266,6 +266,15 @@ models:
       - name: valuta_datum
         description: "Datum der Zahlungsposition (KVL.DATUM_ZEIT). NULL = kein KVL-Match."
         data_type: date
+      - name: valuta_datum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus KVL.DATUM_ZEIT). NULL = kein KVL-Match."
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
       - name: positionnr
         description: "Zahlungspositions-Nummer (hub_zahlung.POSITIONNR). NULL = kein KVL-Match."
         data_type: nvarchar(255)
@@ -292,7 +301,7 @@ models:
               + link_hauptbuch_buchungskopf → hub_buchungskopf (DKBELEGNUMMER).
       Wave 3: Staging-Join entfernt, durch Vault-Links ersetzt.
     columns:
-      - name: datum_key
+      - name: buchungsdatum_date_key
         description: "FK → dim_date.date_key (YYYYMMDD aus GL.DATE)"
         data_type: int
         tests:

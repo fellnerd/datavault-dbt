@@ -31,7 +31,7 @@ SELECT
             END,
             1
         ), 'yyyyMMdd'
-    ) AS INT)                             AS datum_key,
+    ) AS INT)                             AS perioden_date_key,
     -- Measures
     spsk.azbetint                         AS betrag,
     -- Degenerate Dimensions

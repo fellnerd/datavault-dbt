@@ -41,7 +41,7 @@ SELECT
     -- Dimension Keys (KBL)
     {{ surrogate_key('hkr.knr') }}                                                      AS kreditor_key,
     {{ surrogate_key('skb.statid') }}                                                    AS buchungsstatus_key,
-    TRY_CAST(FORMAT(TRY_CAST(skb.kbeldat AS DATE), 'yyyyMMdd') AS INT)                  AS datum_key,
+    TRY_CAST(FORMAT(TRY_CAST(skb.kbeldat AS DATE), 'yyyyMMdd') AS INT)                  AS belegdatum_date_key,
     -- Degenerate Dimensions (KBL)
     CAST(hkb.belnr AS NVARCHAR(255))                                                     AS belegnummer,
     -- Measures (KBL)
@@ -56,6 +56,7 @@ SELECT
     -- Measures (KVL — Zahlungsvisierung)
     TRY_CAST(szv.freigabebetrag AS DECIMAL(18,2))                                         AS zahlbetrag,
     TRY_CAST(szv.datum_zeit AS DATE)                                                       AS valuta_datum,
+    TRY_CAST(FORMAT(TRY_CAST(szv.datum_zeit AS DATE), 'yyyyMMdd') AS INT)                 AS valuta_datum_date_key,
     -- Degenerate Dimensions (KVL)
     CAST(hz.positionnr AS NVARCHAR(255))                                                   AS positionnr,
     CAST(hz.elementtyp AS NVARCHAR(255))                                                   AS elementtyp,

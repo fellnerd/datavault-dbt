@@ -40,6 +40,9 @@ models:
       - name: year_name
         description: Jahr als Text
         data_type: char(4)
+      - name: iso_year
+        description: ISO-Wochenjahr (weicht von year() bei Jahresgrenzen ab, z.B. 1. Jan 2021 = ISO-Jahr 2020)
+        data_type: int
       - name: quarter
         description: Quartal (1-4)
         data_type: int
@@ -74,7 +77,7 @@ models:
         description: Tag im Jahr (1-366)
         data_type: int
       - name: day_of_week
-        description: Wochentag (1=Montag, 7=Sonntag)
+        description: Wochentag ISO (1=Montag, 7=Sonntag — DATEFIRST-unabhängig)
         data_type: int
       - name: day_name
         description: Wochentagsname
@@ -83,34 +86,40 @@ models:
         description: Wochentagsname kurz (Mon, Tue, etc.)
         data_type: char(3)
       - name: is_weekend
-        description: Wochenende Flag
-        data_type: int
+        description: Wochenende Flag (Y/N, DATEFIRST-unabhängig)
+        data_type: char(1)
       - name: is_weekday
-        description: Arbeitstag Flag
-        data_type: int
+        description: Arbeitstag Flag (Y/N, DATEFIRST-unabhängig)
+        data_type: char(1)
       - name: is_first_day_of_month
-        description: Erster Tag im Monat
-        data_type: int
+        description: Erster Tag im Monat (Y/N)
+        data_type: char(1)
       - name: is_last_day_of_month
-        description: Letzter Tag im Monat
-        data_type: int
+        description: Letzter Tag im Monat (Y/N)
+        data_type: char(1)
+      - name: is_first_day_of_quarter
+        description: Erster Tag im Quartal (Y/N)
+        data_type: char(1)
+      - name: is_last_day_of_quarter
+        description: Letzter Tag im Quartal (Y/N)
+        data_type: char(1)
       - name: is_first_day_of_year
-        description: Erster Tag im Jahr
-        data_type: int
+        description: Erster Tag im Jahr (Y/N)
+        data_type: char(1)
       - name: is_last_day_of_year
-        description: Letzter Tag im Jahr
-        data_type: int
-      - name: is_today
-        description: Heute Flag (dynamisch)
-        data_type: int
-      - name: is_yesterday
-        description: Gestern Flag (dynamisch)
-        data_type: int
+        description: Letzter Tag im Jahr (Y/N)
+        data_type: char(1)
       - name: last_day_of_month
-        description: Letzter Tag des Monats
+        description: Letzter Tag des Monats (DATE)
         data_type: date
       - name: first_day_of_month
-        description: Erster Tag des Monats
+        description: Erster Tag des Monats (DATE)
+        data_type: date
+      - name: first_day_of_quarter
+        description: Erster Tag des Quartals (DATE)
+        data_type: date
+      - name: last_day_of_quarter
+        description: Letzter Tag des Quartals (DATE)
         data_type: date
       - name: first_day_of_year
         description: Erster Tag des Jahres

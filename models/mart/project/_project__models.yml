@@ -54,9 +54,27 @@ models:
       - name: eintritt
         description: "Eintrittsdatum (sat_person.date_in)"
         data_type: date
+      - name: eintritt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus date_in)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
       - name: austritt
         description: "Austrittsdatum (sat_person.date_out, NULL = noch aktiv)"
         data_type: date
+      - name: austritt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus date_out). NULL = noch aktiv."
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
       - name: dss_load_date
         description: "Ladezeitpunkt aus Vault"
         data_type: datetime2(7)
@@ -100,6 +118,15 @@ models:
       - name: erstellt
         description: "Erstellungsdatum (sat_projekt.creation)"
         data_type: date
+      - name: erstellt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus creation)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
       - name: status_nr
         description: "Status-Code (sat_projekt.status → ref_projektstatus)"
         data_type: int
@@ -111,6 +138,15 @@ models:
       - name: status_datum
         description: "Datum der letzten Statusaenderung (sat_projekt.status1)"
         data_type: date
+      - name: status_datum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus status1)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
       - name: dss_load_date
         description: "Ladezeitpunkt aus Vault"
         data_type: datetime2(7)
@@ -187,8 +223,8 @@ models:
               field: leistungsart_key
               config:
                 severity: warn
-      - name: datum_key
-        description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH)"
+      - name: perioden_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH, immer 1. des Monats)"
         data_type: int
         tests:
           - not_null

@@ -76,7 +76,7 @@ WITH buchung_base AS (
 --         Betrag NEGATIV, Konto=KTO, Kostenstelle=KST
 -- =====================================================
 SELECT
-    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('b.kto') }}                                      AS konto_key,
     {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     -1 * CASE
@@ -117,7 +117,7 @@ UNION ALL
 --         Betrag POSITIV, Konto=GKTO, Kostenstelle=KST2
 -- =====================================================
 SELECT
-    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('b.gkto') }}                                     AS konto_key,
     {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     CASE
@@ -158,7 +158,7 @@ UNION ALL
 --         Betrag POSITIV, Konto=KTO, Kostenstelle=KST
 -- =====================================================
 SELECT
-    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('b.kto') }}                                      AS konto_key,
     {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     CASE
@@ -199,7 +199,7 @@ UNION ALL
 --         Betrag NEGATIV, Konto=GKTO, Kostenstelle=KST2
 -- =====================================================
 SELECT
-    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS datum_key,
+    TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('b.gkto') }}                                     AS konto_key,
     {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     -1 * CASE

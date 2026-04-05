@@ -89,7 +89,9 @@ SELECT
     ISNULL(abteilung, 'UNKNOWN')                                             AS abteilung,
     mutation_date,
     date_in                                                                  AS eintritt,
+    TRY_CAST(FORMAT(date_in, 'yyyyMMdd') AS INT)                             AS eintritt_date_key,
     date_out                                                                 AS austritt,
+    TRY_CAST(FORMAT(date_out, 'yyyyMMdd') AS INT)                            AS austritt_date_key,
     dss_load_date,
     dss_record_source
 FROM joined
