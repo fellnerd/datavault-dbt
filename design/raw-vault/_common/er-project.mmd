@@ -16,12 +16,20 @@ erDiagram
     }
 
     HUB_PROJEKTSACHKONTO {
-        char64 hk_projektsachkonto PK "SHA2_256(PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB)"
+        char64 hk_projektsachkonto PK "SHA2_256(PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB^^DATASET)"
         nvarchar projnr "ext_ewb_proj_nsa_main.PROJNR"
         nvarchar code "ext_ewb_proj_nsa_main.CODE"
         nvarchar periyear "ext_ewb_proj_nsa_main.PERIYEAR"
         nvarchar perimonth "ext_ewb_proj_nsa_main.PERIMONTH"
         nvarchar gb "ext_ewb_proj_nsa_main.GB"
+        nvarchar dataset "ext_ewb_proj_nsa_main.DATASET (10 Datasets)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_PROJEKTTEIL {
+        char64 hk_projektteil PK "SHA2_256(RECNUM)"
+        nvarchar recnum "ext_ewb_proj_prt_main.RECNUM"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -68,6 +76,19 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
+    SAT_PROJEKTTEIL__ABACUS {
+        char64 hk_projektteil FK "hub_projektteil"
+        char64 hd_projektteil "hash diff"
+        date date "Datum"
+        nvarchar stat1 "Status 1"
+        nvarchar stat2 "Status 2"
+        nvarchar user_f "Benutzer"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
     %% ========================================
     %% REFERENCE TABLES
     %% ========================================
@@ -97,6 +118,14 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
+    LINK_PROJEKTTEIL_PROJEKT {
+        char64 hk_link PK "SHA2_256(hk_projektteil^^hk_projekt)"
+        char64 hk_projektteil FK "hub_projektteil"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
     %% Cross-domain: Hauptbuch → Projekt (detail in er-finance.mmd)
     HUB_HAUPTBUCH {
         char64 hk_hauptbuch PK "siehe er-finance.mmd"
@@ -116,6 +145,7 @@ erDiagram
 
     HUB_PROJEKT ||--o{ SAT_PROJEKT : has
     HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has
+    HUB_PROJEKTTEIL ||--o{ SAT_PROJEKTTEIL__ABACUS : has
 
     %% ========================================
     %% RELATIONSHIPS — Hub → Link
@@ -123,6 +153,9 @@ erDiagram
 
     HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
     HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+
+    HUB_PROJEKTTEIL ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
 
     %% Cross-domain
     HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""

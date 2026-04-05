@@ -16,9 +16,8 @@ erDiagram
     }
 
     HUB_HAUPTBUCH {
-        char64 hk_hauptbuch PK "SHA2_256(DKBELEGNUMMER^^KTO)"
-        nvarchar dkbelegnummer "ext_ewb_fibu_gl_e22-e26.DKBELEGNUMMER"
-        nvarchar kto "ext_ewb_fibu_gl_e22-e26.KTO"
+        char64 hk_hauptbuch PK "SHA2_256(RECNUM)"
+        nvarchar recnum "ext_ewb_fibu_gl.RECNUM (unique Zeilenidentifier)"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -31,9 +30,11 @@ erDiagram
     }
 
     HUB_ZAHLUNG {
-        char64 hk_zahlung PK "SHA2_256(BELEGNR^^ZAHLNR)"
-        nvarchar belegnr "ext_ewb_kred_kvl_main.BELEGNR"
-        nvarchar zahlnr "ext_ewb_kred_kvl_main.ZAHLNR"
+        char64 hk_zahlung PK "SHA2_256(DOCUMENTNR^^POSITIONNR^^ELEMENTTYP^^INR)"
+        nvarchar documentnr "ext_ewb_kred_kvl_main.DOCUMENTNR (= KBL.BELNR)"
+        nvarchar positionnr "ext_ewb_kred_kvl_main.POSITIONNR"
+        nvarchar elementtyp "ext_ewb_kred_kvl_main.ELEMENTTYP"
+        nvarchar inr "ext_ewb_kred_kvl_main.INR"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -155,14 +156,6 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_BUCHUNGSKOPF_KREDITORENBELEG {
-        char64 hk_link PK "SHA2_256(hk_buchungskopf^^hk_kreditorenbeleg)"
-        char64 hk_buchungskopf FK "hub_buchungskopf"
-        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
-        datetime2 dss_load_date "metadata"
-        varchar dss_record_source "metadata"
-    }
-
     LINK_KREDITORENBELEG_KREDITOR {
         char64 hk_link PK "SHA2_256(hk_kreditorenbeleg^^hk_kreditor)"
         char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
@@ -203,6 +196,16 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
+    %% ========================================
+    %% REFERENCE TABLES
+    %% ========================================
+
+    REF_KRED_BUCHUNGSSTATUS {
+        nvarchar statid PK "ext_ewb_kred_kbs_main — 16 Eintraege"
+        nvarchar statdef "Status-Definition"
+        nvarchar statflag "Status-Flag"
+    }
+
     %% Cross-domain: Hauptbuch → Projekt
     HUB_PROJEKT {
         char64 hk_projekt PK "siehe er-project.mmd"
@@ -233,8 +236,7 @@ erDiagram
     HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
     HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
 
-    HUB_BUCHUNGSKOPF ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
-    HUB_KREDITORENBELEG ||--o{ LINK_BUCHUNGSKOPF_KREDITORENBELEG : ""
+    SAT_KREDITORENBELEG }o--|| REF_KRED_BUCHUNGSSTATUS : "STATID zu STATID"
 
     HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
     HUB_KREDITOR ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""

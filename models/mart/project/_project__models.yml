@@ -214,3 +214,45 @@ models:
       - name: dss_record_source
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
+
+  - name: dim_abteilung
+    description: |
+      Historische Mitarbeiter-Abteilungs-Zuordnungen (alle Mutationen).
+      Repliziert Synapse [Projekt].[Abteilung] (LEN LEFT JOIN LTC WHERE GROUP=1).
+      Granularitaet: 1 Zeile pro (EMPL_NR x HOME_DEPT_NR x MUTATION_DATE) — DISTINCT.
+      Alle historischen Records aus sat_person__abacus (kein Current-Filter).
+      Quelle: hub_person + sat_person__abacus + ref_abteilung (group_nr=1).
+      Filter: home_dept_nr IS NOT NULL.
+    columns:
+      - name: abteilung_key
+        description: "Surrogate Key der Abteilung = ABS(HASHBYTES('MD5', home_dept_nr)). Nicht eindeutig pro Zeile (N Personen pro Abteilung)."
+        data_type: bigint
+        tests:
+          - not_null
+      - name: person_key
+        description: "Surrogate Key der Person = ABS(HASHBYTES('MD5', empl_nr)). FK → dim_person.person_key (historische Personen beachten)."
+        data_type: bigint
+        tests:
+          - not_null
+      - name: abteilung_nr
+        description: "Abteilungsnummer (sat_person__abacus.home_dept_nr)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: abteilung_name
+        description: "Abteilungsbezeichnung (ref_abteilung.description, group_nr=1). NULL → 'UNKNOWN'"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: personal_nr
+        description: "Personalnummer des Mitarbeiters (hub_person.empl_nr)"
+        data_type: nvarchar(255)
+      - name: mutation_date
+        description: "Datum der Abteilungsmutation (sat_person__abacus.mutation_date)"
+        data_type: date
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)

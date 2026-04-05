@@ -378,21 +378,21 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 13 (+2 Ghost: konto, kostenstelle) | 5×P1, 1×P2, 2×P3, 2×Ghost ✅ |
-| Satellites | 12 | 4×P1, 2×P2, 6×P3 |
-| Links | 12 | 1×P1, 3×P2, 8×P3 (5×P3 ✅) |
-| **Total Vault-Objekte** | **39** | |
-| Marts | 7 | Projekt ✅ + Finance ✅ |
-| Reference Tables | 5 (NTR, PST, LTC, Konto, Kostenstelle) | 3×Abacus + 2×Sharepoint ✅ |
+| Hubs | 13 (+2 Ghost: konto, kostenstelle) | 5×P1, 1×P2, 3×P3, 2×Ghost ✅ |
+| Satellites | 12 | 4×P1, 2×P2, 6×P3 ✅ |
+| Links | 11 | 1×P1, 3×P2, 7×P3 ✅ (link_buchungskopf_kreditorenbeleg entfernt — 0.08% FK-Match) |
+| **Total Vault-Objekte** | **36** | |
+| Marts | 8 | Projekt ✅ + Finance ✅ (inkl. dim_abteilung) |
+| Reference Tables | 6 (NTR, PST, LTC, KBS, Konto, Kostenstelle) | 4×Abacus + 2×Sharepoint ✅ |
 | Staging-Views | 19 + 8 Sharepoint | 11 Abacus + 8 Sharepoint = 19 implementiert |
-| Mart Views | 7 | ✅ COMPLETE (Projekt + Finance) |
+| Mart Views | 8 | ✅ COMPLETE (Projekt + Finance) |
 
 **Implementierungsstand (31. März 2026):**
 - Staging Abacus: **11/19** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
 - Staging Sharepoint: **8/8** — `ewb_sp_konten` ✅, `ewb_sp_kostenstellen` ✅, `ewb_sp_budget` ✅, `ewb_sp_forecast` ✅, `ewb_sp_actualforecast` ✅, `ewb_sp_zugangsrechte` ✅, `ewb_sp_kategorisierungprojekte` ✅, `ewb_sp_projektekategorien` ✅
-- Vault: **34/39** Objekte implementiert — 11 Hubs (+2 Ghost), 10 Sats (+3 current_v), 9 Links, 5 Refs
+- Vault: **36/36** Objekte implementiert — 11 Hubs (+2 Ghost), 12 Sats (+12 current_v), 11 Links
 - Mart: **7/7** Views implementiert — Projekt-Domain ✅, Finance-Domain ✅
-- Reference Tables: **5/5** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅, `ref_konto` ✅, `ref_kostenstelle` ✅
+- Reference Tables: **6/6** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅, `ref_kred_buchungsstatus` ✅, `ref_konto` ✅, `ref_kostenstelle` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
 - **Wave 2: ✅ COMPLETE** — Hub/Sat Buchungskopf + Hauptbuch + Kreditorenbeleg + Kreditor (29.3.2026). Row Counts korrigiert nach ADF Fix (31.3.2026)
 - **Wave 3: ✅ GL-OBJEKTE POPULATED** — Full DB Reset + Redeploy (31.3.2026). Alle GL-abhängigen Links + Finance Mart deployed. hub_hauptbuch=433.076, sat_hauptbuch=943.844, fakt_buchungen=13.519.009

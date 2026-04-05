@@ -72,6 +72,10 @@ erDiagram
         nvarchar umschreibung "BELREF Belegtext"
         nvarchar visierende_id "ERFUSER Erfassungsbenutzer"
         nvarchar visierende "USER_F Freigabebenutzer"
+        decimal zahlbetrag "KVL.FREIGABEBETRAG NULL=kein KVL"
+        date valuta_datum "KVL.DATUM_ZEIT NULL=kein KVL"
+        nvarchar positionnr "hub_zahlung.POSITIONNR NULL=kein KVL"
+        nvarchar elementtyp "hub_zahlung.ELEMENTTYP NULL=kein KVL"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }

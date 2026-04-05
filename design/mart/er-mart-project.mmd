@@ -2,6 +2,17 @@
 erDiagram
 
 
+    dim_abteilung {
+        bigint abteilung_key "SK = MD5(home_dept_nr) nicht PK eindeutig"
+        bigint person_key FK "dim_person (surrogate_key empl_nr)"
+        nvarchar abteilung_nr "Abteilungsnummer (home_dept_nr)"
+        nvarchar abteilung_name "Abteilungsbezeichnung (ref_abteilung GROUP=1) Fallback UNKNOWN"
+        nvarchar personal_nr "Personalnummer (hub_person.empl_nr)"
+        date mutation_date "Datum der Abteilungsmutation"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
     dim_person {
         bigint person_key PK "SK = MD5(LOHNNR)"
         nvarchar person_id "Technische ID"
@@ -75,5 +86,6 @@ erDiagram
     fakt_stunden }o--|| dim_projekt : "projekt_key"
     fakt_stunden }o--|| dim_leistungsart : "leistungsart_key"
     fakt_stunden }o--|| dim_date : "datum_key"
+    dim_abteilung }o--|| dim_person : "person_key"
 
     

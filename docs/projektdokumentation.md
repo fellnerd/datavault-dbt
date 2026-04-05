@@ -5,7 +5,7 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 29. März 2026 |
+| **Stand** | 31. März 2026 |
 | **Verfasser** | PPMC AG |
 
 ---
@@ -23,10 +23,10 @@ Der gewählte Ansatz stellt sicher, dass Rohdaten unveränderlich erhalten bleib
 | Phase | Bezeichnung | Status |
 |---|---|---|
 | 1 | Analyse der bestehenden Azure-Umgebung | Abgeschlossen |
-| 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | In Bearbeitung |
-| 3 | Raw Vault: Staging, Hubs, Satellites, Links | In Bearbeitung (Wave 1 deployed ✅) |
-| 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung |
-| 5 | Reporting Layer & Power BI | In Bearbeitung (Projekt-Domain deployed ✅) |
+| 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | Abgeschlossen |
+| 3 | Raw Vault: Staging, Hubs, Satellites, Links | Abgeschlossen (Wave 1+2+3 deployed ✅) |
+| 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung (ADF Pipelines aktiv, GitHub Actions ausstehend) |
+| 5 | Reporting Layer & Power BI | Abgeschlossen (Projekt-Domain + Finance-Domain deployed ✅) |
 
 ---
 
@@ -182,18 +182,25 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 28. März 2026)
+### 5.1 Implementierungsfortschritt (Stand 31. März 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
-| External Tables | 19 | 19 | 100% (datavault-dev) |
-| Staging-Views | 10 | 19 | 53% |
-| Hubs | 5 | 10 (+2 Ghost) | 42% |
-| Satellites | 6 | 14 | 43% |
-| Links | 3 | 11 | 27% |
-| Reference Tables | 3 | 3 | 100% |
+| External Tables | 19 | 19 | 100% ✅ (datavault-dev) |
+| Staging-Views (Abacus) | 11 | 11 | 100% ✅ |
+| Staging-Views (Sharepoint) | 8 | 8 | 100% ✅ |
+| Hubs | 11 (+2 Ghost) | 11 (+2 Ghost) | 100% ✅ |
+| Satellites | 12 (+12 current_v) | 12 | 100% ✅ |
+| Links | 11 | 11 | 100% ✅ |
+| Reference Tables | 6 | 6 | 100% ✅ |
 
 **Wave 1 (Stammdaten): ✅ DEPLOYED** auf `datavault-dev` (28. März 2026, 27 Modelle, 0 Fehler)
+
+**Wave 2 (Finance-Transaktionen): ✅ DEPLOYED** auf `datavault-dev` (29. März 2026) — Hub/Sat Buchungskopf + Hauptbuch + Kreditorenbeleg + Kreditor. Row Counts korrigiert nach ADF-Bug-Fix (31. März 2026): hub_hauptbuch=433.076, sat_hauptbuch=943.844.
+
+**Wave 3 (GL-Links + Zahlungen + Projektteile): ✅ DEPLOYED** auf `datavault-dev` (31. März 2026) — hub_zahlung (283.094), sat_zahlung__abacus, hub_projektteil, sat_projektteil__abacus, 6 GL-Links (KST/Kreditor/Projekt/Konto/Buchungskopf/Zahlung).
+
+**Finance Mart: ✅ DEPLOYED** (31. März 2026) — fakt_buchungen (892.713), fakt_belege (287.784), dim_kreditor.
 
 **Implementierungsplan:** `design/raw-vault/_common/implementierungsplan.md` (erstellt 12. März 2026, basierend auf Synapse-Analyse)
 
@@ -201,22 +208,18 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 | Tabelle | External Table | Staging-View | Status |
 |---|---|---|---|
-| FIBU.FHE | `stg.ext_ewb_fibu_fhe_main` | `stg.ewb_fibu_fhe_main` | ✅ Komplett (Referenz-Modell) |
-| FIBU.GL.E22 | `stg.ext_ewb_fibu_gl_e22` | `stg.ewb_fibu_gl_e22` | View ausstehend |
-| FIBU.GL.E23 | `stg.ext_ewb_fibu_gl_e23` | `stg.ewb_fibu_gl_e23` | View ausstehend |
-| FIBU.GL.E24 | `stg.ext_ewb_fibu_gl_e24` | `stg.ewb_fibu_gl_e24` | View ausstehend |
-| FIBU.GL.E25 | `stg.ext_ewb_fibu_gl_e25` | `stg.ewb_fibu_gl_e25` | View ausstehend |
-| FIBU.GL.E26 | `stg.ext_ewb_fibu_gl_e26` | `stg.ewb_fibu_gl_e26` | View ausstehend |
-| KRED.KBL | `stg.ext_ewb_kred_kbl_main` | `stg.ewb_kred_kbl_main` | View ausstehend |
-| KRED.KVL | `stg.ext_ewb_kred_kvl_main` | `stg.ewb_kred_kvl_main` | View ausstehend |
-| KRED.KBS | `stg.ext_ewb_kred_kbs_main` | `stg.ewb_kred_kbs_main` | View ausstehend (Status-Konfig → Wave 2) |
+| FIBU.FHE | `stg.ext_ewb_fibu_fhe_main` | `stg.ewb_fibu_fhe_main` | ✅ Deployed (Referenz-Modell) |
+| FIBU.GL.E22-E26 | `stg.ext_ewb_fibu_gl` | `stg.ewb_fibu_gl` | ✅ Deployed (Folder-Scan, BK=RECNUM) |
+| KRED.KBL | `stg.ext_ewb_kred_kbl_main` | `stg.ewb_kred_kbl_main` | ✅ Deployed (Wave 2) |
+| KRED.KVL | `stg.ext_ewb_kred_kvl_main` | `stg.ewb_kred_kvl_main` | ✅ Deployed (Wave 3) |
+| KRED.KBS | `stg.ext_ewb_kred_kbs_main` | `stg.ewb_kred_kbs_main` | ✅ Deployed (Wave 2, ref_kred_buchungsstatus) |
 | PROJ.NPO | `stg.ext_ewb_proj_npo_main` | `stg.ewb_proj_npo_main` | ✅ Deployed |
 | PROJ.NTC | `stg.ext_ewb_proj_ntc_main` | `stg.ewb_proj_ntc_main` | ✅ Deployed |
-| PROJ.NTB | `stg.ext_ewb_proj_ntb_main` | `stg.ewb_proj_ntb_main` | View ausstehend |
+| PROJ.NTB | — | — | Out of scope (Wave 1, kein Hub) |
 | PROJ.NSA | `stg.ext_ewb_proj_nsa_main` | `stg.ewb_proj_nsa_main` | ✅ Deployed |
 | PROJ.NTR | `stg.ext_ewb_proj_ntr_main` | `stg.ewb_proj_ntr_main` | ✅ Deployed |
 | PROJ.PST | `stg.ext_ewb_proj_pst_main` | `stg.ewb_proj_pst_main` | ✅ Deployed |
-| PROJ.PRT | `stg.ext_ewb_proj_prt_main` | `stg.ewb_proj_prt_main` | View ausstehend |
+| PROJ.PRT | `stg.ext_ewb_proj_prt_main` | `stg.ewb_proj_prt_main` | ✅ Deployed (Wave 3) |
 | LOHN.LEN | `stg.ext_ewb_lohn_len_main` | `stg.ewb_lohn_len_main` | ✅ Deployed |
 | LOHN.LTC | `stg.ext_ewb_lohn_ltc_main` | `stg.ewb_lohn_ltc_main` | ✅ Deployed |
 | PUBL.ADR | `stg.ext_ewb_publ_adr_main` | `stg.ewb_publ_adr_main` | ✅ Deployed |
@@ -230,35 +233,43 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 | `hub_projekt` | Hub | PROJ.NPO | ✅ Deployed |
 | `hub_projektsachkonto` | Hub | PROJ.NSA | ✅ Deployed |
 | `hub_zeiterfassung` | Hub | PROJ.NTC | ✅ Deployed |
-| `hub_buchungskopf` | Hub | FIBU.FHE | Geplant (Wave 2) |
-| `hub_hauptbuch` | Hub | FIBU.GL | Geplant (Wave 2) |
-| `hub_kreditorenbeleg` | Hub | KRED.KBL | Geplant (Wave 2) |
-| `hub_kreditor` | Hub (Ghost) | KRED.KBL (KNR) | Geplant (Wave 2) |
-| `hub_zahlung` | Hub | KRED.KVL | Geplant (Wave 3) |
-| `hub_konto` | Hub (Ghost) | FIBU.GL | Geplant |
-| `hub_kostenstelle` | Hub (Ghost) | FIBU.GL | Geplant |
-| `sat_person` | Satellite | LOHN.LEN | ✅ Deployed |
-| `sat_person_adresse` | Satellite | PUBL.ADR | ✅ Deployed |
-| `sat_adresse_kontakt` | Satellite | PUBL.ADR | ✅ Deployed |
-| `sat_projekt` | Satellite | PROJ.NPO | ✅ Deployed |
-| `sat_projektsachkonto` | Satellite | PROJ.NSA | ✅ Deployed |
-| `sat_zeiterfassung` | Satellite | PROJ.NTC | ✅ Deployed |
-| `sat_buchungskopf` | Satellite | FIBU.FHE | Geplant (Wave 2) |
-| `sat_hauptbuch` | Satellite | FIBU.GL | Geplant (Wave 2) |
-| `sat_kreditorenbeleg` | Satellite | KRED.KBL | Geplant (Wave 2) |
-| `sat_kreditor` | Satellite | KRED.KBL (Ghost) | Geplant (Wave 2) |
-| `sat_zahlung` | Satellite | KRED.KVL | Geplant (Wave 3) |
-| `sat_projektteil` | Satellite | PROJ.PRT | Geplant (Wave 3) |
+| `hub_buchungskopf` | Hub | FIBU.FHE | ✅ Deployed (Wave 2) |
+| `hub_hauptbuch` | Hub | FIBU.GL | ✅ Deployed (Wave 2, BK=RECNUM) |
+| `hub_kreditorenbeleg` | Hub | KRED.KBL | ✅ Deployed (Wave 2) |
+| `hub_kreditor` | Hub (Ghost) | KRED.KBL (KNR) | ✅ Deployed (Wave 2) |
+| `hub_zahlung` | Hub | KRED.KVL | ✅ Deployed (Wave 3) |
+| `hub_projektteil` | Hub | PROJ.PRT | ✅ Deployed (Wave 3) |
+| `hub_konto` | Hub (Ghost) | FIBU.GL | ✅ Deployed (Wave 3, Ghost) |
+| `hub_kostenstelle` | Hub (Ghost) | FIBU.GL | ✅ Deployed (Wave 3, Ghost) |
+| `sat_person__abacus` | Satellite | LOHN.LEN | ✅ Deployed |
+| `sat_person_adresse__abacus` | Satellite | PUBL.ADR | ✅ Deployed |
+| `sat_adresse_kontakt__abacus` | Satellite | PUBL.ADR | ✅ Deployed |
+| `sat_projekt__abacus` | Satellite | PROJ.NPO | ✅ Deployed |
+| `sat_projektsachkonto__abacus` | Satellite | PROJ.NSA | ✅ Deployed |
+| `sat_zeiterfassung__abacus` | Satellite | PROJ.NTC | ✅ Deployed |
+| `sat_buchungskopf__abacus` | Satellite | FIBU.FHE | ✅ Deployed (Wave 2) |
+| `sat_hauptbuch__abacus` | Satellite | FIBU.GL | ✅ Deployed (Wave 2) |
+| `sat_kreditorenbeleg__abacus` | Satellite | KRED.KBL | ✅ Deployed (Wave 2) |
+| `sat_kreditor__abacus` | Satellite | KRED.KBL (Ghost) | ✅ Deployed (Wave 2) |
+| `sat_zahlung__abacus` | Satellite | KRED.KVL | ✅ Deployed (Wave 3) |
+| `sat_projektteil__abacus` | Satellite | PROJ.PRT | ✅ Deployed (Wave 3) |
 | `link_adresse_person` | Link | PUBL.ADR | ✅ Deployed |
 | `link_zeiterfassung_person` | Link | PROJ.NTC | ✅ Deployed |
 | `link_projektsachkonto_projekt` | Link | PROJ.NSA | ✅ Deployed |
-| `link_buchungskopf_kreditorenbeleg` | Link | FIBU.FHE | Geplant (Wave 2) |
-| `link_hauptbuch_buchungskopf` | Link | FIBU.GL | Geplant (Wave 2) |
-| `link_kreditorenbeleg_kreditor` | Link | KRED.KBL | Geplant (Wave 2) |
-| `link_kreditorenbeleg_zahlung` | Link | KRED.KVL | Geplant (Wave 3) |
+| `link_hauptbuch_buchungskopf` | Link | FIBU.GL | ✅ Deployed (Wave 2) |
+| `link_kreditorenbeleg_kreditor` | Link | KRED.KBL | ✅ Deployed (Wave 2) |
+| `link_kreditorenbeleg_zahlung` | Link | KRED.KVL | ✅ Deployed (Wave 3) |
+| `link_hauptbuch_kreditor` | Link | FIBU.GL | ✅ Deployed (Wave 3) |
+| `link_hauptbuch_projekt` | Link | FIBU.GL | ✅ Deployed (Wave 3) |
+| `link_hauptbuch_konto` | Link | FIBU.GL | ✅ Deployed (Wave 3) |
+| `link_hauptbuch_kostenstelle` | Link | FIBU.GL | ✅ Deployed (Wave 3) |
+| `link_projektteil_projekt` | Link | PROJ.PRT | ✅ Deployed (Wave 3) |
 | `ref_abteilung` | Reference | LOHN.LTC | ✅ Deployed |
 | `ref_leistungsart` | Reference | PROJ.NTR | ✅ Deployed |
 | `ref_projektstatus` | Reference | PROJ.PST | ✅ Deployed |
+| `ref_kred_buchungsstatus` | Reference | KRED.KBS | ✅ Deployed (Wave 2) |
+| `ref_konto` | Reference | Sharepoint | ✅ Deployed |
+| `ref_kostenstelle` | Reference | Sharepoint | ✅ Deployed |
 
 ### 5.4 Bereits erstellte dbt-Infrastruktur
 
@@ -277,7 +288,7 @@ Alle drei Design-Fragen wurden durch Datenanalyse gelöst. Vollständige technis
 
 | # | Frage | Ergebnis | Status |
 |---|---|---|---|
-| F1 | FIBU.GL Business Key: Composite oder einfach? | Composite BK `DKBELEGNUMMER\|\|KTO` — 29% der Belege auf 2+ Konten | ✅ Gelöst |
+| F1 | FIBU.GL Business Key: Composite oder einfach? | BK-Korrektur: RECNUM (unique) statt `DKBELEGNUMMER\|\|KTO` (62% Nullen, 96 Dupes). Datenanalyse bestätigt. | ✅ Gelöst |
 | F2 | NSA.PROJNR-Semantik und Personenbezug? | PROJNR = **ProjektNr** (97.5% Match zu NPO). Synapse `PROJNR=LOHNNR` ist ein Bug | ✅ Gelöst |
 | F3 | NTR: Hub oder Reference Table? | Reference Table — nur 29 stabile Leistungsarten | ✅ Gelöst |
 
@@ -372,9 +383,21 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 - fakt_stunden: PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
 - LeistungsartNr: NSA.CODE ist Sachkonto (389 Werte), nicht 1:1 NTR — entspricht Synapse LEFT JOIN
 
-### 7.2 Finance-Domain (OFFEN — Wave 2)
+### 7.2 Finance-Domain — Star Schema (DEPLOYED ✅)
 
-Blockiert durch fehlende GL-Staging-Modelle und Kreditoren-Objekte.
+| Mart-Objekt | Typ | Synapse-Äquivalent | Zeilen | Status |
+|---|---|---|---|---|
+| `mart_finance.fakt_buchungen` | Fakt | [Finance].[Buchungen] | 892.713 | ✅ Deployed (Wave 3) |
+| `mart_finance.fakt_belege` | Fakt | [Finance].[Belege] | 287.784 | ✅ Deployed (KBL × KVL) |
+| `mart_finance.dim_kreditor` | Dimension | [Finance].[Kunden] | 3.159 | ✅ Deployed (hub-Granularität) |
+| `mart_project.dim_abteilung` | Dimension | [Projekt].[Abteilung] | ~2.027 | ✅ Deployed (Wave 3) |
+
+**Bekannte Abweichungen:**
+- `dim_kreditor`: 3.159 (Hubs, DISTINCT) vs. Synapse 93.288 (alle KBL-Zeilen, no DISTINCT). DV-Granularität ist korrekt — Synapse ist denormalisiert.
+- `fakt_buchungen`: 892.713 vs. Synapse 890.449 (+0.25%). Akzeptable Abweichung durch unterschiedliche Filterlogik.
+- `fakt_stunden`: 199.209 vs. Synapse 63.755. Synapse hat bekannten Bug (`PROJNR=LOHNNR`, nur 2.5% Match). EWB-Wert ist korrekt.
+
+**ER-Diagramm:** `design/mart/er-mart-finance.mmd`
 
 ---
 
@@ -382,6 +405,12 @@ Blockiert durch fehlende GL-Staging-Modelle und Kreditoren-Objekte.
 
 | Datum | Entscheidung | Begründung |
 |---|---|---|
+| März 2026 | dim_abteilung (mart_project) deployed | DISTINCT (EMPL_NR, HOME_DEPT_NR, MUTATION_DATE) aus sat_person__abacus LEFT JOIN ref_abteilung. Matching Synapse Projekt.Abteilung (~2.027 Zeilen) |
+| März 2026 | fakt_belege Granularität auf Beleg×Zahlung geändert | KBL LEFT JOIN KVL via link_kreditorenbeleg_zahlung → 287.784 Zeilen matching Synapse Finance.Belege |
+| März 2026 | hub_hauptbuch BK-Korrektur: DKBELEGNUMMER||KTO → RECNUM | DKBELEGNUMMER hat 62% Nullen, bis zu 96 Duplikate pro Kombination. RECNUM ist der einzig unique Zeilenidentifier in FIBU.GL |
+| März 2026 | ADF Bug gefixt: PreserveHierarchy + leerer fileName (9a46c031) | hub_hauptbuch wuchs von 9.868 auf 433.076 Rows. FIBU.GL E22-E26 werden nun korrekt als Folder-Scan (5 Jahresscheiben) geladen |
+| März 2026 | link_buchungskopf_kreditorenbeleg entfernt | FK-Match = 0.08% (FHE.RECNUM = KBL.BELNR) — kein valider fachlicher Join. Link wurde aus dem Vault entfernt |
+| März 2026 | Finance Mart deployed (31.3.) | fakt_buchungen (892.713), fakt_belege (287.784), dim_kreditor (3.159) auf `datavault-dev` |
 | März 2026 | Star Schema für Projekt-Domain deployed (29.3.) | 3 Dimensionen + 1 Faktentabelle auf `datavault-dev`: dim_person, dim_projekt, dim_leistungsart, fakt_stunden. 173 Tests PASS (2 WARN) |
 | März 2026 | NSA.CODE = Sachkonto, nicht Leistungsart | Synapse JOIN `CODE=RECNUM` war ebenfalls fehlerhaft. LEFT JOIN beibehalten (NULL für nicht-matchende Codes) |
 | März 2026 | Wave 1 Stammdaten deployed (28.3.) | 27 Modelle auf `datavault-dev`: 5 Hubs, 6 Sats, 3 Links, 3 Refs, 10 Staging Views |
@@ -426,6 +455,6 @@ Blockiert durch fehlende GL-Staging-Modelle und Kreditoren-Objekte.
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 28. März 2026 — Wave 1 (Stammdaten) deployed auf datavault-dev*
+*EWB Analytics Platform | PPMC AG | Stand: 31. März 2026 — Wave 1+2+3 + Finance Mart deployed auf datavault-dev*
 
-> Letztes Update: Wave 1 deployed (28. März 2026). 27 Modelle erfolgreich auf `datavault-dev`. Nächster Schritt: Wave 2 (Finance-Transaktionen) — `hub_buchungskopf`, `hub_hauptbuch`, `hub_kreditorenbeleg`, `hub_kreditor` (Ghost).
+> Letztes Update: Wave 3 + Finance Mart deployed (31. März 2026). Alle 36 Vault-Objekte + 8 Mart-Views auf `datavault-dev`. Nächster Schritt: Deployment auf `datavault` (Produktion) + GitHub Actions CI/CD.

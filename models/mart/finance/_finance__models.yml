@@ -199,14 +199,18 @@ models:
 
   - name: fakt_belege
     description: |
-      Kreditorenbelege (Lieferantenrechnungen).
-      Repliziert Synapse [Finance].[Belege] — KBL-Teil.
-      KVL (Visa/Visierung) kommt in Wave 3.
-      Granularitaet: 1 Zeile pro Kreditorenbeleg (BELNR).
+      Kreditorenbelege (Lieferantenrechnungen) mit Zahlungsvisierungen.
+      Repliziert Synapse [Finance].[Belege] vollstaendig (KBL LEFT JOIN KVL).
+      Granularitaet: 1 Zeile pro (Beleg x Zahlung/Visierungsposition).
+        — KBL ohne KVL: 1 Zeile (NULL-Zahlungsfelder)
+        — KBL mit N KVL-Positionen: N Zeilen
       Quelle: hub_kreditorenbeleg + sat_kreditorenbeleg__abacus_current_v
-              + link_kreditorenbeleg_kreditor → hub_kreditor.
-      Spalten-Mapping: bwbtr→betrag, bwwrc→waehrung, kbeldat→datum_key,
-                        belref→umschreibung, erfuser→visierende_id, user_f→visierende.
+              + link_kreditorenbeleg_kreditor → hub_kreditor
+              + link_kreditorenbeleg_zahlung → hub_zahlung → sat_zahlung__abacus_current_v.
+      Spalten-Mapping KBL: bwbtr→betrag, bwwrc→waehrung, kbeldat→datum_key,
+                           belref→umschreibung, erfuser→visierende_id, user_f→visierende.
+      Spalten-Mapping KVL: freigabebetrag→zahlbetrag, datum_zeit→valuta_datum,
+                           positionnr/elementtyp aus hub_zahlung.
     columns:
       - name: kreditor_key
         description: "FK → dim_kreditor.kreditor_key (surrogate_key KNR)"
@@ -255,6 +259,18 @@ models:
         data_type: nvarchar(255)
       - name: visierende
         description: "Freigabe-Benutzer (USER_F)"
+        data_type: nvarchar(255)
+      - name: zahlbetrag
+        description: "Freigabebetrag der Zahlungsposition (KVL.FREIGABEBETRAG). NULL = kein KVL-Match."
+        data_type: decimal(18,2)
+      - name: valuta_datum
+        description: "Datum der Zahlungsposition (KVL.DATUM_ZEIT). NULL = kein KVL-Match."
+        data_type: date
+      - name: positionnr
+        description: "Zahlungspositions-Nummer (hub_zahlung.POSITIONNR). NULL = kein KVL-Match."
+        data_type: nvarchar(255)
+      - name: elementtyp
+        description: "Element-Typ der Position (hub_zahlung.ELEMENTTYP). NULL = kein KVL-Match."
         data_type: nvarchar(255)
       - name: dss_load_date
         description: "Ladezeitpunkt aus Vault"
