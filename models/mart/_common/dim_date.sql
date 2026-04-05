@@ -14,13 +14,15 @@
  * DIM_DATE - Datumsdimension
  * =============================================================================
  * Generierte Datumsdimension mit vorberechneten Attributen für BI-Analysen.
- * Zeitraum: 2020-01-01 bis 2035-12-31 (16 Jahre)
+ * Zeitraum: 1900-01-01 bis 2050-12-31 (~55k Tage)
  *
  * Verwendung:
  *   - JOIN über date_key (INT im Format YYYYMMDD) für Performance
  *   - Oder JOIN über full_date (DATE) für Flexibilität
  *
  * Hinweis:
+ *   - Bereich 1900-2050 deckt Abacus-Standarddaten (1900=leer) und
+ *     historische Eintrittsdaten (ab 1947) ab.
  *   - is_today / is_yesterday stehen bewusst NICHT in dieser Tabelle (stale
  *     bei TABLE-Materialisierung). Dynamische Werte via dim_date_v (View).
  *   - iso_year kann von YEAR() abweichen: 1. Jan 2021 = ISO-Jahr 2020 (Woche 53).
@@ -29,13 +31,14 @@
  */
 
 WITH date_spine AS (
-    -- Generiere alle Tage von 2020 bis 2035
-    SELECT DATEADD(DAY, n, '2020-01-01') AS full_date
+    -- Generiere alle Tage von 1900 bis 2050
+    SELECT DATEADD(DAY, n, '1900-01-01') AS full_date
     FROM (
-        SELECT TOP (DATEDIFF(DAY, '2020-01-01', '2036-01-01'))
+        SELECT TOP (DATEDIFF(DAY, '1900-01-01', '2051-01-01'))
             ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS n
         FROM sys.objects a
         CROSS JOIN sys.objects b
+        CROSS JOIN sys.objects c
     ) numbers
 ),
 
