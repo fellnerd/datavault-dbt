@@ -145,5 +145,7 @@ BIGINT, deterministisch, view-kompatibel. Fakt-FKs verwenden denselben Aufruf.
 | `dss_record_source` | NVARCHAR(255) | Quelle |
 
 ### Materialisierung
-- `materialized='view'` — Standard (Virtualisierung bevorzugt)
-- `materialized='table'` — Nur bei Performance-Bedarf
+- `materialized='view'` — Standard; alle veröffentlichten `dim_*` / `fakt_*` Objekte sind Views
+- `materialized='table'` — Nur bei Performance-Bedarf; **Pflicht**: `__base`-Pattern verwenden:
+  - `dim_<entity>__base.sql` → `materialized='table'` (intern)
+  - `dim_<entity>.sql` → `materialized='view'` als `SELECT * FROM {{ ref('dim_<entity>__base') }}`

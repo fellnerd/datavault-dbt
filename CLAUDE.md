@@ -66,10 +66,12 @@ dbt run --target ewb        # production
 | Raw Vault (EWB + common) | `vault` | `models/raw_vault/_common/` | Incremental (append) |
 | Raw Vault (Jira) | `vault_jira` | `models/raw_vault/jira/` | Incremental (append) |
 | Business Vault (PITs, bridges) | `vault` | `models/business_vault/` | Table |
-| Mart (common) | `mart` | `models/mart/_common/` | View |
-| Mart (domain) | `mart_<concept>` | `models/mart/<concept>/` | View |
+| Mart (common) | `mart` | `models/mart/_common/` | View (default); Table+Wrapper-View mit `__base`-Pattern |
+| Mart (domain) | `mart_<concept>` | `models/mart/<concept>/` | View (default); Table+Wrapper-View mit `__base`-Pattern |
 
 All Raw Vault objects use `incremental_strategy: append` with `on_schema_change: append_new_columns` (Data Vault immutability + Azure SQL Basic tier constraint).
+
+**Mart Materialisierung:** Alle veröffentlichten `dim_*`/`fakt_*` Objekte sind IMMER Views. Bei Performance-Bedarf: `dim_<entity>__base.sql` als `table`, `dim_<entity>.sql` als `SELECT * FROM {{ ref('dim_<entity>__base') }}` View.
 
 ### Naming Conventions (EWB)
 

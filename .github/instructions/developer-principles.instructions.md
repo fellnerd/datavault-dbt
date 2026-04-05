@@ -308,4 +308,4 @@ dss_record_source     -- Quellenidentifikation, NVARCHAR(255)
 
 ### Materialisierung
 - `materialized='view'` — Standard (Virtualisierung bevorzugt)
-- `materialized='table'` — Nur bei Performance-Problemen
+- `materialized='table'` — Nur bei Performance-Problemen; wenn verwendet, **muss** eine 1:1 Wrapper-View existieren (siehe `dbt-mart.instructions.md`)

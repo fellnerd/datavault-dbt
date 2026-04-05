@@ -151,7 +151,44 @@ dbt run-operation run_sql --args '{"sql": "SELECT COUNT(*) AS cnt FROM mart_<con
 dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM mart_<concept>.fakt_<content>"}' --target ewb-dev
 ```
 
-## Checkliste (vor Abschluss prüfen)
+## Materialisierung — Pflicht-Regel
+
+Alle **veröffentlichten** Mart-Objekte (`dim_*`, `fakt_*`) sind **immer Views**. BI-Tools und Konsumenten sehen ausschliesslich Views im Schema.
+
+- **Standard:** `materialized='view'` — direkte View auf Raw Vault Current Views
+- **Ausnahme (Performance):** `materialized='table'` — nur bei komplexen Joins / grossen Datenmengen
+
+### Pattern bei `table`: `__base` + Wrapper-View (Pflicht!)
+
+Wenn ein Mart-Objekt aus Performance-Gründen als Table implementiert werden muss:
+
+```
+dim_<entity>__base.sql  →  materialized='table'   (Performance-Cache, internes Artefakt)
+dim_<entity>.sql        →  materialized='view'    (öffentliche Schnittstelle für BI)
+```
+
+**`dim_<entity>__base.sql`** (Performance-Cache):
+```sql
+{{ config(materialized='table', as_columnstore=false, tags=['dimension']) }}
+
+SELECT
+    {{ surrogate_key('hub.business_key') }} AS <entity>_key,
+    -- alle Spalten ...
+FROM {{ ref('hub_<entity>') }} hub
+INNER JOIN {{ ref('sat_<entity>__abacus_current_v') }} sat ON ...
+```
+
+**`dim_<entity>.sql`** (Wrapper-View — öffentliche Schnittstelle):
+```sql
+{{ config(materialized='view', tags=['dimension']) }}
+
+SELECT * FROM {{ ref('dim_<entity>__base') }}
+```
+
+> ❌ VERBOTEN: Table und View mit verschiedenen Namen nebeneinander im Mart-Schema  
+> ✅ KORREKT: `__base`-Tables sind intern. Konsumenten nutzen immer `dim_*` / `fakt_*` Views.
+
+
 
 - [ ] Dimension/Fakt SQL-Dateien erstellt
 - [ ] `_<concept>__models.yml` aktualisiert (YAML mit Tests)
@@ -161,6 +198,7 @@ dbt run-operation run_sql --args '{"sql": "SELECT TOP 5 * FROM mart_<concept>.fa
 - [ ] NULL-Behandlung: CODE/NAME → ISNULL → 'UNKNOWN'
 - [ ] Fakt-FKs verwenden denselben `surrogate_key()` wie die Dimension
 - [ ] `materialized='view'` (Standard für Mart)
+- [ ] Falls `materialized='table'`: `dim_<entity>__base.sql` als Table + `dim_<entity>.sql` als Wrapper-View (`SELECT * FROM {{ ref('dim_<entity>__base') }}`)
 
 # Mart Architect
 

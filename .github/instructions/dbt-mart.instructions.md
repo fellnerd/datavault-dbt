@@ -95,8 +95,31 @@ columns:
 ```
 
 ## Materialisierung
-- **Standard:** `view` (Virtualisierung bevorzugt)
-- **Ausnahme:** `table` nur bei Performance-Problemen (komplexe Joins, grosse Datenmengen)
+
+- **Standard:** `materialized='view'` — Alle Mart-Objekte sind Views (Virtualisierung bevorzugt)
+- **Ausnahme:** `materialized='table'` — Nur bei Performance-Problemen (komplexe Joins, grosse Datenmengen)
+
+### Pflicht-Regel: Table → immer zusätzliche 1:1 View
+
+Wenn ein Mart-Objekt als `table` materialisiert wird, **muss** eine 1:1 Wrapper-View erstellt werden, damit alle veröffentlichten Mart-Objekte eine einheitliche View-Schnittstelle haben. BI-Tools und Konsumenten referenzieren immer die View, nie die Table direkt.
+
+**Pattern `__base` + View:**
+```
+dim_<entity>__base.sql  →  materialized='table'   (Performance-Cache, intern)
+dim_<entity>.sql        →  materialized='view'    (öffentliche Schnittstelle)
+```
+
+**Implementierung `dim_<entity>.sql` bei table-Backing:**
+```sql
+{{ config(materialized='view', tags=['dimension']) }}
+
+SELECT * FROM {{ ref('dim_<entity>__base') }}
+```
+
+**Konsequenz:** Im Schema sind IMMER nur Views sichtbar (`dim_*`, `fakt_*`). Die `__base`-Tables sind interne Artefakte.
+
+> ❌ FALSCH: `dim_projekt` = TABLE, `dim_person` = VIEW → Mischung im Schema
+> ✅ KORREKT: `dim_projekt__base` = TABLE, `dim_projekt` = VIEW über `__base`
 
 ## ER-Diagramm
 Jede Mart-Domain hat ein eigenes ER-Diagramm: `design/mart/er-mart-<concept>.mmd`
