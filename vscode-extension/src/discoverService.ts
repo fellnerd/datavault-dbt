@@ -63,7 +63,10 @@ export async function runDbtOperation(
       .map(([k, v]) => `${k}: '${v}'`)
       .join(', ') + '}';
     
-    const cmdArgs = ['--no-use-colors', 'run-operation', macroName, '--args', argsYaml];
+    const dbtTarget = vscode.workspace.getConfiguration('datavault').get<string>('dbtTarget', 'dev');
+    const cmdArgs = dbtTarget
+      ? ['--no-use-colors', 'run-operation', macroName, '--args', argsYaml, '--target', dbtTarget]
+      : ['--no-use-colors', 'run-operation', macroName, '--args', argsYaml];
     
     log?.(`Running: ${dbtPath} ${cmdArgs.join(' ')}`);
     
@@ -140,44 +143,71 @@ function parseDbtOutput(output: string, log?: (msg: string) => void): string[] {
 // ============================================================================
 
 /**
- * List all Parquet files in a folder using dbt macro
+ * List all Parquet files in a folder using Azure CLI (az storage blob list).
+ * 
+ * Replaces the dbt macro approach (OPENROWSET wildcard) which is not supported
+ * in Azure SQL Database (only Synapse Serverless SQL Pool supports directory
+ * enumeration via OPENROWSET). Azure CLI requires: az login beforehand.
  */
 export async function listParquetFiles(
   projectPath: string,
   folderPath: string,
   log?: (msg: string) => void
 ): Promise<ParquetFile[]> {
-  // Normalize path: remove leading/trailing slashes
   const normalizedPath = folderPath.replace(/^\/+|\/+$/g, '').replace(/"/g, '');
-  
-  const output = await runDbtOperation(projectPath, 'list_parquet_files', {
-    folder_path: normalizedPath
-  }, log);
-  
-  log?.(`Raw dbt output length: ${output.length}`);
-  
-  const lines = parseDbtOutput(output, log);
-  const files: ParquetFile[] = [];
-  
-  // Parse file names from output (skip header/footer lines)
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Skip empty lines and metadata lines
-    if (!trimmed || 
-        trimmed.startsWith('===') || 
-        trimmed.startsWith('Gefunden:') ||
-        trimmed.startsWith('#')) {
-      continue;
-    }
-    // This should be a filename
-    if (trimmed.endsWith('.parquet')) {
-      files.push({
-        fileName: trimmed,
-        fullPath: `${normalizedPath}/${trimmed}`
-      });
-    }
+
+  const cfg = vscode.workspace.getConfiguration('datavault');
+  const storageAccount = cfg.get<string>('storage.accountName', '');
+  const container = cfg.get<string>('storage.containerName', '');
+
+  if (!storageAccount || !container) {
+    throw new Error(
+      'Azure Storage settings not configured. Please set datavault.storage.accountName and datavault.storage.containerName in VS Code Settings.'
+    );
   }
-  
+
+  log?.(`Listing Parquet files via Azure CLI: ${container}/${normalizedPath}`);
+
+  const output = await new Promise<string>((resolve, reject) => {
+    const args = [
+      'storage', 'blob', 'list',
+      '--account-name', storageAccount,
+      '--container-name', container,
+      '--prefix', `${normalizedPath}/`,
+      '--query', '[].name',
+      '--output', 'json',
+      '--auth-mode', 'login'
+    ];
+
+    log?.(`Running: az ${args.join(' ')}`);
+    const child = spawn('az', args, { cwd: projectPath });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (data) => { stdout += data.toString(); });
+    child.stderr.on('data', (data) => { stderr += data.toString(); });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`az storage blob list failed (exit ${code}): ${stderr}`));
+      } else {
+        resolve(stdout);
+      }
+    });
+    child.on('error', (error) => {
+      reject(new Error(`Failed to run az CLI: ${error.message}`));
+    });
+  });
+
+  const blobNames: string[] = JSON.parse(output);
+  const files: ParquetFile[] = blobNames
+    .filter(name => name.endsWith('.parquet'))
+    .map(name => {
+      const fileName = name.split('/').pop() ?? name;
+      return { fileName, fullPath: name };
+    });
+
+  log?.(`Found ${files.length} Parquet files`);
   return files;
 }
 
@@ -192,9 +222,21 @@ export async function getParquetSchema(
 ): Promise<ExternalTableDefinition | null> {
   const normalizedPath = folderPath.replace(/^\/+|\/+$/g, '').replace(/"/g, '');
   
+  const cfg = vscode.workspace.getConfiguration('datavault');
+  const dataSource = cfg.get<string>('storage.dataSource', '');
+  const fileFormat = cfg.get<string>('storage.fileFormat', 'ParquetFormat');
+
+  if (!dataSource) {
+    throw new Error(
+      'External Data Source not configured. Please set datavault.storage.dataSource in VS Code Settings.'
+    );
+  }
+
   const output = await runDbtOperation(projectPath, 'get_parquet_schema', {
     folder_path: normalizedPath,
-    file_name: fileName
+    file_name: fileName,
+    data_source: dataSource,
+    file_format: fileFormat
   }, log);
   
   const lines = parseDbtOutput(output);

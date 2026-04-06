@@ -111,7 +111,7 @@ export function registerEntityDesignerCommands(
           
           if (fs.existsSync(stagingFilePath)) {
             const sqlContent = fs.readFileSync(stagingFilePath, 'utf-8');
-            // Parse: {{ source('staging', 'ext_werkportal_public_wp_contacts') }}
+            // Parse: {{ source('staging', 'ext_jira_public_wp_contacts') }}
             const sourceMatch = sqlContent.match(/source\s*\(\s*['"]staging['"]\s*,\s*['"]([^'"]+)['"]\s*\)/);
             if (sourceMatch) {
               realExtTableName = sourceMatch[1];
@@ -286,8 +286,8 @@ export function registerEntityDesignerCommands(
 
 /**
  * Extract entity name from table/model name
- * e.g., 'ext_werkportal_public_wp_contacts' -> 'contacts'
- * e.g., 'werkportal_contacts' -> 'contacts'
+ * e.g., 'ext_jira_public_wp_contacts' -> 'contacts'
+ * e.g., 'jira_contacts' -> 'contacts'
  */
 function extractEntityName(name: string, concept: string): string {
   // Remove common prefixes
@@ -295,7 +295,7 @@ function extractEntityName(name: string, concept: string): string {
     .replace(/^ext_/, '')
     .replace(/^stg_/, '')
     .replace(new RegExp(`^${concept}_`), '')
-    .replace(/_public_wp_/, '_')  // werkportal specific
+    .replace(/_public_wp_/, '_')  // jira specific
     .replace(/_public_/, '_');
   
   // If still has concept prefix, remove it

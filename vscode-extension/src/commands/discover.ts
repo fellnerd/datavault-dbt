@@ -59,7 +59,7 @@ export async function discoverExternalSources(ctx: DiscoverContext): Promise<voi
   // Step 2: Input folder path
   const folderPath = await vscode.window.showInputBox({
     prompt: 'Enter folder path in ADLS Storage (relative to StageFileSystem)',
-    placeHolder: 'e.g., werkportal/postgres or jira/sql',
+    placeHolder: 'e.g., jira/postgres or jira/sql',
     value: lastPath,
     validateInput: (value) => {
       if (!value || value.trim() === '') {
@@ -278,7 +278,7 @@ async function processWildcardFolder(
 
   const tableName = await vscode.window.showInputBox({
     prompt: `Create wildcard table for ${parquetFiles.length} files. Enter table name:`,
-    placeHolder: 'e.g., ext_werkportal_api_invoice_delta',
+    placeHolder: 'e.g., ext_jira_api_invoice_delta',
     value: suggestedName,
     validateInput: (value) => {
       if (!value || value.trim() === '') {

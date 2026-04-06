@@ -14,7 +14,7 @@ Objekte hier sind **quellsystem-unabhängig** und dienen als:
 ## Beispiel
 
 ```sql
--- vault.hub_company: Integrierter Hub aus Werkportal + CRM
+-- vault.hub_company: Integrierter Hub aus Jira + CRM
 SELECT hk_company, company_id, dss_load_date, dss_record_source
 FROM vault.hub_company
 ```

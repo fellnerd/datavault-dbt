@@ -94,7 +94,9 @@ Data Vault trennt strikt zwischen:
 -- Struktur
 hk_<entity>         -- Hash Key (PK)
 <business_key>      -- Business Key (z.B. object_id)
+dss_business_key    -- Normierter Business Key (CONCAT_WS-basiert)
 dss_load_date       -- Ladezeitpunkt
+dss_create_datetime -- Erstellungszeitpunkt
 dss_record_source   -- Quelle
 ```
 
@@ -116,6 +118,7 @@ dss_load_date       -- Ladezeitpunkt (Teil des PK)
 hd_<entity>         -- Hash Diff (Änderungserkennung)
 <attribute_1>       -- Fachliche Attribute
 <attribute_n>       
+dss_create_datetime -- Erstellungszeitpunkt
 dss_is_current      -- 'Y' = aktuell, 'N' = historisch
 dss_end_date        -- Gültigkeitsende (NULL = aktuell)
 ```
@@ -338,12 +341,12 @@ dbt debug
 
 # Models bauen
 dbt run                                              # Alle Models
-dbt run --select raw_vault.werkportal.hub_company    # Einzelnes Model (empfohlen)
-dbt run --select +raw_vault.werkportal.sat_company+  # Model mit Abhängigkeiten
+dbt run --select raw_vault.jira.hub_company    # Einzelnes Model (empfohlen)
+dbt run --select +raw_vault.jira.sat_company+  # Model mit Abhängigkeiten
 dbt run --full-refresh                               # Alles neu bauen
 
 # External Tables erstellen / aktualisieren
-# Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_werkportal_company)
+# Namenskonvention: ext_<concept>_<entity> (z.B. ext_jira_project, ext_jira_company)
 
 ## Option 1: ALLE External Tables (Standard)
 dbt run-operation stage_external_sources
@@ -392,19 +395,19 @@ cat target/compiled/datavault/models/path/to/model.sql
 dbt run --select hub_company
 
 # ✅ Empfohlen - spezifischer Pfad
-dbt run --select raw_vault.werkportal.hub_company
+dbt run --select raw_vault.jira.hub_company
 
 # ✅ Pfad-Pattern für einzelne Datei
-dbt run --select path:models/raw_vault/werkportal/hubs/hub_company.sql
+dbt run --select path:models/raw_vault/jira/hubs/hub_company.sql
 ```
 
 **Selektor-Syntax:**
 
 | Selektor | Beschreibung | Beispiel |
 |----------|--------------|----------|
-| `raw_vault.werkportal.hub_company` | Pfad-basiert (Ordnerstruktur) | Empfohlen für einzelne Models |
-| `raw_vault.werkportal` | Alle Models eines Concepts | Für Concept-Deployment |
-| `staging.werkportal_*` | Wildcard-Pattern | Alle Werkportal-Staging Views |
+| `raw_vault.jira.hub_company` | Pfad-basiert (Ordnerstruktur) | Empfohlen für einzelne Models |
+| `raw_vault.jira` | Alle Models eines Concepts | Für Concept-Deployment |
+| `staging.jira_*` | Wildcard-Pattern | Alle Jira-Staging Views |
 | `+model_name` | Model inkl. Upstream-Dependencies | `+hub_company` baut erst Staging |
 | `model_name+` | Model inkl. Downstream-Dependents | `hub_company+` baut auch Satellites |
 | `+model_name+` | Beides | Vollständige Dependency-Chain |
@@ -416,9 +419,9 @@ dbt run --select path:models/raw_vault/werkportal/hubs/hub_company.sql
 models/
 ├── staging/                    → staging.*
 ├── raw_vault/
-│   ├── werkportal/            → raw_vault.werkportal.*
-│   │   ├── hubs/              → raw_vault.werkportal.hub_*
-│   │   └── satellites/        → raw_vault.werkportal.sat_*
+│   ├── jira/            → raw_vault.jira.*
+│   │   ├── hubs/              → raw_vault.jira.hub_*
+│   │   └── satellites/        → raw_vault.jira.sat_*
 │   └── adventureworks/        → raw_vault.adventureworks.*
 ├── business_vault/            → business_vault.*
 └── mart/
@@ -429,16 +432,16 @@ models/
 
 ```bash
 # Staging + Hub + Satellite für eine Entity
-dbt run --select raw_vault.werkportal.hub_company raw_vault.werkportal.sat_company
+dbt run --select raw_vault.jira.hub_company raw_vault.jira.sat_company
 
 # Oder mit Upstream-Dependencies (baut auch Staging automatisch)
-dbt run --select +raw_vault.werkportal.hub_company +raw_vault.werkportal.sat_company
+dbt run --select +raw_vault.jira.hub_company +raw_vault.jira.sat_company
 
-# Alle Werkportal Raw Vault Models
-dbt run --select raw_vault.werkportal
+# Alle Jira Raw Vault Models
+dbt run --select raw_vault.jira
 
 # Nur Hubs eines Concepts
-dbt run --select raw_vault.werkportal.hub_*
+dbt run --select raw_vault.jira.hub_*
 ```
 
 ### Wichtige Dateien
@@ -515,15 +518,15 @@ datavault-dbt/
 │   │
 │   ├── staging/                # 📥 Schema: stg
 │   │   ├── sources.yml         #    External Table Definitionen
-│   │   ├── werkportal_company.sql     #    Staging Views
-│   │   └── werkportal_country.sql
+│   │   ├── jira_company.sql     #    Staging Views
+│   │   └── jira_country.sql
 │   │
 │   ├── raw_vault/              # 🏛️ Raw Vault Layer
 │   │   ├── _common/            # Schema: vault (source-übergreifend)
 │   │   │   ├── hubs/
 │   │   │   ├── satellites/
 │   │   │   └── links/
-│   │   ├── werkportal/         # Schema: vault_werkportal
+│   │   ├── jira/         # Schema: vault_jira
 │   │   │   ├── hubs/
 │   │   │   │   ├── hub_company.sql
 │   │   │   │   └── hub_country.sql
@@ -575,7 +578,7 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 ```yaml
 # Finde die External Table und füge die Spalte hinzu
-- name: ext_werkportal_company
+- name: ext_jira_company
   columns:
     # ... bestehende Spalten ...
     - name: tax_number          # ← NEU
@@ -584,27 +587,24 @@ Ein bestehendes Attribut soll zum Satellite hinzugefügt werden (z.B. `tax_numbe
 
 #### Schritt 2: Staging View erweitern
 
-📄 **Datei:** [models/staging/werkportal_company.sql](../models/staging/werkportal_company.sql)
+📄 **Datei:** [models/staging/jira_company.sql](../models/staging/jira_company.sql)
 
-```sql
--- 1. Füge Spalte zur SELECT-Liste hinzu
-client_source AS (
-    SELECT 
-        object_id,
-        -- ... bestehende Spalten ...
-        tax_number,              -- ← NEU
-        -- ...
-    FROM {{ source('staging', 'ext_werkportal_company') }}
-),
+Staging Views verwenden das automate_dv.stage() YAML Metadata Pattern. Füge die neue Spalte zum `hashed_columns` Block hinzu:
 
--- 2. Falls im Hash Diff: Füge zur hashdiff_columns Liste hinzu
-{%- set hashdiff_columns = [
-    'name',
-    'street',
-    -- ... bestehende ...
-    'tax_number'                 -- ← NEU (falls Änderungen getrackt werden sollen)
-] -%}
+```yaml
+# In der yaml_metadata Sektion:
+hashed_columns:
+  hk_company: "object_id"
+  hd_company:
+    is_hashdiff: true
+    columns:
+      - "name"
+      - "street"
+      # ... bestehende ...
+      - "tax_number"               # ← NEU (falls Änderungen getrackt werden sollen)
 ```
+
+> **Hinweis:** Hashdiff-Spalten werden automatisch alphabetisch sortiert durch automate_dv. Die Spalte muss an der richtigen alphabetischen Position eingefügt werden.
 
 #### Schritt 3: Satellite erweitern
 
@@ -619,7 +619,7 @@ WITH source_data AS (
         tax_number,              -- ← NEU
         dss_load_date,
         dss_record_source
-    FROM {{ ref('werkportal_company') }}
+    FROM {{ ref('jira_company') }}
     WHERE hk_company IS NOT NULL
 ),
 -- ... Rest bleibt gleich ...
@@ -632,7 +632,7 @@ WITH source_data AS (
 dbt run-operation stage_external_sources
 
 # Satellite neu bauen (full-refresh wegen Schemaänderung!)
-dbt run --full-refresh --select werkportal_company sat_company
+dbt run --full-refresh --select jira_company sat_company
 
 # Tests ausführen
 dbt test --select sat_company
@@ -656,7 +656,7 @@ Eine komplett neue Entity soll ins Data Vault (z.B. `product` aus einer neuen Qu
 ┌──────────────────────────────────────────────────────────────────┐
 │  1. External Table    →  2. Staging View  →  3. Hub             │
 │        ↓                                          ↓              │
-│  sources.yml               werkportal_product.sql      hub_product.sql │
+│  sources.yml               jira_product.sql      hub_product.sql │
 │                                   ↓                    ↓         │
 │                            4. Satellite         5. Link          │
 │                            sat_product.sql      link_*.sql       │
@@ -680,9 +680,9 @@ sources:
       # ═══════════════════════════════════════════
       # NEU: Product
       # ═══════════════════════════════════════════
-      - name: ext_werkportal_product
+      - name: ext_jira_product
         external:
-          location: "werkportal/postgres/public.wp_product.parquet"
+          location: "jira/postgres/public.wp_product.parquet"
           file_format: ParquetFormat
         columns:
           - name: object_id
@@ -707,77 +707,59 @@ sources:
 
 ### Schritt 2: Staging View erstellen
 
-📄 **Neue Datei:** `models/staging/werkportal_product.sql`
+📄 **Neue Datei:** `models/staging/jira_product.sql`
+
+Staging Views verwenden das **automate_dv.stage() YAML Metadata Pattern**. Alle Hash Keys und Hash Diffs werden automatisch von automate_dv berechnet (mit Custom Overrides in `macros/hash_override.sql`).
 
 ```sql
 /*
- * Staging Model: werkportal_product
- * 
- * Bereitet Product-Daten für das Data Vault vor.
- * Hash Key Separator: '^^' (DV 2.1 Standard)
+ * Staging Model: jira_product
+ *
+ * Source: ext_jira_product (Product-Daten)
+ * Business Key: object_id
+ * Hash Key: hk_product
+ * Payload: 4 Spalten — Product-Attribute
+ *
+ * Uses automate_dv.stage() macro for standardized staging.
  */
 
-{%- set hashdiff_columns = [
-    'name',
-    'description',
-    'price',
-    'category_id'
-] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_jira_product"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_product') }}
-),
+derived_columns:
+  dss_record_source: "!jira"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(object_id AS NVARCHAR(MAX)))), '-1'))"
 
-staged AS (
-    SELECT
-        -- ===========================================
-        -- HASH KEYS
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(object_id AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_product,
-        
-        -- FK zu anderen Hubs (falls vorhanden)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(category_id AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_category,
-        
-        -- ===========================================
-        -- HASH DIFF (Change Detection)
-        -- ===========================================
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last else '' }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_product,
-        
-        -- ===========================================
-        -- BUSINESS KEY
-        -- ===========================================
-        object_id,
-        
-        -- ===========================================
-        -- PAYLOAD
-        -- ===========================================
-        name,
-        description,
-        price,
-        category_id,
-        
-        -- ===========================================
-        -- METADATA
-        -- ===========================================
-        COALESCE(dss_record_source, 'werkportal') AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date,
-        dss_run_id
-        
-    FROM source
-)
+hashed_columns:
+  hk_product: "object_id"
+  hk_category: "category_id"
+  hk_link_product_category:
+    - "object_id"
+    - "category_id"
+  hd_product:
+    is_hashdiff: true
+    columns:
+      - "category_id"
+      - "description"
+      - "name"
+      - "price"
+{%- endset -%}
 
-SELECT * FROM staged
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
+
+> **EWB-spezifische Referenz-Beispiele:**
+> - Single BK + Reserved Keyword: `models/staging/ewb_lohn_len_main.sql`
+> - Composite BK: `models/staging/ewb_proj_nsa_main.sql`
+> - Multiple Reserved Keywords: `models/staging/ewb_fibu_fhe_main.sql`
 
 ### Schritt 3: Hub erstellen
 
@@ -804,7 +786,7 @@ WITH source_data AS (
         object_id,
         dss_load_date,
         dss_record_source
-    FROM {{ ref('werkportal_product') }}
+    FROM {{ ref('jira_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
@@ -866,7 +848,7 @@ WITH source_data AS (
         description,
         price,
         category_id
-    FROM {{ ref('werkportal_product') }}
+    FROM {{ ref('jira_product') }}
     WHERE hk_product IS NOT NULL
 ),
 
@@ -1036,13 +1018,13 @@ ORDER BY c.column_id;
 # 1. External Table erstellen
 dbt run-operation stage_external_sources
 # oder einzelne Tabelle
-dbt run-operation stage_external_sources --args 'select: staging.ext_werkportal_product'
+dbt run-operation stage_external_sources --args 'select: staging.ext_jira_product'
 
 # 2. Alle neuen Models bauen (mit Upstream-Dependencies)
-dbt run --select +raw_vault.werkportal.hub_product +raw_vault.werkportal.sat_product
+dbt run --select +raw_vault.jira.hub_product +raw_vault.jira.sat_product
 
 # 3. Tests ausführen
-dbt test --select raw_vault.werkportal.hub_product raw_vault.werkportal.sat_product
+dbt test --select raw_vault.jira.hub_product raw_vault.jira.sat_product
 
 # 4. Ghost Records hinzufügen (optional)
 # → Macro in ghost_records.sql erweitern
@@ -1207,9 +1189,9 @@ SELECT * FROM new_records
 -- In <concept>_<source>.sql
 CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
     CONCAT(
-        ISNULL(CAST(<entity1_bk> AS NVARCHAR(MAX)), ''),
+        ISNULL(LTRIM(RTRIM(CAST(<entity1_bk> AS NVARCHAR(MAX)))), '-1'),
         '^^',
-        ISNULL(CAST(<entity2_bk> AS NVARCHAR(MAX)), '')
+        ISNULL(LTRIM(RTRIM(CAST(<entity2_bk> AS NVARCHAR(MAX)))), '-1')
     )
 ), 2) AS hk_link_<entity1>_<entity2>
 ```
@@ -1472,68 +1454,48 @@ Ein **Dependent Child Satellite** wird verwendet, wenn ein Link zusätzliche Sch
 
 #### Staging-View Anforderungen
 
-Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten:
+Die Staging-View muss für DC Satellites **zusätzliche Hash-Berechnungen** enthalten. Mit automate_dv.stage() werden alle Hashes im YAML-Metadata Block definiert:
 
 ```sql
--- Beispiel: werkportal_order_item.sql (mit DCK: line_item_no)
+-- Beispiel: jira_order_item.sql (mit DCK: line_item_no)
 
-{%- set hashdiff_columns = ['quantity', 'unit_price', 'discount'] -%}
-{%- set hashdiff_dc_columns = ['line_item_no', 'quantity', 'unit_price', 'discount'] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_jira_order_item"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_order_item') }}
-),
+derived_columns:
+  dss_record_source: "!jira"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(order_id AS NVARCHAR(MAX)))), '-1'))"
 
-staged AS (
-    SELECT
-        -- HASH KEY (Entity)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(order_id AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_order_item,
-        
-        -- LINK HASH KEY (Order → Product + DCK)
-        -- Enthält DCK für DC Sat Eindeutigkeit
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                ISNULL(CAST(order_id AS NVARCHAR(MAX)), ''),
-                '^^',
-                ISNULL(CAST(product_id AS NVARCHAR(MAX)), ''),
-                '^^',
-                ISNULL(CAST(line_item_no AS NVARCHAR(MAX)), '')  -- DCK
-            )
-        ), 2) AS hk_link_order_product,
-        
-        -- HASH DIFF (Standard Satellite)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_order_item,
-        
-        -- HASH DIFF (DC Satellite - inkl. DCK)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_dc_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_order_product_dc,
-        
-        -- Business Keys + Payload + Metadata
-        order_id,
-        product_id,
-        line_item_no,  -- DCK
-        quantity,
-        unit_price,
-        discount,
-        dss_record_source,
-        dss_load_date
-    FROM source
-)
+hashed_columns:
+  hk_order_item: "order_id"
+  hk_link_order_product:
+    - "order_id"
+    - "product_id"
+    - "line_item_no"
+  hd_order_item:
+    is_hashdiff: true
+    columns:
+      - "discount"
+      - "quantity"
+      - "unit_price"
+  hd_order_product_dc:
+    is_hashdiff: true
+    columns:
+      - "discount"
+      - "line_item_no"
+      - "quantity"
+      - "unit_price"
+{%- endset -%}
 
-SELECT * FROM staged
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
 
 #### DC Satellite Model
@@ -1546,19 +1508,20 @@ SELECT * FROM staged
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "werkportal_order_item"
+source_model: "jira_order_item"
 src_pk: "hk_link_order_product"
 src_hashdiff: 
   source_column: "hd_order_product_dc"
-  alias: "hashdiff"
+  alias: "HASHDIFF"
 src_payload:
     - "line_item_no"
     - "quantity"
     - "unit_price"
     - "discount"
-src_eff: "dss_load_date"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
+src_extra_columns:
+  - "dss_create_datetime"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
@@ -1567,9 +1530,9 @@ src_source: "dss_record_source"
     src_pk=metadata_dict["src_pk"],
     src_hashdiff=metadata_dict["src_hashdiff"],
     src_payload=metadata_dict["src_payload"],
-    src_eff=metadata_dict["src_eff"],
     src_ldts=metadata_dict["src_ldts"],
     src_source=metadata_dict["src_source"],
+    src_extra_columns=metadata_dict["src_extra_columns"],
     source_model=metadata_dict["source_model"]
 ) }}
 ```
@@ -1592,51 +1555,39 @@ Ein **Multi-Active Satellite** erlaubt **mehrere gleichzeitig gültige Werte** f
 #### Staging-View Anforderungen
 
 ```sql
--- Beispiel: werkportal_employee_phone.sql (mit CDK: phone_type)
+-- Beispiel: jira_employee_phone.sql (mit CDK: phone_type)
 
-{%- set hashdiff_columns = ['phone_number', 'is_primary'] -%}
-{%- set hashdiff_ma_columns = ['phone_type', 'phone_number', 'is_primary'] -%}
+{%- set yaml_metadata -%}
+source_model:
+  staging: "ext_jira_employee_phone"
 
-WITH source AS (
-    SELECT * FROM {{ source('staging', 'ext_werkportal_employee_phone') }}
-),
+derived_columns:
+  dss_record_source: "!jira"
+  dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_create_datetime: "GETDATE()"
+  dss_business_key: "CONCAT_WS('||', 'default', 'default', ISNULL(LTRIM(RTRIM(CAST(employee_id AS NVARCHAR(MAX)))), '-1'))"
 
-staged AS (
-    SELECT
-        -- HASH KEY (Entity)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            ISNULL(CAST(employee_id AS NVARCHAR(MAX)), '')
-        ), 2) AS hk_employee,
-        
-        -- HASH DIFF (für regulären Satellite)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_employee,
-        
-        -- HASH DIFF (MA Satellite - inkl. CDK)
-        CONVERT(CHAR(64), HASHBYTES('SHA2_256', 
-            CONCAT(
-                {%- for col in hashdiff_ma_columns %}
-                ISNULL(CAST({{ col }} AS NVARCHAR(MAX)), ''){{ ',' if not loop.last }}
-                {%- endfor %}
-            )
-        ), 2) AS hd_employee_ma,
-        
-        -- Business Key + CDK + Payload + Metadata
-        employee_id,
-        phone_type,      -- CDK (Child Dependent Key)
-        phone_number,
-        is_primary,
-        dss_record_source,
-        dss_load_date
-    FROM source
-)
+hashed_columns:
+  hk_employee: "employee_id"
+  hd_employee:
+    is_hashdiff: true
+    columns:
+      - "is_primary"
+      - "phone_number"
+  hd_employee_ma:
+    is_hashdiff: true
+    columns:
+      - "is_primary"
+      - "phone_number"
+      - "phone_type"
+{%- endset -%}
 
-SELECT * FROM staged
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.stage(include_source_columns=true,
+                     source_model=metadata_dict['source_model'],
+                     derived_columns=metadata_dict['derived_columns'],
+                     hashed_columns=metadata_dict['hashed_columns']) }}
 ```
 
 #### MA Satellite Model
@@ -1649,13 +1600,13 @@ SELECT * FROM staged
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "werkportal_employee_phone"
+source_model: "jira_employee_phone"
 src_pk: "hk_employee"
 src_cdk:
     - "phone_type"
 src_hashdiff: 
   source_column: "hd_employee_ma"
-  alias: "hashdiff"
+  alias: "HASHDIFF"
 src_payload:
     - "phone_number"
     - "is_primary"
@@ -1747,7 +1698,154 @@ WHERE sat_<entity>_hk IS NOT NULL
 
 ---
 
-## 📊 Mart View erstellen
+### 5.9 Current View erstellen (sat_*_current_v)
+
+Für jeden Satellite wird eine Current View erstellt, die den aktuellen Stand bereitstellt. Mart-Modelle referenzieren diese Views statt der Satellites direkt.
+
+📄 **Datei:** `models/raw_vault/_common/satellites/sat_<entity>_current_v.sql`
+
+```sql
+{{ config(materialized='view') }}
+{{ satellite_current_view(
+    satellite_model='sat_<entity>',
+    hashkey_column='hk_<entity>'
+) }}
+```
+
+**Zugriffsmuster:**
+- **SCD1 (aktueller Stand):** `WHERE dss_is_current = 'Y'`
+- **SCD2 (volle Historie):** Kein Filter, alle Records
+
+**Datenfluss:**
+```
+Hub/Sat (vault.*) → Current View (sat_*_current_v) → Mart (mart_*.*)
+```
+
+---
+
+## 📊 Mart — Dimensionale Modellierung
+
+### Überblick
+
+Der Mart Layer implementiert **Star Schema** (Kimball) als Views auf den Raw Vault.
+Dimensionen und Faktentabellen verwenden deterministische BIGINT Surrogate Keys.
+
+**Datenfluss:**
+```
+Hub/Sat/Link (vault.*) → Current View (sat_*_current_v) → Dimension/Fakt (mart_<concept>.*)
+```
+
+### Surrogate Key Macro
+
+Alle Dimension Keys verwenden das `surrogate_key()` Macro (`macros/surrogate_key.sql`):
+
+```sql
+{{ surrogate_key('business_key_column') }} AS person_key
+-- Generiert: ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(column AS NVARCHAR(MAX)))))
+```
+
+- **Typ:** BIGINT (8 Byte, deterministisch, view-kompatibel, Power BI freundlich)
+- **Verwendung:** Dimension PK und Fakt FK (gleicher Aufruf für Join-Kompatibilität)
+
+### Dimension Pflicht-Spalten
+
+| Spalte | Typ | Beschreibung | Fallback |
+|--------|-----|-------------|----------|
+| `{dim}_key` | BIGINT | Surrogate Key via `surrogate_key()` | — |
+| `{dim}_id` | NVARCHAR(255) | Technische ID aus Quellsystem | — |
+| `{dim}_code` | NVARCHAR(255) | Sprechender Business-Schlüssel | = ID |
+| `{dim}_name` | NVARCHAR(255) | Bekannte Bezeichnung | = CODE oder 'UNKNOWN' |
+| `dss_load_date` | DATETIME2 | Ladezeitpunkt | — |
+| `dss_record_source` | NVARCHAR(255) | Quellenidentifikation | — |
+
+### Beispiel: Dimension
+
+📄 **Datei:** `models/mart/project/dim_person.sql`
+
+```sql
+{{ config(materialized='view', tags=['dimension']) }}
+
+SELECT
+    {{ surrogate_key('lohnnr') }}                        AS person_key,
+    CAST(lohnnr AS NVARCHAR(255))                        AS person_id,
+    ISNULL(nachname + ' ' + vorname, 
+           CAST(lohnnr AS NVARCHAR(255)))                AS person_code,
+    ISNULL(nachname + ' ' + vorname, 'UNKNOWN')          AS person_name,
+    sat.dss_load_date,
+    sat.dss_record_source
+FROM {{ ref('hub_person') }} hub
+INNER JOIN {{ ref('sat_person__abacus') }} sat
+    ON hub.hk_person = sat.hk_person
+    AND sat.dss_is_current = 'Y'
+```
+
+### Beispiel: Faktentabelle
+
+📄 **Datei:** `models/mart/project/fakt_stunden.sql`
+
+```sql
+{{ config(materialized='view', tags=['fact']) }}
+
+SELECT
+    {{ surrogate_key('hp.projnr') }}      AS projekt_key,
+    {{ surrogate_key('hpsk.code') }}       AS leistungsart_key,
+    CONVERT(INT, FORMAT(sat.datum, 'yyyyMMdd')) AS datum_key,
+    sat.azbetint                            AS stunden,
+    sat.dss_load_date,
+    sat.dss_record_source
+FROM {{ ref('hub_stundenbuchung') }} h
+INNER JOIN {{ ref('sat_stundenbuchung') }} sat
+    ON h.hk_stundenbuchung = sat.hk_stundenbuchung
+    AND sat.dss_is_current = 'Y'
+-- ... weitere Joins zu Hubs für FK-Auflösung
+```
+
+### Naming
+
+| Objekt | Pattern | Beispiel |
+|--------|---------|---------|
+| Dimension | `dim_{entity}` | `dim_person`, `dim_projekt` |
+| Faktentabelle | `fakt_{content}` | `fakt_stunden` |
+| Schema (domain) | `mart_{concept}` | `mart_project` |
+
+### Materialisierung
+- `materialized='view'` — Standard (Virtualisierung bevorzugt)
+- `materialized='table'` — Nur bei Performance-Bedarf
+
+### Schema YAML
+
+Jedes Mart-Modell muss in `_<concept>__models.yml` dokumentiert sein:
+
+```yaml
+models:
+  - name: dim_person
+    description: "Dimension: Mitarbeiterstamm"
+    config:
+      tags: ['dimension']
+    columns:
+      - name: person_key
+        data_type: bigint
+        tests: [not_null, unique]
+      - name: person_code
+        tests: [not_null]
+      - name: person_name
+        tests: [not_null]
+```
+
+### ER-Diagramm
+
+Pro Mart-Domain: `design/mart/er-mart-<concept>.mmd`
+
+### Agent
+
+`@mart-architect` — Erstellt Dimensionen und Faktentabellen aus dem Raw Vault
+
+---
+
+## 📊 Mart View erstellen (Legacy Pattern)
+
+> **Hinweis:** Dieses Pattern wird durch das obige Star Schema Pattern abgelöst.
+> Für neue Mart-Objekte verwende Dimensionen und Faktentabellen mit `surrogate_key()`.
 
 ### Szenario
 Eine flache View für BI-Tools (Power BI, Excel) erstellen.
@@ -2066,7 +2164,7 @@ Das Projekt verwendet **GitHub Actions** für automatisiertes Deployment. Der Se
 |----------|---------|-------|
 | **CI** | PR nach main/dev | Validierung (compile + test) |
 | **Deploy Dev** | Push auf main / manual | Deployment nach Vault (Dev) |
-| **Deploy Prod** | Tag v* / manual + Approval | Deployment nach Vault_Werkportal |
+| **Deploy Prod** | Tag v* / manual + Approval | Deployment nach Vault_Jira |
 | **Docs** | Push auf main / manual | dbt docs → GitHub Pages |
 
 #### Workflow manuell ausführen
@@ -2076,7 +2174,7 @@ Das Projekt verwendet **GitHub Actions** für automatisiertes Deployment. Der Se
 gh workflow run deploy-dev.yml --ref main
 
 # Deploy Prod manuell triggern (erfordert Approval!)
-gh workflow run deploy-prod.yml --ref main -f target=werkportal
+gh workflow run deploy-prod.yml --ref main -f target=jira
 
 # Docs generieren
 gh workflow run docs.yml --ref main
@@ -2132,7 +2230,7 @@ gh pr merge <pr-number> --squash
 # 7. Für Prod: Tag erstellen oder manuell triggern
 git tag v1.0.0 && git push origin v1.0.0
 # ODER
-gh workflow run deploy-prod.yml --ref main -f target=werkportal
+gh workflow run deploy-prod.yml --ref main -f target=jira
 # → Approval in GitHub erforderlich!
 ```
 
@@ -2144,23 +2242,23 @@ gh workflow run deploy-prod.yml --ref main -f target=werkportal
 # ╚═══════════════════════════════════════════════════════╝
 
 # 1. External Tables in Prod erstellen/aktualisieren
-dbt run-operation stage_external_sources --target werkportal
+dbt run-operation stage_external_sources --target jira
 
 # 2. Seeds laden (falls geändert)
-dbt seed --target werkportal
+dbt seed --target jira
 
 # 3. Models deployen
-dbt run --target werkportal
+dbt run --target jira
 
 # 4. Tests in Prod
-dbt test --target werkportal
+dbt test --target jira
 ```
 
 ### Full Refresh (Schema-Änderungen)
 
 ```bash
 # Bei Spaltenänderungen: Full Refresh erforderlich!
-dbt run --full-refresh --target werkportal
+dbt run --full-refresh --target jira
 ```
 
 ---
@@ -2204,9 +2302,11 @@ dbt debug
 ```
 □ External Table in sources.yml definiert
 □ Staging View erstellt (<concept>_<entity>.sql)
-  □ Hash Key berechnet
-  □ Hash Diff berechnet (falls Satellite)
-  □ Metadata-Spalten gemappt
+  □ automate_dv.stage() YAML Metadata Pattern
+  □ Hash Key definiert in hashed_columns
+  □ Hash Diff definiert (falls Satellite)
+  □ Reserved Keywords via _escape escaped
+  □ Metadata-Spalten als derived_columns
 □ Hub erstellt (hub_<entity>.sql)
 □ Satellite erstellt (sat_<entity>.sql)
   □ Post-Hook für dss_is_current
@@ -2223,9 +2323,8 @@ dbt debug
 
 ```
 □ Spalte in sources.yml hinzugefügt
-□ Spalte in Staging View hinzugefügt
-□ Spalte in Hash Diff (falls getrackt)
-□ Spalte in Satellite hinzugefügt
+□ Spalte in Staging View hashed_columns/hashdiff hinzugefügt (falls getrackt)
+□ Spalte in Satellite src_payload hinzugefügt
 □ dbt run-operation stage_external_sources
 □ dbt run --full-refresh --select <concept>_* sat_*
 □ dbt test
@@ -2238,7 +2337,7 @@ dbt debug
 □ SQL kompiliert und geprüft
 □ Keine hardcoded Datenbanknamen
 □ +as_columnstore: false gesetzt
-□ Hash-Separator ist '^^'
+□ Hash-Separator ist '||' (concat_string in dbt_project.yml)
 □ Git committed und gepusht
 □ PR erstellt und CI erfolgreich ✓
 ```
@@ -2250,7 +2349,7 @@ dbt debug
 | CI läuft nicht | Prüfen ob Änderungen in `models/`, `macros/`, etc. (Path Filter!) |
 | Profile not found | `profile:` in dbt_project.yml muss mit profiles.yml übereinstimmen |
 | Runner offline | `sudo systemctl restart actions.runner.fellnerd-datavault-dbt.dbt-runner-vm` |
-| Prod-Tests fehlen | `dbt seed --target werkportal` ausführen |
+| Prod-Tests fehlen | `dbt seed --target jira` ausführen |
 | Azure Login failed | Service Principal Secret ggf. abgelaufen, neu generieren |
 
 ---

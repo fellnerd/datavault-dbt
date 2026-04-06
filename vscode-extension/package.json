@@ -2,7 +2,7 @@
   "name": "datavault-dbt",
   "displayName": "Data Vault dbt Explorer",
   "description": "Visualize and navigate dbt Data Vault 2.1 projects with hierarchical tree views",
-  "version": "0.1.1",
+  "version": "0.1.12",
   "publisher": "datavault",
   "engines": {
     "vscode": "^1.85.0"
@@ -22,6 +22,7 @@
   ],
   "activationEvents": [
     "workspaceContains:**/dbt_project.yml",
+    "onView:datavault-sources",
     "onView:datavault-staging",
     "onView:datavault-rawvault",
     "onView:datavault-businessvault",
@@ -173,6 +174,12 @@
       {
         "command": "datavault.openEntityDesigner",
         "title": "Design Entity",
+        "icon": "$(symbol-structure)",
+        "category": "Data Vault"
+      },
+      {
+        "command": "datavault.openEntityDesignerV2",
+        "title": "Design Entity (v2)",
         "icon": "$(symbol-structure)",
         "category": "Data Vault"
       },
@@ -504,6 +511,11 @@
           "group": "design@1"
         },
         {
+          "command": "datavault.openEntityDesignerV2",
+          "when": "view == datavault-sources && viewItem =~ /^(external_table|psa_table)(-in-group)?$/",
+          "group": "design@2"
+        },
+        {
           "command": "datavault.createAllExternalTables",
           "when": "view == datavault-sources && viewItem == concept",
           "group": "database@1"
@@ -608,6 +620,31 @@
           "default": "",
           "description": "Path to dbt executable (auto-detected in .venv if empty)"
         },
+        "datavault.dbtTarget": {
+          "type": "string",
+          "default": "dev",
+          "description": "dbt target to use for run-operation commands (e.g. dev, staging, prod)"
+        },
+        "datavault.storage.accountName": {
+          "type": "string",
+          "default": "",
+          "description": "Azure Storage account name for Parquet file discovery"
+        },
+        "datavault.storage.containerName": {
+          "type": "string",
+          "default": "",
+          "description": "Azure Storage container name for Parquet file discovery"
+        },
+        "datavault.storage.dataSource": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the SQL External Data Source (e.g. StageFileSystem)"
+        },
+        "datavault.storage.fileFormat": {
+          "type": "string",
+          "default": "ParquetFormat",
+          "description": "Name of the SQL External File Format (e.g. ParquetFormat)"
+        },
         "datavault.lastDiscoverPath": {
           "type": "string",
           "default": "",
@@ -655,7 +692,7 @@
               },
               "concept": {
                 "type": "string",
-                "description": "Concept this group belongs to (e.g., 'werkportal', 'adventureworks')",
+                "description": "Concept this group belongs to (e.g., 'jira', 'adventureworks')",
                 "order": 2
               },
               "layer": {

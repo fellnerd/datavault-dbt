@@ -10,11 +10,13 @@ import {
   SavedColumnConfig,
   WebviewSaveConfigMessage,
   LambdaVaultConfig,
-  StagingModelInfo
+  StagingModelInfo,
+  SatelliteDefinition
 } from '../../types';
 import { getWebviewContent } from './getWebviewContent';
 import { generateDataVaultObjects, generateSchemaYaml, generateVirtualViews } from '../../services/entityGenerator';
 import { loadDesignerConfig, saveDesignerConfig, DesignerConfig, detectSourceTypeFromStaging } from '../../services/designerConfigStore';
+import { deriveStagingName } from '../../services/stagingGenerator';
 
 /**
  * Manages the Entity Designer webview panel
@@ -134,6 +136,34 @@ export class EntityDesignerProvider {
   }
 
   /**
+   * Extract available concepts from dbt_project.yml raw_vault configuration.
+   * Returns the folder names under models.datavault.raw_vault (e.g. ['_common', 'jira']).
+   */
+  private extractAvailableConcepts(): string[] {
+    if (!this._projectPath) {return [];}
+
+    try {
+      const configPath = path.join(this._projectPath, 'dbt_project.yml');
+      const content = fs.readFileSync(configPath, 'utf-8');
+      const config = yaml.parse(content);
+
+      const projectName = config?.name || 'datavault';
+      const rawVault = config?.models?.[projectName]?.raw_vault;
+      if (!rawVault || typeof rawVault !== 'object') {return [];}
+
+      // Keys under raw_vault are the concept folders
+      const concepts = Object.keys(rawVault).filter(
+        k => !k.startsWith('+')  // skip dbt config keys like +schema
+      );
+      console.log(`[Entity Designer] Available concepts from dbt_project.yml: ${concepts.join(', ')}`);
+      return concepts;
+    } catch (error) {
+      console.error('[Entity Designer] Error reading dbt_project.yml:', error);
+      return [];
+    }
+  }
+
+  /**
    * Load available staging models for Lambda Vault selection
    * Returns staging models from the same concept (excluding current entity)
    */
@@ -142,7 +172,16 @@ export class EntityDesignerProvider {
 
     const stagingDir = path.join(this._projectPath, 'models', 'staging');
     const stagingModels: StagingModelInfo[] = [];
-    const currentModelName = `${concept}_${currentEntity}`;
+    
+    // Derive source concept from external table (e.g., ext_ewb_lohn_len_main → ewb)
+    // Fall back to concept for legacy compatibility
+    const sourceTable = this._currentEntity?.sourceTable;
+    const sourceConcept = sourceTable 
+      ? (sourceTable.replace(/^ext_/, '').split('_')[0] || concept) 
+      : concept;
+    const currentModelName = sourceTable 
+      ? deriveStagingName(sourceTable) 
+      : `${concept}_${currentEntity}`;
 
     try {
       if (!fs.existsSync(stagingDir)) return [];
@@ -153,14 +192,14 @@ export class EntityDesignerProvider {
       for (const file of sqlFiles) {
         const modelName = file.replace('.sql', '');
         // Only include models from same concept, exclude EXACT current model (not partial match)
-        if (modelName.startsWith(concept + '_') && modelName !== currentModelName) {
+        if (modelName.startsWith(sourceConcept + '_') && modelName !== currentModelName) {
           // Try to extract columns from the staging SQL
           const filePath = path.join(stagingDir, file);
           const columns = await this.extractStagingColumns(filePath);
           
           stagingModels.push({
             name: modelName,
-            concept,
+            concept: sourceConcept,
             columns
           });
         }
@@ -218,6 +257,23 @@ export class EntityDesignerProvider {
     if (!this._projectPath) return [];
 
     const stagingDir = path.join(this._projectPath, 'models', 'staging');
+    
+    // Try source-table-derived name first (e.g., ewb_lohn_len_main.sql from ext_ewb_lohn_len_main)
+    const sourceTable = this._currentEntity?.sourceTable;
+    if (sourceTable) {
+      const derivedFile = path.join(stagingDir, `${deriveStagingName(sourceTable)}.sql`);
+      if (fs.existsSync(derivedFile)) {
+        try {
+          const columns = await this.extractStagingColumns(derivedFile);
+          console.log(`[Entity Designer] Loaded ${columns.length} columns from staging ${deriveStagingName(sourceTable)}`);
+          return columns;
+        } catch (error) {
+          console.error('[Entity Designer] Error loading staging columns:', error);
+        }
+      }
+    }
+    
+    // Fallback: try concept_entity pattern (legacy)
     const baseStagingFile = path.join(stagingDir, `${concept}_${entityName}.sql`);
 
     try {
@@ -256,6 +312,9 @@ export class EntityDesignerProvider {
     // Load base staging columns for Lambda Vault comparison
     const baseStagingColumns = await this.loadBaseStagingColumns(concept, entityName);
 
+    // Extract available concepts from dbt_project.yml
+    const availableConcepts = this.extractAvailableConcepts();
+
     // Determine which columns to send:
     // If savedConfig has columns, use those as the PRIMARY source (user's saved config is truth)
     // Only fall back to externalTable.columns if no saved config exists
@@ -287,7 +346,11 @@ export class EntityDesignerProvider {
         savedColumns: savedConfig && savedConfig.columns.length > 0 ? savedConfig.columns : undefined,
         availableStagingModels,
         lambdaVault: savedConfig?.lambdaVault,
-        baseStagingColumns
+        satelliteName: savedConfig?.satelliteName,
+        satellites: savedConfig?.satellites,
+        generateCurrentView: savedConfig?.generateCurrentView,
+        baseStagingColumns,
+        availableConcepts
       }
     };
 
@@ -338,7 +401,10 @@ export class EntityDesignerProvider {
           saveMsg.columns, 
           saveMsg.entityName, 
           saveMsg.lambdaVault,
-          saveMsg.concept
+          saveMsg.concept,
+          (saveMsg as any).satelliteName,
+          (saveMsg as any).satellites,
+          (saveMsg as any).generateCurrentView
         );
         break;
       // Note: updateDataType case removed - dataTypes are now synced to sources.yml on Generate
@@ -352,7 +418,7 @@ export class EntityDesignerProvider {
    * Handle generate with context (concept/entity may have changed)
    */
   private async handleGenerateWithContext(message: any): Promise<void> {
-    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault } = message;
+    const { target, concept, entityName, originalConcept, originalEntityName, columns, lambdaVault, satelliteName, satellites, generateCurrentView } = message;
     
     // Check if concept or entity was renamed
     const conceptChanged = originalConcept && concept && concept !== originalConcept;
@@ -375,7 +441,10 @@ export class EntityDesignerProvider {
           sourceTable: this._currentEntity?.sourceTable || '',
           columns,
           savedAt: new Date().toISOString(),
-          lambdaVault
+          lambdaVault,
+          satelliteName: satelliteName || undefined,
+          satellites: satellites || undefined,
+          generateCurrentView: generateCurrentView || undefined
         };
         await saveDesignerConfig(this._projectPath, config);
         console.log(`[Entity Designer] Saved config as ${concept}_${entityName}.json`);
@@ -401,14 +470,17 @@ export class EntityDesignerProvider {
       }
     } else if (columns && this._projectPath && this._currentEntity) {
       // No rename, but save current config before generate
-      console.log(`[Entity Designer] Generate: saving ${columns.length} columns (ignored: ${columns.filter((c: SavedColumnConfig) => c.columnType === 'ignore').length})`);
+      console.log(`[Entity Designer] Generate: saving ${columns.length} columns (excluded: ${columns.filter((c: SavedColumnConfig) => c.includeInPayload === false).length})`);
       const config: DesignerConfig = {
         concept: this._currentEntity.concept,
         entityName: this._currentEntity.entityName,
         sourceTable: this._currentEntity.sourceTable,
         columns,
         savedAt: new Date().toISOString(),
-        lambdaVault
+        lambdaVault,
+        satelliteName: satelliteName || undefined,
+        satellites: satellites || undefined,
+        generateCurrentView: generateCurrentView || undefined
       };
       await saveDesignerConfig(this._projectPath, config);
     }
@@ -420,7 +492,7 @@ export class EntityDesignerProvider {
   /**
    * Save config to JSON file (Config-First: JSON is Single Source of Truth)
    */
-  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string): Promise<void> {
+  private async handleSaveConfig(columns: SavedColumnConfig[], entityName?: string, lambdaVault?: LambdaVaultConfig, concept?: string, satelliteName?: string, satellites?: SatelliteDefinition[], generateCurrentView?: boolean): Promise<void> {
     if (!this._projectPath || !this._currentEntity) {
       console.error('[Entity Designer] Cannot save config: missing project path or entity context');
       return;
@@ -449,14 +521,17 @@ export class EntityDesignerProvider {
       sourceTable: this._currentEntity.sourceTable,
       columns,
       savedAt: new Date().toISOString(),
-      lambdaVault
+      lambdaVault,
+      satelliteName: satelliteName || undefined,
+      satellites: satellites && satellites.length > 0 ? satellites : undefined,
+      generateCurrentView: generateCurrentView || undefined
     };
 
     // Debug: Log column count and types
     console.log(`[Entity Designer] Saving ${columns.length} columns to JSON`);
-    const ignoredCount = columns.filter(c => c.columnType === 'ignore').length;
-    if (ignoredCount > 0) {
-      console.log(`[Entity Designer] Including ${ignoredCount} ignored column(s)`);
+    const excludedCount = columns.filter(c => c.includeInPayload === false).length;
+    if (excludedCount > 0) {
+      console.log(`[Entity Designer] ${excludedCount} column(s) excluded from payload`);
     }
 
     await saveDesignerConfig(this._projectPath, config);
@@ -677,10 +752,16 @@ export class EntityDesignerProvider {
             hubTarget: c.hubTarget,
             dependentChildForLink: c.dependentChildForLink,
             multiActiveSequence: c.multiActiveSequence,
-            nullable: c.nullable ?? true
+            nullable: c.nullable ?? true,
+            // Pass includeInPayload for payload filtering
+            includeInPayload: c.includeInPayload,
+            satelliteGroup: c.satelliteGroup
           };
         }),
-        ghostRecordValue: '-1'
+        ghostRecordValue: '-1',
+        satelliteName: savedConfig.satelliteName,
+        satellites: savedConfig.satellites,
+        generateCurrentView: savedConfig.generateCurrentView
       };
 
       // Determine which targets to generate (including DC/MA satellites if configured)
@@ -877,7 +958,11 @@ export class EntityDesignerProvider {
       `    "${sat}":\n      pk:\n        PK: "${hashKey}"\n      ldts:\n        LDTS: "dss_load_date"`
     ).join('\n');
 
-    const stagingName = `${concept}_${hubName.replace('hub_', '')}`;
+    // Derive staging name from source table if available, fallback to concept_entity
+    const sourceTable = this._currentEntity?.sourceTable;
+    const stagingName = sourceTable 
+      ? deriveStagingName(sourceTable)
+      : `${concept}_${hubName.replace('hub_', '')}`;
 
     return `{{-
   PIT Table: ${pitName}

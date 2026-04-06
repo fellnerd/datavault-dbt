@@ -54,7 +54,7 @@ Ein Hub ist wie eine **Visitenkarte** für jedes wichtige Geschäftsobjekt.
 ├─────────────────────────────────────┤
 │  ID: ABC123                         │  ← Eindeutige Kennung
 │  Erfasst am: 15.03.2024            │  ← Wann zum ersten Mal gesehen
-│  Quelle: Werkportal                │  ← Woher die Info stammt
+│  Quelle: Jira                │  ← Woher die Info stammt
 └─────────────────────────────────────┘
 ```
 
@@ -152,7 +152,7 @@ Jede Tabelle hat spezielle Spalten, die mit `dss_` beginnen:
 | Spalte | Bedeutung | Beispiel |
 |--------|-----------|----------|
 | `dss_load_date` | Wann wurde dieser Eintrag geladen? | `2024-12-27 14:30:00` |
-| `dss_record_source` | Woher stammt die Information? | `werkportal.wp_company_client` |
+| `dss_record_source` | Woher stammt die Information? | `jira.wp_company_client` |
 | `dss_is_current` | Ist das der aktuelle Stand? | `Y` = Ja, `N` = Historisch |
 | `dss_end_date` | Bis wann war dieser Stand gültig? | `2024-06-15` oder `NULL` (=noch gültig) |
 
@@ -234,8 +234,8 @@ dbt compile
 ### 2.2 Produktion (Mandanten-spezifisch)
 
 ```bash
-# Werkportal Produktion
-dbt run --target werkportal
+# Jira Produktion
+dbt run --target jira
 
 # EWB Produktion (wenn eingerichtet)
 dbt run --target ewb
@@ -248,7 +248,7 @@ dbt run --target ewb
 dbt run-operation stage_external_sources
 
 # Produktion
-dbt run-operation stage_external_sources --target werkportal
+dbt run-operation stage_external_sources --target jira
 ```
 
 ---
@@ -258,8 +258,8 @@ dbt run-operation stage_external_sources --target werkportal
 | Target | Datenbank | Befehl |
 |--------|-----------|--------|
 | `dev` (Standard) | Vault | `dbt run` |
-| `werkportal` | Vault_Werkportal | `dbt run --target werkportal` |
-| `ewb` | Vault_EWB | `dbt run --target ewb` |
+| `jira` | Vault_Jira | `dbt run --target jira` |
+| `ewb` | datavault | `dbt run --target ewb` |
 
 ---
 
@@ -272,7 +272,7 @@ Bearbeite `models/staging/sources.yml`:
 ```yaml
 - name: ext_neue_entity
   external:
-    location: "werkportal/postgres/public.wp_neue_entity.parquet"
+    location: "jira/postgres/public.wp_neue_entity.parquet"
     file_format: ParquetFormat
   columns:
     - name: id
@@ -284,7 +284,7 @@ Bearbeite `models/staging/sources.yml`:
 
 ### Schritt 2: Staging View erstellen
 
-Erstelle `models/staging/werkportal_neue_entity.sql`:
+Erstelle `models/staging/jira_neue_entity.sql`:
 
 ```sql
 {{- config(
@@ -293,9 +293,9 @@ Erstelle `models/staging/werkportal_neue_entity.sql`:
 
 {%- set yaml_metadata -%}
 source_model:
-    werkportal_data: 'ext_neue_entity'
+    jira_data: 'ext_neue_entity'
 derived_columns:
-    dss_record_source: "!werkportal.wp_neue_entity"
+    dss_record_source: "!jira.wp_neue_entity"
     dss_load_date: "GETDATE()"
 hashed_columns:
     hk_neue_entity: 'id'
@@ -327,7 +327,7 @@ Erstelle `models/raw_vault/hubs/hub_neue_entity.sql`:
     as_columnstore=false
 ) -}}
 
-{%- set source_model = "werkportal_neue_entity" -%}
+{%- set source_model = "jira_neue_entity" -%}
 {%- set src_pk = "hk_neue_entity" -%}
 {%- set src_nk = "id" -%}
 {%- set src_ldts = "dss_load_date" -%}
@@ -353,7 +353,7 @@ Erstelle `models/raw_vault/satellites/sat_neue_entity.sql`:
     as_columnstore=false
 ) -}}
 
-{%- set source_model = "werkportal_neue_entity" -%}
+{%- set source_model = "jira_neue_entity" -%}
 {%- set src_pk = "hk_neue_entity" -%}
 {%- set src_hashdiff = "hd_neue_entity" -%}
 {%- set src_ldts = "dss_load_date" -%}
@@ -377,11 +377,11 @@ Erstelle `models/raw_vault/satellites/sat_neue_entity.sql`:
 dbt run-operation stage_external_sources
 
 # Models bauen (Development)
-dbt run --select werkportal_neue_entity hub_neue_entity sat_neue_entity
+dbt run --select jira_neue_entity hub_neue_entity sat_neue_entity
 
 # Produktion
-dbt run-operation stage_external_sources --target werkportal
-dbt run --select werkportal_neue_entity hub_neue_entity sat_neue_entity --target werkportal
+dbt run-operation stage_external_sources --target jira
+dbt run --select jira_neue_entity hub_neue_entity sat_neue_entity --target jira
 ```
 
 ---
@@ -520,14 +520,14 @@ SELECT COUNT(*) FROM vault.sat_company_client;
 2. **Testen** mit `dbt test`
 3. **Review** der generierten SQL in `target/compiled/`
 4. **Commit** nach Git
-5. **Deploy** auf Produktion mit `--target werkportal`
+5. **Deploy** auf Produktion mit `--target jira`
 
 ### 8.2 Naming Conventions
 
 | Objekt | Pattern | Beispiel |
 |--------|---------|----------|
-| External Table | `ext_<concept>_<entity>` | `ext_werkportal_company_client` |
-| Staging View | `<concept>_<entity>` | `werkportal_company` |
+| External Table | `ext_<concept>_<entity>` | `ext_jira_company_client` |
+| Staging View | `<concept>_<entity>` | `jira_company` |
 | Hub | `hub_<entity>` | `hub_company` |
 | Satellite | `sat_<entity>` | `sat_company` |
 | Link | `link_<e1>_<e2>` | `link_company_country` |

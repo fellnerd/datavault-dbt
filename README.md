@@ -18,8 +18,8 @@ PostgreSQL → Synapse Pipeline → ADLS Parquet → External Table → Staging 
 | Target | Datenbank | Verwendung |
 |--------|-----------|------------|
 | `dev` | Vault | Entwicklung |
-| `werkportal` | Vault_Werkportal | Produktion (Tenant 1) |
-| `ewb` | Vault_EWB | Produktion (Tenant 2, geplant) |
+| `jira` | Vault_Jira | Produktion (Tenant 1) |
+| `ewb` | datavault | Produktion EWB |
 
 ---
 
@@ -160,8 +160,8 @@ dbt run --select hub_company_client
 # Model mit Abhängigkeiten
 dbt run --select +sat_company_client+
 
-# Produktion (Werkportal)
-dbt run --target werkportal
+# Produktion (Jira)
+dbt run --target jira
 
 # Tests ausführen
 dbt test

@@ -40,7 +40,7 @@ async function getDbtModels(projectPath: string): Promise<DbtModel[]> {
         const model = JSON.parse(line);
         if (model.resource_type === 'model') {
           // Parse path to extract concept and type
-          // e.g., datavault.raw_vault.werkportal.hubs.hub_contacts
+          // e.g., datavault.raw_vault.jira.hubs.hub_contacts
           const parts = model.unique_id.split('.');
           const name = parts[parts.length - 1];
           

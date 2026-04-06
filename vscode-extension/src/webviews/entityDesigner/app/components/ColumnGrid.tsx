@@ -159,7 +159,7 @@ export const ColumnGrid: React.FC<ColumnGridProps> = ({
               )}
               
               {(col.columnType === 'business_key' || col.columnType === 'hub') && (
-                <Tag>Primary</Tag>
+                <Tag>Primary{col.foreignKeyTarget ? ' + FK' : ''}</Tag>
               )}
               
               {col.columnType === 'ignore' && (

@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as YAML from 'yaml';
 import { StagingConfig, YamlColumnDefinition } from '../types';
+import { deriveStagingName } from './stagingGenerator';
 
 /**
  * YAML model definition structure
@@ -183,7 +184,8 @@ export function generateStagingColumns(config: StagingConfig): YamlColumnDefinit
  * Includes entity configuration in the meta block for later use by Entity Designer
  */
 export function generateModelYaml(config: StagingConfig): YamlModel {
-  const modelName = `${config.concept}_${config.entityName}`;
+  // Derive staging model name from source table (e.g., ext_ewb_lohn_len_main → ewb_lohn_len_main)
+  const modelName = deriveStagingName(config.externalTable);
   
   // Build meta configuration
   const meta: YamlModel['config'] = {
@@ -251,7 +253,7 @@ export async function updateStagingSchemaYaml(
       };
     }
 
-    const modelName = `${config.concept}_${config.entityName}`;
+    const modelName = deriveStagingName(config.externalTable);
     const newModel = generateModelYaml(config);
 
     // Find existing model index

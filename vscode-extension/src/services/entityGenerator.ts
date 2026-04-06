@@ -16,7 +16,7 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { EntityDesignConfig, DesignerColumnDefinition, GeneratedFile, GenerationResult, StagingConfig, ForeignKeyMapping, SourceType, LambdaVaultConfig } from '../types';
-import { generateStagingSql } from './stagingGenerator';
+import { generateStagingSql, deriveRecordSource, deriveStagingName } from './stagingGenerator';
 import { updateStagingSchemaYaml } from './schemaGenerator';
 
 /**
@@ -44,12 +44,15 @@ export async function generateDataVaultObjects(
     );
     const attributes = config.columns.filter(c => 
       (hasType(c, 'attribute') || hasType(c, 'satellite')) &&
+      c.includeInPayload !== false &&
       // Exclude hash columns from payload - they are handled separately
       !c.name.toLowerCase().startsWith('hk_') &&
       !c.name.toLowerCase().startsWith('hd_')
     );
     const foreignKeys = config.columns.filter(c => 
-      hasType(c, 'foreign_key') || hasType(c, 'link')
+      hasType(c, 'foreign_key') || hasType(c, 'link') ||
+      // Hub columns that also serve as FK to another Hub (composite BK with cross-reference)
+      ((hasType(c, 'hub') || hasType(c, 'business_key')) && c.foreignKeyTarget)
     );
     const dependentChildKeys = config.columns.filter(c => 
       hasType(c, 'dependent_child')
@@ -162,9 +165,44 @@ export async function generateDataVaultObjects(
         // Generate Split-Satellite pointing to existing Hub
         const splitSatFile = await generateSplitSatellite(config, splitSatelliteTargetHub, attributes, projectPath);
         generatedFiles.push(splitSatFile);
+        if (config.generateCurrentView) {
+          const satName = `sat_${config.satelliteName || config.entityName}`;
+          const cvFile = await generateSatelliteCurrentView(config, satName, projectPath);
+          generatedFiles.push(cvFile);
+        }
+      } else if (config.satellites && config.satellites.length > 0) {
+        // Multi-satellite: generate one satellite per defined group
+        for (const satDef of config.satellites) {
+          const groupAttrs = attributes.filter(a => a.satelliteGroup === satDef.id);
+          if (groupAttrs.length > 0) {
+            const multiSatConfig = { ...config, satelliteName: satDef.name };
+            const satFile = await generateSatellite(multiSatConfig, groupAttrs, projectPath);
+            generatedFiles.push(satFile);
+            if (config.generateCurrentView) {
+              const cvFile = await generateSatelliteCurrentView(config, `sat_${satDef.name}`, projectPath);
+              generatedFiles.push(cvFile);
+            }
+          }
+        }
+        // Also generate for unassigned satellite columns (fallback to default satellite)
+        const unassignedAttrs = attributes.filter(a => !a.satelliteGroup);
+        if (unassignedAttrs.length > 0) {
+          const satFile = await generateSatellite(config, unassignedAttrs, projectPath);
+          generatedFiles.push(satFile);
+          if (config.generateCurrentView) {
+            const satName = `sat_${config.entityName}`;
+            const cvFile = await generateSatelliteCurrentView(config, satName, projectPath);
+            generatedFiles.push(cvFile);
+          }
+        }
       } else {
         const satFile = await generateSatellite(config, attributes, projectPath);
         generatedFiles.push(satFile);
+        if (config.generateCurrentView) {
+          const satName = `sat_${config.satelliteName || config.entityName}`;
+          const cvFile = await generateSatelliteCurrentView(config, satName, projectPath);
+          generatedFiles.push(cvFile);
+        }
       }
     }
 
@@ -324,6 +362,7 @@ async function generateStaging(
       (c.columnType === 'attribute' || c.columnType === 'satellite' || 
        c.columnType === 'dependent_child' || c.columnType === 'multi_active' ||
        c.columnType === 'foreign_key' || c.columnType === 'link') &&
+      c.includeInPayload !== false &&
       !c.name.toLowerCase().startsWith('hk_') &&
       !c.name.toLowerCase().startsWith('hd_') &&
       !c.name.toLowerCase().startsWith('dss_')
@@ -332,7 +371,7 @@ async function generateStaging(
   
   // Hash diff columns = attributes that have includeInHashDiff = true
   const hashDiffColumns = attributes
-    .filter(a => a.includeInHashDiff)
+    .filter(a => a.includeInHashDiff && a.includeInPayload !== false)
     .map(a => a.name.toLowerCase());
   
   // If no explicit hashDiff selection, use all attributes
@@ -380,25 +419,50 @@ async function generateStaging(
     hashDiffColumns: effectiveHashDiffColumns,
     hashDiffSeparator: '^^',
     foreignKeys: fkMappings,
-    recordSourceDefault: concept,
+    recordSourceDefault: deriveRecordSource(actualSourceTable),
     includeRunId: config.columns.some(c => c.name.toLowerCase() === 'dss_run_id'),
     dependentChildKeys: Object.keys(dckByHub).length > 0 ? dckByHub : undefined,
     multiActiveKeys: multiActiveKeys.length > 0 ? multiActiveKeys.map(m => m.name.toLowerCase()) : undefined,
     isPureLinkEntity: isPureLinkEntity,
     isPureDependentChild: isPureDependentChild,
     // Split-Satellite: use target hub's entity name for hash key
-    splitSatelliteTargetHub: splitSatelliteTargetHub
+    splitSatelliteTargetHub: splitSatelliteTargetHub,
+    // Satellite name override (e.g., 'person_adresse' instead of auto-derived)
+    satelliteName: config.satelliteName,
+    // Multi-satellite definitions (generates separate hash diffs per group)
+    satellites: config.satellites,
+    // Pre-computed hash diff columns per satellite group
+    satelliteHashDiffs: (() => {
+      if (!config.satellites || config.satellites.length === 0) return undefined;
+      const result: Record<string, string[]> = {};
+      for (const satDef of config.satellites) {
+        const groupAttrs = config.columns.filter(c =>
+          c.satelliteGroup === satDef.id &&
+          (c.columnType === 'satellite' || c.columnType === 'attribute') &&
+          c.includeInPayload !== false &&
+          c.includeInHashDiff
+        );
+        if (groupAttrs.length > 0) {
+          result[satDef.name] = groupAttrs.map(a => a.name.toLowerCase()).sort();
+        }
+      }
+      return Object.keys(result).length > 0 ? result : undefined;
+    })()
   };
   
   // Generate SQL using the staging generator
   const sql = generateStagingSql(stagingConfig);
+  
+  // Staging filename: derive from source table name (strip ext_ prefix)
+  // e.g., ext_ewb_lohn_len_main → ewb_lohn_len_main.sql
+  const stagingModelName = deriveStagingName(actualSourceTable);
   
   // Write to staging folder
   const filePath = path.join(
     projectPath,
     'models',
     'staging',
-    `${concept}_${entityName}.sql`
+    `${stagingModelName}.sql`
   );
   
   // Ensure directory exists
@@ -426,7 +490,7 @@ async function generateHub(
   const { concept, entityName } = config;
   const hubName = `hub_${entityName}`;
   const hashKeyName = `hk_${entityName.toLowerCase()}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
   
   // Build natural key list - can be single or composite (lowercase to match staging)
   const naturalKeys = businessKeys.map(bk => `"${bk.name.toLowerCase()}"`);
@@ -496,10 +560,12 @@ async function generateSatellite(
   projectPath: string
 ): Promise<GeneratedFile> {
   const { concept, entityName } = config;
-  const satName = `sat_${entityName}`;
+  // Use satelliteName override if provided (e.g., 'person_adresse' instead of 'adresse')
+  const satEntityName = config.satelliteName || entityName;
+  const satName = `sat_${satEntityName}`;
   const hashKeyName = `hk_${entityName.toLowerCase()}`;
-  const hashDiffName = `hd_${entityName.toLowerCase()}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const hashDiffName = `hd_${satEntityName.toLowerCase()}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build payload list (lowercase to match staging)
   const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
@@ -570,6 +636,52 @@ src_source: "dss_record_source"
 }
 
 /**
+ * Generate a current-view for a satellite: sat_<name>_current_v
+ * Simple dbt view that filters dss_is_current = 'Y' from the satellite table.
+ */
+async function generateSatelliteCurrentView(
+  config: EntityDesignConfig,
+  satName: string,
+  projectPath: string
+): Promise<GeneratedFile> {
+  const { concept } = config;
+  const viewName = `${satName}_current_v`;
+
+  const sql = `{#
+    Current View: ${viewName}
+    Source Satellite: ${satName}
+    
+    Convenience view returning only current (active) records from ${satName}.
+    Filters on dss_is_current = 'Y' (maintained by update_satellite_current_flag post-hook).
+    
+    Generated by Entity Designer.
+#}
+
+{{ config(
+    materialized='view'
+) }}
+
+SELECT *
+FROM {{ ref('${satName}') }}
+WHERE dss_is_current = 'Y'
+`;
+
+  const filePath = path.join(
+    projectPath,
+    'models',
+    'raw_vault',
+    concept,
+    'satellites',
+    `${viewName}.sql`
+  );
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, sql, 'utf-8');
+
+  return { path: filePath, content: sql, type: 'satellite_current_view' };
+}
+
+/**
  * Generate Split-Satellite SQL file using automate_dv.sat macro
  * 
  * Split-Satellite: A satellite that points to an EXISTING Hub
@@ -611,7 +723,7 @@ async function generateSplitSatellite(
   const satName = `sat_${entityName}`;  // Unique satellite name
   const hashKeyName = `hk_${targetEntity.toLowerCase()}`;  // Use TARGET hub's hash key!
   const hashDiffName = `hd_${entityName.toLowerCase()}`;  // Own hash diff for change detection
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build payload list (lowercase to match staging)
   const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
@@ -741,7 +853,7 @@ async function generateLink(
   const sourceHashKey = `hk_${entityName.toLowerCase()}`;
   // Target FK hash key also needs suffix when multiple FKs point to same hub
   const targetHashKey = `hk_${targetEntity.toLowerCase()}${linkSuffix}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Determine if this is a DC Link (no source BK, only target FK + DCK)
   const hasDCKs = dependentChildKeys.length > 0;
@@ -861,7 +973,7 @@ async function generateDependentChildSatellite(
   const dcSatName = `sat_${entityName}_${targetEntity}_dc`;
   const linkHashKey = `hk_${linkName.toLowerCase()}`;
   const hashDiffName = `hd_${dcSatName.toLowerCase().replace('sat_', '')}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // DCKs become part of the payload for DC Satellites
   const dckPayload = dependentChildKeys.map(dck => `"${dck.name.toLowerCase()}"`);
@@ -960,7 +1072,7 @@ async function generateMultiActiveSatellite(
   const maSatName = `sat_${entityName}_ma`;
   const hashKeyName = `hk_${entityName.toLowerCase()}`;
   const hashDiffName = `hd_${entityName.toLowerCase()}_ma`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build MA CDK list - these columns distinguish concurrent records
   const cdkColumns = multiActiveKeys.map(ma => `"${ma.name.toLowerCase()}"`);
@@ -1083,7 +1195,7 @@ async function generatePureLink(
   // Link name: link_<entity1>_<entity2> (e.g., link_kunde_adresse)
   const linkName = `link_${targetEntities.join('_')}`;
   const linkHashKey = `hk_${linkName}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build src_fk list - one hash key per FK
   const fkHashKeys = targetEntities.map(entity => `hk_${entity}`);
@@ -1186,7 +1298,7 @@ async function generateDCLink(
   // Link name: link_<entityName> for DC (e.g., link_salesorderdetail)
   const linkName = `link_${entityName}`;
   const linkHashKey = `hk_${linkName}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build src_fk list - one hash key per FK (referencing existing Hubs)
   const fkHashKeys = targetEntities.map(entity => `hk_${entity}`);
@@ -1279,7 +1391,7 @@ async function generateCombinedDCSatellite(
   const dcSatName = `sat_${entityName}_dc`;
   const linkHashKey = `hk_${linkName}`;
   const hashDiffName = `hd_${entityName}_dc`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // DCKs become part of the payload for DC Satellites
   const dckPayload = dependentChildKeys.map(dck => `"${dck.name.toLowerCase()}"`);
@@ -1395,7 +1507,7 @@ async function generateLinkSatellite(
   const satName = `sat_${targetEntities.join('_')}`;
   const linkHashKey = `hk_${linkName}`;
   const hashDiffName = `hd_${targetEntities.join('_')}`;
-  const stagingRef = `${concept}_${entityName}`;
+  const stagingRef = deriveStagingName(config.sourceTable || `ext_${concept}_${entityName}`);
 
   // Build payload from attributes
   const payloadColumns = attributes.map(a => `"${a.name.toLowerCase()}"`);
@@ -1481,6 +1593,7 @@ export async function generateSchemaYaml(
   projectPath: string
 ): Promise<GeneratedFile> {
   const { concept, entityName } = config;
+  const satEntityName = config.satelliteName || entityName;
   
   // Helper to check if column has a type (primary or additional)
   const hasType = (col: DesignerColumnDefinition, type: string): boolean => {
@@ -1492,8 +1605,10 @@ export async function generateSchemaYaml(
     hasType(c, 'business_key') || hasType(c, 'hub')
   );
   // Include columns that are satellite OR have satellite in additionalTypes
+  // Filter out columns explicitly excluded from payload
   const attributes = config.columns.filter(c => 
-    hasType(c, 'attribute') || hasType(c, 'satellite')
+    (hasType(c, 'attribute') || hasType(c, 'satellite')) &&
+    c.includeInPayload !== false
   );
   const dependentChildKeys = config.columns.filter(c => 
     hasType(c, 'dependent_child')
@@ -1548,9 +1663,9 @@ models:`;
   if (generatedFiles.some(f => f.type === 'satellite')) {
     yamlContent += `
 
-  - name: sat_${entityName}
+  - name: sat_${satEntityName}
     description: |
-      Satellite for ${entityName} attributes.
+      Satellite for ${satEntityName} attributes.
       Generated by Entity Designer using automate_dv.sat macro.
     columns:
       - name: hk_${entityName.toLowerCase()}
@@ -1559,7 +1674,7 @@ models:`;
         tests:
           - not_null
       - name: hashdiff
-        description: Hash Diff for change detection (aliased from hd_${entityName.toLowerCase()})
+        description: Hash Diff for change detection (aliased from hd_${satEntityName.toLowerCase()})
         data_type: char(64)
         tests:
           - not_null`;
@@ -1633,12 +1748,16 @@ models:`;
 
   yamlContent += '\n';
 
+  // YAML filename: _<concept>__models.yml
+  // Handle concepts starting with underscore (e.g., _common → _common__models.yml, not __common__models.yml)
+  const yamlPrefix = concept.startsWith('_') ? '' : '_';
+  
   const filePath = path.join(
     projectPath,
     'models',
     'raw_vault',
     concept,
-    `_${concept}__models.yml`
+    `${yamlPrefix}${concept}__models.yml`
   );
 
   // Check if file exists and merge/update if needed
@@ -1673,7 +1792,11 @@ models:`;
       newModelNames.add(`hub_${entityName}`);
     }
     if (generatedFiles.some(f => f.type === 'satellite')) {
-      newModelNames.add(`sat_${entityName}`);
+      // Add all satellite file names (for multi-satellite support)
+      const satFiles = generatedFiles.filter(f => f.type === 'satellite');
+      for (const satFile of satFiles) {
+        newModelNames.add(path.basename(satFile.path, '.sql'));
+      }
     }
     for (const linkFile of linkFiles) {
       newModelNames.add(path.basename(linkFile.path, '.sql'));
@@ -1693,6 +1816,11 @@ models:`;
     for (const linkSatFile of linkSatFiles) {
       newModelNames.add(path.basename(linkSatFile.path, '.sql'));
     }
+    // Add Satellite Current Views
+    const currentViewFiles = generatedFiles.filter(f => f.type === 'satellite_current_view');
+    for (const cvFile of currentViewFiles) {
+      newModelNames.add(path.basename(cvFile.path, '.sql'));
+    }
     
     // Build new model definitions
     const newModelDefs: Array<{ name: string; description: string; columns: unknown[] }> = [];
@@ -1700,8 +1828,20 @@ models:`;
     if (newModelNames.has(`hub_${entityName}`)) {
       newModelDefs.push(buildHubYamlObject(entityName, businessKeys));
     }
-    if (newModelNames.has(`sat_${entityName}`)) {
-      newModelDefs.push(buildSatelliteYamlObject(entityName, attributes));
+    // Multi-satellite: add YAML entries for each satellite group
+    if (config.satellites && config.satellites.length > 0) {
+      for (const satDef of config.satellites) {
+        const satName = `sat_${satDef.name || satEntityName}`;
+        if (newModelNames.has(satName)) {
+          const groupAttrs = attributes.filter(a => a.satelliteGroup === satDef.id);
+          if (groupAttrs.length > 0) {
+            newModelDefs.push(buildSatelliteYamlObject(satDef.name || satEntityName, entityName, groupAttrs));
+          }
+        }
+      }
+    } else if (newModelNames.has(`sat_${satEntityName}`)) {
+      // Single satellite (no multi-satellite groups defined)
+      newModelDefs.push(buildSatelliteYamlObject(satEntityName, entityName, attributes));
     }
     for (const linkFile of linkFiles) {
       const linkName = path.basename(linkFile.path, '.sql');
@@ -1726,6 +1866,15 @@ models:`;
       const linkSatName = path.basename(linkSatFile.path, '.sql');
       if (newModelNames.has(linkSatName)) {
         newModelDefs.push(buildLinkSatelliteYamlObject(linkSatName, attributes, linkSatFile));
+      }
+    }
+    // Add Satellite Current Views
+    for (const cvFile of currentViewFiles) {
+      const cvName = path.basename(cvFile.path, '.sql');
+      if (newModelNames.has(cvName)) {
+        // Derive the source satellite name (remove _current_v suffix)
+        const sourceSatName = cvName.replace(/_current_v$/, '');
+        newModelDefs.push(buildCurrentViewYamlObject(cvName, sourceSatName, entityName));
       }
     }
     
@@ -2072,10 +2221,10 @@ function buildHubYamlObject(entityName: string, businessKeys: DesignerColumnDefi
 /**
  * Build YAML Object for a Satellite model (for YAML merge/update)
  */
-function buildSatelliteYamlObject(entityName: string, attributes: DesignerColumnDefinition[]): { name: string; description: string; columns: unknown[] } {
+function buildSatelliteYamlObject(satEntityName: string, hubEntityName: string, attributes: DesignerColumnDefinition[]): { name: string; description: string; columns: unknown[] } {
   const columns: unknown[] = [
     {
-      name: `hk_${entityName.toLowerCase()}`,
+      name: `hk_${hubEntityName.toLowerCase()}`,
       description: 'Hash Key (FK to Hub)',
       data_type: 'char(64)',
       tests: ['not_null']
@@ -2105,8 +2254,8 @@ function buildSatelliteYamlObject(entityName: string, attributes: DesignerColumn
   );
 
   return {
-    name: `sat_${entityName}`,
-    description: `Satellite for ${entityName} attributes.\nGenerated by Entity Designer using automate_dv.sat macro.\n`,
+    name: `sat_${satEntityName}`,
+    description: `Satellite for ${satEntityName} attributes.\nGenerated by Entity Designer using automate_dv.sat macro.\n`,
     columns
   };
 }
@@ -2325,6 +2474,40 @@ function buildLinkSatelliteYamlObject(
     name: linkSatName,
     description: `Link Satellite for relationship attributes.\nStores descriptive attributes of the link relationship.\nGenerated by Entity Designer using automate_dv.sat macro.\n`,
     columns
+  };
+}
+
+/**
+ * Build YAML object for a satellite current view
+ */
+function buildCurrentViewYamlObject(
+  viewName: string,
+  sourceSatName: string,
+  hubEntityName: string
+): { name: string; description: string; columns: unknown[] } {
+  return {
+    name: viewName,
+    description: `Current view for ${sourceSatName}.\nReturns only active records (dss_is_current = 'Y').\nGenerated by Entity Designer.\n`,
+    columns: [
+      {
+        name: `hk_${hubEntityName.toLowerCase()}`,
+        description: 'Hash Key (FK to Hub)',
+        data_type: 'char(64)',
+        tests: ['not_null']
+      },
+      {
+        name: 'dss_load_date',
+        description: 'Load timestamp',
+        data_type: 'datetime2(7)',
+        tests: ['not_null']
+      },
+      {
+        name: 'dss_record_source',
+        description: 'Data source identifier',
+        data_type: 'varchar(100)',
+        tests: ['not_null']
+      }
+    ]
   };
 }
 

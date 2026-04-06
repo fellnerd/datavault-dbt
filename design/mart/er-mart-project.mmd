@@ -1,0 +1,131 @@
+
+erDiagram
+
+
+    dim_abteilung {
+        bigint abteilung_key "SK = MD5(home_dept_nr) nicht PK eindeutig"
+        bigint person_key FK "dim_person (surrogate_key empl_nr)"
+        nvarchar abteilung_nr "Abteilungsnummer (home_dept_nr)"
+        nvarchar abteilung_name "Abteilungsbezeichnung (ref_abteilung GROUP=1) Fallback UNKNOWN"
+        nvarchar personal_nr "Personalnummer (hub_person.empl_nr)"
+        date mutation_date "Datum der Abteilungsmutation"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_person {
+        bigint person_key PK "SK = MD5(LOHNNR)"
+        nvarchar person_id "Technische ID"
+        nvarchar person_code "Initialen (abrv), Fallback PersonalNr"
+        nvarchar person_name "Nachname Vorname, Fallback UNKNOWN"
+        int abteilung_nr "sat_person__abacus.home_dept_nr"
+        nvarchar abteilung "ref_abteilung (GROUP=1), Fallback UNKNOWN"
+        date mutation_date "Letzte Aenderung"
+        date eintritt "sat_person__abacus.date_in"
+        date austritt "sat_person__abacus.date_out"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_projekt {
+        bigint projekt_key PK "SK = MD5(PROJNR)"
+        nvarchar projekt_id "Technische ID"
+        nvarchar projekt_code "ProjektNr als String"
+        nvarchar projekt_name "Projektbezeichnung, Fallback UNKNOWN"
+        int inaktiv "0=aktiv 1=inaktiv"
+        int gruppe_nr "Referenz-Projektnummer (refprojnr)"
+        date erstellt "Erstellungsdatum (creation)"
+        int status_nr "Status-Code"
+        nvarchar status "ref_projektstatus.bezeichn, Fallback UNKNOWN"
+        date status_datum "Letzte Statusaenderung (status1)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_leistungsart {
+        bigint leistungsart_key PK "SK = MD5(NUMBER)"
+        nvarchar leistungsart_id "Technische ID (number)"
+        nvarchar leistungsart_code "Typ, Fallback NUMBER"
+        nvarchar leistungsart_name "Beschreibung, Fallback UNKNOWN"
+        int inaktiv "Inaktiv-Flag"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_date {
+        int date_key PK "YYYYMMDD (materialized table)"
+        date full_date "Natuerlicher Schluessel"
+        int year "Kalenderjahr"
+        int iso_year "ISO-Wochenjahr (ggf. abweichend)"
+        int quarter "Quartal"
+        nvarchar quarter_name "Q1-Q4"
+        int month "Monat"
+        nvarchar month_name "Monatsname (de-DE)"
+        nvarchar year_month "YYYY-MM"
+        int iso_week "ISO Kalenderwoche"
+        int day_of_month "Tag im Monat"
+        nvarchar day_name "Wochentag (de-DE)"
+        char is_weekend "Y/N DATEFIRST-unabh."
+        char is_weekday "Y/N DATEFIRST-unabh."
+        char is_last_day_of_month "Y/N"
+        char is_first_day_of_quarter "Y/N"
+        char is_last_day_of_quarter "Y/N"
+        date first_day_of_quarter "Erster Tag des Quartals"
+        date last_day_of_quarter "Letzter Tag des Quartals"
+        datetime2 dss_load_date "Ladezeitpunkt"
+    }
+
+    dim_person {
+        bigint person_key PK "SK = MD5(LOHNNR)"
+        nvarchar person_id "Technische ID"
+        nvarchar person_code "Initialen (abrv), Fallback PersonalNr"
+        nvarchar person_name "Nachname Vorname, Fallback UNKNOWN"
+        int abteilung_nr "sat_person__abacus.home_dept_nr"
+        nvarchar abteilung "ref_abteilung (GROUP=1), Fallback UNKNOWN"
+        date mutation_date "Letzte Aenderung"
+        date eintritt "sat_person__abacus.date_in"
+        int eintritt_date_key FK "dim_date (YYYYMMDD aus date_in)"
+        date austritt "sat_person__abacus.date_out"
+        int austritt_date_key FK "dim_date (YYYYMMDD aus date_out)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_projekt {
+        bigint projekt_key PK "SK = MD5(PROJNR)"
+        nvarchar projekt_id "Technische ID"
+        nvarchar projekt_code "ProjektNr als String"
+        nvarchar projekt_name "Projektbezeichnung, Fallback UNKNOWN"
+        int inaktiv "0=aktiv 1=inaktiv"
+        int gruppe_nr "Referenz-Projektnummer (refprojnr)"
+        date erstellt "Erstellungsdatum (creation)"
+        int erstellt_date_key FK "dim_date (YYYYMMDD aus creation)"
+        int status_nr "Status-Code"
+        nvarchar status "ref_projektstatus.bezeichn, Fallback UNKNOWN"
+        date status_datum "Letzte Statusaenderung (status1)"
+        int status_datum_date_key FK "dim_date (YYYYMMDD aus status1)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_stunden {
+        bigint projekt_key FK "dim_projekt (surrogate_key projnr)"
+        bigint leistungsart_key FK "dim_leistungsart (surrogate_key code)"
+        int perioden_date_key FK "dim_date (YYYYMMDD aus periyear+perimonth)"
+        decimal betrag "sat_projektsachkonto__abacus.azbetint"
+        nvarchar gb "Geschaeftsbereich (degenerate dim)"
+        int dataset "Abacus Dataset-Nr (degenerate dim)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_stunden }o--|| dim_projekt : "projekt_key"
+    fakt_stunden }o--|| dim_leistungsart : "leistungsart_key"
+    fakt_stunden }o--|| dim_date : "perioden_date_key"
+    dim_abteilung }o--|| dim_person : "person_key"
+    dim_person }o--o| dim_date : "eintritt_date_key"
+    dim_person }o--o| dim_date : "austritt_date_key"
+    dim_projekt }o--o| dim_date : "erstellt_date_key"
+    dim_projekt }o--o| dim_date : "status_datum_date_key"
+
+    

@@ -1,43 +1,147 @@
 version: 2
 models:
-  - name: adworks_adresse
-    description: Staging view for adresse from adworks
+  - name: ewb_fibu_fhe_main
+    description: Staging view for FIBU.FHE.Main from Abacus EWB
     config:
       meta:
         entity_type: standard
         source_type: external_table
-        external_table: ext_adventureworks_saleslt_address
+        external_table: ext_ewb_fibu_fhe_main
         business_keys:
-          - ADDRESSID
+          - RECNUM
     columns:
-      - name: hk_adresse
+      - name: hk_buchungskopf
         description: Hash Key (Primary Key)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_adresse
+      - name: hd_buchungskopf
         description: Hash Diff for change detection
         data_type: char(64)
         tests:
           - not_null
-      - name: ADDRESSID
-        description: Business Key
+      - name: RECNUM
+        description: Business Key (Datensatznummer)
+        data_type: decimal(38,18)
         tests:
           - not_null
-      - name: addressline1
+      - name: PLAN
         description: Payload attribute
-      - name: addressline2
+      - name: VARIANTE
         description: Payload attribute
-      - name: city
+      - name: LEVEL
         description: Payload attribute
-      - name: stateprovince
+      - name: ID
         description: Payload attribute
-      - name: countryregion
+      - name: TYP
         description: Payload attribute
-      - name: postalcode
+      - name: REF_LEVEL
         description: Payload attribute
-      - name: modifieddate
+      - name: REF_ID
+        description: Payload attribute
+      - name: REF_TYP
+        description: Payload attribute
+      - name: BOTTOM
+        description: Payload attribute
+      - name: FONTID
+        description: Payload attribute
+      - name: BEFORE
+        description: Payload attribute
+      - name: AFTER
+        description: Payload attribute
+      - name: BOLDSW
+        description: Payload attribute
+      - name: ULINESW
+        description: Payload attribute
+      - name: ITALICSW
+        description: Payload attribute
+      - name: SUPPRESS
+        description: Payload attribute
+      - name: NONUM
+        description: Payload attribute
+      - name: FORMFEED
+        description: Payload attribute
+      - name: INDENT
+        description: Payload attribute
+      - name: NODEFAULT
+        description: Payload attribute
+      - name: DECIMALS
+        description: Payload attribute
+      - name: SYSSW1
+        description: Payload attribute
+      - name: SYSSW2
+        description: Payload attribute
+      - name: SYSSW3
+        description: Payload attribute
+      - name: SYSSW4
+        description: Payload attribute
+      - name: SYSDAT1
+        description: Payload attribute
+      - name: SYSDAT2
+        description: Payload attribute
+      - name: APPSW1
+        description: Payload attribute
+      - name: APPSW2
+        description: Payload attribute
+      - name: APPSW3
+        description: Payload attribute
+      - name: APPSW4
+        description: Payload attribute
+      - name: APPSW5
+        description: Payload attribute
+      - name: APPSW6
+        description: Payload attribute
+      - name: APPSW7
+        description: Payload attribute
+      - name: APPSW8
+        description: Payload attribute
+      - name: APPSW9
+        description: Payload attribute
+      - name: APPSW10
+        description: Payload attribute
+      - name: APPNUM1
+        description: Payload attribute
+      - name: APPNUM2
+        description: Payload attribute
+      - name: APPNUM3
+        description: Payload attribute
+      - name: APPNUM4
+        description: Payload attribute
+      - name: APPNUM5
+        description: Payload attribute
+      - name: APPNUM6
+        description: Payload attribute
+      - name: APPSTR
+        description: Payload attribute (binary)
+        data_type: varbinary(8000)
+      - name: APPDAT1
+        description: Payload attribute
+      - name: APPDAT2
+        description: Payload attribute
+      - name: CREUSER
+        description: Created by user
+      - name: MUTUSER
+        description: Last modified by user
+      - name: CREDAT
+        description: Creation date
+      - name: MUTDAT
+        description: Last modification date
+      - name: ZUONR
+        description: Payload attribute
+      - name: ID_ASCII
+        description: Payload attribute
+      - name: IDTYP_ASCII
+        description: Payload attribute
+      - name: ENTERPRISE
+        description: Payload attribute
+      - name: GUID
+        description: Payload attribute
+      - name: APPGUID1
+        description: Payload attribute
+      - name: APPGUID2
+        description: Payload attribute
+      - name: APPGUID3
         description: Payload attribute
       - name: dss_record_source
         description: Data source identifier
@@ -51,56 +155,953 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: adworks_kunde
-    description: Staging view for kunde from adworks
+  - name: ewb_fibu_gl
+    description: >
+      Staging view for FIBU.GL (Hauptbuch) — Folder-Scan aller Jahresscheiben E22-E26+.
+      BK: RECNUM (unique row identifier). DKBELEGNUMMER+KTO ist NICHT unique (62% Nullen, bis zu 96 Duplikate).
+      ~890.000 Buchungszeilen über alle Jahresscheiben.
     config:
       meta:
         entity_type: standard
         source_type: external_table
-        external_table: ext_adventureworks_saleslt_customer
+        external_table: ext_ewb_fibu_gl
         business_keys:
-          - CUSTOMERID
+          - RECNUM
     columns:
-      - name: hk_kunde
-        description: Hash Key (Primary Key)
+      - name: hk_hauptbuch
+        description: >
+          Hash Key basierend auf RECNUM (unique row identifier).
+          BK-Entscheidung 29.3.2026: DKBELEGNUMMER+KTO nicht unique → RECNUM als alleiniger BK.
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_kunde
+      - name: hd_hauptbuch
+        description: Hash Diff for change detection (178 Payload-Spalten)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_buchungskopf
+        description: Hash Key FK → hub_buchungskopf (DKBELEGNUMMER = FHE.RECNUM)
+        data_type: char(64)
+      - name: hk_kreditor
+        description: Hash Key FK → hub_kreditor (DKKUNDENNUMMER)
+        data_type: char(64)
+      - name: hk_konto
+        description: Hash Key FK → hub_konto Ghost Hub (KTO)
+        data_type: char(64)
+      - name: hk_kostenstelle
+        description: Hash Key FK → hub_kostenstelle Ghost Hub (KST)
+        data_type: char(64)
+      - name: hk_projekt
+        description: Hash Key FK → hub_projekt (PROJ)
+        data_type: char(64)
+      - name: hk_link_hauptbuch_buchungskopf
+        description: Link Hash Key — hauptbuch ↔ buchungskopf
+        data_type: char(64)
+      - name: DKBELEGNUMMER
+        description: Belegnummer (FK → hub_buchungskopf via DKBELEGNUMMER = FHE.RECNUM)
+        data_type: decimal(38,18)
+      - name: KTO
+        description: Kontonummer (FK → hub_konto Ghost Hub)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: SYSKEY
+        description: Abacus System Key
+        data_type: nvarchar(4000)
+      - name: RECNUM
+        description: Business Key — unique Row Identifier (GL-intern)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: DATE
+        description: Buchungsdatum (Reserved Keyword — escaped)
+        data_type: datetime2
+      - name: BELNR
+        description: Belegnummer (Abacus-intern)
+        data_type: nvarchar(4000)
+      - name: GKTO
+        description: Gegenkonto
+        data_type: decimal(38,18)
+      - name: SAM
+        description: Sammelkonto-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: TEXT
+        description: Buchungstext (Reserved Keyword — escaped)
+        data_type: nvarchar(4000)
+      - name: BETRAG
+        description: Buchungsbetrag in Leitwährung
+        data_type: decimal(38,18)
+      - name: SH
+        description: Soll/Haben-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: PANR
+        description: PA-Nummer
+        data_type: nvarchar(4000)
+      - name: BDATE
+        description: Belegdatum
+        data_type: datetime2
+      - name: KST
+        description: Kostenstelle
+        data_type: decimal(38,18)
+      - name: WAEHR
+        description: Währungscode
+        data_type: nvarchar(4000)
+      - name: FRW
+        description: Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: FWAUTO
+        description: FW-Auto-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: FBETR
+        description: Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: KST2
+        description: Kostenstelle 2
+        data_type: decimal(38,18)
+      - name: SPEC1
+        description: Spezialfeld 1
+        data_type: nvarchar(4000)
+      - name: SPEC2
+        description: Spezialfeld 2
+        data_type: nvarchar(4000)
+      - name: TEXT2
+        description: Zusätzlicher Buchungstext
+        data_type: nvarchar(4000)
+      - name: SAMNR
+        description: Sammelbuchungsnummer
+        data_type: decimal(38,18)
+      - name: VDATE
+        description: Valuta-Datum
+        data_type: datetime2
+      - name: KART_REF
+        description: Kontoart Referenz
+        data_type: decimal(38,18)
+      - name: GKART_REF
+        description: Gegenkontoart Referenz
+        data_type: decimal(38,18)
+      - name: KURS2
+        description: Wechselkurs 2
+        data_type: decimal(38,18)
+      - name: IMMO_HKNK_DAT
+        description: Immobilien HK/NK Datum
+        data_type: datetime2
+      - name: PROJ
+        description: Projektnummer
+        data_type: decimal(38,18)
+      - name: COMPANY
+        description: Mandantennummer
+        data_type: decimal(38,18)
+      - name: MENGE
+        description: Menge
+        data_type: decimal(38,18)
+      - name: MENGE_BEZ
+        description: Mengenbezeichnung
+        data_type: nvarchar(4000)
+      - name: FWWHO
+        description: FW-Who Kennzeichen
+        data_type: nvarchar(4000)
+      - name: CODE
+        description: Buchungscode
+        data_type: nvarchar(4000)
+      - name: KORR
+        description: Korrektur-Kennzeichen
+        data_type: decimal(38,18)
+      - name: GPROJ
+        description: Gegenprojekt
+        data_type: decimal(38,18)
+      - name: MWSTKTO
+        description: MWST-Konto
+        data_type: decimal(38,18)
+      - name: KSTNR
+        description: Kostenstellennummer
+        data_type: decimal(38,18)
+      - name: DRUCK
+        description: Druck-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: KART
+        description: Kontoart
+        data_type: nvarchar(4000)
+      - name: KFR
+        description: KFR-Kennzeichen
+        data_type: decimal(38,18)
+      - name: MWSTINCL
+        description: MWST inklusive Kennzeichen
+        data_type: nvarchar(4000)
+      - name: ISO
+        description: ISO-Währungscode
+        data_type: nvarchar(4000)
+      - name: ISO2
+        description: ISO-Währungscode 2
+        data_type: nvarchar(4000)
+      - name: ANSATZ
+        description: Ansatz
+        data_type: decimal(38,18)
+      - name: MWSTBETR
+        description: MWST-Betrag
+        data_type: decimal(38,18)
+      - name: AUFTRNR
+        description: Auftragsnummer
+        data_type: decimal(38,18)
+      - name: K_BETRAG
+        description: Konsolidierungsbetrag
+        data_type: decimal(38,18)
+      - name: FBETR2
+        description: Fremdwährungsbetrag 2
+        data_type: decimal(38,18)
+      - name: DIVISION
+        description: Division
+        data_type: decimal(38,18)
+      - name: MANDANT
+        description: Mandant
+        data_type: decimal(38,18)
+      - name: MWSTSATZ
+        description: MWST-Satz
+        data_type: decimal(38,18)
+      - name: MWSTKTO2
+        description: MWST-Konto 2
+        data_type: decimal(38,18)
+      - name: FOND1
+        description: Fonds 1
+        data_type: decimal(38,18)
+      - name: FOND2
+        description: Fonds 2
+        data_type: decimal(38,18)
+      - name: MWSTTYP
+        description: MWST-Typ
+        data_type: decimal(38,18)
+      - name: A1
+        description: Attribut A1
+        data_type: nvarchar(4000)
+      - name: VISIERT
+        description: Visiert-Kennzeichen
+        data_type: nvarchar(4000)
+      - name: A3
+        description: Attribut A3
+        data_type: nvarchar(4000)
+      - name: A4
+        description: Attribut A4
+        data_type: nvarchar(4000)
+      - name: VERSION
+        description: Versionsnummer
+        data_type: decimal(38,18)
+      - name: N2
+        description: Numerisches Feld 2
+        data_type: decimal(38,18)
+      - name: SOLLIST
+        description: Soll/Ist-Kennzeichen
+        data_type: decimal(38,18)
+      - name: MWSTSH
+        description: MWST Soll/Haben
+        data_type: decimal(38,18)
+      - name: GATTUNG
+        description: Buchungsgattung
+        data_type: decimal(38,18)
+      - name: DATE1
+        description: Zusatzdatum
+        data_type: datetime2
+      - name: MWSTCODE
+        description: MWST-Code
+        data_type: nvarchar(4000)
+      - name: MWSTFWBETR
+        description: MWST-Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: MWSTKOEFF
+        description: MWST-Koeffizient
+        data_type: decimal(38,18)
+      - name: MWSTMONAT
+        description: MWST-Abrechnungsmonat
+        data_type: decimal(38,18)
+      - name: MWSTJAHR
+        description: MWST-Abrechnungsjahr
+        data_type: decimal(38,18)
+      - name: MWSTLAND
+        description: MWST-Land
+        data_type: nvarchar(4000)
+      - name: MWSTMETH
+        description: MWST-Methode
+        data_type: decimal(38,18)
+      - name: RESTBETR
+        description: Restbetrag
+        data_type: decimal(38,18)
+      - name: RESTFWBETR
+        description: Rest-Fremdwährungsbetrag
+        data_type: decimal(38,18)
+      - name: KAT1
+        description: Kategorie 1
+        data_type: nvarchar(4000)
+      - name: KAT2
+        description: Kategorie 2
+        data_type: nvarchar(4000)
+      - name: INVEANLAGENNR
+        description: Investitions-Anlagennummer
+        data_type: nvarchar(4000)
+      - name: REC
+        description: Buchungsreihenfolge
+        data_type: decimal(38,18)
+      - name: EBSORT
+        description: EB-Sortierung
+        data_type: decimal(38,18)
+      - name: DEB_NUM1
+        description: Debitor Nummer 1
+        data_type: decimal(38,18)
+      - name: DEB_NUM2
+        description: Debitor Nummer 2
+        data_type: decimal(38,18)
+      - name: DEB_NUM3
+        description: Debitor Nummer 3
+        data_type: decimal(38,18)
+      - name: DEB_ASCII
+        description: Debitor ASCII
+        data_type: nvarchar(4000)
+      - name: EURKOEF1
+        description: EUR-Koeffizient 1
+        data_type: decimal(38,18)
+      - name: EURKOEF2
+        description: EUR-Koeffizient 2
+        data_type: decimal(38,18)
+      - name: GUID1
+        description: GUID Referenz
+        data_type: nvarchar(4000)
+      - name: MWSTKFR1
+        description: MWST KFR 1
+        data_type: decimal(38,18)
+      - name: MWSTKFR2
+        description: MWST KFR 2
+        data_type: decimal(38,18)
+      - name: ZINSARID
+        description: Zins ARID
+        data_type: decimal(38,18)
+      - name: OUTARID
+        description: Out ARID
+        data_type: decimal(38,18)
+      - name: B2BARID
+        description: B2B ARID
+        data_type: decimal(38,18)
+      - name: KONSMUARID
+        description: Konsumenten ARID
+        data_type: decimal(38,18)
+      - name: COMPANY2
+        description: Mandant 2
+        data_type: decimal(38,18)
+      - name: MATCH1
+        description: Matching-Feld
+        data_type: nvarchar(4000)
+      - name: MWSTFWISO
+        description: MWST FW ISO
+        data_type: nvarchar(4000)
+      - name: MWSTARID
+        description: MWST ARID
+        data_type: decimal(38,18)
+      - name: KONSTOARID
+        description: Konsolidierung ARID
+        data_type: decimal(38,18)
+      - name: KURSARID
+        description: Kurs ARID
+        data_type: decimal(38,18)
+      - name: ELIARID
+        description: Eliminierungs ARID
+        data_type: decimal(38,18)
+      - name: ELIGRPNR
+        description: Eliminierungsgruppen-Nr
+        data_type: decimal(38,18)
+      - name: KONSCODE
+        description: Konsolidierungscode
+        data_type: nvarchar(4000)
+      - name: CLEARINGARIDCREDIT
+        description: Clearing ARID Credit
+        data_type: decimal(38,18)
+      - name: ISREMOTEUSER
+        description: Remote User Kennzeichen
+        data_type: decimal(38,18)
+      - name: FBUCHART
+        description: Fremdwährungs-Buchungsart
+        data_type: nvarchar(4000)
+      - name: NUMRES3
+        description: Numerische Reserve 3
+        data_type: decimal(38,18)
+      - name: NUMRES4
+        description: Numerische Reserve 4
+        data_type: decimal(38,18)
+      - name: PROJEBENE
+        description: Projektebene
+        data_type: decimal(38,18)
+      - name: GPROJEBENE
+        description: Gegenprojektebene
+        data_type: decimal(38,18)
+      - name: FREMDIDNUMMER
+        description: Fremd-ID Nummer
+        data_type: decimal(38,18)
+      - name: FREMDIDBEZEICHNUNG
+        description: Fremd-ID Bezeichnung
+        data_type: nvarchar(4000)
+      - name: CLEARINGTEXT
+        description: Clearing-Text
+        data_type: nvarchar(4000)
+      - name: CLEARINGARIDDEBIT
+        description: Clearing ARID Debit
+        data_type: decimal(38,18)
+      - name: MWSTKTOISO
+        description: MWST-Konto ISO
+        data_type: nvarchar(4000)
+      - name: MWSTKTOKURS
+        description: MWST-Konto Kurs
+        data_type: decimal(38,18)
+      - name: KOREBASIS
+        description: Korrekturbasis
+        data_type: decimal(38,18)
+      - name: PROZWERT
+        description: Prozentwert
+        data_type: decimal(38,18)
+      - name: DKKUNDENNUMMER
+        description: DK-Kundennummer (FK → hub_kreditor)
+        data_type: decimal(38,18)
+      - name: DKPOSNUMMER
+        description: DK-Positionsnummer
+        data_type: decimal(38,18)
+      - name: ABEAAUFTRAGNR
+        description: ABEA Auftragsnummer
+        data_type: decimal(38,18)
+      - name: ABEARUECKNR
+        description: ABEA Rückrechnungsnummer
+        data_type: decimal(38,18)
+      - name: IMMO_ABR_ART
+        description: Immobilien Abrechnungsart
+        data_type: decimal(38,18)
+      - name: IMMO_ABR_ABR_DAT
+        description: Immobilien Abrechnungsdatum
+        data_type: datetime2
+      - name: IMMO_ABR_ABR_DAT_2
+        description: Immobilien Abrechnungsdatum 2
+        data_type: datetime2
+      - name: ABGRENZNR
+        description: Abgrenzungsnummer
+        data_type: decimal(38,18)
+      - name: ABGRENZVON
+        description: Abgrenzung von
+        data_type: datetime2
+      - name: ABGRENZBIS
+        description: Abgrenzung bis
+        data_type: datetime2
+      - name: CONTRADIVKTO
+        description: Contra-Division Konto
+        data_type: decimal(38,18)
+      - name: ENTERPRISE
+        description: Enterprise-Kennzeichen
+        data_type: decimal(38,18)
+      - name: CONTRADIVGKTO
+        description: Contra-Division Gegenkonto
+        data_type: decimal(38,18)
+      - name: CONTRADIVGUID
+        description: Contra-Division GUID
+        data_type: nvarchar(4000)
+      - name: CONTRADIVID
+        description: Contra-Division ID
+        data_type: nvarchar(4000)
+      - name: CONTRADIVARID
+        description: Contra-Division ARID
+        data_type: decimal(38,18)
+      - name: ZIELGBKTO
+        description: Ziel-GB Konto
+        data_type: decimal(38,18)
+      - name: ZIELGBKST
+        description: Ziel-GB Kostenstelle
+        data_type: decimal(38,18)
+      - name: ZIELGBPRO
+        description: Ziel-GB Projekt
+        data_type: decimal(38,18)
+      - name: ZIELGBPROJ
+        description: Ziel-GB Projektnummer
+        data_type: decimal(38,18)
+      - name: ABGRENZID
+        description: Abgrenzungs-ID
+        data_type: nvarchar(4000)
+      - name: ZIELABGRENZNR
+        description: Ziel-Abgrenzungsnummer
+        data_type: decimal(38,18)
+      - name: ZIELABGRENZVON
+        description: Ziel-Abgrenzung von
+        data_type: datetime2
+      - name: ZIELABGRENZBIS
+        description: Ziel-Abgrenzung bis
+        data_type: datetime2
+      - name: ACCESSID
+        description: Access-ID
+        data_type: decimal(38,18)
+      - name: MWSTAUTOARIDTYP
+        description: MWST Auto-ARID Typ
+        data_type: decimal(38,18)
+      - name: BUGUID
+        description: Buchungs-GUID
+        data_type: nvarchar(4000)
+      - name: SAMGUID
+        description: Sammel-GUID
+        data_type: nvarchar(4000)
+      - name: KORRGUID
+        description: Korrektur-GUID
+        data_type: nvarchar(4000)
+      - name: BUREL
+        description: Buchungsrelation
+        data_type: decimal(38,18)
+      - name: MWSTKTOBETR
+        description: MWST-Konto Betrag
+        data_type: decimal(38,18)
+      - name: MWSTKTORESTBETR
+        description: MWST-Konto Restbetrag
+        data_type: decimal(38,18)
+      - name: CONTRADIVINVDATE
+        description: Contra-Division Invoice Date
+        data_type: datetime2
+      - name: MWSTARIDAUSLAND
+        description: MWST ARID Ausland
+        data_type: decimal(38,18)
+      - name: BUDOVERARID
+        description: Budget Override ARID
+        data_type: decimal(38,18)
+      - name: INVEVB
+        description: Investition VB
+        data_type: decimal(38,18)
+      - name: INVEBA
+        description: Investition BA
+        data_type: decimal(38,18)
+      - name: INVEID
+        description: Investition ID
+        data_type: decimal(38,18)
+      - name: INVEVBART
+        description: Investition VB-Art
+        data_type: decimal(38,18)
+      - name: INVEBUPOSRF
+        description: Investition Buchungsposition RF
+        data_type: decimal(38,18)
+      - name: STAPEL
+        description: Stapelnummer
+        data_type: decimal(38,18)
+      - name: ORGSTAPEL
+        description: Original-Stapelnummer
+        data_type: decimal(38,18)
+      - name: FDK
+        description: FDK-Kennzeichen
+        data_type: decimal(38,18)
+      - name: GROBPLAN
+        description: Grobplan-Kennzeichen
+        data_type: decimal(38,18)
+      - name: DETAILPLAN
+        description: Detailplan-Kennzeichen
+        data_type: decimal(38,18)
+      - name: MWSTREV
+        description: MWST Revision
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTCODE
+        description: Ziel-GB MWST-Code
+        data_type: nvarchar(4000)
+      - name: ZIELGBMWSTINCL
+        description: Ziel-GB MWST inklusive
+        data_type: nvarchar(4000)
+      - name: ZIELGBMWSTKOEFF
+        description: Ziel-GB MWST-Koeffizient
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTSATZ
+        description: Ziel-GB MWST-Satz
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTBETR
+        description: Ziel-GB MWST-Betrag
+        data_type: decimal(38,18)
+      - name: ZIELGBMWSTFWBETR
+        description: Ziel-GB MWST FW-Betrag
+        data_type: decimal(38,18)
+      - name: ZIELGBRESTBETR
+        description: Ziel-GB Restbetrag
+        data_type: decimal(38,18)
+      - name: ZIELGBRESTFWBETR
+        description: Ziel-GB Rest-FW-Betrag
+        data_type: decimal(38,18)
+      - name: MERCHANTCATEGORYCODE
+        description: Merchant Category Code
+        data_type: decimal(38,18)
+      - name: MERCHANTCATEGORYGRP
+        description: Merchant Category Group
+        data_type: decimal(38,18)
+      - name: ADDRESS
+        description: Adress-Referenz
+        data_type: decimal(38,18)
+      - name: FUPGUID
+        description: FUP GUID
+        data_type: nvarchar(4000)
+      - name: FUPBUSINESSCASE
+        description: FUP Business Case
+        data_type: decimal(38,18)
+      - name: FUPENTRYSET
+        description: FUP Entry Set
+        data_type: decimal(38,18)
+      - name: FUPID
+        description: FUP ID
+        data_type: nvarchar(4000)
+      - name: MWSTAUTOARID
+        description: MWST Auto-ARID
+        data_type: decimal(38,18)
+      - name: IMMOGB
+        description: Immobilien Geschäftsbereich
+        data_type: decimal(38,18)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: ewb_lohn_len_main
+    description: Staging view for person from _common
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_lohn_len_main
+        business_keys:
+          - EMPL_NR
+    columns:
+      - name: hk_person
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_person
         description: Hash Diff for change detection
         data_type: char(64)
         tests:
           - not_null
-      - name: CUSTOMERID
+      - name: EMPL_NR
         description: Business Key
         tests:
           - not_null
-      - name: namestyle
+      - name: syskey
         description: Payload attribute
-      - name: title
+      - name: recnum
         description: Payload attribute
-      - name: firstname
+      - name: empl_id
         description: Payload attribute
-      - name: middlename
+      - name: last_name
         description: Payload attribute
-      - name: lastname
+      - name: first_name
         description: Payload attribute
-      - name: suffix
+      - name: badge_id
         description: Payload attribute
-      - name: companyname
+      - name: home_dept_nr
         description: Payload attribute
-      - name: salesperson
+      - name: calc_group
         description: Payload attribute
-      - name: emailaddress
+      - name: book_group
         description: Payload attribute
-      - name: phone
+      - name: adr_inr
         description: Payload attribute
-      - name: passwordhash
+      - name: lpe_year
         description: Payload attribute
-      - name: passwordsalt
+      - name: lpe_month
         description: Payload attribute
-      - name: modifieddate
+      - name: date_in
+        description: Payload attribute
+      - name: date_out
+        description: Payload attribute
+      - name: birthday
+        description: Payload attribute
+      - name: sex
+        description: Payload attribute
+      - name: rhythm
+        description: Payload attribute
+      - name: type
+        description: Payload attribute
+      - name: language_code
+        description: Payload attribute
+      - name: type_of_max
+        description: Payload attribute
+      - name: mutation_date
+        description: Payload attribute
+      - name: mutations
+        description: Payload attribute
+      - name: user_f
+        description: Payload attribute
+      - name: nation_id
+        description: Payload attribute
+      - name: iso_code
+        description: Payload attribute
+      - name: national_2
+        description: Payload attribute
+      - name: national_4
+        description: Payload attribute
+      - name: national_5
+        description: Payload attribute
+      - name: national_6
+        description: Payload attribute
+      - name: national_7
+        description: Payload attribute
+      - name: national_8
+        description: Payload attribute
+      - name: national_10
+        description: Payload attribute
+      - name: national_nr_5
+        description: Payload attribute
+      - name: national_id_1
+        description: Payload attribute
+      - name: national_id_7
+        description: Payload attribute
+      - name: national_id_8
+        description: Payload attribute
+      - name: national_sw_1
+        description: Payload attribute
+      - name: national_code_1
+        description: Payload attribute
+      - name: national_code_3
+        description: Payload attribute
+      - name: national_code_4
+        description: Payload attribute
+      - name: national_text
+        description: Payload attribute
+      - name: national_date_1
+        description: Payload attribute
+      - name: abrv
+        description: Payload attribute
+      - name: nationality
+        description: Payload attribute
+      - name: birth_place
+        description: Payload attribute
+      - name: var_abrv
+        description: Payload attribute
+      - name: var_text
+        description: Payload attribute
+      - name: nr_1
+        description: Payload attribute
+      - name: nr_2
+        description: Payload attribute
+      - name: nr_3
+        description: Payload attribute
+      - name: nr_4
+        description: Payload attribute
+      - name: nr_6
+        description: Payload attribute
+      - name: nr_7
+        description: Payload attribute
+      - name: nr_8
+        description: Payload attribute
+      - name: nr_9
+        description: Payload attribute
+      - name: nr_10
+        description: Payload attribute
+      - name: code_1
+        description: Payload attribute
+      - name: code_2
+        description: Payload attribute
+      - name: code_3
+        description: Payload attribute
+      - name: code_7
+        description: Payload attribute
+      - name: code_8
+        description: Payload attribute
+      - name: code_9
+        description: Payload attribute
+      - name: date_1
+        description: Payload attribute
+      - name: date_2
+        description: Payload attribute
+      - name: date_3
+        description: Payload attribute
+      - name: inr_placeofwork
+        description: Payload attribute
+      - name: periodicity
+        description: Payload attribute
+      - name: retirement_date
+        description: Payload attribute
+      - name: not_ful_fit_for_work
+        description: Payload attribute
+      - name: bvg_code
+        description: Payload attribute
+      - name: bvg_contribution
+        description: Payload attribute
+      - name: soc_insur_nr_unknown
+        description: Payload attribute
+      - name: oasi_exempt_pension
+        description: Payload attribute
+      - name: bvg_level_employment
+        description: Payload attribute
+      - name: bvg_deg_disability
+        description: Payload attribute
+      - name: part_retirement_date
+        description: Payload attribute
+      - name: disable_for_empl_com
+        description: Payload attribute
+      - name: excluded_from_review
+        description: Payload attribute
+      - name: hide_in_empl_dir
+        description: Payload attribute
+      - name: cons_nr
+        description: Payload attribute
+      - name: rights
+        description: Payload attribute
+      - name: checks
+        description: Payload attribute
+      - name: rightspis
+        description: Payload attribute
+      - name: checkspis
+        description: Payload attribute
+      - name: gb
+        description: Payload attribute
+      - name: enterprise
+        description: Payload attribute
+      - name: single_parent_family
+        description: Payload attribute
+      - name: auto_approve_absence
+        description: Payload attribute
+      - name: auto_approve_booking
+        description: Payload attribute
+      - name: auto_approve_trip
+        description: Payload attribute
+      - name: email_category
+        description: Payload attribute
+      - name: vacation_acc_table
+        description: Payload attribute
+      - name: act_upps
+        description: Payload attribute
+      - name: abaprgrp
+        description: Payload attribute
+      - name: law_codes
+        description: Payload attribute
+      - name: law_exptyp
+        description: Payload attribute
+      - name: act_lohn
+        description: Payload attribute
+      - name: act_pis
+        description: Payload attribute
+      - name: act_prj
+        description: Payload attribute
+      - name: grp_lc
+        description: Payload attribute
+      - name: sync_kvs
+        description: Payload attribute
+      - name: autodate
+        description: Payload attribute
+      - name: proj_timemodel
+        description: Payload attribute
+      - name: lat_nr
+        description: Payload attribute
+      - name: agricultura_employee
+        description: Payload attribute
+      - name: degree_rel_ship
+        description: Payload attribute
+      - name: sw_wifeworkinch
+        description: Payload attribute
+      - name: soc_insurance_nr
+        description: Payload attribute
+      - name: nr_11
+        description: Payload attribute
+      - name: nr_12
+        description: Payload attribute
+      - name: nr_13
+        description: Payload attribute
+      - name: nr_14
+        description: Payload attribute
+      - name: zar_nr
+        description: Payload attribute
+      - name: zemis_nr
+        description: Payload attribute
+      - name: contract
+        description: Payload attribute
+      - name: contract_type
+        description: Payload attribute
+      - name: sw_1
+        description: Payload attribute
+      - name: sw_2
+        description: Payload attribute
+      - name: sw_3
+        description: Payload attribute
+      - name: sw_4
+        description: Payload attribute
+      - name: sw_5
+        description: Payload attribute
+      - name: code_11
+        description: Payload attribute
+      - name: nr_16
+        description: Payload attribute
+      - name: nr_17
+        description: Payload attribute
+      - name: nr_18
+        description: Payload attribute
+      - name: nr_19
+        description: Payload attribute
+      - name: nr_20
+        description: Payload attribute
+      - name: nrl_1
+        description: Payload attribute
+      - name: nrl_2
+        description: Payload attribute
+      - name: value_1
+        description: Payload attribute
+      - name: nr_21
+        description: Payload attribute
+      - name: nr_23
+        description: Payload attribute
+      - name: nr_24
+        description: Payload attribute
+      - name: nr_25
+        description: Payload attribute
+      - name: var_text2
+        description: Payload attribute
+      - name: var_text3
+        description: Payload attribute
+      - name: post_int_adr1
+        description: Payload attribute
+      - name: post_int_adr_tel
+        description: Payload attribute
+      - name: post_qual_grp
+        description: Payload attribute
+      - name: clearingtext_1
+        description: Payload attribute
+      - name: clearingtext_2
+        description: Payload attribute
+      - name: clearingtext_3
+        description: Payload attribute
+      - name: clearingtext_4
+        description: Payload attribute
+      - name: clearingtext_5
+        description: Payload attribute
+      - name: nr_27
+        description: Payload attribute
+      - name: nr_29
+        description: Payload attribute
+      - name: relevant_for_logib
+        description: Payload attribute
+      - name: perm_staff_p_admin
+        description: Payload attribute
+      - name: temp_agency_worker
+        description: Payload attribute
+      - name: len_date
+        description: Payload attribute
+      - name: _userfield1
+        description: Payload attribute
+      - name: _userfield2
+        description: Payload attribute
+      - name: _userfield3
+        description: Payload attribute
+      - name: _userfield4
+        description: Payload attribute
+      - name: _userfield5
+        description: Payload attribute
+      - name: _userfield6
+        description: Payload attribute
+      - name: _userfield7
+        description: Payload attribute
+      - name: _userfield8
+        description: Payload attribute
+      - name: _userfield9
+        description: Payload attribute
+      - name: _userfield10
+        description: Payload attribute
+      - name: _userfield11
+        description: Payload attribute
+      - name: timestamp_landing-zone
         description: Payload attribute
       - name: dss_record_source
         description: Data source identifier
@@ -114,54 +1115,186 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: adworks_kunde_adresse
-    description: Staging view for kunde_adresse from adworks
+  - name: ewb_lohn_ltc_main
+    description: "Staging: LOHN.LTC.Main (Abteilungen) — Quelle für ref_abteilung"
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_lohn_ltc_main
+    columns:
+      - name: nr
+        description: Abteilungsnummer (Primary Key)
+        tests:
+          - not_null
+          - unique
+      - name: description
+        description: Abteilungsbezeichnung
+      - name: group_nr
+        description: Gruppierungsebene (=1 fuer Abteilungen) — aus [GROUP]
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+  - name: ewb_proj_npo_main
+    description: Staging view for projekt from _common
     config:
       meta:
         entity_type: standard
         source_type: external_table
-        external_table: ext_adventureworks_saleslt_customeraddress
+        external_table: ext_ewb_proj_npo_main
+        business_keys:
+          - PROJNR
+    columns:
+      - name: hk_projekt
+        description: Hash Key (Primary Key)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_projekt
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: PROJNR
+        description: Business Key
+        tests:
+          - not_null
+      - name: refprojnr
+        description: Payload attribute
+      - name: inaktiv
+        description: Payload attribute
+      - name: projgroup
+        description: Payload attribute
+      - name: projname
+        description: Payload attribute
+      - name: statusdef
+        description: Payload attribute
+      - name: status
+        description: Payload attribute
+      - name: status1
+        description: Payload attribute
+      - name: creation
+        description: Payload attribute
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+  - name: ewb_proj_nsa_main
+    description: Staging view for projektsachkonto (PROJ.NSA.Main) from Abacus EWB
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_proj_nsa_main
+        business_keys:
+          - PROJNR
+          - CODE
+          - PERIYEAR
+          - PERIMONTH
+          - GB
         foreign_keys:
-          - column: customerid
-            target_entity: kunde
-            target_hub: adworks.hub_kunde
-          - column: addressid
-            target_entity: adresse
-            target_hub: adworks.hub_adresse
+          - column: PROJNR
+            target_entity: projekt
+            target_hub: _common.hub_projekt
     columns:
-      - name: hk_link_kunde_adresse
-        description: Combined Link Hash Key (Primary Key)
+      - name: hk_projektsachkonto
+        description: Hash Key (Primary Key, Composite PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hk_kunde
-        description: Foreign Key to hub_kunde
+      - name: hk_projekt
+        description: Foreign Key to hub_projekt (SHA2_256(PROJNR))
         data_type: char(64)
         tests:
           - not_null
-      - name: hk_adresse
-        description: Foreign Key to hub_adresse
+      - name: hk_link_projektsachkonto_projekt
+        description: Link Hash Key (SHA2_256(hk_projektsachkonto ^^ hk_projekt))
         data_type: char(64)
         tests:
           - not_null
-      - name: hd_kunde_adresse
-        description: Hash Diff for Link Satellite change detection
+      - name: hd_projektsachkonto
+        description: Hash Diff for change detection
         data_type: char(64)
         tests:
           - not_null
-      - name: customerid
-        description: FK to hub_kunde
+      - name: PROJNR
+        description: Business Key Teil 1 — Projektnummer
+        data_type: decimal(38,18)
         tests:
           - not_null
-      - name: addressid
-        description: FK to hub_adresse
+      - name: CODE
+        description: Business Key Teil 2 — Sachkonto-Code
+        data_type: decimal(38,18)
         tests:
           - not_null
-      - name: addresstype
-        description: Payload attribute
-      - name: modifieddate
-        description: Payload attribute
+      - name: PERIYEAR
+        description: Business Key Teil 3 — Periodenjahr
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PERIMONTH
+        description: Business Key Teil 4 — Periodenmonat
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: GB
+        description: Business Key Teil 5 — Geschäftsbereich
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: BUDGETINT
+        description: Budget intern
+        data_type: decimal(38,18)
+      - name: BETRAGINT
+        description: Betrag intern
+        data_type: decimal(38,18)
+      - name: VORTRAGINT
+        description: Vortrag intern
+        data_type: decimal(38,18)
+      - name: BUDGETEXT
+        description: Budget extern
+        data_type: decimal(38,18)
+      - name: BETRAGEXT
+        description: Betrag extern
+        data_type: decimal(38,18)
+      - name: VORTRAGEXT
+        description: Vortrag extern
+        data_type: decimal(38,18)
+      - name: AZBUTINT
+        description: AZ Budget intern
+        data_type: decimal(38,18)
+      - name: AZBETINT
+        description: AZ Betrag intern
+        data_type: decimal(38,18)
+      - name: AZVORTINT
+        description: AZ Vortrag intern
+        data_type: decimal(38,18)
+      - name: AZBUTEXT
+        description: AZ Budget extern
+        data_type: decimal(38,18)
+      - name: AZBETEXT
+        description: AZ Betrag extern
+        data_type: decimal(38,18)
+      - name: AZVORTEXT
+        description: AZ Vortrag extern
+        data_type: decimal(38,18)
       - name: dss_record_source
         description: Data source identifier
         data_type: varchar(100)
@@ -174,43 +1307,324 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: adworks_produkt
-    description: Staging view for produkt Split-Satellite (feeds adworks.hub_produkt)
+  - name: ewb_proj_ntc_main
+    description: Staging view für Zeiterfassung (PROJ.NTC) aus _common
     config:
       meta:
         entity_type: standard
         source_type: external_table
-        external_table: ext_adventureworks_saleslt_product
+        external_table: ext_ewb_proj_ntc_main
         business_keys:
-          - PRODUCTID
-        split_satellite_target_hub: adworks.hub_produkt
+          - EMPLNR
+          - PROJDAT
     columns:
-      - name: hk_produkt
+      - name: hk_zeiterfassung
+        description: Hash Key Zeiterfassung (zusammengesetzt EMPLNR ^^ PROJDAT)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_person
+        description: Cross-Reference Hash Key Person (SHA2_256(EMPLNR)), FK → hub_person
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_zeiterfassung_person
+        description: Link Hash Key (SHA2_256(hk_zeiterfassung ^^ hk_person))
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_zeiterfassung
+        description: Hash Diff für Change Detection (Satellite)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: EMPLNR
+        description: Business Key Teil 1 — Mitarbeiternummer (FK → hub_person)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PROJDAT
+        description: Business Key Teil 2 — Projektdatum (Zeiterfassungstag)
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: RECNUM
+        description: Technische Zeilennummer
+        data_type: decimal(38,18)
+      - name: DATASET
+        description: Dataset-Kennung
+        data_type: decimal(38,18)
+      - name: FROM1
+        description: Zeitintervall 1 — Von (Zeitstring)
+        data_type: nvarchar(4000)
+      - name: TO1
+        description: Zeitintervall 1 — Bis (Zeitstring)
+        data_type: nvarchar(4000)
+      - name: FROM2
+        description: Zeitintervall 2 — Von
+        data_type: nvarchar(4000)
+      - name: TO2
+        description: Zeitintervall 2 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM3
+        description: Zeitintervall 3 — Von
+        data_type: nvarchar(4000)
+      - name: TO3
+        description: Zeitintervall 3 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM4
+        description: Zeitintervall 4 — Von
+        data_type: nvarchar(4000)
+      - name: TO4
+        description: Zeitintervall 4 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM5
+        description: Zeitintervall 5 — Von
+        data_type: nvarchar(4000)
+      - name: TO5
+        description: Zeitintervall 5 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM6
+        description: Zeitintervall 6 — Von
+        data_type: nvarchar(4000)
+      - name: TO6
+        description: Zeitintervall 6 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM7
+        description: Zeitintervall 7 — Von
+        data_type: nvarchar(4000)
+      - name: TO7
+        description: Zeitintervall 7 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM8
+        description: Zeitintervall 8 — Von
+        data_type: nvarchar(4000)
+      - name: TO8
+        description: Zeitintervall 8 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM9
+        description: Zeitintervall 9 — Von
+        data_type: nvarchar(4000)
+      - name: TO9
+        description: Zeitintervall 9 — Bis
+        data_type: nvarchar(4000)
+      - name: FROM10
+        description: Zeitintervall 10 — Von
+        data_type: nvarchar(4000)
+      - name: TO10
+        description: Zeitintervall 10 — Bis
+        data_type: nvarchar(4000)
+      - name: ANZAHL
+        description: Gesamtstunden des Tages
+        data_type: decimal(38,18)
+      - name: USER_F
+        description: Letzter bearbeitender Benutzer
+        data_type: nvarchar(4000)
+      - name: MUTDAT
+        description: Mutationsdatum (letzte Änderung)
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: Datenquelle (Standard — ewb_abacus)
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+
+  # --- Reference Tables ---
+
+  - name: ewb_proj_ntr_main
+    description: "Staging: PROJ.NTR.Main (Leistungsarten) — Quelle fuer ref_leistungsart. SELECT DISTINCT dedupliziert ~1000 Zeilen auf 29 Leistungsarten."
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_proj_ntr_main
+    columns:
+      - name: number
+        description: Leistungsart-Code (Primary Key, z.B. 1000, 1010, 1020)
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: description
+        description: Bezeichnung der Leistungsart
+        data_type: nvarchar(4000)
+      - name: type
+        description: Typ der Leistungsart
+        data_type: int
+      - name: inaktiv
+        description: Inaktiv-Flag (0/1)
+        data_type: int
+      - name: dss_record_source
+        description: Datenquelle (hardcoded ewb_abacus)
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+
+  - name: ewb_proj_prt_main
+    description: "Staging: PROJ.PRT.Main (Projektteile) — Eigener Hub hub_projektteil (BK=RECNUM), Link zu hub_projekt via PROJNR. 8124 Zeilen, Verlaufstabelle."
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_proj_prt_main
+        business_keys:
+          - RECNUM
+        foreign_keys:
+          - column: PROJNR
+            target_entity: projekt
+            target_hub: _common.hub_projekt
+    columns:
+      - name: hk_projektteil
+        description: Hash Key (SHA2_256(RECNUM)) — Primary Key
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_projekt
+        description: Foreign Key to hub_projekt (SHA2_256(PROJNR))
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_projektteil_projekt
+        description: Link Hash Key (SHA2_256(RECNUM ^^ PROJNR))
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_projektteil
+        description: Hash Diff for change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: RECNUM
+        description: Business Key — Record-Nummer (eindeutig pro Projektteil)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: PROJNR
+        description: Projektnummer — FK zu hub_projekt
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: DATE
+        description: Datum des Projektteils (Reserved Keyword — escaped)
+        data_type: datetime2
+      - name: STAT1
+        description: Status 1
+        data_type: decimal(38,18)
+      - name: STAT2
+        description: Status 2
+        data_type: decimal(38,18)
+      - name: USER_F
+        description: Benutzerfeld (GUID)
+        data_type: nvarchar(4000)
+      - name: DATASET
+        description: Dataset-Nummer (technisch)
+        data_type: decimal(38,18)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt Run-ID
+
+  - name: ewb_proj_pst_main
+    description: "Staging: PROJ.PST.Main (Projektstatus) — Quelle fuer ref_projektstatus. 7 Eintraege, kein Filter im Staging."
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_proj_pst_main
+    columns:
+      - name: status
+        description: Statuscode (Primary Key)
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: bezeichn
+        description: Bezeichnung des Projektstatus
+        data_type: nvarchar(4000)
+      - name: langcode
+        description: Sprachcode
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
+
+  - name: ewb_publ_adr_main
+    description: Staging view for adresse from _common
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_publ_adr_main
+        business_keys:
+          - INR
+        foreign_keys:
+          - column: lohnnr
+            target_entity: person
+            target_hub: _common.hub_person
+    columns:
+      - name: hk_adresse
         description: Hash Key (Primary Key)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_produkt
-        description: Hash Diff for change detection
+      - name: hk_person
+        description: Foreign Key to hub_person
         data_type: char(64)
         tests:
           - not_null
-      - name: PRODUCTID
+      - name: hd_person_adresse
+        description: Hash Diff for sat_person__abacus_adresse__abacus
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_adresse_kontakt
+        description: Hash Diff for sat_adresse_kontakt__abacus
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: INR
         description: Business Key
         tests:
           - not_null
       - name: name
         description: Payload attribute
-      - name: productnumber
+      - name: vorname
         description: Payload attribute
-      - name: size
+      - name: plz
         description: Payload attribute
-      - name: weight
+      - name: ort
         description: Payload attribute
-      - name: productmodelid
-        description: Payload attribute
-      - name: modifieddate
+      - name: street
         description: Payload attribute
       - name: dss_record_source
         description: Data source identifier
@@ -224,256 +1638,911 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
-  - name: adworks_produkt_preis
-    description: Staging view for produkt_preis Split-Satellite (feeds adworks.hub_produkt)
+  # ===== KRED / Kreditoren =====
+  - name: ewb_kred_kbl_main
+    description: "Staging: KRED.KBL.Main (Kreditorenbelege) — Quelle für hub_kreditorenbeleg, ghost hub_kreditor, link_kreditorenbeleg_kreditor"
     config:
       meta:
         entity_type: standard
         source_type: external_table
-        external_table: ext_adventureworks_saleslt_product
+        external_table: ext_ewb_kred_kbl_main
         business_keys:
-          - PRODUCTID
-        split_satellite_target_hub: adworks.hub_produkt
+          - BELNR
     columns:
-      - name: hk_produkt_preis
-        description: Hash Key (Primary Key)
+      - name: hk_kreditorenbeleg
+        description: Hash Key for hub_kreditorenbeleg (BELNR)
         data_type: char(64)
         tests:
           - not_null
           - unique
-      - name: hd_produkt_preis
-        description: Hash Diff for change detection
+      - name: hk_kreditor
+        description: Hash Key for ghost hub_kreditor (KNR)
         data_type: char(64)
         tests:
           - not_null
-      - name: PRODUCTID
-        description: Business Key
-        tests:
-          - not_null
-      - name: standardcost
-        description: Payload attribute
-      - name: listprice
-        description: Payload attribute
-      - name: modifieddate
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: adworks_verkauf
-    description: Staging view for verkauf from adworks
-    config:
-      meta:
-        entity_type: standard
-        source_type: external_table
-        external_table: ext_adventureworks_saleslt_salesorderheader
-        business_keys:
-          - SALESORDERID
-        foreign_keys:
-          - column: customerid
-            target_entity: kunde
-            target_hub: adworks.hub_kunde
-          - column: shiptoaddressid
-            target_entity: adresse
-            target_hub: adworks.hub_adresse
-          - column: billtoaddressid
-            target_entity: adresse
-            target_hub: adworks.hub_adresse
-    columns:
-      - name: hk_verkauf
-        description: Hash Key (Primary Key)
+      - name: hk_link_kreditorenbeleg_kreditor
+        description: Hash Key for link_kreditorenbeleg_kreditor (BELNR + KNR)
         data_type: char(64)
         tests:
           - not_null
-          - unique
-      - name: hk_kunde
-        description: Foreign Key to hub_kunde
+      - name: hd_kreditorenbeleg
+        description: Hash Diff for sat_kreditorenbeleg change detection
         data_type: char(64)
         tests:
           - not_null
-      - name: hk_adresse_1
-        description: Foreign Key to hub_adresse
+      - name: hd_kreditor
+        description: Hash Diff for sat_kreditor (ghost hub attributes)
         data_type: char(64)
         tests:
           - not_null
-      - name: hk_adresse_2
-        description: Foreign Key to hub_adresse
-        data_type: char(64)
+      - name: BELNR
+        description: Business Key — Belegnummer (Kreditorenbeleg)
+        data_type: decimal(38,18)
         tests:
           - not_null
-      - name: hd_verkauf
-        description: Hash Diff for change detection
-        data_type: char(64)
+      - name: KNR
+        description: Business Key — Kreditoren-Nummer (Ghost Hub)
+        data_type: decimal(38,18)
         tests:
           - not_null
-      - name: SALESORDERID
-        description: Business Key
-        tests:
-          - not_null
-      - name: revisionnumber
-        description: Payload attribute
-      - name: orderdate
-        description: Payload attribute
-      - name: duedate
-        description: Payload attribute
-      - name: shipdate
-        description: Payload attribute
-      - name: status
-        description: Payload attribute
-      - name: onlineorderflag
-        description: Payload attribute
-      - name: salesordernumber
-        description: Payload attribute
-      - name: purchaseordernumber
-        description: Payload attribute
-      - name: accountnumber
-        description: Payload attribute
-      - name: shipmethod
-        description: Payload attribute
-      - name: creditcardapprovalcode
-        description: Payload attribute
-      - name: subtotal
-        description: Payload attribute
-      - name: taxamt
-        description: Payload attribute
-      - name: freight
-        description: Payload attribute
-      - name: totaldue
-        description: Payload attribute
-      - name: comment
-        description: Payload attribute
-      - name: modifieddate
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: adworks_verkauf_detail
-    description: Staging view for verkauf_detail from adworks
-    config:
-      meta:
-        entity_type: standard
-        source_type: external_table
-        external_table: ext_adventureworks_saleslt_salesorderdetail
-        foreign_keys:
-          - column: salesorderid
-            target_entity: verkauf
-            target_hub: adworks.hub_verkauf
-          - column: productid
-            target_entity: produkt
-            target_hub: adworks.hub_produkt
-        dependent_child_keys:
-          adworks.hub_verkauf:
-            - salesorderdetailid
-    columns:
-      - name: hk_verkauf_detail
-        description: Hash Key (Primary Key)
-        data_type: char(64)
-        tests:
-          - not_null
-          - unique
-      - name: hk_verkauf
-        description: Foreign Key to hub_verkauf
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: hk_produkt
-        description: Foreign Key to hub_produkt
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: hd_verkauf_detail
-        description: Hash Diff for change detection
-        data_type: char(64)
-        tests:
-          - not_null
-      - name: salesorderdetailid
-        description: Payload attribute
-      - name: orderqty
-        description: Payload attribute
-      - name: unitprice
-        description: Payload attribute
-      - name: unitpricediscount
-        description: Payload attribute
-      - name: linetotal
-        description: Payload attribute
-      - name: modifieddate
-        description: Payload attribute
-      - name: dss_record_source
-        description: Data source identifier
-        data_type: varchar(100)
-        tests:
-          - not_null
-      - name: dss_load_date
-        description: Load timestamp
-        data_type: datetime2(7)
-        tests:
-          - not_null
-      - name: dss_run_id
-        description: dbt run identifier
-  - name: psa_adventureworks_saleslt_address
-    description: |-
-      Persistent Staging Area for saleslt_address.
-      Source: ext_adventureworks_saleslt_address
-      Strategy: merge
-    columns:
-      - name: AddressID
-        description: AddressID
-        data_type: int
-        tests:
-          - not_null
-      - name: AddressLine1
-        description: AddressLine1
+      - name: SYSKEY
+        description: System key (technical)
         data_type: nvarchar(4000)
-      - name: AddressLine2
-        description: AddressLine2
+      - name: RECNUM
+        description: Record number (technical)
+        data_type: decimal(38,18)
+      - name: DB
+        description: Mandant/Datenbank-Nummer
+        data_type: decimal(38,18)
+      - name: STATID
+        description: Status-Identifikation
         data_type: nvarchar(4000)
-      - name: City
-        description: City
+      - name: STATDEF
+        description: Status-Definition
+        data_type: decimal(38,18)
+      - name: GF
+        description: Geschäftsjahr
+        data_type: decimal(38,18)
+      - name: GFRFOLGE
+        description: Geschäftsjahr-Reihenfolge
+        data_type: decimal(38,18)
+      - name: BELREF
+        description: Beleg-Referenz
         data_type: nvarchar(4000)
-      - name: StateProvince
-        description: StateProvince
+      - name: BELART
+        description: Belegart
         data_type: nvarchar(4000)
-      - name: CountryRegion
-        description: CountryRegion
-        data_type: nvarchar(4000)
-      - name: PostalCode
-        description: PostalCode
-        data_type: nvarchar(4000)
-      - name: rowguid
-        description: rowguid
-        data_type: nvarchar(4000)
-      - name: ModifiedDate
-        description: ModifiedDate
+      - name: BELDEF
+        description: Beleg-Definition
+        data_type: decimal(38,18)
+      - name: FBELDAT
+        description: Fremdbelegdatum
         data_type: datetime2
+      - name: KBELDAT
+        description: Kreditoren-Belegdatum
+        data_type: datetime2
+      - name: KDSPDAT
+        description: Konditions-Sperrdatum
+        data_type: datetime2
+      - name: ADRID
+        description: Adress-Identifikation
+        data_type: nvarchar(4000)
+      - name: KID
+        description: Kreditoren-Identifikation
+        data_type: nvarchar(4000)
+      - name: FADRINR
+        description: Fakturierungsadresse-Nummer
+        data_type: decimal(38,18)
+      - name: FADRID
+        description: Fakturierungsadresse-ID
+        data_type: nvarchar(4000)
+      - name: GB
+        description: Geschäftsbereich
+        data_type: decimal(38,18)
+      - name: INTERCO
+        description: Intercompany-Kennzeichen
+        data_type: decimal(38,18)
+      - name: BWWRC
+        description: Belegwährungscode
+        data_type: nvarchar(4000)
+      - name: LWWRC
+        description: Leitwährungscode
+        data_type: nvarchar(4000)
+      - name: BWKURS
+        description: Belegwährungs-Kurs
+        data_type: decimal(38,18)
+      - name: BWKSKF
+        description: Belegwährungs-Kursfaktor
+        data_type: decimal(38,18)
+      - name: BEWKURS
+        description: Bewertungskurs
+        data_type: decimal(38,18)
+      - name: BEWKSKF
+        description: Bewertungskurs-Faktor
+        data_type: decimal(38,18)
+      - name: BWBTR
+        description: Belegwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: LWBTR
+        description: Leitwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: BWOPBTR
+        description: Offener Betrag Belegwährung
+        data_type: decimal(38,18)
+      - name: LWOPBTR
+        description: Offener Betrag Leitwährung
+        data_type: decimal(38,18)
+      - name: URELWBTR
+        description: Ursprünglicher Leitwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: URELWOP
+        description: Ursprünglicher offener Betrag Leitwährung
+        data_type: decimal(38,18)
+      - name: MWSBWBTR
+        description: MwSt-Betrag Belegwährung
+        data_type: decimal(38,18)
+      - name: MWSLWBTR
+        description: MwSt-Betrag Leitwährung
+        data_type: decimal(38,18)
+      - name: MWSMETH
+        description: MwSt-Methode
+        data_type: decimal(38,18)
+      - name: MWSPATYP
+        description: MwSt-Pauschaltyp
+        data_type: decimal(38,18)
+      - name: MWSKORR
+        description: MwSt-Korrektur
+        data_type: decimal(38,18)
+      - name: SAMKTO
+        description: Sammelkonto
+        data_type: decimal(38,18)
+      - name: SAMKST1
+        description: Sammelkostenstelle 1
+        data_type: decimal(38,18)
+      - name: SAMKST2
+        description: Sammelkostenstelle 2
+        data_type: decimal(38,18)
+      - name: HILFSKTO
+        description: Hilfskonto
+        data_type: decimal(38,18)
+      - name: HILFSKST1
+        description: Hilfskostenstelle 1
+        data_type: decimal(38,18)
+      - name: HILFSKST2
+        description: Hilfskostenstelle 2
+        data_type: decimal(38,18)
+      - name: ZLGWEG
+        description: Zahlungsweg
+        data_type: decimal(38,18)
+      - name: BEGEZRF
+        description: Begünstigter ESR/Referenz
+        data_type: nvarchar(4000)
+      - name: BEGTLNR
+        description: Begünstigter Teilnehmernummer
+        data_type: nvarchar(4000)
+      - name: BEMERK
+        description: Bemerkung
+        data_type: nvarchar(4000)
+      - name: KDINR
+        description: Konditions-Nummer
+        data_type: decimal(38,18)
+      - name: KVSSTAT
+        description: KVS-Status
+        data_type: decimal(38,18)
+      - name: KVSNR
+        description: KVS-Nummer
+        data_type: decimal(38,18)
+      - name: KSTGRP
+        description: Kostenstellengruppe
+        data_type: decimal(38,18)
+      - name: AUFTRAG
+        description: Auftragsnummer
+        data_type: decimal(38,18)
+      - name: VERBMAND
+        description: Verbundmandant
+        data_type: decimal(38,18)
+      - name: BELGRPNR1
+        description: Beleggruppen-Nummer 1
+        data_type: decimal(38,18)
+      - name: BELGRPNR2
+        description: Beleggruppen-Nummer 2
+        data_type: decimal(38,18)
+      - name: BELGRPNR3
+        description: Beleggruppen-Nummer 3
+        data_type: decimal(38,18)
+      - name: BELGRPCD1
+        description: Beleggruppen-Code 1
+        data_type: nvarchar(4000)
+      - name: BELGRPCD2
+        description: Beleggruppen-Code 2
+        data_type: nvarchar(4000)
+      - name: BELGRPCD3
+        description: Beleggruppen-Code 3
+        data_type: nvarchar(4000)
+      - name: BELUWRS1
+        description: Beleg-Umrechnungswährung 1
+        data_type: nvarchar(4000)
+      - name: BELUWTX3
+        description: Beleg-Umrechnungstext 3
+        data_type: nvarchar(4000)
+      - name: BELUWTX4
+        description: Beleg-Umrechnungstext 4
+        data_type: nvarchar(4000)
+      - name: BELUWRS2
+        description: Beleg-Umrechnungswährung 2
+        data_type: nvarchar(4000)
+      - name: UMSK
+        description: Umsatzsteuer-Kennzeichen
+        data_type: decimal(38,18)
+      - name: SAMK
+        description: Sammelkennzeichen
+        data_type: decimal(38,18)
+      - name: FVBART
+        description: Fremdverrechnungs-Belegart
+        data_type: decimal(38,18)
+      - name: FVBARTAZ
+        description: Fremdverrechnungs-Belegart Anzahl
+        data_type: decimal(38,18)
+      - name: MWSABG
+        description: MwSt-Abgrenzung
+        data_type: decimal(38,18)
+      - name: EXTGESP
+        description: Extern gesperrt
+        data_type: decimal(38,18)
+      - name: GSPRES2
+        description: Gesperrt Reserve 2
+        data_type: decimal(38,18)
+      - name: DISGESP
+        description: Dispositiv gesperrt
+        data_type: decimal(38,18)
+      - name: GESPERRT
+        description: Gesperrt-Kennzeichen
+        data_type: decimal(38,18)
+      - name: LETZTEZLG
+        description: Letzte Zahlung Datum
+        data_type: datetime2
+      - name: FRIST
+        description: Zahlungsfrist
+        data_type: decimal(38,18)
+      - name: SKONTO1T
+        description: Skonto 1 Tage
+        data_type: decimal(38,18)
+      - name: SKONTO1P
+        description: Skonto 1 Prozent
+        data_type: decimal(38,18)
+      - name: SKONTO2T
+        description: Skonto 2 Tage
+        data_type: decimal(38,18)
+      - name: SKONTO2P
+        description: Skonto 2 Prozent
+        data_type: decimal(38,18)
+      - name: SKONTO3T
+        description: Skonto 3 Tage
+        data_type: decimal(38,18)
+      - name: SKONTO3P
+        description: Skonto 3 Prozent
+        data_type: decimal(38,18)
+      - name: DIVRES1
+        description: Diverse Reserve 1
+        data_type: decimal(38,18)
+      - name: DIVRES2
+        description: Diverse Reserve 2
+        data_type: decimal(38,18)
+      - name: TAXART
+        description: Steuerart
+        data_type: decimal(38,18)
+      - name: EZRFSTR
+        description: ESR-Referenzstruktur
+        data_type: decimal(38,18)
+      - name: UMSKNR
+        description: Umsatzsteuer-Kontrollnummer
+        data_type: decimal(38,18)
+      - name: UMSORIG
+        description: Umsatz-Original
+        data_type: decimal(38,18)
+      - name: IGSWITCH
+        description: IG-Switch (Intercompany)
+        data_type: decimal(38,18)
+      - name: IGBELNR
+        description: IG-Belegnummer
+        data_type: decimal(38,18)
+      - name: IGLAUFNR
+        description: IG-Laufnummer
+        data_type: decimal(38,18)
+      - name: EXTLFDAT
+        description: Externes Lieferdatum
+        data_type: datetime2
+      - name: EXTLFNR
+        description: Externe Liefernummer
+        data_type: decimal(38,18)
+      - name: EXTBELNR
+        description: Externe Belegnummer
+        data_type: decimal(38,18)
+      - name: ERFART
+        description: Erfassungsart
+        data_type: decimal(38,18)
+      - name: ERFDAT
+        description: Erfassungsdatum
+        data_type: datetime2
+      - name: ERFZEIT
+        description: Erfassungszeit
+        data_type: decimal(38,18)
+      - name: MUTDAT
+        description: Mutationsdatum
+        data_type: datetime2
+      - name: USER_F
+        description: Benutzer-Feld
+        data_type: nvarchar(4000)
+      - name: VERSION
+        description: Datensatz-Version
+        data_type: decimal(38,18)
+      - name: HILFSPROJ
+        description: Hilfsprojekt
+        data_type: decimal(38,18)
+      - name: SAMPROJ
+        description: Sammelprojekt
+        data_type: decimal(38,18)
+      - name: EXTAPPL
+        description: Externe Applikation
+        data_type: decimal(38,18)
+      - name: ABEA_BES_NR
+        description: AbaEA Bestellnummer
+        data_type: decimal(38,18)
+      - name: ABEA_BES_RNR
+        description: AbaEA Bestell-Rechnungsnummer
+        data_type: decimal(38,18)
+      - name: IMMONR
+        description: Immobilien-Nummer
+        data_type: decimal(38,18)
+      - name: ERFUSER
+        description: Erfassungs-Benutzer
+        data_type: nvarchar(4000)
+      - name: VISSTRUCTNR
+        description: Visierungsstruktur-Nummer
+        data_type: decimal(38,18)
+      - name: PROJEKT
+        description: Projektnummer
+        data_type: decimal(38,18)
+      - name: KST1
+        description: Kostenstelle 1
+        data_type: decimal(38,18)
+      - name: KST2
+        description: Kostenstelle 2
+        data_type: decimal(38,18)
+      - name: INTBWBTR
+        description: Interner Belegwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: INTLWBTR
+        description: Interner Leitwährungs-Betrag
+        data_type: decimal(38,18)
+      - name: SAVESTATUS
+        description: Speicher-Status
+        data_type: decimal(38,18)
+      - name: RESBOL1
+        description: Reserve Boolean 1
+        data_type: decimal(38,18)
+      - name: VERTRAGID
+        description: Vertrags-ID
+        data_type: decimal(38,18)
+      - name: STANDINGORDERID
+        description: Dauerauftrags-ID
+        data_type: nvarchar(4000)
+      - name: SUPPLIERUNVERIFIED
+        description: Lieferant nicht verifiziert
+        data_type: decimal(38,18)
+      - name: ID
+        description: Datensatz-ID
+        data_type: nvarchar(4000)
+      - name: ACCESSID
+        description: Zugriffs-ID
+        data_type: decimal(38,18)
+      - name: MARKEDASPAID
+        description: Als bezahlt markiert
+        data_type: decimal(38,18)
+      - name: APPROVALEMPLOYEENR
+        description: Genehmigender Mitarbeiter-Nr
+        data_type: decimal(38,18)
+      - name: timestamp_landing-zone
+        description: Landing Zone Zeitstempel
+        data_type: nvarchar(4000)
       - name: dss_record_source
-        description: dss_record_source
-        data_type: nvarchar(4000)
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
       - name: dss_load_date
-        description: dss_load_date
-        data_type: nvarchar(4000)
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
       - name: dss_run_id
-        description: dss_run_id
+        description: dbt run identifier
+
+  - name: ewb_kred_kvl_main
+    description: "Staging: KRED.KVL.Main (Kreditorenzahlungen/Visierung) — Quelle fuer hub_zahlung, link_kreditorenbeleg_zahlung"
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_kred_kvl_main
+        business_keys:
+          - DOCUMENTNR
+          - POSITIONNR
+          - ELEMENTTYP
+          - INR
+    columns:
+      - name: hk_zahlung
+        description: Hash Key for hub_zahlung (DOCUMENTNR + POSITIONNR + ELEMENTTYP + INR)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_kreditorenbeleg
+        description: Hash Key for hub_kreditorenbeleg (DOCUMENTNR → KBL.BELNR)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_kreditorenbeleg_zahlung
+        description: Hash Key for link_kreditorenbeleg_zahlung (DOCUMENTNR + DOCUMENTNR + POSITIONNR + ELEMENTTYP + INR)
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_zahlung
+        description: Hash Diff for sat_zahlung change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: DOCUMENTNR
+        description: Business Key — Dokumentnummer (= BELNR in KBL)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: POSITIONNR
+        description: Business Key — Positionsnummer (Zahlungsposition)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: ELEMENTTYP
+        description: Business Key — Elementtyp
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: INR
+        description: Business Key — Identifikationsnummer (Visierer)
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: RECNUM
+        description: Record number (technical)
+        data_type: decimal(38,18)
+      - name: DB
+        description: Mandant/Datenbank-Nummer
+        data_type: decimal(38,18)
+      - name: DATUM_ZEIT
+        description: Datum und Zeitpunkt
+        data_type: datetime2
+      - name: VISIERT
+        description: Visiert-Kennzeichen
+        data_type: decimal(38,18)
+      - name: ABGELEHNT
+        description: Abgelehnt-Kennzeichen
+        data_type: decimal(38,18)
+      - name: BEMERKUNG
+        description: Bemerkung
         data_type: nvarchar(4000)
-      - name: dss_stage_timestamp
-        description: dss_stage_timestamp
+      - name: VER
+        description: Version
+        data_type: decimal(38,18)
+      - name: VER_UEBERST
+        description: Version uebersteuert
+        data_type: decimal(38,18)
+      - name: BENACH_GESANDT
+        description: Benachrichtigung gesandt
+        data_type: decimal(38,18)
+      - name: SIGN_VER
+        description: Signatur-Version
+        data_type: decimal(38,18)
+      - name: ABACUS_USR_GUID
+        description: Abacus Benutzer-GUID
         data_type: nvarchar(4000)
-      - name: dss_source_file_name
-        description: dss_source_file_name
+      - name: ABACUS_USR_NAME
+        description: Abacus Benutzername
         data_type: nvarchar(4000)
+      - name: ABACUS_USR_FULL_NAME
+        description: Abacus Benutzer Vollname
+        data_type: nvarchar(4000)
+      - name: AKTION_DATUM_ZEIT
+        description: Aktions-Datum/Zeitpunkt
+        data_type: datetime2
+      - name: VISSTRUCTNR
+        description: Visierungsstruktur-Nummer
+        data_type: decimal(38,18)
+      - name: VISPOOLID
+        description: Visierungspool-ID
+        data_type: decimal(38,18)
+      - name: VISPOOLGRPNR
+        description: Visierungspool-Gruppennummer
+        data_type: decimal(38,18)
+      - name: VALIDVISUM
+        description: Gueltigkeits-Visum
+        data_type: decimal(38,18)
+      - name: RGPRUEFUNG
+        description: Rechnungspruefung
+        data_type: decimal(38,18)
+      - name: STATUSID
+        description: Status-ID
+        data_type: decimal(38,18)
+      - name: MSGTASKSTATUS
+        description: Message-Task-Status
+        data_type: decimal(38,18)
+      - name: VISUMSTYP
+        description: Visumstyp
+        data_type: decimal(38,18)
+      - name: SUBDOCUMENTNR
+        description: Sub-Dokumentnummer
+        data_type: decimal(38,18)
+      - name: SUBPOSITIONNR
+        description: Sub-Positionsnummer
+        data_type: decimal(38,18)
+      - name: EXTSUBPOSITIONNR
+        description: Externe Sub-Positionsnummer
+        data_type: decimal(38,18)
+      - name: FREIGABEBETRAG
+        description: Freigabebetrag
+        data_type: decimal(38,18)
+      - name: STVVISA
+        description: Stellvertreter-Visum
+        data_type: decimal(38,18)
+      - name: timestamp_landing-zone
+        description: Landing Zone Zeitstempel
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+        data_type: nvarchar(4000)
+
+  - name: ewb_kred_kbs_main
+    description: "Staging: KRED.KBS.Main (Kreditorenstatus-Konfiguration) — Quelle fuer ref_kred_buchungsstatus. 7 stabile Status-Eintraege."
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_kred_kbs_main
+        business_keys:
+          - STATID
+    columns:
+      - name: hk_kred_buchungsstatus
+        description: Hash Key for kred_buchungsstatus (STATID)
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kred_buchungsstatus
+        description: Hash Diff for kred_buchungsstatus change detection
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: STATID
+        description: "Business Key — Status-ID (z.B. 'BEZ', 'ERF', 'GEP')"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+          - unique
+      - name: RECNUM
+        description: Record number (technical)
+        data_type: decimal(38,18)
+      - name: DB
+        description: Mandant/Datenbank-Nummer
+        data_type: decimal(38,18)
+      - name: STATDEF
+        description: Status-Definition (Referenz auf Status-Typ)
+        data_type: decimal(38,18)
+      - name: SWINAKT
+        description: Switch Inaktiv (0=aktiv, 1=inaktiv)
+        data_type: decimal(38,18)
+      - name: SWVORS
+        description: Switch Vorsystem
+        data_type: decimal(38,18)
+      - name: SWNOBLVAL
+        description: Switch keine BL-Validierung
+        data_type: decimal(38,18)
+      - name: SWNOPSVAL
+        description: Switch keine PS-Validierung
+        data_type: decimal(38,18)
+      - name: MUTDAT
+        description: Mutationsdatum
+        data_type: datetime2
+      - name: USER_F
+        description: Letzter Bearbeiter
+        data_type: nvarchar(4000)
+      - name: VERSION
+        description: Versionskennung
+        data_type: decimal(38,18)
+      - name: SWPBLDEL
+        description: Switch Public Delete erlaubt
+        data_type: decimal(38,18)
+      - name: timestamp_landing-zone
+        description: Landing Zone Zeitstempel
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: Data source identifier
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_run_id
+        description: dbt run identifier
+        data_type: nvarchar(4000)
+
+  # ===== EWB / SHAREPOINT (JSON via OPENJSON) =====
+
+  - name: ewb_sp_konten
+    description: "Staging: Sharepoint Konten (Kontenplan). JSON→OPENJSON. 254 rows."
+    config:
+      meta:
+        entity_type: reference
+        source_type: json_external_table
+        external_table: ext_ewb_sp_konten_json
+        business_keys:
+          - KontoNr
+    columns:
+      - name: hk_konto
+        description: Hash Key (SHA2_256 of KontoNr)
+        tests:
+          - not_null
+          - unique
+      - name: KontoNr
+        description: Kontonummer (Business Key)
+        tests:
+          - not_null
+      - name: KontoName
+        description: Kontobezeichnung
+      - name: Konto
+        description: "Konto (Nr + Name kombiniert)"
+      - name: Konto_L1
+        description: Konto Level 1 (Aggregation)
+      - name: KontoName_L1
+        description: Kontoname Level 1
+      - name: Konto_L2
+        description: Konto Level 2 (Aggregation)
+      - name: KontoName_L2
+        description: Kontoname Level 2
+      - name: dss_record_source
+        description: Data source identifier
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        tests:
+          - not_null
+
+  - name: ewb_sp_kostenstellen
+    description: "Staging: Sharepoint Kostenstellen (Kostenstellenstamm). JSON→OPENJSON. 151 rows."
+    config:
+      meta:
+        entity_type: reference
+        source_type: json_external_table
+        external_table: ext_ewb_sp_kostenstellen_json
+        business_keys:
+          - KostenstelleNr
+    columns:
+      - name: hk_kostenstelle
+        description: Hash Key (SHA2_256 of KostenstelleNr)
+        tests:
+          - not_null
+          - unique
+      - name: KostenstelleNr
+        description: Kostenstellennummer (Business Key)
+        tests:
+          - not_null
+      - name: KostenstelleName
+        description: Kostenstellenbezeichnung
+      - name: Kostenstelle
+        description: "Kostenstelle (Nr + Name kombiniert)"
+      - name: Bereich_L1
+        description: Bereich Level 1
+      - name: Bereich_L2
+        description: Bereich Level 2
+      - name: Bereichsname_L1
+        description: Bereichsname Level 1
+      - name: Bereichsname_L2
+        description: Bereichsname Level 2
+      - name: BereichNeu_L1
+        description: Bereich Neu Level 1
+      - name: BereichNeu_L2
+        description: Bereich Neu Level 2
+      - name: BereichsnameNeu_L1
+        description: Bereichsname Neu Level 1
+      - name: BereichsnameNeu_L2
+        description: Bereichsname Neu Level 2
+      - name: Investitionsrechnung
+        description: Investitionsrechnung Flag
+      - name: dss_record_source
+        description: Data source identifier
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Load timestamp
+        tests:
+          - not_null
+
+  - name: ewb_sp_budget
+    description: "Staging: Sharepoint Budget (Planungsdaten). JSON→OPENJSON. ~52k rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_budget_json
+        business_keys:
+          - Datum
+          - Kostenstelle
+          - Konto
+          - Szenario
+    columns:
+      - name: Datum
+        description: Buchungsdatum
+        tests:
+          - not_null
+      - name: Kostenstelle
+        description: Kostenstelle (FK zu Kostenstellen)
+      - name: Konto
+        description: Konto (FK zu Konten)
+      - name: Szenario
+        description: Budget-Szenario
+      - name: KST_KOA
+        description: Kostenstelle-Kostenart Kombination
+      - name: Betrag
+        description: Budget-Betrag
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_forecast
+    description: "Staging: Sharepoint Forecast (Planungsdaten). JSON→OPENJSON. ~13k rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_forecast_json
+        business_keys:
+          - Datum
+          - Kostenstelle
+          - Konto
+          - Szenario
+    columns:
+      - name: Datum
+        description: Buchungsdatum
+        tests:
+          - not_null
+      - name: Kostenstelle
+        description: Kostenstelle (FK zu Kostenstellen)
+      - name: Konto
+        description: Konto (FK zu Konten)
+      - name: Szenario
+        description: Forecast-Szenario
+      - name: KST_KOA
+        description: Kostenstelle-Kostenart Kombination
+      - name: Betrag
+        description: Forecast-Betrag
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_actualforecast
+    description: "Staging: Sharepoint ActualForecast (Actual vs Forecast Flags). JSON→OPENJSON. 24 rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_actualforecast_json
+        business_keys:
+          - Y_Month
+    columns:
+      - name: Y_Month
+        description: "Jahr-Monat (YYYY-MM)"
+        tests:
+          - not_null
+      - name: Actual_Forecast
+        description: "Actual oder Forecast Flag"
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_zugangsrechte
+    description: "Staging: Sharepoint Zugangsrechte (Berechtigungsmatrix). JSON→OPENJSON. 27 rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_zugangsrechte_json
+        business_keys:
+          - Email
+          - KostenstelleNr
+          - Konto
+    columns:
+      - name: Email
+        description: Benutzer-Email
+        tests:
+          - not_null
+      - name: Konto
+        description: Konto-Berechtigung
+      - name: KostenstelleNr
+        description: Kostenstelle-Berechtigung
+      - name: ProjektNr
+        description: Projekt-Berechtigung
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_kategorisierungprojekte
+    description: "Staging: Sharepoint KategorisierungProjekte (Projekt-Kategorie-Zuordnung). JSON→OPENJSON. 263 rows."
+    config:
+      meta:
+        entity_type: mart_enrichment
+        source_type: json_external_table
+        external_table: ext_ewb_sp_kategorisierungprojekte_json
+        business_keys:
+          - Projektnummer
+    columns:
+      - name: Projektnummer
+        description: Projektnummer (FK zu Projekte)
+        tests:
+          - not_null
+      - name: KategorieNr
+        description: Kategorienummer (FK zu ProjekteKategorien)
+      - name: KostenstelleName
+        description: Kostenstellenbezeichnung
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
+  - name: ewb_sp_projektekategorien
+    description: "Staging: Sharepoint ProjekteKategorien (Kategorie-Lookup). JSON→OPENJSON. 24 rows."
+    config:
+      meta:
+        entity_type: reference
+        source_type: json_external_table
+        external_table: ext_ewb_sp_projektekategorien_json
+        business_keys:
+          - KategorieNr
+    columns:
+      - name: KategorieNr
+        description: Kategorienummer (Business Key)
+        tests:
+          - not_null
+      - name: KategorieName
+        description: Kategoriebezeichnung
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null

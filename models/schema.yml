@@ -7,7 +7,7 @@ version: 2
 # Model-Definitionen sind in den jeweiligen Layer-Ordnern:
 #
 #   - models/staging/_staging__models.yml
-#   - models/raw_vault/werkportal/_werkportal__models.yml
+#   - models/raw_vault/jira/_jira__models.yml
 #   - models/raw_vault/adventureworks/_adventureworks__models.yml
 #   - models/business_vault/_business_vault__models.yml
 #   - models/mart/_common/_common__models.yml

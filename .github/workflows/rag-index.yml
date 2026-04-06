@@ -1,7 +1,8 @@
 name: RAG Index Update
 
 on:
-  push:
+  workflow_dispatch:  # deactivated: manual trigger only
+  push-disabled:
     branches: [main, dev]
     paths:
       - 'docs/**'

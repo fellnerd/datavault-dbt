@@ -17,7 +17,7 @@ design/
 ├── staging/           # Quellsystem-Mapping & Staging Views
 ├── raw-vault/         # Hubs, Links, Satellites (ERD)
 │   ├── _common/       # Übergreifende Objekte (Schema: vault)
-│   ├── werkportal/    # Werkportal-spezifisch (Schema: vault_werkportal)
+│   ├── jira/    # Jira-spezifisch (Schema: vault_jira)
 │   │   ├── overview.md
 │   │   └── er-diagram.mmd   ← Mermaid ER-Diagramm
 │   └── adventureworks/
@@ -31,7 +31,7 @@ design/
 |--------|------------|----------|
 | `stg` | Staging Views | `stg.stg_company` |
 | `vault` | Integrierte/übergreifende Objekte | `vault.hub_company` (merged) |
-| `vault_<concept>` | Quellsystem-spezifisch | `vault_werkportal.hub_project` |
+| `vault_<concept>` | Quellsystem-spezifisch | `vault_jira.hub_project` |
 | `mart_<concept>` | Business-Domain Marts | `mart_project.company_current_v` |
 
 ## Workflow

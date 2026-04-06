@@ -4,6 +4,11 @@ config-version: 2
 
 profile: 'datavault'
 
+# automate_dv dispatch: Eigene Macros haben Vorrang
+dispatch:
+  - macro_namespace: automate_dv
+    search_order: ['datavault', 'automate_dv']
+
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
@@ -23,11 +28,28 @@ vars:
   # Hash-Algorithmus: MD5 (16 Byte) oder SHA (32 Byte)
   hash: 'SHA'
   
+  # NULL-Placeholder für Hash-Berechnung
+  null_placeholder_string: '-1'
+  
+  # Separator für Multi-Column Hashing
+  concat_string: '||'
+  
+  # Kein UPPER() auf Hash-Inputs (Case-sensitive Daten)
+  hash_content_casing: 'DISABLED'
+  
+  # SQL Server Reserved Keyword Escaping
+  escape_char_left: '['
+  escape_char_right: ']'
+  
   # Datumsspalte für Load Date
   load_date: 'dss_load_date'
   
   # Record Source Spalte
   record_source: 'dss_record_source'
+
+  # SAS Token für list_parquet_files (stage-fs Container, Permissions: rl)
+  # Setzen via: export STAGE_FS_SAS="se=...&sp=rl&sv=...&sr=c&sig=..."
+  stage_fs_sas: "{{ env_var('STAGE_FS_SAS', '') }}"
 
 # ===========================================
 # SCHEMA NAMING CONVENTION
@@ -62,26 +84,11 @@ models:
           +materialized: incremental
           +incremental_strategy: append
           +on_schema_change: append_new_columns
-      # ===== WERKPORTAL (Schema: vault_werkportal) =====
-      werkportal:
-        +schema: vault_werkportal
-        +materialized: incremental
-        +incremental_strategy: append
-        +as_columnstore: false
-        +on_schema_change: append_new_columns
+        refs:
+          +schema: vault
+          +materialized: view
       # ===== JIRA (Schema: vault_jira) =====
-      jira:
-        +schema: vault_jira
-        +materialized: incremental
-        +incremental_strategy: append
-        +as_columnstore: false
-        +on_schema_change: append_new_columns
-      adworks:
-        +schema: vault_adworks
-        +materialized: incremental
-        +incremental_strategy: append
-        +as_columnstore: false
-        +on_schema_change: append_new_columns
+     
     business_vault:
       +schema: vault
       +materialized: table
@@ -89,6 +96,16 @@ models:
       # ===== COMMON (Schema: mart) =====
       _common:
         +schema: mart
+        +materialized: table
+        +as_columnstore: false
+      # ===== FINANCE (Schema: mart_finance) =====
+      finance:
+        +schema: mart_finance
+        +materialized: table
+        +as_columnstore: false
+      # ===== PROJEKT (Schema: mart_project) =====
+      project:
+        +schema: mart_project
         +materialized: table
         +as_columnstore: false
       # ===== JIRA (Schema: mart_jira) =====

@@ -1,0 +1,294 @@
+version: 2
+
+models:
+  # =============================================================================
+  # MART: PROJEKT-DOMAIN — Star Schema (mart_project)
+  # Dimensionen (dim_*) + Faktentabellen (fakt_*)
+  # Konvention: {dim}_key/_id/_code/_name, Ghost Records, dss-Metadata
+  # =============================================================================
+
+  # ---------------------------------------------------------------------------
+  # DIMENSIONEN
+  # ---------------------------------------------------------------------------
+
+  - name: dim_person
+    description: |
+      Mitarbeiterstammdaten mit Abteilungszuordnung.
+      Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
+      Filter: Nur aktive Lohnempfaenger (LOHNJN=1, GESPERRT=0, LOHNNR<>0).
+      Quelle: hub_adresse + sat_person_adresse + link_adresse_person
+              + hub_person + sat_person + ref_abteilung.
+    columns:
+      - name: person_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', LOHNNR))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: person_id
+        description: "Technische ID (PersonalNr als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: person_code
+        description: "Sprechender Schluessel (Initialen, Fallback: PersonalNr)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: person_name
+        description: "Bekannte Bezeichnung (Nachname, Vorname). NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: abteilung_nr
+        description: "Abteilungsnummer (sat_person.home_dept_nr)"
+        data_type: int
+      - name: abteilung
+        description: "Abteilungsbezeichnung (ref_abteilung.description, GROUP=1). NULL → 'UNKNOWN'"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: mutation_date
+        description: "Letzte Aenderung (sat_person.mutation_date)"
+        data_type: date
+      - name: eintritt
+        description: "Eintrittsdatum (sat_person.date_in)"
+        data_type: date
+      - name: eintritt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus date_in)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: austritt
+        description: "Austrittsdatum (sat_person.date_out, NULL = noch aktiv)"
+        data_type: date
+      - name: austritt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus date_out). NULL = noch aktiv."
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation (ghost_record fuer Ghost)"
+        data_type: nvarchar(255)
+
+  - name: dim_projekt
+    description: |
+      Projektstammdaten mit Status-Aufloesung.
+      Repliziert Synapse [Projekt].[Projekt].
+      Quelle: hub_projekt + sat_projekt + ref_projektstatus.
+    columns:
+      - name: projekt_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', PROJNR))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: projekt_id
+        description: "Technische ID (ProjektNr als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: projekt_code
+        description: "Sprechender Schluessel (ProjektNr). NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: projekt_name
+        description: "Projektbezeichnung. NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: inaktiv
+        description: "Inaktiv-Flag (0=aktiv, 1=inaktiv)"
+        data_type: int
+      - name: gruppe_nr
+        description: "Referenz-Projektnummer / Gruppe (sat_projekt.refprojnr)"
+        data_type: int
+      - name: erstellt
+        description: "Erstellungsdatum (sat_projekt.creation)"
+        data_type: date
+      - name: erstellt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus creation)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: status_nr
+        description: "Status-Code (sat_projekt.status → ref_projektstatus)"
+        data_type: int
+      - name: status
+        description: "Status-Bezeichnung (ref_projektstatus.bezeichn). NULL → 'UNKNOWN'"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: status_datum
+        description: "Datum der letzten Statusaenderung (sat_projekt.status1)"
+        data_type: date
+      - name: status_datum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus status1)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: dim_leistungsart
+    description: |
+      Leistungsarten (Service Types) fuer Projektsachkonten.
+      15 distinkte Leistungsarten (z.B. Normalzeit, Ueberzeit, Ferien).
+      Quelle: ref_leistungsart (PROJ.NTR).
+    columns:
+      - name: leistungsart_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', NUMBER))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: leistungsart_id
+        description: "Technische ID (NUMBER als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: leistungsart_code
+        description: "Sprechender Schluessel (type, Fallback: NUMBER)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: leistungsart_name
+        description: "Bezeichnung. NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: inaktiv
+        description: "Inaktiv-Flag (ref_leistungsart.inaktiv)"
+        data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  # ---------------------------------------------------------------------------
+  # FAKTENTABELLEN
+  # ---------------------------------------------------------------------------
+
+  - name: fakt_stunden
+    description: |
+      Projektsachkonto-Buchungen (Stunden/Kosten pro Projekt und Periode).
+      Repliziert Synapse [Projekt].[Stunden] mit KORREKTUR:
+      NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse fehlerhaft).
+      Granularitaet: 1 Zeile = 1 Projektsachkonto-Buchung.
+      Filter: AZBETINT <> 0.
+      Quelle: hub_projektsachkonto + sat_projektsachkonto
+              + link_projektsachkonto_projekt + hub_projekt.
+    columns:
+      - name: projekt_key
+        description: "FK → dim_projekt.projekt_key"
+        data_type: bigint
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_projekt')
+              field: projekt_key
+      - name: leistungsart_key
+        description: "FK → dim_leistungsart.leistungsart_key"
+        data_type: bigint
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_leistungsart')
+              field: leistungsart_key
+              config:
+                severity: warn
+      - name: perioden_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH, immer 1. des Monats)"
+        data_type: int
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: betrag
+        description: "Ist-Betrag intern (sat_projektsachkonto.azbetint, <> 0)"
+        data_type: decimal(38,18)
+        tests:
+          - not_null
+      - name: gb
+        description: "Geschaeftsbereich (hub_projektsachkonto.gb)"
+        data_type: nvarchar(4000)
+      - name: dataset
+        description: "Abacus Dataset-Nummer (hub_projektsachkonto.dataset)"
+        data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: dim_abteilung
+    description: |
+      Historische Mitarbeiter-Abteilungs-Zuordnungen (alle Mutationen).
+      Repliziert Synapse [Projekt].[Abteilung] (LEN LEFT JOIN LTC WHERE GROUP=1).
+      Granularitaet: 1 Zeile pro (EMPL_NR x HOME_DEPT_NR x MUTATION_DATE) — DISTINCT.
+      Alle historischen Records aus sat_person__abacus (kein Current-Filter).
+      Quelle: hub_person + sat_person__abacus + ref_abteilung (group_nr=1).
+      Filter: home_dept_nr IS NOT NULL.
+    columns:
+      - name: abteilung_key
+        description: "Surrogate Key der Abteilung = ABS(HASHBYTES('MD5', home_dept_nr)). Nicht eindeutig pro Zeile (N Personen pro Abteilung)."
+        data_type: bigint
+        tests:
+          - not_null
+      - name: person_key
+        description: "Surrogate Key der Person = ABS(HASHBYTES('MD5', empl_nr)). FK → dim_person.person_key (historische Personen beachten)."
+        data_type: bigint
+        tests:
+          - not_null
+      - name: abteilung_nr
+        description: "Abteilungsnummer (sat_person__abacus.home_dept_nr)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: abteilung_name
+        description: "Abteilungsbezeichnung (ref_abteilung.description, group_nr=1). NULL → 'UNKNOWN'"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: personal_nr
+        description: "Personalnummer des Mitarbeiters (hub_person.empl_nr)"
+        data_type: nvarchar(255)
+      - name: mutation_date
+        description: "Datum der Abteilungsmutation (sat_person__abacus.mutation_date)"
+        data_type: date
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)

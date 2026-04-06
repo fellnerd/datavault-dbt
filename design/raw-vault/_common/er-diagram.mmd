@@ -1,0 +1,410 @@
+erDiagram
+    %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
+    %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Sharepoint ('ewb_sharepoint')
+    %% Stand: 2026-05-29 | Hubs: 13 | Sats: 12 | Links: 11 | Refs: 6
+    %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle
+    %% + Wave 3 Links: link_hauptbuch_konto, link_hauptbuch_kostenstelle (GL→Sharepoint)
+    %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
+
+    %% === FINANCE ===
+    HUB_BUCHUNGSKOPF {
+        char64 hk_buchungskopf PK "computed"
+        decimal recnum "ext_ewb_fibu_fhe_main.RECNUM"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_HAUPTBUCH {
+        char64 hk_hauptbuch PK "computed"
+        decimal recnum "ext_ewb_fibu_gl.RECNUM (BK Teil 1)"
+        nvarchar dss_source_file_name "ext_ewb_fibu_gl.dss_source_file_name (BK Teil 2)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_KREDITORENBELEG {
+        char64 hk_kreditorenbeleg PK "computed"
+        decimal belnr "ext_ewb_kred_kbl_main.BELNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_ZAHLUNG {
+        char64 hk_zahlung PK "computed"
+        decimal documentnr "ext_ewb_kred_kvl_main.DOCUMENTNR"
+        decimal positionnr "ext_ewb_kred_kvl_main.POSITIONNR"
+        decimal elementtyp "ext_ewb_kred_kvl_main.ELEMENTTYP"
+        decimal inr "ext_ewb_kred_kvl_main.INR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_KREDITOR {
+        char64 hk_kreditor PK "computed — Ghost Hub"
+        decimal knr "ext_ewb_kred_kbl_main.KNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_KONTO {
+        char64 hk_konto PK "computed — Ghost Hub"
+        nvarchar kto "ext_ewb_fibu_gl.KTO"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_KOSTENSTELLE {
+        char64 hk_kostenstelle PK "computed — Ghost Hub"
+        nvarchar kst "ext_ewb_fibu_gl.KST"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    SAT_BUCHUNGSKOPF__ABACUS {
+        char64 hk_buchungskopf FK "computed"
+        char64 hd_buchungskopf "computed"
+        decimal plan "PLAN (reserved)"
+        decimal level "LEVEL (reserved)"
+        decimal variante "VARIANTE"
+        decimal typ "TYP"
+        decimal id "ID"
+        decimal ref_level "REF_LEVEL"
+        decimal ref_id "REF_ID"
+        decimal ref_typ "REF_TYP"
+        decimal before "BEFORE (reserved)"
+        decimal after "AFTER (reserved)"
+        nvarchar creuser "CREUSER"
+        datetime2 credat "CREDAT"
+        nvarchar mutuser "MUTUSER"
+        datetime2 mutdat "MUTDAT"
+        decimal enterprise "ENTERPRISE"
+        nvarchar guid "GUID"
+        decimal zuonr "ZUONR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    SAT_HAUPTBUCH__ABACUS {
+        char64 hk_hauptbuch FK "computed"
+        char64 hd_hauptbuch "computed"
+        datetime2 date "DATE (reserved)"
+        nvarchar belnr "BELNR"
+        nvarchar sh "SH — Soll/Haben"
+        decimal betrag "BETRAG"
+        decimal gkto "GKTO — Gegenkonto"
+        decimal kst "KST — Kostenstelle"
+        decimal kst2 "KST2 — Gegenbuchung KST"
+        nvarchar waehr "WAEHR — Währung"
+        decimal mwstbetr "MWSTBETR — MWST-Betrag"
+        decimal mwsttyp "MWSTTYP"
+        nvarchar mwstcode "MWSTCODE"
+        nvarchar mwstincl "MWSTINCL"
+        decimal mwstsatz "MWSTSATZ"
+        nvarchar text "TEXT (reserved)"
+        nvarchar text2 "TEXT2"
+        decimal dkkundennummer "DKKUNDENNUMMER — FK Kreditor"
+        decimal proj "PROJ — FK Projekt"
+        nvarchar sam "SAM — Sammelbuchung"
+        varchar ___ "... +158 weitere Spalten (178 total)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    SAT_KREDITORENBELEG__ABACUS {
+        char64 hk_kreditorenbeleg FK "computed"
+        char64 hd_kreditorenbeleg "computed"
+        nvarchar belart "BELART"
+        decimal beldef "BELDEF"
+        nvarchar belref "BELREF"
+        datetime2 fbeldat "FBELDAT"
+        datetime2 kbeldat "KBELDAT"
+        decimal bwbtr "BWBTR — Belegwährungsbetrag"
+        decimal lwbtr "LWBTR — Leitwährungsbetrag"
+        nvarchar bwwrc "BWWRC — Belegwährungscode"
+        decimal gf "GF — Geschäftsfeld"
+        nvarchar statid "STATID"
+        decimal projekt "PROJEKT"
+        decimal kst1 "KST1 — Kostenstelle"
+        nvarchar adrid "ADRID — Adress-ID"
+        nvarchar erfuser "ERFUSER"
+        datetime2 erfdat "ERFDAT"
+        datetime2 mutdat "MUTDAT"
+        varchar ___ "... +99 weitere Spalten (116 total)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    SAT_ZAHLUNG__ABACUS {
+        char64 hk_zahlung FK "computed"
+        char64 hd_zahlung "computed"
+        nvarchar abacus_usr_guid "ABACUS_USR_GUID"
+        nvarchar abacus_usr_name "ABACUS_USR_NAME"
+        decimal abgelehnt "ABGELEHNT"
+        datetime2 aktion_datum_zeit "AKTION_DATUM_ZEIT"
+        nvarchar bemerkung "BEMERKUNG"
+        decimal benach_gesandt "BENACH_GESANDT"
+        datetime2 datum_zeit "DATUM_ZEIT"
+        decimal freigabebetrag "FREIGABEBETRAG"
+        decimal msgtaskstatus "MSGTASKSTATUS"
+        decimal rgpruefung "RGPRUEFUNG"
+        decimal statusid "STATUSID"
+        decimal stvvisa "STVVISA"
+        decimal subdocumentnr "SUBDOCUMENTNR"
+        decimal validvisum "VALIDVISUM"
+        decimal ver "VER"
+        decimal visiert "VISIERT"
+        decimal visumstyp "VISUMSTYP"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    SAT_KREDITOR__ABACUS {
+        char64 hk_kreditor FK "computed"
+        char64 hd_kreditor "computed"
+        nvarchar adrid "ADRID — Adress-ID"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+
+    %% === PROJECT ===
+    HUB_PROJEKT { char64 hk PK }
+    HUB_PROJEKTSACHKONTO { char64 hk PK }
+    HUB_ZEITERFASSUNG {
+        char64 hk_zeiterfassung PK "computed"
+        decimal emplnr "ext_ewb_proj_ntc_main.EMPLNR"
+        datetime2 projdat "ext_ewb_proj_ntc_main.PROJDAT"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    SAT_PROJEKT__ABACUS { char64 hk FK }
+    SAT_ZEITERFASSUNG__ABACUS {
+        char64 hk_zeiterfassung FK "computed"
+        char64 hd_zeiterfassung "computed"
+        decimal from1 "FROM1"
+        decimal to1 "TO1"
+        decimal from2 "FROM2"
+        decimal to2 "TO2"
+        decimal from3 "FROM3"
+        decimal to3 "TO3"
+        decimal from4 "FROM4"
+        decimal to4 "TO4"
+        decimal from5 "FROM5"
+        decimal to5 "TO5"
+        decimal from6 "FROM6"
+        decimal to6 "TO6"
+        decimal from7 "FROM7"
+        decimal to7 "TO7"
+        decimal from8 "FROM8"
+        decimal to8 "TO8"
+        decimal from9 "FROM9"
+        decimal to9 "TO9"
+        decimal from10 "FROM10"
+        decimal to10 "TO10"
+        decimal anzahl "ANZAHL"
+        nvarchar user_f "USER_F"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    SAT_PROJEKTSACHKONTO__ABACUS {
+        char64 hk_projektsachkonto FK "hub_projektsachkonto"
+        char64 hd_projektsachkonto "hash diff"
+        decimal budgetint "Budget intern"
+        decimal betragint "Betrag intern"
+        decimal vortragint "Vortrag intern"
+        decimal budgetext "Budget extern"
+        decimal betragext "Betrag extern"
+        decimal vortragext "Vortrag extern"
+        decimal azbutint "AZ Budget intern"
+        decimal azbetint "AZ Betrag intern"
+        decimal azvortint "AZ Vortrag intern"
+        decimal azbutext "AZ Budget extern"
+        decimal azbetext "AZ Betrag extern"
+        decimal azvortext "AZ Vortrag extern"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    LINK_PROJEKTSACHKONTO_PROJEKT {
+        char64 hk_link_projektsachkonto_projekt PK "computed"
+        char64 hk_projektsachkonto FK "hub_projektsachkonto"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    HUB_PROJEKTTEIL {
+        char64 hk_projektteil PK "computed"
+        decimal recnum "ext_ewb_proj_prt_main.RECNUM"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    SAT_PROJEKTTEIL__ABACUS {
+        char64 hk_projektteil FK "computed"
+        char64 hd_projektteil "computed"
+        datetime2 date "DATE (reserved)"
+        decimal stat1 "STAT1"
+        decimal stat2 "STAT2"
+        nvarchar user_f "USER_F"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
+    }
+    LINK_PROJEKTTEIL_PROJEKT {
+        char64 hk_link_projektteil_projekt PK "computed"
+        char64 hk_projektteil FK "hub_projektteil"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_ZEITERFASSUNG_PERSON {
+        char64 hk_link_zeiterfassung_person PK "computed"
+        char64 hk_zeiterfassung FK "computed"
+        char64 hk_person FK "computed"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% === STAMMDATEN ===
+    HUB_PERSON { char64 hk PK }
+    HUB_ADRESSE { char64 hk PK }
+    SAT_PERSON__ABACUS { char64 hk FK }
+    SAT_PERSON_ADRESSE__ABACUS { char64 hk FK }
+    SAT_ADRESSE_KONTAKT__ABACUS { char64 hk FK }
+
+    %% === REFERENCE ===
+    REF_LEISTUNGSART {
+        int number PK "ext_ewb_proj_ntr_main — 29 Eintraege"
+        nvarchar description "Beschreibung"
+        int type "Typ"
+        int inaktiv "Inaktiv-Flag"
+    }
+    REF_PROJEKTSTATUS {
+        int status PK "ext_ewb_proj_pst_main — 7 Eintraege"
+        nvarchar bezeichn "Bezeichnung"
+        nvarchar langcode "Sprachcode"
+    }
+    REF_ABTEILUNG { int nr PK }
+    REF_KONTO {
+        int KontoNr PK "ewb_sp_konten — 254 Eintraege"
+        nvarchar KontoName "Kontobezeichnung"
+        nvarchar Konto "Nr - Name"
+        nvarchar Konto_L1 "Kontogruppe L1"
+        nvarchar KontoName_L1 "Gruppenname L1"
+        nvarchar Konto_L2 "Kontogruppe L2"
+        nvarchar KontoName_L2 "Gruppenname L2"
+    }
+    REF_KOSTENSTELLE {
+        int KostenstelleNr PK "ewb_sp_kostenstellen — 151 Eintraege"
+        nvarchar KostenstelleName "Bezeichnung"
+        nvarchar Kostenstelle "Nr - Name"
+        nvarchar Bereich_L1 "Bereich L1"
+        nvarchar Bereich_L2 "Bereich L2"
+        int Investitionsrechnung "Inv.-Flag"
+    }
+
+    REF_KRED_BUCHUNGSSTATUS {
+        int statusid PK "ext_ewb_kred_kbl_main.STATID — Buchungsstatus"
+        nvarchar bezeichnung "Statusbezeichnung"
+    }
+
+    %% === LINKS ===
+    LINK_HAUPTBUCH_BUCHUNGSKOPF {
+        char64 hk_link_hauptbuch_buchungskopf PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_buchungskopf FK "hub_buchungskopf"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_HAUPTBUCH_PROJEKT {
+        char64 hk_link_hauptbuch_projekt PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_HAUPTBUCH_KREDITOR {
+        char64 hk_link_hauptbuch_kreditor PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_kreditor FK "hub_kreditor"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_HAUPTBUCH_KONTO {
+        char64 hk_link_hauptbuch_konto PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_konto FK "hub_konto"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_HAUPTBUCH_KOSTENSTELLE {
+        char64 hk_link_hauptbuch_kostenstelle PK "computed"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_kostenstelle FK "hub_kostenstelle"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_KREDITORENBELEG_KREDITOR {
+        char64 hk_link_kreditorenbeleg_kreditor PK "computed"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hk_kreditor FK "hub_kreditor"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_KREDITORENBELEG_ZAHLUNG {
+        char64 hk_link_kreditorenbeleg_zahlung PK "computed"
+        char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
+        char64 hk_zahlung FK "hub_zahlung"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+    LINK_ADRESSE_PERSON { char64 hk PK }
+
+    %% Hub → Satellite
+    HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF__ABACUS : has
+    HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH__ABACUS : has
+    HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG__ABACUS : has
+    HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG__ABACUS : has
+    HUB_KREDITOR ||--o{ SAT_KREDITOR__ABACUS : has
+    HUB_PROJEKT ||--o{ SAT_PROJEKT__ABACUS : has
+    HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG__ABACUS : has
+    HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO__ABACUS : has
+    HUB_PERSON ||--o{ SAT_PERSON__ABACUS : has
+    HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE__ABACUS : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT__ABACUS : has
+
+    %% Finance Links
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+    HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+    HUB_KREDITOR ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KONTO : ""
+    HUB_KONTO ||--o{ LINK_HAUPTBUCH_KONTO : ""
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+    HUB_KOSTENSTELLE ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+    HUB_KREDITOR ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
+    HUB_ZAHLUNG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
+
+    %% Project Links
+    HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    HUB_PROJEKTTEIL ||--o{ SAT_PROJEKTTEIL__ABACUS : has
+    HUB_PROJEKTTEIL ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+    HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
+    HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
+    HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : ""
+    HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : ""
+
+    %% Reference Tables
+    SAT_PROJEKTSACHKONTO__ABACUS }o--|| REF_LEISTUNGSART : "CODE"
+    SAT_PROJEKT__ABACUS }o--|| REF_PROJEKTSTATUS : "STATUSNR"
+    SAT_PERSON__ABACUS }o--|| REF_ABTEILUNG : "HOME_DEPT_NR"
+    HUB_KONTO }o--|| REF_KONTO : "KTO = KontoNr"
+    HUB_KOSTENSTELLE }o--|| REF_KOSTENSTELLE : "KST = KostenstelleNr"
+    SAT_KREDITORENBELEG__ABACUS }o--|| REF_KRED_BUCHUNGSSTATUS : "STATID = statusid"

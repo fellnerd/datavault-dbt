@@ -85,7 +85,7 @@ export interface DbtModel {
   columns: ColumnInfo[];
   refs: string[];        // Referenced models (from ref())
   sources: string[];     // Referenced sources (from source())
-  concept: string;       // Business concept (e.g., 'werkportal', '_common')
+  concept: string;       // Business concept (e.g., 'jira', '_common')
   layer: 'staging' | 'raw_vault' | 'business_vault' | 'mart';
   description?: string;
   _yamlPath?: string;    // Path to the YAML schema file
@@ -178,7 +178,7 @@ export interface ProjectMetadata {
  */
 export interface GroupConfig {
   name: string;           // Display name of the group
-  concept: string;        // Concept this group belongs to (e.g., 'werkportal')
+  concept: string;        // Concept this group belongs to (e.g., 'jira')
   layer: 'sources' | 'staging' | 'raw_vault' | 'business_vault' | 'mart';  // Which tree view
   models: string[];       // Model names in this group
 }
@@ -238,7 +238,7 @@ export type StagingEntityType = 'standard' | 'dependent_child' | 'multi_active' 
  */
 export interface StagingConfig {
   // Entity identification
-  concept: string;              // 'adventureworks', 'werkportal'
+  concept: string;              // 'adventureworks', 'jira'
   entityName: string;           // 'customer', 'company'
   
   // Entity type (determines which Data Vault objects will be generated)
@@ -247,7 +247,7 @@ export interface StagingConfig {
   // Source
   externalTable: string;        // 'ext_adventureworks_customer' or seed name
   sourceType?: SourceType;      // Type of source (default: 'external_table')
-  psaModelName?: string;        // For PSA sources: the dbt model name (e.g., 'psa_werkportal_company')
+  psaModelName?: string;        // For PSA sources: the dbt model name (e.g., 'psa_jira_company')
   
   // Business Key
   businessKeyColumns: string[];
@@ -292,6 +292,17 @@ export interface StagingConfig {
   // Value: hub name (e.g., 'hub_product') - uses that hub's hash key
   // When set: No Hub generated, Satellite uses target hub's hk_<entity>
   splitSatelliteTargetHub?: string;
+  
+  // Override satellite name (e.g., 'person_adresse' instead of auto-derived from entityName)
+  // Affects hash diff naming: hd_<satelliteName> instead of hd_<entityName>
+  /** @deprecated Use satellites array instead */
+  satelliteName?: string;
+  
+  /** Multi-satellite definitions for staging (generates one hash diff per satellite) */
+  satellites?: SatelliteDefinition[];
+  
+  /** Hash diff column groups for multi-satellite (keyed by satellite name) */
+  satelliteHashDiffs?: Record<string, string[]>;
 }
 
 /**
@@ -327,8 +338,18 @@ export type DesignerColumnType =
   | 'foreign_key' | 'link'        // Foreign Key → Link
   | 'dependent_child'             // Dependent Child Key → DC Sat (on Link)
   | 'multi_active'                // Multi-Active Key → MA Sat
-  | 'metadata' 
-  | 'ignore';
+  | 'metadata'
+  | 'ignore';                     // @deprecated — use includeInPayload: false instead. Kept for backward compat with existing JSON configs.
+
+/**
+ * Satellite group definition for multi-satellite support
+ */
+export interface SatelliteDefinition {
+  /** Unique ID for this satellite group */
+  id: string;
+  /** Satellite name (without 'sat_' prefix), e.g. 'person_adresse' */
+  name: string;
+}
 
 /**
  * Column definition in Entity Designer
@@ -349,13 +370,17 @@ export interface DesignerColumnDefinition {
   dependentChildForLink?: string;
   /** For multi_active: sequence/identifier column name */
   multiActiveSequence?: boolean;
+  /** Whether to include this column in satellite payload (default: true) */
+  includeInPayload?: boolean;
+  /** Satellite group ID for multi-satellite assignment */
+  satelliteGroup?: string;
 }
 
 /**
  * Configuration for Entity Designer
  */
 export interface EntityDesignConfig {
-  concept: string;              // e.g., 'werkportal'
+  concept: string;              // e.g., 'jira'
   entityName: string;           // e.g., 'contacts'
   sourceTable: string;          // External Table or Staging view name
   sourceType?: SourceType;      // Type of source (seed, external_table, etc.)
@@ -363,6 +388,12 @@ export interface EntityDesignConfig {
   ghostRecordValue: string;     // Default: '-1'
   /** Lambda Vault configuration for near-real-time data */
   lambdaVault?: LambdaVaultConfig;
+  /** @deprecated Use satellites array instead. Kept for backward compatibility. */
+  satelliteName?: string;
+  /** Multi-satellite definitions */
+  satellites?: SatelliteDefinition[];
+  /** Generate current-view (sat_*_current_v) for each satellite */
+  generateCurrentView?: boolean;
 }
 
 // ============================================
@@ -387,7 +418,7 @@ export interface LambdaColumnMapping {
 export interface LambdaVaultConfig {
   /** Whether Lambda Vault is enabled for this entity */
   enabled: boolean;
-  /** Name of the delta staging model (e.g., 'werkportal_rechnung_delta') */
+  /** Name of the delta staging model (e.g., 'jira_rechnung_delta') */
   deltaStagingModel: string;
   /** Column mappings for columns with different names between base and delta */
   columnMappings: LambdaColumnMapping[];
@@ -397,9 +428,9 @@ export interface LambdaVaultConfig {
  * Info about a staging model for Lambda Vault dropdown
  */
 export interface StagingModelInfo {
-  /** Model name (e.g., 'werkportal_rechnung_delta') */
+  /** Model name (e.g., 'jira_rechnung_delta') */
   name: string;
-  /** Concept/source (e.g., 'werkportal') */
+  /** Concept/source (e.g., 'jira') */
   concept: string;
   /** Column names in the staging model */
   columns: string[];
@@ -411,7 +442,7 @@ export interface StagingModelInfo {
 export interface GeneratedFile {
   path: string;
   content: string;
-  type: 'hub' | 'satellite' | 'link' | 'link_satellite' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
+  type: 'hub' | 'satellite' | 'satellite_current_view' | 'link' | 'link_satellite' | 'dc_satellite' | 'ma_satellite' | 'ghost_seed' | 'yaml' | 'schema' | 'staging' | 'virtual_hub' | 'virtual_satellite' | 'virtual_link';
 }
 
 /**
@@ -446,6 +477,14 @@ export interface WebviewInitMessage {
     lambdaVault?: LambdaVaultConfig;
     /** Column names from base staging SQL (for Lambda Vault comparison) */
     baseStagingColumns?: string[];
+    /** Available concepts from dbt_project.yml raw_vault config */
+    availableConcepts?: string[];
+    /** Saved satellite name override */
+    satelliteName?: string;
+    /** Multi-satellite definitions */
+    satellites?: SatelliteDefinition[];
+    /** Generate current-view for satellites */
+    generateCurrentView?: boolean;
   };
 }
 
@@ -469,6 +508,10 @@ export interface SavedColumnConfig {
   multiActiveSequence?: boolean;
   /** Whether to include this column in Hash Diff calculation (for satellite columns) */
   includeInHashDiff?: boolean;
+  /** Whether to include this column in satellite payload (default: true) */
+  includeInPayload?: boolean;
+  /** Satellite group ID for multi-satellite assignment */
+  satelliteGroup?: string;
 }
 
 /**
@@ -580,7 +623,7 @@ export interface DimensionAttribute {
  */
 export interface DimensionConfig {
   name: string;                    // e.g., 'dim_company'
-  concept: string;                 // e.g., 'werkportal'
+  concept: string;                 // e.g., 'jira'
 
   // Source configuration
   sourceType: DimensionSourceType; // 'hub' | 'pit' | 'seed' | 'static'
@@ -650,7 +693,7 @@ export interface FactMeasure {
  */
 export interface FactConfig {
   name: string;                    // fact_orders
-  concept: string;                 // werkportal
+  concept: string;                 // jira
 
   // Source configuration
   sourceLink?: string;             // link_order

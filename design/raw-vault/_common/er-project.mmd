@@ -1,0 +1,169 @@
+erDiagram
+    %% Data Vault 2.1 — EWB Raw Vault — PROJECT DOMAIN
+    %% Schema: vault | Quelle: Abacus ERP
+    %% Hubs: Projekt, Projektsachkonto
+    %% Reference Tables: Leistungsart, Projektstatus
+
+    %% ========================================
+    %% HUBS
+    %% ========================================
+
+    HUB_PROJEKT {
+        char64 hk_projekt PK "SHA2_256(PROJNR)"
+        nvarchar projnr "ext_ewb_proj_npo_main.PROJNR"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_PROJEKTSACHKONTO {
+        char64 hk_projektsachkonto PK "SHA2_256(PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB^^DATASET)"
+        nvarchar projnr "ext_ewb_proj_nsa_main.PROJNR"
+        nvarchar code "ext_ewb_proj_nsa_main.CODE"
+        nvarchar periyear "ext_ewb_proj_nsa_main.PERIYEAR"
+        nvarchar perimonth "ext_ewb_proj_nsa_main.PERIMONTH"
+        nvarchar gb "ext_ewb_proj_nsa_main.GB"
+        nvarchar dataset "ext_ewb_proj_nsa_main.DATASET (10 Datasets)"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    HUB_PROJEKTTEIL {
+        char64 hk_projektteil PK "SHA2_256(RECNUM)"
+        nvarchar recnum "ext_ewb_proj_prt_main.RECNUM"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% ========================================
+    %% SATELLITES
+    %% ========================================
+
+    SAT_PROJEKT {
+        char64 hk_projekt FK "hub_projekt"
+        char64 hd_projekt "hash diff"
+        nvarchar projname "Projektname"
+        bit inaktiv "Inaktiv-Flag"
+        int refprojnr "GruppeNr (FK Kostenstelle)"
+        decimal projgroup "Projektgruppe"
+        int statusdef "Status-Definition"
+        int status "StatusNr (FK ref_projektstatus)"
+        date status1 "StatusDatum"
+        date creation "Erstelldatum"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_PROJEKTSACHKONTO {
+        char64 hk_projektsachkonto FK "hub_projektsachkonto"
+        char64 hd_projektsachkonto "hash diff"
+        decimal budgetint "Budget intern"
+        decimal betragint "Betrag intern"
+        decimal vortragint "Vortrag intern"
+        decimal budgetext "Budget extern"
+        decimal betragext "Betrag extern"
+        decimal vortragext "Vortrag extern"
+        decimal azbutint "AZ-Budget intern"
+        decimal azbetint "AZ-Betrag intern"
+        decimal azvortint "AZ-Vortrag intern"
+        decimal azbutext "AZ-Budget extern"
+        decimal azbetext "AZ-Betrag extern"
+        decimal azvortext "AZ-Vortrag extern"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    SAT_PROJEKTTEIL__ABACUS {
+        char64 hk_projektteil FK "hub_projektteil"
+        char64 hd_projektteil "hash diff"
+        date date "Datum"
+        nvarchar stat1 "Status 1"
+        nvarchar stat2 "Status 2"
+        nvarchar user_f "Benutzer"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
+    %% ========================================
+    %% REFERENCE TABLES
+    %% ========================================
+
+    REF_LEISTUNGSART {
+        int number PK "ext_ewb_proj_ntr_main — 29 Eintraege"
+        nvarchar description "Beschreibung"
+        nvarchar type "Typ"
+        bit inaktiv "Inaktiv-Flag"
+    }
+
+    REF_PROJEKTSTATUS {
+        decimal status PK "ext_ewb_proj_pst_main — 7 Eintraege"
+        nvarchar bezeichn "Bezeichnung"
+        nvarchar langcode "Sprachcode"
+    }
+
+    %% ========================================
+    %% LINKS
+    %% ========================================
+
+    LINK_PROJEKTSACHKONTO_PROJEKT {
+        char64 hk_link PK "SHA2_256(hk_projektsachkonto^^hk_projekt)"
+        char64 hk_projektsachkonto FK "hub_projektsachkonto"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    LINK_PROJEKTTEIL_PROJEKT {
+        char64 hk_link PK "SHA2_256(hk_projektteil^^hk_projekt)"
+        char64 hk_projektteil FK "hub_projektteil"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% Cross-domain: Hauptbuch → Projekt (detail in er-finance.mmd)
+    HUB_HAUPTBUCH {
+        char64 hk_hauptbuch PK "siehe er-finance.mmd"
+    }
+
+    LINK_HAUPTBUCH_PROJEKT {
+        char64 hk_link PK "cross-domain"
+        char64 hk_hauptbuch FK "hub_hauptbuch"
+        char64 hk_projekt FK "hub_projekt"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
+
+    %% ========================================
+    %% RELATIONSHIPS — Hub → Satellite
+    %% ========================================
+
+    HUB_PROJEKT ||--o{ SAT_PROJEKT : has
+    HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has
+    HUB_PROJEKTTEIL ||--o{ SAT_PROJEKTTEIL__ABACUS : has
+
+    %% ========================================
+    %% RELATIONSHIPS — Hub → Link
+    %% ========================================
+
+    HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+
+    HUB_PROJEKTTEIL ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+
+    %% Cross-domain
+    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+
+    %% ========================================
+    %% RELATIONSHIPS — Reference Tables
+    %% ========================================
+
+    SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE zu NUMBER"
+    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUS zu STATUS"

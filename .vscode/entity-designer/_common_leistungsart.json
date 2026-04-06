@@ -1,0 +1,167 @@
+{
+  "concept": "_common",
+  "entityName": "leistungsart",
+  "sourceTable": "ext_ewb_proj_ntr_main",
+  "sourceModel": "ewb_proj_ntr_main",
+  "sourceType": "external_table",
+  "columns": [
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "DATASET",
+      "sourceName": "DATASET",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NUMBER",
+      "sourceName": "NUMBER",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": false
+    },
+    {
+      "name": "DESCRIPTION",
+      "sourceName": "DESCRIPTION",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TYPE",
+      "sourceName": "TYPE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "CONDITION",
+      "sourceName": "CONDITION",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VARIANT",
+      "sourceName": "VARIANT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "NEXTVARIANT",
+      "sourceName": "NEXTVARIANT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "INAKTIV",
+      "sourceName": "INAKTIV",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "VISUM",
+      "sourceName": "VISUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "RULESETTYPE",
+      "sourceName": "RULESETTYPE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "VARDATA",
+      "sourceName": "VARDATA",
+      "dataType": "VARBINARY(MAX)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "timestamp_landing-zone",
+      "sourceName": "timestamp_landing-zone",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2025-07-14T10:00:00.000Z",
+  "generatedObjects": ["reference"]
+}

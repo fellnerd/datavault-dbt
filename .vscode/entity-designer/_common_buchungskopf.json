@@ -1,0 +1,592 @@
+{
+  "concept": "_common",
+  "entityName": "buchungskopf",
+  "sourceTable": "ext_ewb_fibu_fhe_main",
+  "generatedObjects": ["hub", "satellite"],
+  "columns": [
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "PLAN",
+      "sourceName": "PLAN",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "VARIANTE",
+      "sourceName": "VARIANTE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "LEVEL",
+      "sourceName": "LEVEL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ID",
+      "sourceName": "ID",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TYP",
+      "sourceName": "TYP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "REF_LEVEL",
+      "sourceName": "REF_LEVEL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "REF_ID",
+      "sourceName": "REF_ID",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "REF_TYP",
+      "sourceName": "REF_TYP",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "BOTTOM",
+      "sourceName": "BOTTOM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FONTID",
+      "sourceName": "FONTID",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "BEFORE",
+      "sourceName": "BEFORE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "AFTER",
+      "sourceName": "AFTER",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "BOLDSW",
+      "sourceName": "BOLDSW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ULINESW",
+      "sourceName": "ULINESW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ITALICSW",
+      "sourceName": "ITALICSW",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SUPPRESS",
+      "sourceName": "SUPPRESS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "NONUM",
+      "sourceName": "NONUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FORMFEED",
+      "sourceName": "FORMFEED",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "INDENT",
+      "sourceName": "INDENT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "NODEFAULT",
+      "sourceName": "NODEFAULT",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "DECIMALS",
+      "sourceName": "DECIMALS",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SYSSW1",
+      "sourceName": "SYSSW1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SYSSW2",
+      "sourceName": "SYSSW2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SYSSW3",
+      "sourceName": "SYSSW3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SYSSW4",
+      "sourceName": "SYSSW4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SYSDAT1",
+      "sourceName": "SYSDAT1",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "SYSDAT2",
+      "sourceName": "SYSDAT2",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW1",
+      "sourceName": "APPSW1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW2",
+      "sourceName": "APPSW2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW3",
+      "sourceName": "APPSW3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW4",
+      "sourceName": "APPSW4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW5",
+      "sourceName": "APPSW5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW6",
+      "sourceName": "APPSW6",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW7",
+      "sourceName": "APPSW7",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW8",
+      "sourceName": "APPSW8",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW9",
+      "sourceName": "APPSW9",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSW10",
+      "sourceName": "APPSW10",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPNUM1",
+      "sourceName": "APPNUM1",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPNUM2",
+      "sourceName": "APPNUM2",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPNUM3",
+      "sourceName": "APPNUM3",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPNUM4",
+      "sourceName": "APPNUM4",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPNUM5",
+      "sourceName": "APPNUM5",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPNUM6",
+      "sourceName": "APPNUM6",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPDAT1",
+      "sourceName": "APPDAT1",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPDAT2",
+      "sourceName": "APPDAT2",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "CREUSER",
+      "sourceName": "CREUSER",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "MUTUSER",
+      "sourceName": "MUTUSER",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "CREDAT",
+      "sourceName": "CREDAT",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "MUTDAT",
+      "sourceName": "MUTDAT",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ZUONR",
+      "sourceName": "ZUONR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ID_ASCII",
+      "sourceName": "ID_ASCII",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "IDTYP_ASCII",
+      "sourceName": "IDTYP_ASCII",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ENTERPRISE",
+      "sourceName": "ENTERPRISE",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "GUID",
+      "sourceName": "GUID",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPGUID1",
+      "sourceName": "APPGUID1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPGUID2",
+      "sourceName": "APPGUID2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPGUID3",
+      "sourceName": "APPGUID3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "APPSTR",
+      "sourceName": "APPSTR",
+      "dataType": "VARBINARY(8000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "timestamp_landing-zone",
+      "sourceName": "timestamp_landing-zone",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+
+
+erDiagram
+
+    dim_kreditor {
+        bigint kreditor_key PK "SK = MD5(KNR)"
+        nvarchar kreditor_id "Technische ID (KNR)"
+        nvarchar kreditor_code "Business Code (= KNR)"
+        nvarchar kreditor_name "Kundenname (ADRID), Fallback UNKNOWN"
+        nvarchar fadrinr "Adress-Referenz (100pct befuellt)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_konto {
+        bigint konto_key PK "SK = MD5(KTO)"
+        nvarchar konto_id "Technische ID (KTO)"
+        nvarchar konto_code "Konto-Code (Sharepoint), Fallback KTO"
+        nvarchar konto_name "Kontoname (Sharepoint), Fallback UNKNOWN"
+        nvarchar konto_gruppe "L1 Kontogruppe"
+        nvarchar konto_gruppe_name "L1 Kontogruppenname"
+        nvarchar konto_subgruppe "L2 Konto-Subgruppe"
+        nvarchar konto_subgruppe_name "L2 Konto-Subgruppenname"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_kostenstelle {
+        bigint kostenstelle_key PK "SK = MD5(KST)"
+        nvarchar kostenstelle_id "Technische ID (KST)"
+        nvarchar kostenstelle_code "Kostenstellen-Code (Sharepoint), Fallback KST"
+        nvarchar kostenstelle_name "Kostenstellenname, Fallback UNKNOWN"
+        nvarchar bereich "Bereich L1 alt"
+        nvarchar bereich_name "Bereichsname L1 alt"
+        nvarchar bereich_detail "Bereich L2 alt"
+        nvarchar bereich_detail_name "Bereichsname L2 alt"
+        nvarchar bereich_neu "Bereich L1 NEU"
+        nvarchar bereich_neu_name "Bereichsname L1 NEU"
+        int investitionsrechnung "Investitionsrechnung Flag"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_buchungsstatus {
+        bigint buchungsstatus_key PK "SK = MD5(STATID)"
+        nvarchar buchungsstatus_id "Technische ID (STATID)"
+        nvarchar buchungsstatus_code "Status-Code (= STATID)"
+        nvarchar buchungsstatus_name "Status-Name, Fallback UNKNOWN"
+        int sort_order "Sortierung (STATDEF als INT)"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    dim_date {
+        int date_key PK "YYYYMMDD (shared, mart._common)"
+        date full_date "Natuerlicher Schluessel"
+        int year "Kalenderjahr"
+        int iso_year "ISO-Wochenjahr (ggf. abweichend)"
+        int quarter "Quartal 1-4"
+        nvarchar month_name "Monatsname (de-DE)"
+        nvarchar year_month "YYYY-MM"
+        int iso_week "ISO Kalenderwoche"
+        char is_weekend "Y/N DATEFIRST-unabh."
+        char is_first_day_of_quarter "Y/N"
+        char is_last_day_of_quarter "Y/N"
+        date first_day_of_quarter "Erster Tag des Quartals"
+        date last_day_of_quarter "Letzter Tag des Quartals"
+    }
+
+    fakt_belege {
+        bigint kreditor_key FK "dim_kreditor (surrogate_key KNR)"
+        bigint buchungsstatus_key FK "dim_buchungsstatus (surrogate_key STATID)"
+        int belegdatum_date_key FK "dim_date (YYYYMMDD aus KBELDAT)"
+        nvarchar belegnummer "BELNR (degenerate dim)"
+        decimal betrag "BWBTR Buchungswaehrung brutto"
+        decimal nettobetrag "BWBTR minus MWSBWBTR"
+        nvarchar waehrung "BWWRC Waehrungscode"
+        nvarchar umschreibung "BELREF Belegtext"
+        nvarchar visierende_id "ERFUSER Erfassungsbenutzer"
+        nvarchar visierende "USER_F Freigabebenutzer"
+        decimal zahlbetrag "KVL.FREIGABEBETRAG NULL=kein KVL"
+        date valuta_datum "KVL.DATUM_ZEIT NULL=kein KVL"
+        int valuta_datum_date_key FK "dim_date (YYYYMMDD aus KVL.DATUM_ZEIT)"
+        nvarchar positionnr "hub_zahlung.POSITIONNR NULL=kein KVL"
+        nvarchar elementtyp "hub_zahlung.ELEMENTTYP NULL=kein KVL"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_buchungen {
+        int buchungsdatum_date_key FK "dim_date (YYYYMMDD aus GL.DATE)"
+        bigint konto_key FK "dim_konto (Direct KTO via Link, Counter GKTO)"
+        bigint kostenstelle_key FK "dim_kostenstelle (Direct KST, Counter KST2)"
+        decimal betrag "Vorzeichenbereinigt mit MWST-Adj"
+        nvarchar soll_haben "SH S=Soll H=Haben"
+        int konto_nr "KTO oder GKTO"
+        int konto_nr_gegen "GKTO oder KTO"
+        int kostenstelle_nr "KST oder KST2"
+        int kostenstelle_nr_gegen "KST2 oder KST"
+        int projekt_nr "PROJEBENE (degenerate dim)"
+        int belegnummer "DKBELEGNUMMER via hub_buchungskopf"
+        int kundennummer "DKKUNDENNUMMER"
+        decimal mwst_betrag "MWSTBETR"
+        nvarchar mwst_typ "MWSTTYP"
+        nvarchar mwst_code "MWSTCODE"
+        nvarchar mwst_incl "MWSTINCL"
+        decimal mwst_satz "MWSTSATZ"
+        nvarchar umschreibung "GL.TEXT Buchungstext"
+        nvarchar umschreibung2 "GL.TEXT2"
+        nvarchar sam "SAM Sammelbuchungsflag"
+        datetime2 dss_load_date "Ladezeitpunkt"
+        nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_belege }o--|| dim_kreditor : "kreditor_key"
+    fakt_belege }o--|| dim_buchungsstatus : "buchungsstatus_key"
+    fakt_belege }o--|| dim_date : "belegdatum_date_key"
+    fakt_belege }o--o| dim_date : "valuta_datum_date_key"
+    fakt_buchungen }o--|| dim_date : "buchungsdatum_date_key"
+    fakt_buchungen }o--|| dim_konto : "konto_key"
+    fakt_buchungen }o--|| dim_kostenstelle : "kostenstelle_key"

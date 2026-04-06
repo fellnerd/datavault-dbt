@@ -1,0 +1,85 @@
+name: Deploy to Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'models/**'
+      - 'macros/**'
+      - 'seeds/**'
+      - 'tests/**'
+      - 'dbt_project.yml'
+      - 'packages.yml'
+  workflow_dispatch:
+    inputs:
+      run_stage_external:
+        description: 'External Tables aktualisieren (stage_external_sources)'
+        type: boolean
+        default: true
+      run_dbt_run:
+        description: 'dbt run ausführen'
+        type: boolean
+        default: true
+      run_dbt_test:
+        description: 'dbt test ausführen'
+        type: boolean
+        default: true
+      select:
+        description: 'dbt --select Filter (leer = alle Modelle)'
+        type: string
+        default: ''
+
+env:
+  DBT_PROFILES_DIR: ${{ github.workspace }}
+
+jobs:
+  deploy-test:
+    name: Deploy → ewb-test (datavault-test)
+    runs-on: [self-hosted, linux, dbt, aca]
+    environment: ewb-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup dbt
+        uses: ./.github/actions/setup-dbt
+        with:
+          sql_user: ${{ secrets.DBT_EWB_SQL_USER }}
+          sql_password: ${{ secrets.DBT_EWB_SQL_PASSWORD }}
+
+      - name: Stage external sources
+        if: ${{ github.event_name == 'push' || inputs.run_stage_external }}
+        run: dbt run-operation stage_external_sources --target ewb-test
+
+      - name: dbt run
+        if: ${{ github.event_name == 'push' || inputs.run_dbt_run }}
+        run: |
+          SELECT="${{ inputs.select }}"
+          if [ -n "$SELECT" ]; then
+            dbt run --target ewb-test --select "$SELECT"
+          else
+            dbt run --target ewb-test
+          fi
+
+      - name: dbt test
+        if: ${{ github.event_name == 'push' || inputs.run_dbt_test }}
+        run: |
+          SELECT="${{ inputs.select }}"
+          if [ -n "$SELECT" ]; then
+            dbt test --target ewb-test --select "$SELECT"
+          else
+            dbt test --target ewb-test
+          fi
+
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "## 🧪 Deploy → ewb-test" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Target** | ewb-test (datavault-test) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Select** | \`${{ inputs.select || '(alle)' }}\` |" >> $GITHUB_STEP_SUMMARY

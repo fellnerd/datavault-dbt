@@ -18,7 +18,7 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              QUELLSYSTEME                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  PostgreSQL (werkportal)                                                    │
+│  PostgreSQL (jira)                                                    │
 │  └── public.wp_company_client                                               │
 │  └── public.wp_company_contractor                                           │
 │  └── public.wp_company_supplier                                             │
@@ -31,10 +31,10 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  Storage Account: synplaygrounddatalake                                     │
 │  Container: stage-fs                                                        │
-│  └── werkportal/postgres/public.wp_company_client.parquet                   │
-│  └── werkportal/postgres/public.wp_company_contractor.parquet               │
-│  └── werkportal/postgres/public.wp_company_supplier.parquet                 │
-│  └── werkportal/postgres/public.wp_countries.parquet                        │
+│  └── jira/postgres/public.wp_company_client.parquet                   │
+│  └── jira/postgres/public.wp_company_contractor.parquet               │
+│  └── jira/postgres/public.wp_company_supplier.parquet                 │
+│  └── jira/postgres/public.wp_countries.parquet                        │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼ PolyBase External Tables
@@ -44,8 +44,8 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 │  Server: sql-datavault-weu-001.database.windows.net                         │
 │                                                                             │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │ Vault (Dev)     │  │ Vault_Werkportal│  │ Vault_EWB       │             │
-│  │ Shared Dev DB   │  │ Produktion      │  │ Produktion      │             │
+│  │ Vault (Dev)     │  │ Vault_Jira│  │ datavault       │             │
+│  │ Shared Dev DB   │  │ Produktion      │  │ Produktion EWB  │             │
 │  ├─────────────────┤  ├─────────────────┤  ├─────────────────┤             │
 │  │ [stg] Schema    │  │ [stg] Schema    │  │ [stg] Schema    │             │
 │  │  └ ext_*        │  │  └ ext_*        │  │  └ ext_*        │             │
@@ -77,8 +77,8 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 |-----------|------|-------|
 | SQL Server | `sql-datavault-weu-001` | Hosting aller Vault-Datenbanken |
 | SQL Database | `Vault` | Shared Development |
-| SQL Database | `Vault_Werkportal` | Produktion Mandant Werkportal |
-| SQL Database | `Vault_EWB` | Produktion Mandant EWB (Template) |
+| SQL Database | `Vault_Jira` | Produktion Mandant Jira |
+| SQL Database | `datavault` | Produktion EWB |
 | Storage Account | `synplaygrounddatalake` | ADLS Gen2 für Parquet-Dateien |
 | Container | `stage-fs` | Staging-Bereich für Quelldaten |
 
@@ -167,11 +167,11 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 │              Git Repo: datavault-dbt                │
 │              (Ein Projekt für alle Mandanten)       │
 ├─────────────────────────────────────────────────────┤
-│  Target: dev      │  Target: werkportal  │  Target: ewb  │
+│  Target: dev      │  Target: jira  │  Target: ewb  │
 └────────┬──────────┴──────────┬───────────┴──────┬───┘
          ▼                     ▼                  ▼
    ┌──────────┐         ┌───────────────┐   ┌─────────┐
-   │  Vault   │         │Vault_Werkportal│  │Vault_EWB│
+   │  Vault   │         │Vault_Jira│  │datavault│
    │  (Dev)   │         │   (Prod)       │  │ (Prod)  │
    └──────────┘         └───────────────┘   └─────────┘
 ```
@@ -181,8 +181,8 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 | Target | Datenbank | Verwendung |
 |--------|-----------|------------|
 | `dev` | Vault | Shared Development (Default) |
-| `werkportal` | Vault_Werkportal | Produktion Werkportal |
-| `ewb` | Vault_EWB | Produktion EWB |
+| `jira` | Vault_Jira | Produktion Jira |
+| `ewb` | datavault | Produktion EWB |
 
 ---
 
@@ -208,7 +208,7 @@ datavault-dbt/
 │       │   └── sat_company_client.sql
 │       └── links/           # (TODO)
 ├── scripts/
-│   └── setup_werkportal_prod.sql  # Setup-Script (veraltet)
+│   └── setup_jira_prod.sql  # Setup-Script (veraltet)
 ├── docs/
 │   ├── SYSTEM.md            # Diese Datei
 │   └── USER.md              # Benutzer-Dokumentation
@@ -366,7 +366,7 @@ models:
 │                                    ▼                                      │
 │         ┌──────────────────────────────────────────────────┐             │
 │         │  Azure SQL: sql-datavault-weu-001               │             │
-│         │  Dev:  Vault  │  Prod: Vault_Werkportal         │             │
+│         │  Dev:  Vault  │  Prod: Vault_Jira         │             │
 │         └──────────────────────────────────────────────────┘             │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -377,7 +377,7 @@ models:
 |----------|---------|---------|----------|
 | `ci.yml` | PR → main/dev | Vault (test-only) | Nein |
 | `deploy-dev.yml` | Push main / Manual | Vault | Nein |
-| `deploy-prod.yml` | Tag v* / Manual | Vault_Werkportal | Ja |
+| `deploy-prod.yml` | Tag v* / Manual | Vault_Jira | Ja |
 | `docs.yml` | Push main / Manual | GitHub Pages | Nein |
 
 ### 10.3 Authentifizierung
@@ -477,11 +477,11 @@ dbt test
 ### Produktions-Deployment
 
 ```bash
-# Mandant: Werkportal
-dbt run-operation stage_external_sources --target werkportal
-dbt seed --target werkportal
-dbt run --target werkportal
-dbt test --target werkportal
+# Mandant: Jira
+dbt run-operation stage_external_sources --target jira
+dbt seed --target jira
+dbt run --target jira
+dbt test --target jira
 ```
 
 ---

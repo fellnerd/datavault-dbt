@@ -1,0 +1,42 @@
+{
+    "name": "GenericJsonDataset_ewb",
+    "properties": {
+        "description": "Generic JSON dataset for Sharepoint files in landing-zone. Used by Copy_LandingZone_to_LoadFS_ewb pipeline for JSON→Parquet conversion.",
+        "linkedServiceName": {
+            "referenceName": "analyticsstoraccount001",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "cw_fileSystem": {
+                "type": "String"
+            },
+            "cw_folderPath": {
+                "type": "String"
+            },
+            "cw_fileName": {
+                "type": "String"
+            }
+        },
+        "annotations": [],
+        "type": "Json",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "fileName": {
+                    "value": "@dataset().cw_fileName",
+                    "type": "Expression"
+                },
+                "folderPath": {
+                    "value": "@dataset().cw_folderPath",
+                    "type": "Expression"
+                },
+                "fileSystem": {
+                    "value": "@dataset().cw_fileSystem",
+                    "type": "Expression"
+                }
+            }
+        },
+        "schema": []
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}

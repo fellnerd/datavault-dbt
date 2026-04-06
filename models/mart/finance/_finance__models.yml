@@ -1,0 +1,387 @@
+version: 2
+
+models:
+  # ===================================================================
+  # DIMENSIONEN
+  # ===================================================================
+
+  - name: dim_kreditor
+    description: |
+      Kreditoren (Lieferanten) mit Adress-Referenz.
+      Ghost Hub: Stammdaten werden aus Kreditorenbelegen (KRED.KBL.Main) abgeleitet.
+      Synapse-Referenz: Finance/Kunden (KNR + ADRID). Zusaetzlich: FADRINR.
+      Quelle: hub_kreditor + sat_kreditor__abacus_current_v.
+    columns:
+      - name: kreditor_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KNR))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: kreditor_id
+        description: "Technische ID (Kreditoren-Nummer als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kreditor_code
+        description: "Business Code (= KNR, kein separater Code vorhanden)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kreditor_name
+        description: "Kundenname aus ADRID (Adress-ID). NULL → KNR → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: fadrinr
+        description: "Numerische Adress-Referenz (FK Adressstamm, 100% befuellt)"
+        data_type: nvarchar(4000)
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: dim_buchungsstatus
+    description: |
+      Buchungsstatus fuer Kreditorenbelege (16 Zeilen: 7 Basis + 9 Provisorisch).
+      Nicht-historisierte Referenztabelle.
+      STATID = sprechender Code (OFFEN, ERLED, ABGES, BLOCK, STORN, GESPT, NEUTR, PROV1-9).
+      STATDEF = numerische Sortierung (31-80), KEIN Statusname.
+      Quelle: ref_kred_buchungsstatus (KRED.KBS.Main).
+    columns:
+      - name: buchungsstatus_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', STATID))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: buchungsstatus_id
+        description: "Technische ID (STATID als String, z.B. OFFEN, ERLED)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: buchungsstatus_code
+        description: "Status-Code (= STATID, z.B. OFFEN, ERLED, ABGES)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: buchungsstatus_name
+        description: "Status-Name (= STATID). NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: sort_order
+        description: "Sortierung (STATDEF als INT: OFFEN=50, GESPT=55, ERLED=60, etc.)"
+        data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: dim_konto
+    description: |
+      Kontenplan (Chart of Accounts) mit Sharepoint-Hierarchie.
+      Ghost Hub: Konto-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
+      Stammdaten aus Sharepoint ref_konto (254 Konten).
+      Hierarchie: L1 (Kontogruppe) → L2 (Unterkategorie) → Konto (Detail).
+      Quelle: hub_konto LEFT JOIN ref_konto (Sharepoint Kontenplan).
+    columns:
+      - name: konto_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KTO))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: konto_id
+        description: "Technische ID (KTO-Nummer als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_code
+        description: "Sprechender Konto-Code (Sharepoint 'Konto'), Fallback = KTO"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_name
+        description: "Kontoname (Sharepoint 'KontoName'), Fallback = Code → KTO → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_gruppe
+        description: "Kontogruppe L1 (Sharepoint-Hierarchie, z.B. '3 Personalaufw.')"
+        data_type: nvarchar(255)
+      - name: konto_gruppe_name
+        description: "Kontogruppenname L1 (Sharepoint-Hierarchie)"
+        data_type: nvarchar(255)
+      - name: konto_subgruppe
+        description: "Konto-Subgruppe L2 (Sharepoint-Hierarchie)"
+        data_type: nvarchar(255)
+      - name: konto_subgruppe_name
+        description: "Konto-Subgruppenname L2 (Sharepoint-Hierarchie)"
+        data_type: nvarchar(255)
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: dim_kostenstelle
+    description: |
+      Kostenstellenplan mit Sharepoint-Hierarchie.
+      Ghost Hub: Kostenstellen-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
+      Stammdaten aus Sharepoint ref_kostenstelle (151 Kostenstellen).
+      Hierarchie: Bereich L1/L2 (alt + neu), Investitionsrechnung.
+      Quelle: hub_kostenstelle LEFT JOIN ref_kostenstelle (Sharepoint Kostenstellenplan).
+    columns:
+      - name: kostenstelle_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KST))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: kostenstelle_id
+        description: "Technische ID (KST-Nummer als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kostenstelle_code
+        description: "Sprechender Kostenstellen-Code (Sharepoint), Fallback = KST"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kostenstelle_name
+        description: "Kostenstellenname (Sharepoint), Fallback = Code → KST → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: bereich
+        description: "Bereich L1 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_name
+        description: "Bereichsname L1 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_detail
+        description: "Bereich L2 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_detail_name
+        description: "Bereichsname L2 (Sharepoint-Hierarchie alt)"
+        data_type: nvarchar(255)
+      - name: bereich_neu
+        description: "Bereich L1 NEU (Sharepoint-Hierarchie neu)"
+        data_type: nvarchar(255)
+      - name: bereich_neu_name
+        description: "Bereichsname L1 NEU"
+        data_type: nvarchar(255)
+      - name: bereich_neu_detail
+        description: "Bereich L2 NEU"
+        data_type: nvarchar(255)
+      - name: bereich_neu_detail_name
+        description: "Bereichsname L2 NEU"
+        data_type: nvarchar(255)
+      - name: investitionsrechnung
+        description: "Investitionsrechnung-Flag (0/1)"
+        data_type: int
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  # ===================================================================
+  # FAKTENTABELLEN
+  # ===================================================================
+
+  - name: fakt_belege
+    description: |
+      Kreditorenbelege (Lieferantenrechnungen) mit Zahlungsvisierungen.
+      Repliziert Synapse [Finance].[Belege] vollstaendig (KBL LEFT JOIN KVL).
+      Granularitaet: 1 Zeile pro (Beleg x Zahlung/Visierungsposition).
+        — KBL ohne KVL: 1 Zeile (NULL-Zahlungsfelder)
+        — KBL mit N KVL-Positionen: N Zeilen
+      Quelle: hub_kreditorenbeleg + sat_kreditorenbeleg__abacus_current_v
+              + link_kreditorenbeleg_kreditor → hub_kreditor
+              + link_kreditorenbeleg_zahlung → hub_zahlung → sat_zahlung__abacus_current_v.
+      Spalten-Mapping KBL: bwbtr→betrag, bwwrc→waehrung, kbeldat→datum_key,
+                           belref→umschreibung, erfuser→visierende_id, user_f→visierende.
+      Spalten-Mapping KVL: freigabebetrag→zahlbetrag, datum_zeit→valuta_datum,
+                           positionnr/elementtyp aus hub_zahlung.
+    columns:
+      - name: kreditor_key
+        description: "FK → dim_kreditor.kreditor_key (surrogate_key KNR)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_kreditor')
+              field: kreditor_key
+              config:
+                severity: warn
+      - name: buchungsstatus_key
+        description: "FK → dim_buchungsstatus.buchungsstatus_key (surrogate_key STATID)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_buchungsstatus')
+              field: buchungsstatus_key
+              config:
+                severity: warn
+      - name: belegdatum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus KBELDAT = Kreditoren-Belegdatum)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: belegnummer
+        description: "Belegnummer (BELNR, degenerate dimension)"
+        data_type: nvarchar(255)
+      - name: betrag
+        description: "Betrag Buchungswaehrung (BWBTR = Brutto inkl. MWST)"
+        data_type: decimal(18,2)
+      - name: nettobetrag
+        description: "Nettobetrag (BWBTR - MWSBWBTR = Brutto minus MWST)"
+        data_type: decimal(18,2)
+      - name: waehrung
+        description: "Buchungswaehrungscode (BWWRC, z.B. CHF, EUR)"
+        data_type: nvarchar(10)
+      - name: umschreibung
+        description: "Belegtext/Referenz (BELREF)"
+        data_type: nvarchar(4000)
+      - name: visierende_id
+        description: "Erfassungs-Benutzer ID (ERFUSER)"
+        data_type: nvarchar(255)
+      - name: visierende
+        description: "Freigabe-Benutzer (USER_F)"
+        data_type: nvarchar(255)
+      - name: zahlbetrag
+        description: "Freigabebetrag der Zahlungsposition (KVL.FREIGABEBETRAG). NULL = kein KVL-Match."
+        data_type: decimal(18,2)
+      - name: valuta_datum
+        description: "Datum der Zahlungsposition (KVL.DATUM_ZEIT). NULL = kein KVL-Match."
+        data_type: date
+      - name: valuta_datum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus KVL.DATUM_ZEIT). NULL = kein KVL-Match."
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: positionnr
+        description: "Zahlungspositions-Nummer (hub_zahlung.POSITIONNR). NULL = kein KVL-Match."
+        data_type: nvarchar(255)
+      - name: elementtyp
+        description: "Element-Typ der Position (hub_zahlung.ELEMENTTYP). NULL = kein KVL-Match."
+        data_type: nvarchar(255)
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
+  - name: fakt_buchungen
+    description: |
+      Hauptbuch-Buchungen (General Ledger) mit Doppik-Aufloesung.
+      Repliziert Synapse [Finance].[Buchungen] — 4-facher UNION ALL.
+      Jede GL-Zeile wird in 2 Perspektiven aufgeloest (Direct + Counter).
+      MWST-Adjustierung: MWSTTYP='5' oder MWSTINCL='E' → Betrag inkl. MWST.
+      Filter: SAM<>'#', KST NOT IN Konsolidierung, KTO nur Erfolgsrechnung.
+      Granularitaet: 2 Zeilen pro GL-Record (Direct + Counter Perspektive).
+      Quelle: hub_hauptbuch + sat_hauptbuch__abacus_current_v
+              + link_hauptbuch_konto → hub_konto (KTO)
+              + link_hauptbuch_buchungskopf → hub_buchungskopf (DKBELEGNUMMER).
+      Wave 3: Staging-Join entfernt, durch Vault-Links ersetzt.
+    columns:
+      - name: buchungsdatum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus GL.DATE)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: konto_key
+        description: "FK → dim_konto.konto_key (Direct: KTO via Link, Counter: GKTO aus Satellite)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_konto')
+              field: konto_key
+              config:
+                severity: warn
+      - name: kostenstelle_key
+        description: "FK → dim_kostenstelle.kostenstelle_key (Direct: KST, Counter: KST2 aus Satellite)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_kostenstelle')
+              field: kostenstelle_key
+              config:
+                severity: warn
+      - name: betrag
+        description: "Vorzeichenbereinigter Betrag mit MWST-Adjustierung (DECIMAL)"
+        data_type: decimal(18,4)
+      - name: soll_haben
+        description: "Soll/Haben-Kennzeichen (SH: 'S'=Soll, 'H'=Haben)"
+        data_type: nvarchar(10)
+      - name: konto_nr
+        description: "Kontonummer (KTO bei Direct via Hub, GKTO bei Counter aus Satellite)"
+        data_type: int
+      - name: konto_nr_gegen
+        description: "Gegenkonto (GKTO bei Direct, KTO bei Counter)"
+        data_type: int
+      - name: kostenstelle_nr
+        description: "Kostenstelle (KST bei Direct, KST2 bei Counter aus Satellite)"
+        data_type: int
+      - name: kostenstelle_nr_gegen
+        description: "Gegen-Kostenstelle (KST2 bei Direct, KST bei Counter)"
+        data_type: int
+      - name: projekt_nr
+        description: "Projektebene (PROJEBENE — degenerate dim)"
+        data_type: int
+      - name: belegnummer
+        description: "Dokumentenkopf-Belegnummer (DKBELEGNUMMER — degenerate dim)"
+        data_type: int
+      - name: kundennummer
+        description: "Kundennummer (DKKUNDENNUMMER)"
+        data_type: int
+      - name: mwst_betrag
+        description: "MWST-Betrag (MWSTBETR)"
+        data_type: decimal(18,4)
+      - name: mwst_typ
+        description: "MWST-Typ (MWSTTYP: '5'=inkl. MWST)"
+        data_type: nvarchar(10)
+      - name: mwst_code
+        description: "MWST-Code (MWSTCODE)"
+        data_type: nvarchar(50)
+      - name: mwst_incl
+        description: "MWST-Inklusive-Flag (MWSTINCL: 'E'=exkl. → MWST separat)"
+        data_type: nvarchar(10)
+      - name: mwst_satz
+        description: "MWST-Satz in Prozent (MWSTSATZ)"
+        data_type: decimal(18,4)
+      - name: umschreibung
+        description: "Buchungstext (GL.TEXT — SQL reserved keyword, escaped)"
+        data_type: nvarchar(4000)
+      - name: umschreibung2
+        description: "Buchungstext 2 (GL.TEXT2)"
+        data_type: nvarchar(4000)
+      - name: sam
+        description: "Sammelbuchungs-Flag (SAM: '#'=Sammelbuchung, gefiltert)"
+        data_type: nvarchar(10)
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)

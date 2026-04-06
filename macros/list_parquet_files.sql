@@ -1,42 +1,32 @@
 {% macro list_parquet_files(folder_path) %}
 {#
-    Listet alle Parquet-Dateien in einem ADLS-Verzeichnis auf.
+    HINWEIS: Dieses Macro ist in Azure SQL Database NICHT ausführbar.
     
-    Verwendung:
-        dbt run-operation list_parquet_files --args '{"folder_path": "jira/sql"}'
-        dbt run-operation list_parquet_files --args '{"folder_path": "werkportal/postgres"}'
-    
-    Voraussetzung:
-        - External Data Source "StageFileSystem" muss existieren
-        - Zugriff auf ADLS über OPENROWSET
+    Azure SQL DB unterstützt keine Directory-Enumeration über OPENROWSET (nur Synapse
+    Serverless SQL Pool), und sp_invoke_external_rest_endpoint unterstützt nur 
+    JSON-Responses (Azure Blob List API liefert XML, ADLS DFS API ist geblockt).
+
+    Das Listing wird daher über die VS Code Extension via Azure CLI durchgeführt:
+        discoverService.ts → listParquetFiles() → az storage blob list
+
+    Alternativ manuell:
+        az storage blob list \
+          --account-name analyticsstoraccount001 \
+          --container-name stage-fs \
+          --prefix ewb/abacus/ \
+          --query '[].name' \
+          --output json \
+          --auth-mode login
 #}
-
-{% set query %}
-    SELECT DISTINCT
-        -- Extrahiere nur den Dateinamen (nach dem letzten /)
-        REVERSE(LEFT(REVERSE(r.filepath()), CHARINDEX('/', REVERSE(r.filepath())) - 1)) AS file_name,
-        r.filepath() AS full_path
-    FROM OPENROWSET(
-        BULK '{{ folder_path }}/*.parquet',
-        DATA_SOURCE = 'StageFileSystem',
-        FORMAT = 'PARQUET'
-    ) AS r
-    ORDER BY file_name
-{% endset %}
-
-{% set results = run_query(query) %}
 
 {% if execute %}
     {{ log("", info=True) }}
-    {{ log("=== Parquet-Dateien in '" ~ folder_path ~ "' ===", info=True) }}
+    {{ log("FEHLER: list_parquet_files ist in Azure SQL DB nicht ausführbar.", info=True) }}
+    {{ log("Verwende stattdessen die VS Code Extension oder:", info=True) }}
+    {{ log("  az storage blob list --account-name analyticsstoraccount001 --container-name stage-fs --prefix " ~ folder_path ~ "/ --query '[].name' --output json --auth-mode login", info=True) }}
     {{ log("", info=True) }}
-    
-    {% for row in results %}
-        {{ log(row['file_name'], info=True) }}
-    {% endfor %}
-    
-    {{ log("", info=True) }}
-    {{ log("Gefunden: " ~ results | length ~ " Dateien", info=True) }}
+    {{ exceptions.raise_compiler_error("list_parquet_files ist nicht für Azure SQL DB geeignet. Siehe Macro-Header für Alternative.") }}
 {% endif %}
 
 {% endmacro %}
+

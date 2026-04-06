@@ -12,7 +12,55 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'yaml';
 import { TreeItemData, ExternalTable } from '../types';
+
+interface ConceptInfo {
+  name: string;
+  schema: string;
+}
+
+/**
+ * Extract available concepts and their schemas from dbt_project.yml
+ */
+function extractConceptsFromDbtProject(projectPath: string): ConceptInfo[] {
+  try {
+    const configPath = path.join(projectPath, 'dbt_project.yml');
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const config = yaml.parse(content);
+
+    const projectName = config?.name || 'datavault';
+    const rawVault = config?.models?.[projectName]?.raw_vault;
+    if (!rawVault || typeof rawVault !== 'object') { return []; }
+
+    const concepts: ConceptInfo[] = [];
+    for (const key of Object.keys(rawVault)) {
+      if (key.startsWith('+')) { continue; }
+
+      // Derive schema: _common → vault, others → vault_<concept>
+      let schema = `vault_${key}`;
+      const conceptConfig = rawVault[key];
+      if (typeof conceptConfig === 'object') {
+        // Check for explicit +schema at concept level or in sub-folders
+        if (conceptConfig['+schema']) {
+          schema = conceptConfig['+schema'];
+        } else {
+          // Check sub-folders (hubs/satellites/links) for schema
+          for (const sub of ['hubs', 'satellites', 'links']) {
+            if (conceptConfig[sub]?.['+schema']) {
+              schema = conceptConfig[sub]['+schema'];
+              break;
+            }
+          }
+        }
+      }
+      concepts.push({ name: key, schema });
+    }
+    return concepts;
+  } catch {
+    return [];
+  }
+}
 
 type Logger = (message: string) => void;
 
@@ -164,25 +212,58 @@ async function createFromExternalTable(
     return; // Cancelled
   }
 
-  // Step 4: Enter concept name
-  const sourceConcept = externalTable.concept || 'common';
-  const conceptInput = await vscode.window.showInputBox({
-    title: 'Step 4/5: Concept Name',
-    prompt: 'Enter the concept name for this reference table',
-    value: sourceConcept,
-    validateInput: (value) => {
-      if (!value || value.trim() === '') {
-        return 'Concept name is required';
-      }
-      if (!/^[a-z][a-z0-9_]*$/i.test(value)) {
-        return 'Use snake_case (letters, numbers, underscores)';
-      }
-      return null;
-    }
-  });
+  // Step 4: Select concept from dbt_project.yml
+  const concepts = extractConceptsFromDbtProject(projectPath);
+  let targetConcept: string;
+  let targetSchema: string;
 
-  if (!conceptInput) {
-    return; // Cancelled
+  if (concepts.length > 0) {
+    const conceptItems = concepts.map(c => ({
+      label: c.name === '_common' ? '_common (vault)' : `${c.name} (${c.schema})`,
+      description: `Schema: ${c.schema}`,
+      value: c.name,
+      schema: c.schema
+    }));
+
+    // Pre-select _common if available
+    const defaultConcept = concepts.find(c => c.name === '_common') ? '_common' : concepts[0].name;
+    const preSelected = conceptItems.find(i => i.value === defaultConcept);
+
+    const conceptChoice = await vscode.window.showQuickPick(conceptItems, {
+      title: 'Step 4/5: Target Concept (Schema)',
+      placeHolder: 'Select the target concept for this reference table'
+    });
+
+    if (!conceptChoice) {
+      return; // Cancelled
+    }
+
+    targetConcept = conceptChoice.value;
+    targetSchema = conceptChoice.schema;
+  } else {
+    // Fallback to text input if dbt_project.yml cannot be parsed
+    const sourceConcept = externalTable.concept || '_common';
+    const conceptInput = await vscode.window.showInputBox({
+      title: 'Step 4/5: Concept Name',
+      prompt: 'Enter the concept name for this reference table',
+      value: sourceConcept,
+      validateInput: (value) => {
+        if (!value || value.trim() === '') {
+          return 'Concept name is required';
+        }
+        if (!/^[a-z_][a-z0-9_]*$/i.test(value)) {
+          return 'Use snake_case (letters, numbers, underscores)';
+        }
+        return null;
+      }
+    });
+
+    if (!conceptInput) {
+      return; // Cancelled
+    }
+
+    targetConcept = conceptInput.trim().toLowerCase();
+    targetSchema = targetConcept === '_common' ? 'vault' : `vault_${targetConcept}`;
   }
 
   // Step 5: Select materialization
@@ -218,13 +299,12 @@ async function createFromExternalTable(
   }
 
   const fullRefName = `ref_${refTableName}`;
-  const targetConcept = conceptInput.trim().toLowerCase();
-  const targetSchema = `vault_${targetConcept}`;
   const materialization = materializationChoice.value;
   
-  // Staging view name matches the reference table name (without ref_ prefix)
-  // Pattern: ref_address_type -> <concept>_address_type
-  const stagingViewName = `${targetConcept}_${refTableName}`;
+  // Staging view name: derive from external table name (strip ext_ prefix)
+  // e.g., ext_ewb_lohn_ltc_main → ewb_lohn_ltc_main
+  const extName = externalTable.name;
+  const stagingViewName = extName.startsWith('ext_') ? extName.substring(4) : `${targetConcept}_${refTableName}`;
   
   // Determine output path
   const refTableDir = path.join(projectPath, 'models', 'raw_vault', targetConcept);
@@ -304,15 +384,28 @@ async function createMinimalStagingView(
 ): Promise<void> {
   const stagingPath = path.join(projectPath, 'models', 'staging', `${stagingViewName}.sql`);
   
-  const columnSelects = columns.map(col => 
-    `        ${col} AS ${col.toLowerCase()}`
-  ).join(',\n');
+  // SQL Server reserved keywords that need escaping with []
+  const reservedKeywords = new Set([
+    'PLAN', 'LEVEL', 'KEY', 'STATUS', 'TYPE', 'ORDER', 'GROUP', 'INDEX',
+    'BEFORE', 'AFTER', 'FUNCTION', 'VALUE', 'TABLE', 'VIEW', 'USER', 'ROLE',
+    'CHECK', 'DEFAULT', 'PRIMARY', 'FOREIGN', 'REFERENCES', 'RETURN', 'DATE'
+  ]);
+
+  const columnSelects = columns.map(col => {
+    const upper = col.toUpperCase();
+    const source = reservedKeywords.has(upper) ? `[${col}]` : col;
+    // Use a safe alias (e.g., GROUP → group_nr to avoid keyword conflicts)
+    const alias = reservedKeywords.has(upper) ? `${col.toLowerCase()}_nr` : col.toLowerCase();
+    return `        ${source} AS ${alias}`;
+  }).join(',\n');
+
+  // Derive dss_record_source from external table name pattern
+  const recordSource = externalTable.name.startsWith('ext_ewb_') ? 'ewb_abacus' : (externalTable.concept || 'unknown');
 
   const sql = `/*
  * Staging View: ${stagingViewName}
- * 
- * Minimal staging view for reference table source.
  * Source: ${externalTable.name}
+ * Pattern: Reference Table Source (keine Hash-Berechnung)
  */
 
 WITH source AS (
@@ -320,9 +413,9 @@ WITH source AS (
 ),
 
 staged AS (
-    SELECT DISTINCT
+    SELECT
 ${columnSelects},
-        COALESCE(dss_record_source, '${externalTable.concept || 'unknown'}') AS dss_record_source,
+        COALESCE(dss_record_source, '${recordSource}') AS dss_record_source,
         COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE()) AS dss_load_date
 
     FROM source
@@ -423,8 +516,8 @@ function generateRefTableMacroSql(
 ): string {
   // Build extra columns config
   const extraColumnsConfig = extraColumns.length > 0
-    ? `[${extraColumns.map(c => `'${c.toLowerCase()}'`).join(', ')}]`
-    : '[]';
+    ? extraColumns.map(c => `'${c.toLowerCase()}'`)
+    : [];
 
   // Incremental needs additional config
   const incrementalConfig = materialization === 'incremental' 
@@ -433,37 +526,41 @@ function generateRefTableMacroSql(
     as_columnstore=false`
     : '';
 
+  // Build src_extra_columns YAML block
+  const extraColYaml = extraColumnsConfig.length > 0
+    ? `src_extra_columns:\n${extraColumnsConfig.map(c => `    - ${c}`).join('\n')}`
+    : `src_extra_columns: []`;
+
   return `/*
  * Reference Table: ${refName}
  * 
- * Pattern: Non-historised Reference Table (Data Vault 2.0)
+ * Pattern: Non-historised Reference Table (Data Vault 2.1)
  * Source Model: ${sourceModel}
  * Primary Key: ${pkColumn.toLowerCase()} (Natural Key)
  * Extra Columns: ${extraColumns.length > 0 ? extraColumns.map(c => c.toLowerCase()).join(', ') : '(none)'}
- * 
- * Reference Tables store static lookup data (codes, categories, types).
- * The PK is a Natural Key (not a hash key).
- * 
- * @see https://automate-dv.readthedocs.io/en/latest/tutorial/tut_ref_tables/
+ * Schema: ${schema} (from dbt_project.yml)
  */
 
 {{ config(
-    materialized='${materialization}',
-    schema='${schema}'${incrementalConfig}
+    materialized='${materialization}'${incrementalConfig}
 ) }}
 
-{%- set source_model = '${sourceModel}' -%}
-{%- set src_pk = '${pkColumn.toLowerCase()}' -%}
-{%- set src_extra_columns = ${extraColumnsConfig} -%}
-{%- set src_ldts = 'dss_load_date' -%}
-{%- set src_source = 'dss_record_source' -%}
+{%- set yaml_metadata -%}
+source_model: "${sourceModel}"
+src_pk: "${pkColumn.toLowerCase()}"
+${extraColYaml}
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
 
 {{ automate_dv.ref_table(
-    src_pk=src_pk,
-    src_extra_columns=src_extra_columns,
-    src_ldts=src_ldts,
-    src_source=src_source,
-    source_model=source_model
+    src_pk=metadata_dict["src_pk"],
+    src_extra_columns=metadata_dict["src_extra_columns"],
+    src_ldts=metadata_dict["src_ldts"],
+    src_source=metadata_dict["src_source"],
+    source_model=metadata_dict["source_model"]
 ) }}
 `;
 }

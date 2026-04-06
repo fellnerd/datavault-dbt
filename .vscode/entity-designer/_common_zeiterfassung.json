@@ -1,0 +1,310 @@
+{
+  "concept": "_common",
+  "entityName": "zeiterfassung",
+  "sourceTable": "ext_ewb_proj_ntc_main",
+  "sourceModel": "ewb_proj_ntc_main",
+  "sourceType": "external_table",
+  "generatedObjects": ["hub", "satellite", "link"],
+  "hubHashKey": "hk_zeiterfassung",
+  "satHashDiff": "hd_zeiterfassung",
+  "linkHashKey": "hk_link_zeiterfassung_person",
+  "links": [
+    {
+      "name": "link_zeiterfassung_person",
+      "hashKey": "hk_link_zeiterfassung_person",
+      "foreignKeys": ["hk_zeiterfassung", "hk_person"]
+    }
+  ],
+  "columns": [
+    {
+      "name": "RECNUM",
+      "sourceName": "RECNUM",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "DATASET",
+      "sourceName": "DATASET",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "EMPLNR",
+      "sourceName": "EMPLNR",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "hub",
+      "foreignKeyTarget": "_common.hub_person",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": false
+    },
+    {
+      "name": "PROJDAT",
+      "sourceName": "PROJDAT",
+      "dataType": "DATETIME2",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": false
+    },
+    {
+      "name": "FROM1",
+      "sourceName": "FROM1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO1",
+      "sourceName": "TO1",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM2",
+      "sourceName": "FROM2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO2",
+      "sourceName": "TO2",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM3",
+      "sourceName": "FROM3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO3",
+      "sourceName": "TO3",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM4",
+      "sourceName": "FROM4",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO4",
+      "sourceName": "TO4",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM5",
+      "sourceName": "FROM5",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO5",
+      "sourceName": "TO5",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM6",
+      "sourceName": "FROM6",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO6",
+      "sourceName": "TO6",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM7",
+      "sourceName": "FROM7",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO7",
+      "sourceName": "TO7",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM8",
+      "sourceName": "FROM8",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO8",
+      "sourceName": "TO8",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM9",
+      "sourceName": "FROM9",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO9",
+      "sourceName": "TO9",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "FROM10",
+      "sourceName": "FROM10",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "TO10",
+      "sourceName": "TO10",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "ANZAHL",
+      "sourceName": "ANZAHL",
+      "dataType": "DECIMAL(38,18)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "USER_F",
+      "sourceName": "USER_F",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "MUTDAT",
+      "sourceName": "MUTDAT",
+      "dataType": "DATETIME2",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_run_id",
+      "sourceName": "dss_run_id",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_stage_timestamp",
+      "sourceName": "dss_stage_timestamp",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_source_file_name",
+      "sourceName": "dss_source_file_name",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    }
+  ],
+  "savedAt": "2026-03-26T00:00:00.000Z"
+}

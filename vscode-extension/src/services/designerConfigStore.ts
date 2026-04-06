@@ -7,7 +7,7 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { SavedColumnConfig, LambdaVaultConfig } from '../types';
+import { SavedColumnConfig, LambdaVaultConfig, SatelliteDefinition } from '../types';
 
 export interface DesignerConfig {
   /** Concept/source system name */
@@ -26,6 +26,12 @@ export interface DesignerConfig {
   generatedObjects?: ('hub' | 'satellite' | 'links' | 'dc_satellite' | 'ma_satellite')[];
   /** Lambda Vault configuration for near-real-time data */
   lambdaVault?: LambdaVaultConfig;
+  /** @deprecated Use satellites array instead */
+  satelliteName?: string;
+  /** Multi-satellite definitions */
+  satellites?: SatelliteDefinition[];
+  /** Generate current-view (sat_*_current_v) for each satellite */
+  generateCurrentView?: boolean;
 }
 
 const CONFIG_FOLDER = '.vscode/entity-designer';

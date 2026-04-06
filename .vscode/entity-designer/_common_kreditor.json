@@ -1,0 +1,38 @@
+{
+    "concept": "_common",
+    "entityName": "kreditor",
+    "sourceTable": "ext_ewb_kred_kbl_main",
+    "sourceType": "external_table",
+    "generatedObjects": [
+        "hub",
+        "satellite"
+    ],
+    "isGhostHub": true,
+    "ghostHubSource": "kreditorenbeleg (KRED.KBL.Main)",
+    "columns": [
+        {
+            "name": "KNR",
+            "sourceName": "KNR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "hub",
+            "includeInHashDiff": false,
+            "nullable": false
+        },
+        {
+            "name": "ADRID",
+            "sourceName": "ADRID",
+            "dataType": "NVARCHAR(4000)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true,
+            "satelliteGroup": "sat-1"
+        }
+    ],
+    "satellites": [
+        {
+            "id": "sat-1",
+            "name": "kreditor"
+        }
+    ]
+}
