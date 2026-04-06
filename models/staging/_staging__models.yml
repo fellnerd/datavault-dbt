@@ -155,6 +155,27 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: psa_ewb_fibu_gl
+    description: >
+      PSA (Persistent Staging Area) für FIBU.GL — cached 944K Zeilen aus 12 PolyBase Parquet-Files
+      (E15-E26) in einer lokalen SQL-Tabelle. Vermeidet wiederholte ADLS-Scans (~240M logical reads)
+      beim Laden von sat_hauptbuch__abacus. Inkrementell via dss_load_date.
+    config:
+      meta:
+        entity_type: psa
+        source_type: external_table
+        external_table: ext_ewb_fibu_gl
+    columns:
+      - name: RECNUM
+        tests:
+          - not_null
+      - name: dss_source_file_name
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null
+
   - name: ewb_fibu_gl
     description: >
       Staging view for FIBU.GL (Hauptbuch) — Folder-Scan aller Jahresscheiben E22-E26+.

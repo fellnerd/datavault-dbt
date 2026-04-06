@@ -1,7 +1,12 @@
+{{ config(
+    materialized='table',
+    as_columnstore=false
+) }}
+
 /*
  * Staging Model: ewb_fibu_gl
  *
- * Source: ext_ewb_fibu_gl (Abacus FIBU/GL — Folder-Scan aller Jahresscheiben E22-E26+)
+ * Source: psa_ewb_fibu_gl → ext_ewb_fibu_gl (Abacus FIBU/GL — Folder-Scan aller Jahresscheiben E15-E26+)
  * Business Key: RECNUM + dss_source_file_name (Composite — RECNUM ist nur INNERHALB einer Datei unique)
  * Hash Key: hk_hauptbuch
  * Payload: 34 Spalten — Hauptbuch-Buchungszeilen (Standard-Set)
@@ -28,8 +33,7 @@
  */
 
 {%- set yaml_metadata -%}
-source_model:
-  staging: "ext_ewb_fibu_gl"
+source_model: "psa_ewb_fibu_gl"
 
 derived_columns:
   dss_record_source: "!ewb_abacus"
