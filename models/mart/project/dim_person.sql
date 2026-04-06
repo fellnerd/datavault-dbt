@@ -80,7 +80,7 @@ joined AS (
 SELECT
     person_key,
     CAST(person_key AS NVARCHAR(255))                                       AS person_id,
-    ISNULL(abrv, CAST(person_key AS NVARCHAR(255)))                         AS person_code,
+    ISNULL(NULLIF(abrv, ''), CAST(person_key AS NVARCHAR(255)))              AS person_code,
     ISNULL(
         NULLIF(CONCAT_WS(', ', name, vorname), ''),
         ISNULL(abrv, 'UNKNOWN')

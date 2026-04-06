@@ -115,6 +115,15 @@ models:
       - name: gruppe_nr
         description: "Referenz-Projektnummer / Gruppe (sat_projekt.refprojnr)"
         data_type: int
+      - name: gruppe_name
+        description: "Gruppenname (Sharepoint Kostenstellen.KostenstelleName via REFPROJNR)"
+        data_type: nvarchar(255)
+      - name: hauptgruppe_nr
+        description: "Hauptgruppe-Nr (Sharepoint KategorisierungProjekte.KategorieNr). ~260 von 14'198 Projekten kategorisiert."
+        data_type: nvarchar(255)
+      - name: hauptgruppe_name
+        description: "Hauptgruppe-Name (Sharepoint ProjekteKategorien.KategorieName). NULL wenn nicht kategorisiert."
+        data_type: nvarchar(255)
       - name: erstellt
         description: "Erstellungsdatum (sat_projekt.creation)"
         data_type: date

@@ -1,8 +1,8 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 31. März 2026  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 15. April 2026  
 **Agenten:** synapse-validator + vault-architect + db-monitor + staging-engineer  
-**Scope:** 19 Pilot-Tabellen (Finance + Projects)
+**Scope:** 19 Pilot-Tabellen (Finance + Projects) + 8 Sharepoint-Referenztabellen
 
 ---
 
@@ -229,6 +229,29 @@ Zusätzlich wurden **6 Sharepoint-Referenztabellen** identifiziert, die via `Man
 - `dim_konto` ✅ (517 Zeilen), `dim_kostenstelle` ✅ (145 Zeilen), `dim_kreditor` ✅, `dim_buchungsstatus` ✅
 - `fakt_belege` ✅, `fakt_buchungen` ✅ (**13.519.009 Zeilen** — 4-way UNION Synapse-Logik)
 
+### Wave 4 — structured-tables Gap Close + Mart-Korrekturen — ✅ COMPLETE (15.4.2026)
+
+**Voraussetzung:** Wave 3 deployed ✅, Synapse-Validator Gap-Analyse ✅
+
+**Gap-Analyse (15.4.2026):** Vollständiger Abgleich aller 13 structured-tables gegen DV-Mart.
+9/13 abgedeckt, 4 fehlend: Budget (52'693 Zeilen), Forecast (13'163), ActualForecast (24), Zugangsrechte (27).
+1 unvollständig: dim_projekt (3 Sharepoint-Spalten fehlend).
+
+**Mart-Korrekturen:**
+- `dim_projekt` ✅ — Erweitert um 3 Sharepoint-Spalten: `gruppe_name` (via ewb_sp_kostenstellen), `hauptgruppe_nr` + `hauptgruppe_name` (via ewb_sp_kategorisierungprojekte + ewb_sp_projektekategorien). ~260/14'198 Projekte mit Hauptgruppe.
+- `dim_person` ✅ — `NULLIF(abrv, '')` Fix für person_code Leerstring-Bug
+
+**Neue Mart-Views (Sharepoint-Planungsdaten):**
+- `fakt_budget` ✅ — Budget-Daten (Datum, Szenario, KST, Konto, Betrag). FK: dim_konto, dim_kostenstelle, dim_date.
+- `fakt_forecast` ✅ — Forecast-Daten (identische Struktur wie Budget). FK: dim_konto, dim_kostenstelle, dim_date.
+- `ref_actual_forecast` ✅ — Lookup: Monat → "Actual"/"Forecast" (24 Zeilen).
+
+**Out of Scope:**
+- `Finance.Zugangsrechte` — Operativ/RLS (27 Zeilen), nicht analytisch. Staging vorhanden falls später nötig.
+- `PROJ.NTB.Main` — Abacus-internes Budgetsystem. Kein Synapse-View nutzt es.
+
+> **Entscheidung:** Budget/Forecast als Mart-Level Views (nicht Raw Vault) — Sharepoint-Daten ohne Historisierungsbedarf. Quellen sind die bestehenden `ewb_sp_*` Staging-Views.
+
 ---
 
 ## 6. Staging-Reihenfolge (19 Views)
@@ -382,20 +405,23 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Satellites | 12 | 4×P1, 2×P2, 6×P3 ✅ |
 | Links | 11 | 1×P1, 3×P2, 7×P3 ✅ (link_buchungskopf_kreditorenbeleg entfernt — 0.08% FK-Match) |
 | **Total Vault-Objekte** | **36** | |
-| Marts | 8 | Projekt ✅ + Finance ✅ (inkl. dim_abteilung) |
+| Marts Finance | 9 | ✅ Wave 3 + Wave 4 (Budget/Forecast/ActualForecast) |
+| Marts Project | 5 | ✅ Wave 1 + Wave 4 (dim_projekt erweitert) |
+| Marts Common | 2 | ✅ (dim_date, dim_date_helper) |
 | Reference Tables | 6 (NTR, PST, LTC, KBS, Konto, Kostenstelle) | 4×Abacus + 2×Sharepoint ✅ |
-| Staging-Views | 19 + 8 Sharepoint | 11 Abacus + 8 Sharepoint = 19 implementiert |
-| Mart Views | 8 | ✅ COMPLETE (Projekt + Finance) |
+| Staging-Views | 14 Abacus + 8 Sharepoint = 22 | ✅ COMPLETE |
+| Current Views | 12 | ✅ COMPLETE |
 
-**Implementierungsstand (31. März 2026):**
-- Staging Abacus: **11/19** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅, `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_lohn_ltc_main` ✅ + dim_date ✅
+**Implementierungsstand (15. April 2026):**
+- Staging Abacus: **14/15** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅ (5 Jahresscheiben), `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_proj_prt_main` ✅, `ewb_lohn_ltc_main` ✅, `ewb_kred_kbl_main` ✅, `ewb_kred_kvl_main` ✅, `ewb_kred_kbs_main` ✅ — Fehlend: `ewb_proj_ntb_main` (out of scope, Abacus-Budget ohne Synapse-View)
 - Staging Sharepoint: **8/8** — `ewb_sp_konten` ✅, `ewb_sp_kostenstellen` ✅, `ewb_sp_budget` ✅, `ewb_sp_forecast` ✅, `ewb_sp_actualforecast` ✅, `ewb_sp_zugangsrechte` ✅, `ewb_sp_kategorisierungprojekte` ✅, `ewb_sp_projektekategorien` ✅
-- Vault: **36/36** Objekte implementiert — 11 Hubs (+2 Ghost), 12 Sats (+12 current_v), 11 Links
-- Mart: **7/7** Views implementiert — Projekt-Domain ✅, Finance-Domain ✅
+- Vault: **36/36** Objekte implementiert — 13 Hubs (+2 Ghost), 12 Sats (+12 current_v), 11 Links
+- Mart: **16/16** Views implementiert — Projekt-Domain ✅, Finance-Domain ✅, Common ✅
 - Reference Tables: **6/6** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅, `ref_kred_buchungsstatus` ✅, `ref_konto` ✅, `ref_kostenstelle` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)
 - **Wave 2: ✅ COMPLETE** — Hub/Sat Buchungskopf + Hauptbuch + Kreditorenbeleg + Kreditor (29.3.2026). Row Counts korrigiert nach ADF Fix (31.3.2026)
 - **Wave 3: ✅ GL-OBJEKTE POPULATED** — Full DB Reset + Redeploy (31.3.2026). Alle GL-abhängigen Links + Finance Mart deployed. hub_hauptbuch=433.076, sat_hauptbuch=943.844, fakt_buchungen=13.519.009
+- **Wave 4: ✅ COMPLETE** — Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix (15.4.2026)
 - **Bekannte Issues:** RECNUM nicht unique über GL-Jahresscheiben (67k Duplikate), 3 Zero-Count Links (KST/Kreditor/Projekt NULL in GL), dim_date Range unvollständig
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
@@ -445,7 +471,7 @@ fakt_stunden.DatumKey       → dim_date.date_key            (WARN: Daten vor 20
 
 **Validierung gegen Synapse (2026-03-29):**
 - dim_person: ✅ Korrekt, erweitert um Abteilungs-Attribute
-- dim_projekt: ✅ Korrekt (3 Sharepoint-Spalten bewusst out of scope)
+- dim_projekt: ✅ Korrekt, erweitert um Sharepoint-Spalten (GruppeName, HauptgruppeNr, HauptgruppeName)
 - fakt_stunden: ⚠️ PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
 - LeistungsartNr: NSA.CODE = Sachkonto (389 Werte), nicht 1:1 NTR (15 Werte) — entspricht Synapse LEFT JOIN Verhalten
 
@@ -459,6 +485,10 @@ fakt_stunden.DatumKey       → dim_date.date_key            (WARN: Daten vor 20
 | — | `mart_finance.dim_konto` | **517** | ✅ Wave 3: Ghost Hub + Sharepoint Kontenplan-Hierarchie |
 | — | `mart_finance.dim_kostenstelle` | **145** | ✅ Wave 3: Ghost Hub + Sharepoint Kostenstellenplan-Hierarchie |
 | — | `mart_finance.dim_buchungsstatus` | — | ✅ Referenz-Dimension |
+| Finance.Budget | `mart_finance.fakt_budget` | **52'693** | ✅ Wave 4: Sharepoint-Planungsdaten, FK dim_konto + dim_kostenstelle + dim_date |
+| Finance.Forecast | `mart_finance.fakt_forecast` | **13'163** | ✅ Wave 4: Sharepoint-Planungsdaten, identische Struktur wie Budget |
+| Finance.ActualForecast | `mart_finance.ref_actual_forecast` | **24** | ✅ Wave 4: Lookup Monat → Actual/Forecast |
+| Finance.Zugangsrechte | — | 27 | ⚪ Out of scope (operativ/RLS, Staging vorhanden) |
 
 ### 10c. Kritische Business-Regeln (zu konservieren)
 
@@ -533,18 +563,12 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 | `Sharepoint.KategorisierungProjekte` | `Projekt.Projekt` | `NPO.PROJNR = KategorisierungProjekte.Projektnummer` | Projektnummer → Kategorie-Zuordnung |
 | `Sharepoint.ProjekteKategorien` | `Projekt.Projekt` | `KategorisierungProjekte.KategorieNr = ProjekteKategorien.KategorieNr` | Kategorie-Nr → Kategorie-Name (Hauptgruppe) |
 
-### 11c. Entscheidung ausstehend (→ F4)
+### 11c. Entscheidung ✅ (Wave 4, 15.4.2026)
 
-**Option A — Reference Tables im DV:**
-- Konten + Kostenstellen als `ref_konto` / `ref_kostenstelle` importieren (dbt Seed oder External Table)
-- Vorteile: Ghost-Record-Problem gelöst, Stammdaten im DV verfügbar
-- `dss_record_source = 'ewb_sharepoint'`
+**Umgesetzt — Option A für Stammdaten, Option B für Planungsdaten:**
+- **Konten + Kostenstellen:** `ref_konto` + `ref_kostenstelle` als Reference Tables im DV ✅ (Wave 3)
+- **Budget + Forecast + ActualForecast:** Mart-Level Views (`fakt_budget`, `fakt_forecast`, `ref_actual_forecast`) ✅ (Wave 4)
+- **KategorisierungProjekte + ProjekteKategorien:** Mart-Level JOINs in `dim_projekt` ✅ (Wave 4)
+- **Zugangsrechte:** Out of scope (operativ/RLS, Staging `ewb_sp_zugangsrechte` vorhanden)
 
-**Option B — Mart-Level JOIN:**
-- Sharepoint-Tabellen nur in Mart Views als Lookup-Quellen verwenden
-- Vorteile: Kein zusätzlicher DV-Scope, einfachere Architektur
-- Nachteil: Keine Historisierung der Referenzdaten
-
-> **Empfehlung:** Option A für Konten + Kostenstellen (kritische Dimensionen), Option B für Budget/Forecast/Kategorien (Planungs- und Enrichment-Daten).
-
-*EWB Analytics Platform | PPMC AG | Stand: 31. März 2026 — Wave 3 GL-Objekte populated (Full DB Reset + ADF Fix). 415 Tests PASS, 1 ERROR (RECNUM uniqueness), 5 WARN.*
+*EWB Analytics Platform | PPMC AG | Stand: 15. April 2026 — Wave 4: structured-tables Gap Close (Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix). 447 Tests. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte).*

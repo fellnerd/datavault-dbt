@@ -385,3 +385,156 @@ models:
       - name: dss_record_source
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
+
+  # ===================================================================
+  # BUDGET / FORECAST (Sharepoint-Planungsdaten)
+  # ===================================================================
+
+  - name: fakt_budget
+    description: |
+      Budget-Daten aus Sharepoint (Planungsdaten).
+      Repliziert Synapse [Finance].[Budget] (52'693 Zeilen).
+      Granularitaet: 1 Zeile pro (Datum x Szenario x Kostenstelle x Konto).
+      FK: dim_konto, dim_kostenstelle, dim_date.
+      Quelle: ewb_sp_budget (Sharepoint JSON via OPENJSON).
+    columns:
+      - name: datum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus Datum)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: konto_key
+        description: "FK → dim_konto.konto_key (surrogate_key Konto)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_konto')
+              field: konto_key
+              config:
+                severity: warn
+      - name: kostenstelle_key
+        description: "FK → dim_kostenstelle.kostenstelle_key (surrogate_key Kostenstelle)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_kostenstelle')
+              field: kostenstelle_key
+              config:
+                severity: warn
+      - name: szenario
+        description: "Budget-Szenario (z.B. 'Budget 2023')"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_nr
+        description: "Kontonummer (Sharepoint Budget)"
+        data_type: int
+      - name: kostenstelle_nr
+        description: "Kostenstellennummer (Sharepoint Budget)"
+        data_type: int
+      - name: kst_koa
+        description: "Composite Key KST-KOA (Kostenstelle-Kostenart)"
+        data_type: nvarchar(255)
+      - name: betrag
+        description: "Budgetbetrag"
+        data_type: decimal(18,4)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Ladezeitpunkt"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation (ewb_sharepoint)"
+        data_type: nvarchar(255)
+
+  - name: fakt_forecast
+    description: |
+      Forecast-Daten aus Sharepoint (Planungsdaten).
+      Repliziert Synapse [Finance].[Forecast] (13'163 Zeilen).
+      Granularitaet: 1 Zeile pro (Datum x Szenario x Kostenstelle x Konto).
+      Identische Struktur wie fakt_budget.
+      FK: dim_konto, dim_kostenstelle, dim_date.
+      Quelle: ewb_sp_forecast (Sharepoint JSON via OPENJSON).
+    columns:
+      - name: datum_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus Datum)"
+        data_type: int
+        tests:
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+              config:
+                severity: warn
+      - name: konto_key
+        description: "FK → dim_konto.konto_key (surrogate_key Konto)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_konto')
+              field: konto_key
+              config:
+                severity: warn
+      - name: kostenstelle_key
+        description: "FK → dim_kostenstelle.kostenstelle_key (surrogate_key Kostenstelle)"
+        data_type: bigint
+        tests:
+          - relationships:
+              to: ref('dim_kostenstelle')
+              field: kostenstelle_key
+              config:
+                severity: warn
+      - name: szenario
+        description: "Forecast-Szenario"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: konto_nr
+        description: "Kontonummer (Sharepoint Forecast)"
+        data_type: int
+      - name: kostenstelle_nr
+        description: "Kostenstellennummer (Sharepoint Forecast)"
+        data_type: int
+      - name: kst_koa
+        description: "Composite Key KST-KOA (Kostenstelle-Kostenart)"
+        data_type: nvarchar(255)
+      - name: betrag
+        description: "Forecast-Betrag"
+        data_type: decimal(18,4)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Ladezeitpunkt"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation (ewb_sharepoint)"
+        data_type: nvarchar(255)
+
+  - name: ref_actual_forecast
+    description: |
+      Lookup: Monat → "Actual" oder "Forecast" (24 Zeilen).
+      Repliziert Synapse [Finance].[ActualForecast].
+      Quelle: ewb_sp_actualforecast (Sharepoint JSON via OPENJSON).
+    columns:
+      - name: y_month
+        description: "Jahr-Monat (z.B. '2022M01')"
+        data_type: nvarchar(20)
+        tests:
+          - not_null
+          - unique
+      - name: actual_forecast
+        description: "Klassifikation: 'Actual' oder 'Forecast'"
+        data_type: nvarchar(20)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Actual', 'Forecast']
+      - name: dss_load_date
+        description: "Ladezeitpunkt"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation (ewb_sharepoint)"
+        data_type: nvarchar(255)

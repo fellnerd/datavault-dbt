@@ -5,7 +5,7 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 5. April 2026 |
+| **Stand** | 15. April 2026 |
 | **Verfasser** | PPMC AG |
 
 ---
@@ -182,23 +182,26 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 5. April 2026)
+### 5.1 Implementierungsfortschritt (Stand 15. April 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
-| External Tables | 19 | 19 | 100% ✅ (datavault-dev) |
-| Staging-Views (Abacus) | 11 | 11 | 100% ✅ |
+| External Tables | 23 | 23 | 100% ✅ (datavault-dev) |
+| Staging-Views (Abacus) | 14 | 15 | 93% (NTB out of scope) |
 | Staging-Views (Sharepoint) | 8 | 8 | 100% ✅ |
-| Hubs | 11 (+2 Ghost) | 11 (+2 Ghost) | 100% ✅ |
+| Hubs | 13 (+2 Ghost) | 13 (+2 Ghost) | 100% ✅ |
 | Satellites | 12 (+12 current_v) | 12 | 100% ✅ |
 | Links | 11 | 11 | 100% ✅ |
 | Reference Tables | 6 | 6 | 100% ✅ |
+| **Mart-Views** | **16** | **16** | **100% ✅** |
 
 **Wave 1 (Stammdaten): ✅ DEPLOYED** auf `datavault-dev` (28. März 2026, 27 Modelle, 0 Fehler)
 
 **Wave 2 (Finance-Transaktionen): ✅ DEPLOYED** auf `datavault-dev` (29. März 2026) — Hub/Sat Buchungskopf + Hauptbuch + Kreditorenbeleg + Kreditor. Row Counts korrigiert nach ADF-Bug-Fix (31. März 2026): hub_hauptbuch=433.076, sat_hauptbuch=943.844.
 
 **Wave 3 (GL-Links + Zahlungen + Projektteile): ✅ DEPLOYED** auf `datavault-dev` (31. März 2026) — hub_zahlung (283.094), sat_zahlung__abacus, hub_projektteil, sat_projektteil__abacus, 6 GL-Links (KST/Kreditor/Projekt/Konto/Buchungskopf/Zahlung).
+
+**Wave 4 (structured-tables Gap Close): ✅ IMPLEMENTIERT** (15. April 2026) — Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte).
 
 **Finance Mart: ✅ DEPLOYED** (31. März 2026) — fakt_buchungen (892.713), fakt_belege (287.784), dim_kreditor.
 
@@ -446,9 +449,9 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 
 **ER-Diagramm:** `design/mart/er-mart-project.mmd`
 
-**Validierungs-Ergebnis (29.3.2026):**
-- dim_person: Erweitert Synapse Personal um Abteilungs-Attribute
-- dim_projekt: 3 Sharepoint-Spalten bewusst out of scope
+**Validierungs-Ergebnis (15.4.2026):**
+- dim_person: Erweitert Synapse Personal um Abteilungs-Attribute. NULLIF-Fix fuer person_code.
+- dim_projekt: ✅ Vollständig — inkl. 3 Sharepoint-Spalten (GruppeName, HauptgruppeNr, HauptgruppeName)
 - fakt_stunden: PROJNR-Korrektur bestätigt (ProjektNr statt PersonalNr)
 - LeistungsartNr: NSA.CODE ist Sachkonto (389 Werte), nicht 1:1 NTR — entspricht Synapse LEFT JOIN
 
@@ -460,6 +463,9 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 | `mart_finance.fakt_belege` | Fakt | [Finance].[Belege] | 287.784 | ✅ Deployed (KBL × KVL) |
 | `mart_finance.dim_kreditor` | Dimension | [Finance].[Kunden] | 3.159 | ✅ Deployed (hub-Granularität) |
 | `mart_project.dim_abteilung` | Dimension | [Projekt].[Abteilung] | ~2.027 | ✅ Deployed (Wave 3) |
+| `mart_finance.fakt_budget` | Fakt | [Finance].[Budget] | 52.693 | ✅ Wave 4 (Sharepoint-Planungsdaten) |
+| `mart_finance.fakt_forecast` | Fakt | [Finance].[Forecast] | 13.163 | ✅ Wave 4 (Sharepoint-Planungsdaten) |
+| `mart_finance.ref_actual_forecast` | Reference | [Finance].[ActualForecast] | 24 | ✅ Wave 4 (Lookup Monat→Actual/Forecast) |
 
 **Bekannte Abweichungen:**
 - `dim_kreditor`: 3.159 (Hubs, DISTINCT) vs. Synapse 93.288 (alle KBL-Zeilen, no DISTINCT). DV-Granularität ist korrekt — Synapse ist denormalisiert.
@@ -497,6 +503,10 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 | März 2026 | DSS-Metadatenspalten in der Stage-Pipeline (nicht in dbt) | Dateiherkunft und Ladezeit werden beim Kopiervorgang eingeprägt — dbt-Modelle erhalten vollständige Audit-Informationen ohne zusätzliche Logik |
 | März 2026 | SAS Token als interim-Credential für `StageFileSystem` | Managed Identity (Zero-Credential) ist bevorzugt — solange RBAC Storage Blob Data Reader nicht gewährt wurde, ermöglicht ein SAS Token die Entwicklung in `datavault-dev`. SAS wird nach MI-Freischaltung abgelöst. |
 | März 2026 | dbt Multi-Target (`ewb`, `ewb-dev`, `ewb-test`) | Saubere Trennung Dev/Test/Prod — gleiche Modelle, verschiedene Datenbanken |
+| April 2026 | Wave 4 — Budget/Forecast als Mart-Views (nicht Raw Vault) | Sharepoint-Daten ohne Historisierungsbedarf. Staging vorhanden, Mart-Level JOIN reicht |
+| April 2026 | dim_projekt um 3 Sharepoint-Spalten erweitert | GruppeName, HauptgruppeNr, HauptgruppeName per LEFT JOIN auf SP-Staging. ~260/14'198 Projekte kategorisiert |
+| April 2026 | Zugangsrechte out of scope | 27 Zeilen, operativ/RLS — nicht analytisch. Staging `ewb_sp_zugangsrechte` vorhanden falls später nötig |
+| April 2026 | PROJ.NTB out of scope | Abacus-internes Budget-System. Kein Synapse-View verwendet es |
 
 ---
 
@@ -524,6 +534,6 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 5. April 2026 — Wave 1+2+3 + Finance Mart deployed auf datavault-dev*
+*EWB Analytics Platform | PPMC AG | Stand: 15. April 2026 — Wave 1+2+3+4 deployed. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte). 92 Modelle, 447 Tests.*
 
 > Letztes Update: Wave 3 + Finance Mart deployed (31. März 2026). Alle 36 Vault-Objekte + 8 Mart-Views auf `datavault-dev`. Nächster Schritt: Deployment auf `datavault` (Produktion) + GitHub Actions CI/CD.
