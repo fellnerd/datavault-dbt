@@ -211,8 +211,10 @@ models:
       NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse fehlerhaft).
       Granularitaet: 1 Zeile = 1 Projektsachkonto-Buchung.
       Filter: AZBETINT <> 0.
+      NSA.CODE = Projektsachkonto-Code (383 Werte): sachkonto_code immer befüllt,
+      leistungsart_key nullable (nur ~17% der Rows = 1000er Leistungsart-Codes).
       Quelle: hub_projektsachkonto + sat_projektsachkonto
-              + link_projektsachkonto_projekt + hub_projekt.
+              + link_projektsachkonto_projekt + hub_projekt + dim_leistungsart (LEFT JOIN).
     columns:
       - name: projekt_key
         description: "FK → dim_projekt.projekt_key"
@@ -223,15 +225,26 @@ models:
               to: ref('dim_projekt')
               field: projekt_key
       - name: leistungsart_key
-        description: "FK → dim_leistungsart.leistungsart_key"
+        description: |
+          Nullable FK → dim_leistungsart.leistungsart_key.
+          Nur befüllt wenn sachkonto_code eine echte Leistungsart ist (1000er-Codes, ~17% der Rows).
+          NSA.CODE umfasst 383 Codes; nur 15 davon sind Leistungsarten (PROJ.NTR).
+          NULL = Kostensachkonto ohne Leistungsart-Beschreibung.
         data_type: bigint
         tests:
-          - not_null
           - relationships:
               to: ref('dim_leistungsart')
               field: leistungsart_key
               config:
                 severity: warn
+      - name: sachkonto_code
+        description: |
+          Projektsachkonto-Code (Degenerate Dimension). Immer befüllt (100% Coverage).
+          NSA.CODE: 383 distinct Werte — Leistungsarten (1000er) + Kostensachkonten.
+          Für Filtering/Grouping ohne JOIN auf dim_leistungsart nutzbar.
+        data_type: int
+        tests:
+          - not_null
       - name: perioden_date_key
         description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH, immer 1. des Monats)"
         data_type: int

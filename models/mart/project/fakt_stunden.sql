@@ -9,6 +9,12 @@
  * Filter: AZBETINT <> 0
  *
  * KORREKTUR: NSA.PROJNR = ProjektNr (nicht PersonalNr wie in Synapse)
+ *
+ * NSA.CODE = Projektsachkonto-Code (383 distinct Werte):
+ *   - 1000er: Leistungsarten (Normalzeit, Überzeit, Ferien) → 17% der Rows
+ *   - Übrige: Kostensachkonten ohne Leistungsart-Beschreibung → 83% der Rows
+ *   sachkonto_code: immer befüllt (Degenerate Dimension)
+ *   leistungsart_key: nullable FK — nur gesetzt wenn CODE in ref_leistungsart
  */
 
 {{ config(
@@ -18,7 +24,10 @@
 
 SELECT
     {{ surrogate_key('hp.projnr') }}   AS projekt_key,
-    {{ surrogate_key('hpsk.code') }}   AS leistungsart_key,
+    -- Nullable FK: nur ~17% der Rows haben eine echte Leistungsart (1000er-Codes)
+    la.leistungsart_key                 AS leistungsart_key,
+    -- Degenerate Dimension: immer befüllt (alle 383 Sachkonto-Codes)
+    CAST(hpsk.code AS INT)              AS sachkonto_code,
     TRY_CAST(FORMAT(
         DATEFROMPARTS(
             CASE WHEN COALESCE(TRY_CAST(hpsk.periyear AS INT), 1900) = 0
@@ -47,4 +56,7 @@ INNER JOIN {{ ref('link_projektsachkonto_projekt') }} lpp
     ON hpsk.hk_projektsachkonto = lpp.hk_projektsachkonto
 INNER JOIN {{ ref('hub_projekt') }} hp
     ON lpp.hk_projekt = hp.hk_projekt
+-- LEFT JOIN: Leistungsart nur für 1000er-Codes vorhanden (17% der Rows)
+LEFT JOIN {{ ref('dim_leistungsart') }} la
+    ON CAST(hpsk.code AS INT) = TRY_CAST(la.leistungsart_id AS INT)
 WHERE spsk.azbetint <> 0
