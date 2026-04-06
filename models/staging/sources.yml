@@ -1336,7 +1336,7 @@
           - "name": "LEVEL"
             "data_type": "DECIMAL(38,18)"
           - "name": "INAKTIV"
-            "data_type": "BIT"
+            "data_type": "DECIMAL(38,18)"
           - "name": "PROJGROUP"
             "data_type": "DECIMAL(38,18)"
           - "name": "PROJNR2"
