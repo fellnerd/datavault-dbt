@@ -116,7 +116,8 @@ erDiagram
 
     fakt_stunden {
         bigint projekt_key FK "dim_projekt (surrogate_key projnr)"
-        bigint leistungsart_key FK "dim_leistungsart (surrogate_key code)"
+        bigint leistungsart_key FK "dim_leistungsart nullable 17pct 1000er-Codes"
+        int sachkonto_code "Projektsachkonto-Code degenerate 100pct Coverage"
         int perioden_date_key FK "dim_date (YYYYMMDD aus periyear+perimonth)"
         decimal betrag "sat_projektsachkonto__abacus.azbetint"
         nvarchar gb "Geschaeftsbereich (degenerate dim)"
@@ -126,7 +127,7 @@ erDiagram
     }
 
     fakt_stunden }o--|| dim_projekt : "projekt_key"
-    fakt_stunden }o--|| dim_leistungsart : "leistungsart_key"
+    fakt_stunden }o--o| dim_leistungsart : "leistungsart_key (nullable)"
     fakt_stunden }o--|| dim_date : "perioden_date_key"
     dim_abteilung }o--|| dim_person : "person_key"
     dim_person }o--o| dim_date : "eintritt_date_key"
