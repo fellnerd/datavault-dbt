@@ -49,6 +49,7 @@ runs:
               password: "${SQL_PASSWORD}"
               encrypt: true
               trust_cert: false
+              query_timeout: 3600
             ewb-test:
               type: sqlserver
               driver: 'ODBC Driver 18 for SQL Server'
@@ -61,6 +62,7 @@ runs:
               password: "${SQL_PASSWORD}"
               encrypt: true
               trust_cert: false
+              query_timeout: 3600
             ewb:
               type: sqlserver
               driver: 'ODBC Driver 18 for SQL Server'
@@ -73,6 +75,7 @@ runs:
               password: "${SQL_PASSWORD}"
               encrypt: true
               trust_cert: false
+              query_timeout: 3600
         EOF
 
     - name: Install dbt packages
