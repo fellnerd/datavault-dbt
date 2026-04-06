@@ -37,6 +37,7 @@ jobs:
     name: Deploy → ewb-dev (datavault-dev)
     runs-on: [self-hosted, linux, dbt, aca]
     environment: ewb-dev
+    timeout-minutes: 90
 
     steps:
       - name: Checkout code
