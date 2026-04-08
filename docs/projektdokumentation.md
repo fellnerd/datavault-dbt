@@ -503,6 +503,167 @@ Der dbt-Runner läuft als **Azure Container App Job** (`caj-dbt-runner`, Consump
 
 Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema** auf dem Vault-Fundament erstellt. Power BI verbindet sich direkt mit `sql-analytics-ewb-001` und liest aus Dimensionen (`dim_*`) und Faktentabellen (`fakt_*`).
 
+### 7.0 Mart ER-Diagramm (Star Schema Übersicht)
+
+```mermaid
+erDiagram
+
+    %% ── SHARED ──────────────────────────────────────────────────────────────
+    dim_date {
+        int date_key PK
+        date full_date
+        int year
+        int quarter
+        int month
+        nvarchar month_name
+        nvarchar year_month
+        int iso_week
+        char is_weekend
+        char is_last_day_of_month
+    }
+
+    %% ── PROJECT DOMAIN (mart_project) ───────────────────────────────────────
+    dim_person {
+        bigint person_key PK
+        nvarchar person_id
+        nvarchar person_code "Initialen (ABRV)"
+        nvarchar person_name
+        nvarchar abteilung
+        date eintritt
+        date austritt
+    }
+
+    dim_projekt {
+        bigint projekt_key PK
+        nvarchar projekt_id
+        nvarchar projekt_code
+        nvarchar projekt_name
+        nvarchar status
+        nvarchar hauptgruppe_name
+        nvarchar gruppe_name
+    }
+
+    dim_leistungsart {
+        bigint leistungsart_key PK
+        nvarchar leistungsart_id
+        nvarchar leistungsart_code
+        nvarchar leistungsart_name
+    }
+
+    dim_abteilung {
+        bigint abteilung_key
+        bigint person_key FK
+        nvarchar abteilung_nr
+        nvarchar abteilung_name
+        date mutation_date
+    }
+
+    fakt_stunden {
+        bigint projekt_key FK
+        bigint leistungsart_key FK
+        int perioden_date_key FK
+        decimal betrag
+        int sachkonto_code
+        nvarchar gb
+    }
+
+    %% ── FINANCE DOMAIN (mart_finance) ───────────────────────────────────────
+    dim_kreditor {
+        bigint kreditor_key PK
+        nvarchar kreditor_id
+        nvarchar kreditor_name
+    }
+
+    dim_konto {
+        bigint konto_key PK
+        nvarchar konto_id
+        nvarchar konto_code
+        nvarchar konto_name
+        nvarchar konto_gruppe
+        nvarchar konto_subgruppe
+    }
+
+    dim_kostenstelle {
+        bigint kostenstelle_key PK
+        nvarchar kostenstelle_id
+        nvarchar kostenstelle_code
+        nvarchar kostenstelle_name
+        nvarchar bereich
+        nvarchar bereich_neu
+    }
+
+    dim_buchungsstatus {
+        bigint buchungsstatus_key PK
+        nvarchar buchungsstatus_id
+        nvarchar buchungsstatus_name
+    }
+
+    fakt_buchungen {
+        int buchungsdatum_date_key FK
+        bigint konto_key FK
+        bigint kostenstelle_key FK
+        decimal betrag
+        nvarchar soll_haben
+        int belegnummer
+        nvarchar umschreibung
+    }
+
+    fakt_belege {
+        bigint kreditor_key FK
+        bigint buchungsstatus_key FK
+        int belegdatum_date_key FK
+        int valuta_datum_date_key FK
+        decimal betrag
+        decimal zahlbetrag
+        nvarchar belegnummer
+    }
+
+    fakt_budget {
+        int datum_date_key FK
+        bigint konto_key FK
+        bigint kostenstelle_key FK
+        decimal betrag
+        nvarchar szenario
+    }
+
+    fakt_forecast {
+        int datum_date_key FK
+        bigint konto_key FK
+        bigint kostenstelle_key FK
+        decimal betrag
+        nvarchar szenario
+    }
+
+    ref_actual_forecast {
+        nvarchar y_month PK
+        nvarchar actual_forecast
+    }
+
+    %% ── BEZIEHUNGEN ─────────────────────────────────────────────────────────
+    fakt_stunden       }o--||  dim_projekt       : projekt_key
+    fakt_stunden       }o--o|  dim_leistungsart  : "leistungsart_key (nullable)"
+    fakt_stunden       }o--||  dim_date          : perioden_date_key
+    dim_abteilung      }o--||  dim_person        : person_key
+    dim_person         }o--o|  dim_date          : eintritt_date_key
+    dim_person         }o--o|  dim_date          : austritt_date_key
+    dim_projekt        }o--o|  dim_date          : erstellt_date_key
+    fakt_buchungen     }o--||  dim_date          : buchungsdatum_date_key
+    fakt_buchungen     }o--||  dim_konto         : konto_key
+    fakt_buchungen     }o--||  dim_kostenstelle  : kostenstelle_key
+    fakt_belege        }o--||  dim_kreditor      : kreditor_key
+    fakt_belege        }o--||  dim_buchungsstatus: buchungsstatus_key
+    fakt_belege        }o--||  dim_date          : belegdatum_date_key
+    fakt_belege        }o--o|  dim_date          : valuta_datum_date_key
+    fakt_budget        }o--||  dim_date          : datum_date_key
+    fakt_budget        }o--||  dim_konto         : konto_key
+    fakt_budget        }o--||  dim_kostenstelle  : kostenstelle_key
+    fakt_forecast      }o--||  dim_date          : datum_date_key
+    fakt_forecast      }o--||  dim_konto         : konto_key
+    fakt_forecast      }o--||  dim_kostenstelle  : kostenstelle_key
+```
+
+> **Legende:** `}o--||` = Many-to-one (Pflicht), `}o--o|` = Many-to-one (optional/nullable). `dim_date` ist shared zwischen beiden Domains (`mart._common`). Alle Surrogate Keys via `MD5(BK) → BIGINT`. Detaillierte Diagramme: `design/mart/er-mart-project.mmd`, `design/mart/er-mart-finance.mmd`.
+
 ### 7.1 Projekt-Domain — Star Schema (DEPLOYED ✅)
 
 | Mart-Objekt | Typ | Synapse-Äquivalent | Zeilen | Tests |
