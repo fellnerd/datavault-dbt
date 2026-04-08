@@ -422,6 +422,7 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 - **Wave 2: ✅ COMPLETE** — Hub/Sat Buchungskopf + Hauptbuch + Kreditorenbeleg + Kreditor (29.3.2026). Row Counts korrigiert nach ADF Fix (31.3.2026)
 - **Wave 3: ✅ GL-OBJEKTE POPULATED** — Full DB Reset + Redeploy (31.3.2026). Alle GL-abhängigen Links + Finance Mart deployed. hub_hauptbuch=433.076, sat_hauptbuch=943.844, fakt_buchungen=13.519.009
 - **Wave 4: ✅ COMPLETE** — Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix (15.4.2026)
+- **CI/CD + Performance (8.4.2026):** GitHub Actions + ACA aktiviert. PSA-Layer (`psa_ewb_fibu_gl`) + `ewb_fibu_gl` als Staging TABLE → sat_hauptbuch 869s→102s. ACA: Consumption, 2 vCPU, 4 Gi, Timeout 7200s. ER-Diagramm-Korrekturen abgeschlossen.
 - **Bekannte Issues:** RECNUM nicht unique über GL-Jahresscheiben (67k Duplikate), 3 Zero-Count Links (KST/Kreditor/Projekt NULL in GL), dim_date Range unvollständig
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
@@ -434,7 +435,7 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Schema `mart_project` | ✅ | ✅ | OK (erstellt 29.3.2026) |
 | External Data Source `StageFileSystem` | ✅ | ✅ | OK |
 | External Tables (EWB) | 19 | 19 | OK ✅ |
-| Staging Views (EWB) | 19 | 11 | 🟢 58% (+ dim_date) |
+| Staging Views (EWB) | 22 | 22 | ✅ 100% (14 Abacus + 8 Sharepoint) |
 | ~~Schema `vault_ewb`~~ | — | Gelöscht ✅ | War stale |
 | ~~Schema `mart_ewb`~~ | — | Gelöscht ✅ | War stale |
 | Ordner `models/raw_vault/_common/hubs/` | ✅ | ✅ | Angelegt ✅ |
@@ -571,4 +572,4 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 - **KategorisierungProjekte + ProjekteKategorien:** Mart-Level JOINs in `dim_projekt` ✅ (Wave 4)
 - **Zugangsrechte:** Out of scope (operativ/RLS, Staging `ewb_sp_zugangsrechte` vorhanden)
 
-*EWB Analytics Platform | PPMC AG | Stand: 15. April 2026 — Wave 4: structured-tables Gap Close (Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix). 447 Tests. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte).*
+*EWB Analytics Platform | PPMC AG | Stand: 8. April 2026 — CI/CD aktiv (ACA), PSA-Performance-Fix (GL). Wave 4 deployed. 13/13 structured-tables abgedeckt. 93 Modelle, 450 Tests.*

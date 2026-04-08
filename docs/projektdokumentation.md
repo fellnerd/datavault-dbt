@@ -25,7 +25,7 @@ Der gewählte Ansatz stellt sicher, dass Rohdaten unveränderlich erhalten bleib
 | 1 | Analyse der bestehenden Azure-Umgebung | Abgeschlossen |
 | 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | Abgeschlossen |
 | 3 | Raw Vault: Staging, Hubs, Satellites, Links | Abgeschlossen (Wave 1+2+3 deployed ✅) |
-| 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung (ADF Pipelines aktiv, GitHub Actions ausstehend) |
+| 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung (ADF Pipelines aktiv, GitHub Actions CI/CD ✅ deployed, ADF → repository_dispatch Trigger ausstehend) |
 | 5 | Reporting Layer & Power BI | Abgeschlossen (Projekt-Domain + Finance-Domain deployed ✅) |
 
 ---
@@ -182,7 +182,7 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 15. April 2026)
+### 5.1 Implementierungsfortschritt (Stand 8. April 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
@@ -353,10 +353,10 @@ Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer un
 | Bereich | ER-Header | Tatsächlich | Status |
 |---|---|---|---|
 | Hubs | 13 | 13 SQL-Dateien | ✅ Korrekt |
-| Satellites | **14** | **12** SQL-Dateien | ⚠️ Header-Zähler falsch (um 2 zu hoch) |
-| Links | **12** | **11** SQL-Dateien | ⚠️ `LINK_BUCHUNGSKOPF_KREDITORENBELEG` im Diagramm, aber kein SQL (entfernt per Entscheidung März 2026) |
-| References | **5** | **6** SQL-Dateien | ⚠️ `ref_kred_buchungsstatus` fehlt im ER-Diagramm |
-| Link-Name | `LINK_PERSON_ADRESSE` | `link_adresse_person` | ⚠️ Namensabweichung ER ↔ SQL-Datei |
+| Satellites | 12 | 12 SQL-Dateien | ✅ Korrekt (behoben 8.4.2026) |
+| Links | 11 | 11 SQL-Dateien | ✅ Korrekt — `LINK_BUCHUNGSKOPF_KREDITORENBELEG` aus Diagramm entfernt |
+| References | 6 | 6 SQL-Dateien | ✅ Korrekt — `ref_kred_buchungsstatus` im Diagramm vorhanden |
+| Link-Name | `LINK_ADRESSE_PERSON` | `link_adresse_person` | ✅ Korrekt (behoben) |
 
 #### Entity-Designer JSONs vs. Vault-Entitäten
 | Entität | Entity-Designer JSON | Status |
@@ -369,8 +369,8 @@ Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer un
 #### Bekannte Cleanup-Tasks (DB)
 | Objekt | Schema | Problem | Priorität |
 |---|---|---|---|
-| `testview_29e1c7320897c0e96f3dca80df756f0e_10548` | `stg` | Debug-View aus dbt run_sql — sollte entfernt werden | Niedrig |
-| `ext_ewb_sp_zugangsrechte_main` | `stg` | Extra ET in DB, nicht in sources.yml registriert (veraltetes Artefakt?) | Niedrig |
+| ~~`testview_29e1c7320897c0e96f3dca80df756f0e_10548`~~ | `stg` | ✅ Bereinigt (8.4.2026) | — |
+| ~~`ext_ewb_sp_zugangsrechte_main`~~ | `stg` | ✅ Bereinigt (8.4.2026) | — |
 | `dv` Schema | DB | Leeres Schema in datavault-dev vorhanden, nicht dokumentiert | Niedrig |
 
 ---
@@ -420,16 +420,33 @@ Stellt den aktuellen Tagesstand im `stage-fs` Container bereit: löscht zuerst d
 | 1. Rohdaten laden | ADF (bestehend) | täglich in `landing-zone` | Aktiv |
 | 2a. Pilot-Tabellen historisieren | ADF `Copy_LandingZone_to_LoadFS_ewb` | `landing-zone` → `load-fs/{Datum}/{RunId}` | Deployed |
 | 2b. Staging bereitstellen | ADF `Copy_Stage_ewb` | `load-fs/{RunId}` → `stage-fs` (+ DSS-Spalten) | Deployed |
-| 3. Vault transformieren | dbt (GitHub Actions Runner) | `stage-fs` → stg → hub/sat/link → bv → mart | Geplant |
-| 4. Auslösung | GitHub `repository_dispatch` | ADF Web Activity → GitHub Actions Workflow | Geplant |
+| 3. Vault transformieren | dbt (GitHub Actions Runner via ACA) | `stage-fs` → stg → hub/sat/link → bv → mart | ✅ Aktiv (ACA + GitHub Actions) |
+| 4. Auslösung | GitHub `repository_dispatch` | ADF Web Activity → GitHub Actions Workflow | Ausstehend |
 
-### 6.3 Ausstehend
+### 6.3 CI/CD (GitHub Actions + ACA)
+
+Der dbt-Runner läuft als **Azure Container App Job** (`caj-dbt-runner`, Consumption-Profil).
+
+| Parameter | Wert |
+|---|---|
+| ACA-Job | `caj-dbt-runner` in `cae-ewb-cicd` (RG: `arg-analytics-cicd`) |
+| Workload Profile | Consumption (2 vCPU, 4 Gi RAM) |
+| Replica Timeout | 7200s (2h) |
+| Retry Limit | 1 |
+| GitHub Actions Timeout | 90 Min |
+| query_timeout (dbt) | 7200s |
+
+**Workflows:** `deploy-dev.yml`, `deploy-test.yml`, `deploy-prod.yml` (branch-triggered + manual dispatch)
+
+**Performance-Fix GL:** `psa_ewb_fibu_gl` (PSA incremental TABLE) → `ewb_fibu_gl` (Staging TABLE) eliminiert 3× PolyBase-Scan. sat_hauptbuch 869s → 102s.
+
+### 6.4 Ausstehend
 
 | Aufgabe | Detail |
 |---|---|
-| ADF Trigger einrichten | Täglicher Trigger, der `cw_load_date` und `cw_runId` automatisch übergibt |
-| dbt Workflow `deploy-ewb.yml` | GitHub Actions Workflow reagiert auf `repository_dispatch` Event |
+| ADF → GitHub Trigger | `repository_dispatch` Event: ADF Web Activity → `deploy-prod.yml` |
 | GitHub PAT in Key Vault | Secret `github-pat-dbt-dispatch` für ADF Web Activity |
+| Produktion deployen | `dbt run --target ewb` auf `datavault` (Prod-DB) |
 
 ---
 
@@ -534,6 +551,6 @@ Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 15. April 2026 — Wave 1+2+3+4 deployed. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte). 92 Modelle, 447 Tests.*
+*EWB Analytics Platform | PPMC AG | Stand: 8. April 2026 — Wave 1+2+3+4 deployed. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte). CI/CD aktiv (ACA). 93 Modelle, 450 Tests.*
 
-> Letztes Update: Wave 3 + Finance Mart deployed (31. März 2026). Alle 36 Vault-Objekte + 8 Mart-Views auf `datavault-dev`. Nächster Schritt: Deployment auf `datavault` (Produktion) + GitHub Actions CI/CD.
+> Letztes Update: Wave 4 deployed + CI/CD aktiviert + PSA-Performance-Fix (8. April 2026). 93 Modelle, 450 Tests, ACA-Timeout 7200s, psa_ewb_fibu_gl als Staging-Cache für GL-Performance. Nächster Schritt: ADF → GitHub `repository_dispatch` Trigger + Deployment auf `datavault` (Produktion).
