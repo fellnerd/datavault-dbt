@@ -5,8 +5,57 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 15. April 2026 |
+| **Stand** | 8. April 2026 |
 | **Verfasser** | PPMC AG |
+
+---
+
+## 0. Offene Punkte & Klärungsbedarf
+
+> Diese Punkte sind mit EWB zu besprechen und zu koordinieren, bevor der Produktivbetrieb aufgenommen werden kann.
+
+### 0.1 ACA (Azure Container Apps) im EWB-Tenant
+
+Der dbt-Runner läuft aktuell im PPMC-Tenant als Azure Container App Job. Für den Produktivbetrieb muss dieser in den EWB Azure-Tenant migriert werden.
+
+**Voraussetzungen / Requirements:**
+
+| Anforderung | Detail | Status |
+|---|---|---|
+| Azure-Subscription mit Container Apps | Resource Group für CI/CD-Infrastruktur | ⬜ Klären |
+| Container Apps Environment | Dedicated Environment mit Outbound-Konnektivität zu `sql-analytics-ewb-001` | ⬜ Klären |
+| Container Registry Zugriff | Pull-Rechte auf das dbt-Runner-Image (PPMC ACR oder eigene ACR in EWB) | ⬜ Klären |
+| Service Principal / Managed Identity | Für Azure SQL-Authentifizierung (Entra ID / CLI-Auth) | ⬜ Klären |
+| Netzwerk | VNet-Integration oder Public Endpoint auf Azure SQL Server | ⬜ Klären |
+| Secrets Management | Key Vault für GitHub PAT + DB-Credentials | ⬜ Klären |
+| **Ressourcen-Empfehlung** | Consumption-Profil, 2 vCPU, 4 Gi RAM, Timeout 7200s | Bewährt (PPMC) |
+
+### 0.2 Git-Integration (lokales Git-Repo bei EWB)
+
+Ein Git-Account wurde bereits via VPN bereitgestellt. Für die vollständige CI/CD-Integration sind ggf. erweiterte Berechtigungen erforderlich.
+
+**Voraussetzungen / Requirements:**
+
+| Anforderung | Detail | Status |
+|---|---|---|
+| Git-Server Zugang (VPN) | Benutzer mit Read/Write-Zugriff auf das dbt-Repo | ✅ Bereitgestellt |
+| **Webhook / CI-Trigger** | Möglichkeit, bei Push auf `main`/`prod` einen HTTP-Webhook auszulösen (→ ACA Job starten) | ⬜ Admin-Berechtigung prüfen |
+| **Service Account** | Dedizierter technischer Benutzer (kein persönlicher Account) für ACA-Trigger | ⬜ Klären |
+| Branch-Schutzregeln | `main`/`prod` Branch gegen direkte Pushes sperren (Review-Pflicht) | ⬜ Empfehlung EWB-Git-Admin |
+| **PAT / Deploy Key** | Personal Access Token oder SSH Deploy Key für ACA → Git-Pull | ⬜ Klären |
+| Repository Mirror | Optionaler Mirror PPMC GitHub ↔ EWB Git für Übergabe | ⬜ Klären |
+
+> **Hinweis:** Falls EWB ein Azure DevOps Server (on-premise) oder GitLab betreibt, unterscheidet sich die Webhook-Konfiguration. Bitte Plattform bestätigen.
+
+### 0.3 ADF → dbt Automatisierung (letzter fehlender Schritt)
+
+ADF-Pipelines sind deployed. Der Abschluss des automatisierten Tagesladens erfordert:
+
+| Aufgabe | Detail | Status |
+|---|---|---|
+| ADF Web Activity | HTTP POST an ACA Job API oder GitHub `repository_dispatch` | ⬜ Offen |
+| GitHub PAT im Key Vault | Secret `github-pat-dbt-dispatch` für ADF-Authentifizierung | ⬜ Offen |
+| Produktions-Deploy | `dbt run --target ewb` auf `datavault` (Prod-DB) — einmaliger initialer Load | ⬜ Offen |
 
 ---
 
