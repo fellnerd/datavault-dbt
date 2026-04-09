@@ -1,20 +1,6 @@
 name: RAG Index Update
 
 on:
-  workflow_dispatch:  # deactivated: manual trigger only
-  push-disabled:
-    branches: [main, dev]
-    paths:
-      - 'docs/**'
-      - 'models/**'
-      - 'macros/**'
-      - 'seeds/**'
-      - '.github/**/*.md'
-      - 'LESSONS_LEARNED.md'
-      - 'agent/**/*.ts'
-      - 'scripts/**'
-
-  # Allow manual trigger
   workflow_dispatch:
     inputs:
       force:
