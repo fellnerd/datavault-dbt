@@ -635,8 +635,8 @@ erDiagram
     }
 
     ref_actual_forecast {
-        nvarchar y_month PK
-        nvarchar actual_forecast
+        nvarchar y_month PK "Jahr-Monat YYYY-MM (z.B. 2022-01)"
+        nvarchar actual_forecast "Actual oder Forecast"
     }
 
     %% ── BEZIEHUNGEN ─────────────────────────────────────────────────────────
@@ -660,6 +660,7 @@ erDiagram
     fakt_forecast      }o--||  dim_date          : datum_date_key
     fakt_forecast      }o--||  dim_konto         : konto_key
     fakt_forecast      }o--||  dim_kostenstelle  : kostenstelle_key
+    dim_date           ||--o{  ref_actual_forecast : "year_month = y_month (Power BI Slicer)"
 ```
 
 > **Legende:** `}o--||` = Many-to-one (Pflicht), `}o--o|` = Many-to-one (optional/nullable). `dim_date` ist shared zwischen beiden Domains (`mart._common`). Alle Surrogate Keys via `MD5(BK) → BIGINT`. Detaillierte Diagramme: `design/mart/er-mart-project.mmd`, `design/mart/er-mart-finance.mmd`.
