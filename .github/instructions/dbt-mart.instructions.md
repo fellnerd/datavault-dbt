@@ -83,6 +83,9 @@ INNER JOIN {{ ref('hub_<dim>') }} hub_dim
 | Schema (common) | `mart` | `mart._common` |
 | Schema (domain) | `mart_{concept}` | `mart_project` |
 
+> **`_v` Suffix:** Kennzeichnet publizierte Output-Views für BI-Tools und nachgelagerte Modelle.
+> Staging-Views (`stg.*`) sind interne Pipeline-Objekte und erhalten **kein** `_v`.
+
 ## Schema-YAML Pflicht-Tests
 
 ```yaml

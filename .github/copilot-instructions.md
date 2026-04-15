@@ -59,6 +59,7 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 |--------|---------|---------|
 | External Table | `stg.ext_ewb_<modul>_<tabelle>_<suffix>` | `stg.ext_ewb_fibu_fhe_main` |
 | Staging View | `stg.ewb_<modul>_<tabelle>_<suffix>` | `stg.ewb_fibu_fhe_main` |
+| Vault Ref View | `vault.ref_<name>_v` | `vault.ref_konto_v` |
 | Hash Key | `hk_<entity>` | `hk_buchungskopf` |
 | Hash Diff | `hd_<entity>` | `hd_buchungskopf` |
 | Hub | `vault.hub_<entity>` | `vault.hub_fibu_fhe` |
@@ -72,6 +73,21 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Erstellungszeitpunkt | `dss_create_datetime` | `GETDATE()` |
 
 `dss_record_source = 'ewb_abacus'`
+
+## `_v` Suffix Konvention
+
+Das `_v` Suffix kennzeichnet **publizierte Output-Views** — also Views, die von nachgelagerten Schichten oder BI-Tools konsumiert werden:
+
+| Layer | `_v` Suffix | Begründung |
+|-------|------------|------------|
+| `stg.ewb_*` | ❌ kein `_v` | Interne Pipeline-Schicht, nicht für Konsumenten |
+| `stg.ext_ewb_*` | ❌ kein `_v` | External Table, kein View |
+| `vault.hub_*`, `vault.sat_*`, `vault.link_*` | ❌ kein `_v` | Incremental Tables (kein View) |
+| `vault.sat_*_current_v` | ✅ `_v` | Konsumenten-View auf Satellite |
+| `vault.ref_*_v` | ✅ `_v` | Publizierte Reference View |
+| `mart.dim_*_v`, `mart.fakt_*_v` | ✅ `_v` | Publizierte BI-Views |
+
+**Regel:** Staging-Views (`stg.*`) sind interne Transformations-Objekte der dbt-Pipeline und erhalten **kein** `_v`. Alle Views, die als Endprodukt für BI oder nachgelagerte Modelle gedacht sind, erhalten `_v`.
 
 ## Azure SQL Constraints
 
