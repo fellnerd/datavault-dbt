@@ -1,0 +1,156 @@
+# =============================================================================
+# EWB Analytics Platform — GitLab CI/CD
+# =============================================================================
+# Primäre CI/CD-Konfiguration für EWB GitLab.
+# Runner: self-hosted Linux VM (tags: ewb-dbt)
+#
+# Äquivalente GitHub Actions Workflows bleiben in .github/workflows/ erhalten
+# für PPMC-Entwicklung auf github.com/fellnerd/datavault-dbt.
+#
+# Voraussetzungen (CI/CD Variables in GitLab → Settings → CI/CD → Variables):
+#   DBT_EWB_SQL_USER      — SQL Server Benutzername (masked, protected)
+#   DBT_EWB_SQL_PASSWORD  — SQL Server Passwort (masked, protected)
+# =============================================================================
+
+default:
+  tags:
+    - ewb-dbt
+  before_script:
+    - pip install --quiet "dbt-sqlserver>=1.8,<2.0"
+    - dbt deps
+  interruptible: true
+
+variables:
+  DBT_PROFILES_DIR: "$CI_PROJECT_DIR"
+
+# --- Profiles generieren (shared script) ---
+.setup_profiles: &setup_profiles |
+  mkdir -p "$CI_PROJECT_DIR"
+  cat > "$CI_PROJECT_DIR/profiles.yml" << EOF
+  datavault:
+    target: ewb-dev
+    outputs:
+      ewb-dev:
+        type: sqlserver
+        driver: 'ODBC Driver 18 for SQL Server'
+        server: sql-analytics-ewb-001.database.windows.net
+        port: 1433
+        database: datavault-dev
+        schema: dv
+        authentication: sql
+        user: "${DBT_EWB_SQL_USER}"
+        password: "${DBT_EWB_SQL_PASSWORD}"
+        encrypt: true
+        trust_cert: false
+        query_timeout: 7200
+      ewb-test:
+        type: sqlserver
+        driver: 'ODBC Driver 18 for SQL Server'
+        server: sql-analytics-ewb-001.database.windows.net
+        port: 1433
+        database: datavault-test
+        schema: dv
+        authentication: sql
+        user: "${DBT_EWB_SQL_USER}"
+        password: "${DBT_EWB_SQL_PASSWORD}"
+        encrypt: true
+        trust_cert: false
+        query_timeout: 7200
+      ewb:
+        type: sqlserver
+        driver: 'ODBC Driver 18 for SQL Server'
+        server: sql-analytics-ewb-001.database.windows.net
+        port: 1433
+        database: datavault
+        schema: dv
+        authentication: sql
+        user: "${DBT_EWB_SQL_USER}"
+        password: "${DBT_EWB_SQL_PASSWORD}"
+        encrypt: true
+        trust_cert: false
+        query_timeout: 7200
+  EOF
+
+# =============================================================================
+# STAGES
+# =============================================================================
+stages:
+  - validate
+  - deploy
+
+# =============================================================================
+# CI — Merge Request Validation (→ datavault-dev, compile + test only)
+# =============================================================================
+ci:validate:
+  stage: validate
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  timeout: 30 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-dev
+    - dbt compile --target ewb-dev
+    - dbt test --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
+# DEPLOY DEV — push auf dev Branch (→ datavault-dev)
+# =============================================================================
+deploy:dev:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - models/**/*
+        - macros/**/*
+        - seeds/**/*
+        - dbt_project.yml
+        - packages.yml
+  timeout: 90 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-dev
+    - dbt run --target ewb-dev
+    - dbt test --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
+# DEPLOY TEST — push auf test Branch (→ datavault-test)
+# =============================================================================
+deploy:test:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "test" && $CI_PIPELINE_SOURCE == "push"'
+  timeout: 90 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-test
+    - dbt run --target ewb-test
+    - dbt test --target ewb-test
+  environment:
+    name: ewb-test
+
+# =============================================================================
+# DEPLOY PROD — Tag v* oder manuell oder ADF-Trigger (→ datavault)
+# =============================================================================
+deploy:prod:
+  stage: deploy
+  rules:
+    # Tag-Push (z.B. v1.0.0)
+    - if: '$CI_COMMIT_TAG =~ /^v/'
+    # Manuell aus UI
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    # ADF-Trigger via Pipeline Trigger API
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+  timeout: 90 minutes
+  when: manual
+  allow_failure: false
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb
+    - dbt run --target ewb
+    - dbt test --target ewb
+  environment:
+    name: ewb-prod
