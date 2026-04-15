@@ -1285,6 +1285,82 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
+- name: "ref_projektkategorisierung_v"
+  description: "Reference Table: Projektnummer → Hauptgruppen-Zuordnung (Sharepoint KategorisierungProjekte). Mapping für dim_projekt Hauptgruppe-Spalten."
+  columns:
+  - name: "Projektnummer"
+    description: "Projektnummer (Primary Key)"
+    data_type: "nvarchar(4000)"
+    tests:
+    - not_null
+    - unique
+  - name: "KategorieNr"
+    description: "Kategorie-Nummer (FK zu ref_projektkategorie)"
+    data_type: "nvarchar(4000)"
+  - name: "KostenstelleName"
+    description: "Kostenstellenname aus Kategorisierung"
+    data_type: "nvarchar(4000)"
+  - name: "dss_load_date"
+    description: "Ladezeitpunkt"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Datenquelle"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: "ref_projektkategorie_v"
+  description: "Reference Table: KategorieNr → KategorieName (Sharepoint ProjekteKategorien). Hauptgruppen-Bezeichnungen."
+  columns:
+  - name: "KategorieNr"
+    description: "Kategorie-Nummer (Primary Key)"
+    data_type: "nvarchar(4000)"
+    tests:
+    - not_null
+    - unique
+  - name: "KategorieName"
+    description: "Kategorie-Bezeichnung (Hauptgruppenname)"
+    data_type: "nvarchar(4000)"
+  - name: "dss_load_date"
+    description: "Ladezeitpunkt"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Datenquelle"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: "ref_actual_forecast_v"
+  description: "Reference Table: Monat → Actual/Forecast-Klassifikation (Sharepoint ActualForecast). 24 Zeilen Kalender-Lookup. Power BI Join via dim_date.year_month = Y_Month."
+  columns:
+  - name: "Y_Month"
+    description: "Jahres-Monat im Format YYYY-MM (Primary Key)"
+    data_type: "nvarchar(4000)"
+    tests:
+    - not_null
+    - unique
+  - name: "Actual_Forecast"
+    description: "Klassifikation: 'Actual' oder 'Forecast'"
+    data_type: "nvarchar(4000)"
+    tests:
+    - not_null
+    - accepted_values:
+        values: ['Actual', 'Forecast']
+  - name: "dss_load_date"
+    description: "Ladezeitpunkt"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Datenquelle"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
 - name: "sat_person__abacus_current_v"
   description: "Current view for sat_person__abacus. Canonical access layer for downstream consumers (mart, business vault). Use\
     \ with WHERE dss_is_current = 'Y' for SCD1, or without filter for SCD2 history."

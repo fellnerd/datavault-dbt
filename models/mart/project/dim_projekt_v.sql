@@ -40,9 +40,9 @@ INNER JOIN {{ ref('sat_projekt__abacus_current_v') }} sp
     ON hp.hk_projekt = sp.hk_projekt
 LEFT JOIN {{ ref('ref_projektstatus_v') }} ref_ps
     ON TRY_CAST(sp.status AS INT) = TRY_CAST(ref_ps.status AS INT)
-LEFT JOIN {{ ref('ewb_sp_kostenstellen') }} kst
+LEFT JOIN {{ ref('ref_kostenstelle_v') }} kst
     ON CAST(sp.refprojnr AS NVARCHAR(MAX)) = CAST(kst.KostenstelleNr AS NVARCHAR(MAX))
-LEFT JOIN {{ ref('ewb_sp_kategorisierungprojekte') }} kat
-    ON CAST(hp.projnr AS NVARCHAR(MAX)) = kat.Projektnummer
-LEFT JOIN {{ ref('ewb_sp_projektekategorien') }} pk
+LEFT JOIN {{ ref('ref_projektkategorisierung_v') }} kat
+    ON CAST(hp.projnr AS NVARCHAR(MAX)) = CAST(kat.Projektnummer AS NVARCHAR(MAX))
+LEFT JOIN {{ ref('ref_projektkategorie_v') }} pk
     ON kat.KategorieNr = pk.KategorieNr

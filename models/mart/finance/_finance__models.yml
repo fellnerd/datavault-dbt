@@ -512,29 +512,3 @@ models:
       - name: dss_record_source
         description: "Quellenidentifikation (ewb_sharepoint)"
         data_type: nvarchar(255)
-
-  - name: ref_actual_forecast_v
-    description: |
-      Lookup: Monat → "Actual" oder "Forecast" (24 Zeilen).
-      Repliziert Synapse [Finance].[ActualForecast].
-      Quelle: ewb_sp_actualforecast (Sharepoint JSON via OPENJSON).
-    columns:
-      - name: y_month
-        description: "Jahr-Monat (z.B. '2022M01')"
-        data_type: nvarchar(20)
-        tests:
-          - not_null
-          - unique
-      - name: actual_forecast
-        description: "Klassifikation: 'Actual' oder 'Forecast'"
-        data_type: nvarchar(20)
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['Actual', 'Forecast']
-      - name: dss_load_date
-        description: "Ladezeitpunkt"
-        data_type: datetime2(7)
-      - name: dss_record_source
-        description: "Quellenidentifikation (ewb_sharepoint)"
-        data_type: nvarchar(255)
