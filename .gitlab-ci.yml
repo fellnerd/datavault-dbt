@@ -138,14 +138,16 @@ deploy:test:
 deploy:prod:
   stage: deploy
   rules:
-    # Tag-Push (z.B. v1.0.0)
+    # Tag-Push (z.B. v1.0.0) → automatisch
     - if: '$CI_COMMIT_TAG =~ /^v/'
-    # Manuell aus UI
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-    # ADF-Trigger via Pipeline Trigger API
+      when: on_success
+    # ADF-Trigger via Pipeline Trigger API → automatisch
     - if: '$CI_PIPELINE_SOURCE == "trigger"'
+      when: on_success
+    # Manuell aus GitLab UI → manuell bestätigen
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
   timeout: 90 minutes
-  when: manual
   allow_failure: false
   script:
     - *setup_profiles
