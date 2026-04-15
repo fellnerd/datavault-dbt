@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+  repository_dispatch:
+    types: [deploy-prod]
   workflow_dispatch:
     inputs:
       run_stage_external:
@@ -44,11 +46,11 @@ jobs:
           sql_password: ${{ secrets.DBT_EWB_SQL_PASSWORD }}
 
       - name: Stage external sources
-        if: ${{ github.event_name == 'push' || inputs.run_stage_external }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'repository_dispatch' || inputs.run_stage_external }}
         run: dbt run-operation stage_external_sources --target ewb
 
       - name: dbt run
-        if: ${{ github.event_name == 'push' || inputs.run_dbt_run }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'repository_dispatch' || inputs.run_dbt_run }}
         run: |
           SELECT="${{ inputs.select }}"
           if [ -n "$SELECT" ]; then
@@ -58,7 +60,7 @@ jobs:
           fi
 
       - name: dbt test
-        if: ${{ github.event_name == 'push' || inputs.run_dbt_test }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'repository_dispatch' || inputs.run_dbt_test }}
         run: |
           SELECT="${{ inputs.select }}"
           if [ -n "$SELECT" ]; then
