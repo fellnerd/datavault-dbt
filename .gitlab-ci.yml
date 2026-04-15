@@ -47,7 +47,7 @@ variables:
     outputs:
       ewb-dev:
         type: sqlserver
-        driver: 'ODBC Driver 18 for SQL Server'
+        driver: 'ODBC Driver 17 for SQL Server'
         server: "tcp:sql-analytics-ewb-001.database.windows.net"
         port: 1433
         database: datavault-dev
@@ -60,7 +60,7 @@ variables:
         query_timeout: 7200
       ewb-test:
         type: sqlserver
-        driver: 'ODBC Driver 18 for SQL Server'
+        driver: 'ODBC Driver 17 for SQL Server'
         server: "tcp:sql-analytics-ewb-001.database.windows.net"
         port: 1433
         database: datavault-test
@@ -73,7 +73,7 @@ variables:
         query_timeout: 7200
       ewb:
         type: sqlserver
-        driver: 'ODBC Driver 18 for SQL Server'
+        driver: 'ODBC Driver 17 for SQL Server'
         server: "tcp:sql-analytics-ewb-001.database.windows.net"
         port: 1433
         database: datavault
