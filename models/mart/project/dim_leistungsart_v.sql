@@ -19,4 +19,4 @@ SELECT
     CAST(ref_la.inaktiv AS INT)           AS inaktiv,
     ref_la.dss_load_date,
     ref_la.dss_record_source
-FROM {{ ref('ref_leistungsart') }} ref_la
+FROM {{ ref('ref_leistungsart_v') }} ref_la

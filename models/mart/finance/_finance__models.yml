@@ -5,7 +5,7 @@ models:
   # DIMENSIONEN
   # ===================================================================
 
-  - name: dim_kreditor
+  - name: dim_kreditor_v
     description: |
       Kreditoren (Lieferanten) mit Adress-Referenz.
       Ghost Hub: Stammdaten werden aus Kreditorenbelegen (KRED.KBL.Main) abgeleitet.
@@ -43,7 +43,7 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: dim_buchungsstatus
+  - name: dim_buchungsstatus_v
     description: |
       Buchungsstatus fuer Kreditorenbelege (16 Zeilen: 7 Basis + 9 Provisorisch).
       Nicht-historisierte Referenztabelle.
@@ -82,7 +82,7 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: dim_konto
+  - name: dim_konto_v
     description: |
       Kontenplan (Chart of Accounts) mit Sharepoint-Hierarchie.
       Ghost Hub: Konto-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
@@ -130,7 +130,7 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: dim_kostenstelle
+  - name: dim_kostenstelle_v
     description: |
       Kostenstellenplan mit Sharepoint-Hierarchie.
       Ghost Hub: Kostenstellen-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
@@ -197,7 +197,7 @@ models:
   # FAKTENTABELLEN
   # ===================================================================
 
-  - name: fakt_belege
+  - name: fakt_belege_v
     description: |
       Kreditorenbelege (Lieferantenrechnungen) mit Zahlungsvisierungen.
       Repliziert Synapse [Finance].[Belege] vollstaendig (KBL LEFT JOIN KVL).
@@ -217,7 +217,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kreditor')
+              to: ref('dim_kreditor_v')
               field: kreditor_key
               config:
                 severity: warn
@@ -226,7 +226,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_buchungsstatus')
+              to: ref('dim_buchungsstatus_v')
               field: buchungsstatus_key
               config:
                 severity: warn
@@ -288,7 +288,7 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: fakt_buchungen
+  - name: fakt_buchungen_v
     description: |
       Hauptbuch-Buchungen (General Ledger) mit Doppik-Aufloesung.
       Repliziert Synapse [Finance].[Buchungen] — 4-facher UNION ALL.
@@ -315,7 +315,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto')
+              to: ref('dim_konto_v')
               field: konto_key
               config:
                 severity: warn
@@ -324,7 +324,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle')
+              to: ref('dim_kostenstelle_v')
               field: kostenstelle_key
               config:
                 severity: warn
@@ -390,7 +390,7 @@ models:
   # BUDGET / FORECAST (Sharepoint-Planungsdaten)
   # ===================================================================
 
-  - name: fakt_budget
+  - name: fakt_budget_v
     description: |
       Budget-Daten aus Sharepoint (Planungsdaten).
       Repliziert Synapse [Finance].[Budget] (52'693 Zeilen).
@@ -412,7 +412,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto')
+              to: ref('dim_konto_v')
               field: konto_key
               config:
                 severity: warn
@@ -421,7 +421,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle')
+              to: ref('dim_kostenstelle_v')
               field: kostenstelle_key
               config:
                 severity: warn
@@ -451,7 +451,7 @@ models:
         description: "Quellenidentifikation (ewb_sharepoint)"
         data_type: nvarchar(255)
 
-  - name: fakt_forecast
+  - name: fakt_forecast_v
     description: |
       Forecast-Daten aus Sharepoint (Planungsdaten).
       Repliziert Synapse [Finance].[Forecast] (13'163 Zeilen).
@@ -474,7 +474,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto')
+              to: ref('dim_konto_v')
               field: konto_key
               config:
                 severity: warn
@@ -483,7 +483,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle')
+              to: ref('dim_kostenstelle_v')
               field: kostenstelle_key
               config:
                 severity: warn
@@ -513,7 +513,7 @@ models:
         description: "Quellenidentifikation (ewb_sharepoint)"
         data_type: nvarchar(255)
 
-  - name: ref_actual_forecast
+  - name: ref_actual_forecast_v
     description: |
       Lookup: Monat → "Actual" oder "Forecast" (24 Zeilen).
       Repliziert Synapse [Finance].[ActualForecast].

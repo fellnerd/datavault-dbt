@@ -38,7 +38,7 @@ SELECT
 FROM {{ ref('hub_projekt') }} hp
 INNER JOIN {{ ref('sat_projekt__abacus_current_v') }} sp
     ON hp.hk_projekt = sp.hk_projekt
-LEFT JOIN {{ ref('ref_projektstatus') }} ref_ps
+LEFT JOIN {{ ref('ref_projektstatus_v') }} ref_ps
     ON TRY_CAST(sp.status AS INT) = TRY_CAST(ref_ps.status AS INT)
 LEFT JOIN {{ ref('ewb_sp_kostenstellen') }} kst
     ON CAST(sp.refprojnr AS NVARCHAR(MAX)) = CAST(kst.KostenstelleNr AS NVARCHAR(MAX))

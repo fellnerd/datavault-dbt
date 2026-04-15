@@ -65,8 +65,8 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Satellite | `vault.sat_<entity>` | `vault.sat_fibu_fhe` |
 | Current View | `vault.sat_<entity>_current_v` | `vault.sat_fibu_fhe_current_v` |
 | Link | `vault.link_<e1>_<e2>` | `vault.link_beleg_lieferant` |
-| Dimension | `mart.dim_<entity>` | `mart_project.dim_person` |
-| Faktentabelle | `mart.fakt_<content>` | `mart_project.fakt_stunden` |
+| Dimension | `mart.dim_<entity>_v` | `mart_project.dim_person_v` |
+| Faktentabelle | `mart.fakt_<content>_v` | `mart_project.fakt_stunden_v` |
 | Metadata | `dss_*` | `dss_load_date`, `dss_record_source` |
 | Business Key (norm.) | `dss_business_key` | `CONCAT_WS('||', ...)` |
 | Erstellungszeitpunkt | `dss_create_datetime` | `GETDATE()` |

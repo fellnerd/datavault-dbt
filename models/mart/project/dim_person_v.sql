@@ -72,7 +72,7 @@ joined AS (
         ON aa.hk_adresse = lap.hk_adresse
     LEFT JOIN person_details pd
         ON lap.hk_person = pd.hk_person
-    LEFT JOIN {{ ref('ref_abteilung') }} ref_abt
+    LEFT JOIN {{ ref('ref_abteilung_v') }} ref_abt
         ON pd.home_dept_nr = TRY_CAST(ref_abt.nr AS INT)
         AND TRY_CAST(ref_abt.group_nr AS INT) = 1
 )

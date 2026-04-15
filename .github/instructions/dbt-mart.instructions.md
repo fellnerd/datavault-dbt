@@ -77,8 +77,9 @@ INNER JOIN {{ ref('hub_<dim>') }} hub_dim
 
 | Objekt | Pattern | Beispiel |
 |--------|---------|---------|
-| Dimension | `dim_{entity}` | `dim_person`, `dim_projekt` |
-| Faktentabelle | `fakt_{content}` | `fakt_stunden` |
+| Dimension | `dim_{entity}_v` | `dim_person_v`, `dim_projekt_v` |
+| Faktentabelle | `fakt_{content}_v` | `fakt_stunden_v` |
+| Reference View | `ref_{name}_v` | `ref_konto_v`, `ref_abteilung_v` |
 | Schema (common) | `mart` | `mart._common` |
 | Schema (domain) | `mart_{concept}` | `mart_project` |
 
@@ -105,21 +106,21 @@ Wenn ein Mart-Objekt als `table` materialisiert wird, **muss** eine 1:1 Wrapper-
 
 **Pattern `__base` + View:**
 ```
-dim_<entity>__base.sql  →  materialized='table'   (Performance-Cache, intern)
-dim_<entity>.sql        →  materialized='view'    (öffentliche Schnittstelle)
+dim_<entity>__base.sql    →  materialized='table'   (Performance-Cache, intern)
+dim_<entity>_v.sql        →  materialized='view'    (öffentliche Schnittstelle)
 ```
 
-**Implementierung `dim_<entity>.sql` bei table-Backing:**
+**Implementierung `dim_<entity>_v.sql` bei table-Backing:**
 ```sql
 {{ config(materialized='view', tags=['dimension']) }}
 
 SELECT * FROM {{ ref('dim_<entity>__base') }}
 ```
 
-**Konsequenz:** Im Schema sind IMMER nur Views sichtbar (`dim_*`, `fakt_*`). Die `__base`-Tables sind interne Artefakte.
+**Konsequenz:** Im Schema sind IMMER nur Views sichtbar (`dim_*_v`, `fakt_*_v`). Die `__base`-Tables sind interne Artefakte.
 
 > ❌ FALSCH: `dim_projekt` = TABLE, `dim_person` = VIEW → Mischung im Schema
-> ✅ KORREKT: `dim_projekt__base` = TABLE, `dim_projekt` = VIEW über `__base`
+> ✅ KORREKT: `dim_projekt__base` = TABLE, `dim_projekt_v` = VIEW über `__base`
 
 ## ER-Diagramm
 Jede Mart-Domain hat ein eigenes ER-Diagramm: `design/mart/er-mart-<concept>.mmd`

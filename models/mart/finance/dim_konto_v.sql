@@ -31,5 +31,5 @@ SELECT
     hk.dss_load_date,
     hk.dss_record_source
 FROM {{ ref('hub_konto') }} hk
-LEFT JOIN {{ ref('ref_konto') }} rk
+LEFT JOIN {{ ref('ref_konto_v') }} rk
     ON CAST(hk.kto AS NVARCHAR(MAX)) = CAST(rk.KontoNr AS NVARCHAR(MAX))

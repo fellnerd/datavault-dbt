@@ -2,9 +2,9 @@
 erDiagram
 
 
-    dim_abteilung {
+    dim_abteilung_v {
         bigint abteilung_key "SK = MD5(home_dept_nr) nicht PK eindeutig"
-        bigint person_key FK "dim_person (surrogate_key empl_nr)"
+        bigint person_key FK "dim_person_v (surrogate_key empl_nr)"
         nvarchar abteilung_nr "Abteilungsnummer (home_dept_nr)"
         nvarchar abteilung_name "Abteilungsbezeichnung (ref_abteilung GROUP=1) Fallback UNKNOWN"
         nvarchar personal_nr "Personalnummer (hub_person.empl_nr)"
@@ -13,7 +13,7 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    dim_person {
+    dim_person_v {
         bigint person_key PK "SK = MD5(LOHNNR)"
         nvarchar person_id "Technische ID"
         nvarchar person_code "Initialen (abrv), Fallback PersonalNr"
@@ -27,7 +27,7 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    dim_projekt {
+    dim_projekt_v {
         bigint projekt_key PK "SK = MD5(PROJNR)"
         nvarchar projekt_id "Technische ID"
         nvarchar projekt_code "ProjektNr als String"
@@ -45,7 +45,7 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    dim_leistungsart {
+    dim_leistungsart_v {
         bigint leistungsart_key PK "SK = MD5(NUMBER)"
         nvarchar leistungsart_id "Technische ID (number)"
         nvarchar leistungsart_code "Typ, Fallback NUMBER"
@@ -78,7 +78,7 @@ erDiagram
         datetime2 dss_load_date "Ladezeitpunkt"
     }
 
-    dim_person {
+    dim_person_v {
         bigint person_key PK "SK = MD5(LOHNNR)"
         nvarchar person_id "Technische ID"
         nvarchar person_code "Initialen (abrv), Fallback PersonalNr"
@@ -94,7 +94,7 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    dim_projekt {
+    dim_projekt_v {
         bigint projekt_key PK "SK = MD5(PROJNR)"
         nvarchar projekt_id "Technische ID"
         nvarchar projekt_code "ProjektNr als String"
@@ -114,9 +114,9 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    fakt_stunden {
-        bigint projekt_key FK "dim_projekt (surrogate_key projnr)"
-        bigint leistungsart_key FK "dim_leistungsart nullable 17pct 1000er-Codes"
+    fakt_stunden_v {
+        bigint projekt_key FK "dim_projekt_v (surrogate_key projnr)"
+        bigint leistungsart_key FK "dim_leistungsart_v nullable 17pct 1000er-Codes"
         int sachkonto_code "Projektsachkonto-Code degenerate 100pct Coverage"
         int perioden_date_key FK "dim_date (YYYYMMDD aus periyear+perimonth)"
         decimal betrag "sat_projektsachkonto__abacus.azbetint"
@@ -126,13 +126,13 @@ erDiagram
         nvarchar dss_record_source "Quelle"
     }
 
-    fakt_stunden }o--|| dim_projekt : "projekt_key"
-    fakt_stunden }o--o| dim_leistungsart : "leistungsart_key (nullable)"
-    fakt_stunden }o--|| dim_date : "perioden_date_key"
-    dim_abteilung }o--|| dim_person : "person_key"
-    dim_person }o--o| dim_date : "eintritt_date_key"
-    dim_person }o--o| dim_date : "austritt_date_key"
-    dim_projekt }o--o| dim_date : "erstellt_date_key"
-    dim_projekt }o--o| dim_date : "status_datum_date_key"
+    fakt_stunden_v }o--|| dim_projekt_v : "projekt_key"
+    fakt_stunden_v }o--o| dim_leistungsart_v : "leistungsart_key (nullable)"
+    fakt_stunden_v }o--|| dim_date : "perioden_date_key"
+    dim_abteilung_v }o--|| dim_person_v : "person_key"
+    dim_person_v }o--o| dim_date : "eintritt_date_key"
+    dim_person_v }o--o| dim_date : "austritt_date_key"
+    dim_projekt_v }o--o| dim_date : "erstellt_date_key"
+    dim_projekt_v }o--o| dim_date : "status_datum_date_key"
 
     

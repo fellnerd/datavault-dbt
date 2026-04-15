@@ -57,6 +57,6 @@ INNER JOIN {{ ref('link_projektsachkonto_projekt') }} lpp
 INNER JOIN {{ ref('hub_projekt') }} hp
     ON lpp.hk_projekt = hp.hk_projekt
 -- LEFT JOIN: Leistungsart nur für 1000er-Codes vorhanden (17% der Rows)
-LEFT JOIN {{ ref('dim_leistungsart') }} la
+LEFT JOIN {{ ref('dim_leistungsart_v') }} la
     ON CAST(hpsk.code AS INT) = TRY_CAST(la.leistungsart_id AS INT)
 WHERE spsk.azbetint <> 0

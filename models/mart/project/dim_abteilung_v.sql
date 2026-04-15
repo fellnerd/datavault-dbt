@@ -43,7 +43,7 @@ SELECT DISTINCT
 FROM {{ ref('hub_person') }} hp
 INNER JOIN {{ ref('sat_person__abacus') }} sp
     ON hp.hk_person = sp.hk_person
-LEFT JOIN {{ ref('ref_abteilung') }} ref_abt
+LEFT JOIN {{ ref('ref_abteilung_v') }} ref_abt
     ON TRY_CAST(sp.home_dept_nr AS INT) = TRY_CAST(ref_abt.nr AS INT)
     AND TRY_CAST(ref_abt.group_nr AS INT) = 1
 WHERE sp.home_dept_nr IS NOT NULL

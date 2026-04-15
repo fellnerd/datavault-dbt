@@ -25,4 +25,4 @@ SELECT
     TRY_CAST(ref.statdef AS INT)                                                         AS sort_order,
     ref.dss_load_date,
     ref.dss_record_source
-FROM {{ ref('ref_kred_buchungsstatus') }} ref
+FROM {{ ref('ref_kred_buchungsstatus_v') }} ref

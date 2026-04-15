@@ -11,7 +11,7 @@ models:
   # DIMENSIONEN
   # ---------------------------------------------------------------------------
 
-  - name: dim_person
+  - name: dim_person_v
     description: |
       Mitarbeiterstammdaten mit Abteilungszuordnung.
       Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
@@ -82,7 +82,7 @@ models:
         description: "Quellenidentifikation (ghost_record fuer Ghost)"
         data_type: nvarchar(255)
 
-  - name: dim_projekt
+  - name: dim_projekt_v
     description: |
       Projektstammdaten mit Status-Aufloesung.
       Repliziert Synapse [Projekt].[Projekt].
@@ -163,7 +163,7 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: dim_leistungsart
+  - name: dim_leistungsart_v
     description: |
       Leistungsarten (Service Types) fuer Projektsachkonten.
       15 distinkte Leistungsarten (z.B. Normalzeit, Ueberzeit, Ferien).
@@ -204,7 +204,7 @@ models:
   # FAKTENTABELLEN
   # ---------------------------------------------------------------------------
 
-  - name: fakt_stunden
+  - name: fakt_stunden_v
     description: |
       Projektsachkonto-Buchungen (Stunden/Kosten pro Projekt und Periode).
       Repliziert Synapse [Projekt].[Stunden] mit KORREKTUR:
@@ -222,7 +222,7 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_projekt')
+              to: ref('dim_projekt_v')
               field: projekt_key
       - name: leistungsart_key
         description: |
@@ -233,7 +233,7 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_leistungsart')
+              to: ref('dim_leistungsart_v')
               field: leistungsart_key
               config:
                 severity: warn
@@ -273,7 +273,7 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: dim_abteilung
+  - name: dim_abteilung_v
     description: |
       Historische Mitarbeiter-Abteilungs-Zuordnungen (alle Mutationen).
       Repliziert Synapse [Projekt].[Abteilung] (LEN LEFT JOIN LTC WHERE GROUP=1).

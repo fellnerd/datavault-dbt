@@ -907,7 +907,7 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
-- name: "ref_abteilung"
+- name: "ref_abteilung_v"
   description: "Reference Table: Abteilungen (LOHN.LTC.Main) — 109 Gruppen / 2132 Eintraege"
   columns: 
   - name: "nr"
@@ -1195,7 +1195,7 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
-- name: "ref_leistungsart"
+- name: "ref_leistungsart_v"
   description: "Reference Table: Leistungsarten (PROJ.NTR.Main) — 29 distinkte Eintraege"
   columns: 
   - name: "number"
@@ -1223,7 +1223,7 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
-- name: "ref_projektstatus"
+- name: "ref_projektstatus_v"
   description: "Reference Table: Projektstatus (PROJ.PST.Main) — 7 Eintraege"
   columns: 
   - name: "status"
@@ -1248,7 +1248,7 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
-- name: "ref_kred_buchungsstatus"
+- name: "ref_kred_buchungsstatus_v"
   description: "Reference Table: Kreditorenstatus-Konfiguration (KRED.KBS.Main) — 7 Eintraege"
   columns: 
   - name: "STATID"
@@ -3216,7 +3216,7 @@ models:
 
 # ===== REFERENCE TABLES: Konto + Kostenstelle (Sharepoint) =====
 
-- name: ref_konto
+- name: ref_konto_v
   description: >
     Reference Table: ref_konto.
     Kontenplan aus Sharepoint Finance/Konten (254 Einträge).
@@ -3252,7 +3252,7 @@ models:
     tests:
     - not_null
 
-- name: ref_kostenstelle
+- name: ref_kostenstelle_v
   description: >
     Reference Table: ref_kostenstelle.
     Kostenstellenplan aus Sharepoint Finance/Kostenstellen (151 Einträge).
