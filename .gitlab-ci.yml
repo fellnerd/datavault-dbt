@@ -18,20 +18,8 @@ default:
   tags:
     - ewb-dbt
   before_script:
-    # OpenSSL SECLEVEL=1 Fix: Ubuntu 22.04 OpenSSL 3.0 + ODBC Driver 18 TLS-Handshake Bug.
-    # Lokale openssl.cnf ohne sudo — überschreibt nur für diesen Job via OPENSSL_CONF.
-    - |
-      cat > /tmp/openssl_dbt.cnf << 'SSLEOF'
-      openssl_conf = openssl_init
-      [openssl_init]
-      ssl_conf = ssl_sect
-      [ssl_sect]
-      system_default = system_default_sect
-      [system_default_sect]
-      CipherString = DEFAULT@SECLEVEL=1
-      MinProtocol = TLSv1
-      SSLEOF
-    - export OPENSSL_CONF=/tmp/openssl_dbt.cnf
+    # ODBC Driver 17 installieren falls nicht vorhanden (Driver 18 hat OpenSSL 3.0 Bug auf Ubuntu 22.04)
+    - odbcinst -q -d | grep -q "ODBC Driver 17 for SQL Server" || sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17 -qq
     - dbt deps --quiet
   interruptible: true
 
