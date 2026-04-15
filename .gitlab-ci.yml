@@ -34,7 +34,7 @@ variables:
       ewb-dev:
         type: sqlserver
         driver: 'ODBC Driver 18 for SQL Server'
-        server: sql-analytics-ewb-001.database.windows.net
+        server: "tcp:sql-analytics-ewb-001.database.windows.net"
         port: 1433
         database: datavault-dev
         schema: dv
@@ -47,7 +47,7 @@ variables:
       ewb-test:
         type: sqlserver
         driver: 'ODBC Driver 18 for SQL Server'
-        server: sql-analytics-ewb-001.database.windows.net
+        server: "tcp:sql-analytics-ewb-001.database.windows.net"
         port: 1433
         database: datavault-test
         schema: dv
@@ -60,7 +60,7 @@ variables:
       ewb:
         type: sqlserver
         driver: 'ODBC Driver 18 for SQL Server'
-        server: sql-analytics-ewb-001.database.windows.net
+        server: "tcp:sql-analytics-ewb-001.database.windows.net"
         port: 1433
         database: datavault
         schema: dv
