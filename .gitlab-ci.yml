@@ -114,7 +114,7 @@ deploy:dev:
   timeout: 90 minutes
   script:
     - *setup_profiles
-    - echo "=== profiles.yml ===" && cat "$CI_PROJECT_DIR/profiles.yml" | sed 's/password:.*/password: [MASKED]/'
+    - echo "=== profiles.yml ===" && cat "$CI_PROJECT_DIR/profiles.yml"
     - echo "=== dbt debug ===" && dbt debug --target ewb-dev
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --target ewb-dev
