@@ -42,7 +42,7 @@ variables:
         user: "${DBT_EWB_SQL_USER}"
         password: "${DBT_EWB_SQL_PASSWORD}"
         encrypt: true
-        trust_cert: false
+        trust_cert: true
         query_timeout: 7200
       ewb-test:
         type: sqlserver
@@ -55,7 +55,7 @@ variables:
         user: "${DBT_EWB_SQL_USER}"
         password: "${DBT_EWB_SQL_PASSWORD}"
         encrypt: true
-        trust_cert: false
+        trust_cert: true
         query_timeout: 7200
       ewb:
         type: sqlserver
@@ -68,7 +68,7 @@ variables:
         user: "${DBT_EWB_SQL_USER}"
         password: "${DBT_EWB_SQL_PASSWORD}"
         encrypt: true
-        trust_cert: false
+        trust_cert: true
         query_timeout: 7200
   EOF
 
