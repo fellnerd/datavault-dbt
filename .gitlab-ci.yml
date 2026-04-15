@@ -18,8 +18,6 @@ default:
   tags:
     - ewb-dbt
   before_script:
-    # ODBC Driver 17 installieren falls nicht vorhanden (Driver 18 hat OpenSSL 3.0 Bug auf Ubuntu 22.04)
-    - odbcinst -q -d | grep -q "ODBC Driver 17 for SQL Server" || sudo ACCEPT_EULA=Y apt-get install -y msodbcsql17 -qq
     - dbt deps --quiet
   interruptible: true
 
