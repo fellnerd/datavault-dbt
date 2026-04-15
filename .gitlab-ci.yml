@@ -18,6 +18,20 @@ default:
   tags:
     - ewb-dbt
   before_script:
+    # OpenSSL SECLEVEL=1 Fix: Ubuntu 22.04 OpenSSL 3.0 + ODBC Driver 18 TLS-Handshake Bug.
+    # Lokale openssl.cnf ohne sudo — überschreibt nur für diesen Job via OPENSSL_CONF.
+    - |
+      cat > /tmp/openssl_dbt.cnf << 'SSLEOF'
+      openssl_conf = openssl_init
+      [openssl_init]
+      ssl_conf = ssl_sect
+      [ssl_sect]
+      system_default = system_default_sect
+      [system_default_sect]
+      CipherString = DEFAULT@SECLEVEL=1
+      MinProtocol = TLSv1
+      SSLEOF
+    - export OPENSSL_CONF=/tmp/openssl_dbt.cnf
     - dbt deps --quiet
   interruptible: true
 
@@ -114,7 +128,6 @@ deploy:dev:
   timeout: 90 minutes
   script:
     - *setup_profiles
-    - echo "=== profiles.yml ===" && cat "$CI_PROJECT_DIR/profiles.yml"
     - echo "=== dbt debug ===" && dbt debug --target ewb-dev
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --target ewb-dev
