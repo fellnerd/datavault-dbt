@@ -107,6 +107,9 @@ deploy:dev:
         - seeds/**/*
         - dbt_project.yml
         - packages.yml
+    # Manuell aus Web-UI auf dev-Branch
+    - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "web"'
+      when: manual
   timeout: 90 minutes
   script:
     - *setup_profiles
