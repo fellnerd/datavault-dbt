@@ -25,3 +25,7 @@ masterdata/npm-debug.log*
 .env
 .env.*
 package-lock.yml
+
+# Temp files
+temp/*.png
+temp/*.jpg
