@@ -1,8 +1,8 @@
 flowchart TD
     %% ─── Trigger Sources ───────────────────────────────────────────
     GIT_PUSH["⬆️ git push"]
-    WEB_UI["🖥️ GitLab Web UI\n(Run Pipeline)"]
-    ADF["☁️ ADF Pipeline\n(HTTP Trigger)"]
+    WEB_UI["🖥️ GitLab Web UI"]
+    ADF["☁️ ADF Pipeline"]
     TAG["🏷️ git tag v*"]
     MR["🔀 Merge Request"]
 
@@ -13,25 +13,25 @@ flowchart TD
 
     %% ─── Stage: validate ───────────────────────────────────────────
     subgraph VALIDATE["Stage: validate"]
-        CI_VALIDATE["ci:validate\n────────────\ndbt compile\ndbt test\n⏱ 30 min"]
+        CI_VALIDATE["ci:validate"]
     end
 
     %% ─── Stage: deploy ─────────────────────────────────────────────
     subgraph DEPLOY["Stage: deploy"]
-        DEV["deploy:dev 🔄\n────────────\nstage_external_sources\ndbt run\ndbt test\n⏱ 90 min"]
-        DEV_FR["deploy:dev:full-refresh ▶️\n────────────\nstage_external_sources\ndbt run --full-refresh\ndbt test\n⏱ 120 min"]
+        DEV["deploy:dev 🔄"]
+        DEV_FR["deploy:dev:full-refresh ▶️"]
 
-        TEST["deploy:test 🔄\n────────────\nstage_external_sources\ndbt run\ndbt test\n⏱ 90 min"]
-        TEST_FR["deploy:test:full-refresh ▶️\n────────────\nstage_external_sources\ndbt run --full-refresh\ndbt test\n⏱ 120 min"]
+        TEST["deploy:test 🔄"]
+        TEST_FR["deploy:test:full-refresh ▶️"]
 
-        PROD["deploy:prod 🔄\n────────────\nstage_external_sources\ndbt run\ndbt test\n⏱ 90 min"]
-        PROD_FR["deploy:prod:full-refresh ▶️\n────────────\nstage_external_sources\ndbt run --full-refresh\ndbt test\n⏱ 120 min"]
+        PROD["deploy:prod 🔄"]
+        PROD_FR["deploy:prod:full-refresh ▶️"]
     end
 
     %% ─── Target Databases ──────────────────────────────────────────
     DB_DEV[("🗄️ datavault-dev")]
     DB_TEST[("🗄️ datavault-test")]
-    DB_PROD[("🗄️ datavault\n(Prod)")]
+    DB_PROD[("🗄️ datavault Prod")]
 
     %% ─── Trigger → Branch ──────────────────────────────────────────
     MR --> CI_VALIDATE
@@ -43,19 +43,19 @@ flowchart TD
     WEB_UI -->|Branch wählen| BRANCH_TEST
     WEB_UI -->|Branch wählen| BRANCH_MAIN
 
-    ADF -->|"ref=dev"| BRANCH_DEV
-    ADF -->|"ref=test"| BRANCH_TEST
-    ADF -->|"ref=main"| BRANCH_MAIN
+    ADF -->|ref=dev| BRANCH_DEV
+    ADF -->|ref=test| BRANCH_TEST
+    ADF -->|ref=main| BRANCH_MAIN
 
     %% ─── Branch → Job ──────────────────────────────────────────────
-    BRANCH_DEV -->|auto bei push/changes| DEV
-    BRANCH_DEV -->|manuell ▶️| DEV_FR
+    BRANCH_DEV -->|auto bei push| DEV
+    BRANCH_DEV -->|manuell| DEV_FR
 
     BRANCH_TEST -->|auto| TEST
-    BRANCH_TEST -->|manuell ▶️| TEST_FR
+    BRANCH_TEST -->|manuell| TEST_FR
 
-    BRANCH_MAIN -->|auto via Tag/ADF| PROD
-    BRANCH_MAIN -->|manuell ▶️| PROD_FR
+    BRANCH_MAIN -->|auto via Tag / ADF| PROD
+    BRANCH_MAIN -->|manuell| PROD_FR
 
     %% ─── Job → DB ──────────────────────────────────────────────────
     DEV --> DB_DEV
@@ -77,3 +77,4 @@ flowchart TD
     class CI_VALIDATE,DEV,TEST,PROD job
     class DEV_FR,TEST_FR,PROD_FR job_fr
     class DB_DEV,DB_TEST,DB_PROD db
+
