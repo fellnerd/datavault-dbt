@@ -115,6 +115,8 @@ deploy:dev:
   script:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
+    # Einmalig: KRED-Modelle full-refresh wegen altem Schema in datavault-dev
+    - dbt run --full-refresh --select +sat_kreditor__abacus +sat_kreditorenbeleg__abacus +link_kreditorenbeleg_kreditor --target ewb-dev
     - dbt run --target ewb-dev
     - dbt test --target ewb-dev
   environment:
