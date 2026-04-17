@@ -114,6 +114,9 @@ deploy:dev:
   timeout: 90 minutes
   script:
     - *setup_profiles
+    - echo "=== ODBC Config ===" && odbcinst -j
+    - echo "=== ODBC Drivers ===" && odbcinst -q -d
+    - echo "=== ODBCINI=$ODBCINI ODBCSYSINI=$ODBCSYSINI ==="
     - echo "=== dbt debug ===" && dbt debug --target ewb-dev
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --target ewb-dev
