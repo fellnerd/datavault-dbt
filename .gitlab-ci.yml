@@ -23,16 +23,6 @@ default:
 
 variables:
   DBT_PROFILES_DIR: "$CI_PROJECT_DIR"
-  FULL_REFRESH: "false"   # Auf "true" setzen beim manuellen Start für --full-refresh
-
-# --- dbt run helper (shared script) ---
-.dbt_run: &dbt_run |
-  if [ "$FULL_REFRESH" = "true" ]; then
-    echo ">>> FULL REFRESH aktiviert"
-    DBT_FLAGS="--full-refresh"
-  else
-    DBT_FLAGS=""
-  fi
 
 # --- Profiles generieren (shared script) ---
 .setup_profiles: &setup_profiles |
@@ -124,9 +114,25 @@ deploy:dev:
   timeout: 90 minutes
   script:
     - *setup_profiles
-    - *dbt_run
     - dbt run-operation stage_external_sources --target ewb-dev
-    - dbt run $DBT_FLAGS --target ewb-dev
+    - dbt run --target ewb-dev
+    - dbt test --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
+# DEPLOY DEV FULL REFRESH — manuell (→ datavault-dev, alle Tabellen neu)
+# =============================================================================
+deploy:dev:full-refresh:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+  timeout: 120 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-dev
+    - dbt run --full-refresh --target ewb-dev
     - dbt test --target ewb-dev
   environment:
     name: ewb-dev
@@ -147,9 +153,25 @@ deploy:test:
   timeout: 90 minutes
   script:
     - *setup_profiles
-    - *dbt_run
     - dbt run-operation stage_external_sources --target ewb-test
-    - dbt run $DBT_FLAGS --target ewb-test
+    - dbt run --target ewb-test
+    - dbt test --target ewb-test
+  environment:
+    name: ewb-test
+
+# =============================================================================
+# DEPLOY TEST FULL REFRESH — manuell (→ datavault-test, alle Tabellen neu)
+# =============================================================================
+deploy:test:full-refresh:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "test"'
+      when: manual
+  timeout: 120 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-test
+    - dbt run --full-refresh --target ewb-test
     - dbt test --target ewb-test
   environment:
     name: ewb-test
@@ -173,9 +195,26 @@ deploy:prod:
   allow_failure: false
   script:
     - *setup_profiles
-    - *dbt_run
     - dbt run-operation stage_external_sources --target ewb
-    - dbt run $DBT_FLAGS --target ewb
+    - dbt run --target ewb
+    - dbt test --target ewb
+  environment:
+    name: ewb-prod
+
+# =============================================================================
+# DEPLOY PROD FULL REFRESH — nur manuell (→ datavault, alle Tabellen neu)
+# =============================================================================
+deploy:prod:full-refresh:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_TAG =~ /^v/'
+      when: manual
+  timeout: 120 minutes
+  allow_failure: false
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb
+    - dbt run --full-refresh --target ewb
     - dbt test --target ewb
   environment:
     name: ewb-prod
