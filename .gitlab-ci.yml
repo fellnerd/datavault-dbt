@@ -114,10 +114,6 @@ deploy:dev:
   timeout: 90 minutes
   script:
     - *setup_profiles
-    - echo "=== ODBC Config ===" && odbcinst -j
-    - echo "=== ODBC Drivers ===" && odbcinst -q -d
-    - echo "=== ODBCINI=$ODBCINI ODBCSYSINI=$ODBCSYSINI ==="
-    - echo "=== dbt debug ===" && dbt debug --target ewb-dev
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --target ewb-dev
     - dbt test --target ewb-dev
@@ -131,6 +127,12 @@ deploy:test:
   stage: deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "test" && $CI_PIPELINE_SOURCE == "push"'
+    # ADF-Trigger via Pipeline Trigger API → nur auf test
+    - if: '$CI_PIPELINE_SOURCE == "trigger" && $CI_COMMIT_BRANCH == "test"'
+      when: on_success
+    # Manuell aus GitLab UI → nur auf test, manuell bestätigen
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "test"'
+      when: manual
   timeout: 90 minutes
   script:
     - *setup_profiles
@@ -149,11 +151,11 @@ deploy:prod:
     # Tag-Push (z.B. v1.0.0) → automatisch
     - if: '$CI_COMMIT_TAG =~ /^v/'
       when: on_success
-    # ADF-Trigger via Pipeline Trigger API → automatisch
-    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    # ADF-Trigger via Pipeline Trigger API → nur auf main
+    - if: '$CI_PIPELINE_SOURCE == "trigger" && $CI_COMMIT_BRANCH == "main"'
       when: on_success
-    # Manuell aus GitLab UI → manuell bestätigen
-    - if: '$CI_PIPELINE_SOURCE == "web"'
+    # Manuell aus GitLab UI → nur auf main, manuell bestätigen
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"'
       when: manual
   timeout: 90 minutes
   allow_failure: false
