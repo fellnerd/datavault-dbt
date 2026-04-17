@@ -1,6 +1,6 @@
 # Raw Vault Implementierungsplan — EWB DV2.1
 
-**Erstellt:** 12. März 2026 | **Aktualisiert:** 15. April 2026  
+**Erstellt:** 12. März 2026 | **Aktualisiert:** 17. April 2026  
 **Agenten:** synapse-validator + vault-architect + db-monitor + staging-engineer  
 **Scope:** 19 Pilot-Tabellen (Finance + Projects) + 8 Sharepoint-Referenztabellen
 
@@ -412,7 +412,7 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Staging-Views | 14 Abacus + 8 Sharepoint = 22 | ✅ COMPLETE |
 | Current Views | 12 | ✅ COMPLETE |
 
-**Implementierungsstand (15. April 2026):**
+**Implementierungsstand (17. April 2026):**
 - Staging Abacus: **14/15** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅ (5 Jahresscheiben), `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_proj_prt_main` ✅, `ewb_lohn_ltc_main` ✅, `ewb_kred_kbl_main` ✅, `ewb_kred_kvl_main` ✅, `ewb_kred_kbs_main` ✅ — Fehlend: `ewb_proj_ntb_main` (out of scope, Abacus-Budget ohne Synapse-View)
 - Staging Sharepoint: **8/8** — `ewb_sp_konten` ✅, `ewb_sp_kostenstellen` ✅, `ewb_sp_budget` ✅, `ewb_sp_forecast` ✅, `ewb_sp_actualforecast` ✅, `ewb_sp_zugangsrechte` ✅, `ewb_sp_kategorisierungprojekte` ✅, `ewb_sp_projektekategorien` ✅
 - Vault: **36/36** Objekte implementiert — 13 Hubs (+2 Ghost), 12 Sats (+12 current_v), 11 Links
@@ -423,7 +423,9 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 - **Wave 3: ✅ GL-OBJEKTE POPULATED** — Full DB Reset + Redeploy (31.3.2026). Alle GL-abhängigen Links + Finance Mart deployed. hub_hauptbuch=433.076, sat_hauptbuch=943.844, fakt_buchungen=13.519.009
 - **Wave 4: ✅ COMPLETE** — Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix (15.4.2026)
 - **CI/CD + Performance (8.4.2026):** GitHub Actions + ACA aktiviert. PSA-Layer (`psa_ewb_fibu_gl`) + `ewb_fibu_gl` als Staging TABLE → sat_hauptbuch 869s→102s. ACA: Consumption, 2 vCPU, 4 Gi, Timeout 7200s. ER-Diagramm-Korrekturen abgeschlossen.
-- **Bekannte Issues:** RECNUM nicht unique über GL-Jahresscheiben (67k Duplikate), 3 Zero-Count Links (KST/Kreditor/Projekt NULL in GL), dim_date Range unvollständig
+- **KRED-Fix + Full-Refresh (17.4.2026):** Staging `ewb_kred_kbl_main` komplett überarbeitet — Hash Keys korrigiert (hk_kred_kbl → hk_kreditorenbeleg/hk_kreditor/hk_link_kreditorenbeleg_kreditor). `sat_kred_kbl__abacus` (defektes Duplikat in raw_vault/ewb/, Schema `dv`) gelöscht. Full-Refresh auf datavault-dev: **95/95 PASS, 0 ERROR, 455/460 Tests (5 WARN)**. GitLab CI/CD Pipeline konfiguriert (6 Deploy-Jobs inkl. full-refresh).
+- **ADF-Validierung (17.4.2026):** Alle 23 ADF-Pipelines matchen 1:1 mit dbt External Tables. 12/12 structured-tables Views als Mart-Views deployed. 120 DB-Objekte über 5 Schemas.
+- **Bekannte Issues:** 5 WARN bei Referential-Integrity Tests (Budget/Forecast-Konto/KST-Keys ohne Match in Dimensionen — fachliche Lücke in Sharepoint-Daten)
 
 ### 9b. Infrastruktur-Status (DB: datavault-dev)
 
@@ -572,4 +574,4 @@ Aus der `Manual Data landingzone`-Pipeline und den Projekt-Views wurden **8 Shar
 - **KategorisierungProjekte + ProjekteKategorien:** Mart-Level JOINs in `dim_projekt` ✅ (Wave 4)
 - **Zugangsrechte:** Out of scope (operativ/RLS, Staging `ewb_sp_zugangsrechte` vorhanden)
 
-*EWB Analytics Platform | PPMC AG | Stand: 8. April 2026 — CI/CD aktiv (ACA), PSA-Performance-Fix (GL). Wave 4 deployed. 13/13 structured-tables abgedeckt. 93 Modelle, 450 Tests.*
+*EWB Analytics Platform | PPMC AG | Stand: 17. April 2026 — CI/CD aktiv (GitLab + ACA), KRED-Fix deployed, Full-Refresh validiert. 12/12 structured-tables abgedeckt. 95 Modelle, 460 Tests. ADF 23/23 Pipelines matched.*

@@ -27,6 +27,16 @@
             "includeInPayload": true,
             "nullable": true,
             "satelliteGroup": "sat-1"
+        },
+        {
+            "name": "FADRINR",
+            "sourceName": "FADRINR",
+            "dataType": "DECIMAL(38,18)",
+            "columnType": "satellite",
+            "includeInHashDiff": true,
+            "includeInPayload": true,
+            "nullable": true,
+            "satelliteGroup": "sat-1"
         }
     ],
     "satellites": [
