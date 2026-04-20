@@ -72,7 +72,6 @@ models:
       # ===== COMMON (Schema: vault) =====
       # Übergreifende Objekte aus mehreren Quellen
       _common:
-        +schema: vault
         hubs:
           +schema: vault
           +materialized: incremental
@@ -93,6 +92,9 @@ models:
           +materialized: view
       # ===== JIRA (Schema: vault_jira) =====
      
+    utils:
+      +schema: vault
+      +materialized: view
     business_vault:
       +schema: vault
       +materialized: table
