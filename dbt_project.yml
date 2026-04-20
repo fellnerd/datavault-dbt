@@ -72,6 +72,7 @@ models:
       # ===== COMMON (Schema: vault) =====
       # Übergreifende Objekte aus mehreren Quellen
       _common:
+        +schema: vault
         hubs:
           +schema: vault
           +materialized: incremental
