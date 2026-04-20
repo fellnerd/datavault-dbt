@@ -47,15 +47,34 @@ Ein Git-Account wurde bereits via VPN bereitgestellt. Für die vollständige CI/
 
 > **Hinweis:** Falls EWB ein Azure DevOps Server (on-premise) oder GitLab betreibt, unterscheidet sich die Webhook-Konfiguration. Bitte Plattform bestätigen.
 
-### 0.3 ADF → dbt Automatisierung (letzter fehlender Schritt)
+### 0.3 ADF → dbt Automatisierung
 
-ADF-Pipelines sind deployed. Der Abschluss des automatisierten Tagesladens erfordert:
+ADF-Pipelines sind deployed und via `Master_ewb_load` orchestriert. Der automatisierte Tageslauf läuft über eine SQL-basierte Load-Status-Tabelle.
 
 | Aufgabe | Detail | Status |
 |---|---|---|
-| ADF Web Activity | HTTP POST an ACA Job API oder GitHub `repository_dispatch` | ⬜ Offen |
-| GitHub PAT im Key Vault | Secret `github-pat-dbt-dispatch` für ADF-Authentifizierung | ⬜ Offen |
+| `Master_ewb_load` Pipeline | Orchestriert: `Copy_LandingZone_to_LoadFS_ewb` → `Copy_Stage_ewb` → SP `vault.usp_log_adf_load_status` | ✅ Deployed |
+| `vault.load_status` Tabelle | Audit-Log für ADF- und dbt-Runs — ADF schreibt nach Stage-Lauf, dbt nach `dbt run` | ✅ Erstellt |
+| GitLab Scheduled Job | Prüft via `sqlcmd`: "ADF heute fertig, dbt noch nicht?" → löst `dbt run` aus | ⬜ Offen |
 | Produktions-Deploy | `dbt run --target ewb` auf `datavault` (Prod-DB) — einmaliger initialer Load | ⬜ Offen |
+
+### 0.4 Delete-Erkennung (Effectivity Satellite)
+
+Abacus liefert **Vollabzüge** — bei jedem Load sind alle aktuell gültigen Datensätze enthalten. Die aktuelle Architektur erkennt **keine Löschungen**: Wenn ein Abacus-Datensatz im nächsten Parquet-File fehlt, bleibt der letzte Satellite-Record auf `dss_is_current = 'Y'` stehen.
+
+| Entity | Löschung realistisch? | Business-Relevanz |
+|--------|----------------------|-------------------|
+| `hub_hauptbuch` (FIBU.GL/FHE) | ❌ Buchungen unveränderlich | kein Problem |
+| `hub_konto`, `hub_kostenstelle` | ⚠️ Inaktivierungen möglich | mittel |
+| `hub_kreditor` | ⚠️ Lieferant kann inaktiviert werden | mittel |
+| `hub_person` (LOHN.LEN) | ✅ Austritte kommen vor | relevant |
+| `hub_projekt` (PROJ.NPO) | ✅ Projekte werden abgeschlossen/gelöscht | relevant |
+
+**DV2.1-konformer Ansatz:** Effectivity Satellite (`sat_*_eff`) — vergleicht nach jedem Full-Load die geladenen Hub-Keys mit dem Vorbestand und schreibt einen Tombstone-Record wenn ein Key fehlt. Kein `dss_deleted`-Flag (nicht DV2.1-konform).
+
+| Aufgabe | Status |
+|---------|--------|
+| Effectivity Satellites für `hub_person` + `hub_projekt` | ⬜ Out of scope (Phase 3/4) — für Produktivbetrieb klären |
 
 ---
 
@@ -74,7 +93,7 @@ Der gewählte Ansatz stellt sicher, dass Rohdaten unveränderlich erhalten bleib
 | 1 | Analyse der bestehenden Azure-Umgebung | Abgeschlossen |
 | 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | Abgeschlossen |
 | 3 | Raw Vault: Staging, Hubs, Satellites, Links | Abgeschlossen (Wave 1+2+3 deployed ✅) |
-| 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung (ADF Pipelines aktiv, GitHub Actions CI/CD ✅ deployed, ADF → repository_dispatch Trigger ausstehend) |
+| 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung (`Master_ewb_load` Pipeline + `vault.load_status` deployed ✅, GitLab Scheduled Trigger ⬜ offen) |
 | 5 | Reporting Layer & Power BI | Abgeschlossen (Projekt-Domain + Finance-Domain deployed ✅) |
 
 ---
@@ -734,6 +753,8 @@ erDiagram
 | April 2026 | Wave 4 — Budget/Forecast als Mart-Views (nicht Raw Vault) | Sharepoint-Daten ohne Historisierungsbedarf. Staging vorhanden, Mart-Level JOIN reicht |
 | April 2026 | dim_projekt um 3 Sharepoint-Spalten erweitert | GruppeName, HauptgruppeNr, HauptgruppeName per LEFT JOIN auf SP-Staging. ~260/14'198 Projekte kategorisiert |
 | April 2026 | Zugangsrechte out of scope | 27 Zeilen, operativ/RLS — nicht analytisch. Staging `ewb_sp_zugangsrechte` vorhanden falls später nötig |
+| April 2026 | SQL Load-Status-Tabelle (`vault.load_status`) statt ADLS Marker-Files | GitLab on-prem ist von ADF nicht direkt erreichbar — SQL-Tabelle als Kommunikationskanal: ADF schreibt nach Stage-Lauf, dbt nach `dbt run`, GitLab Schedule prüft ob neuer ADF-Load ohne dbt-Verarbeitung existiert |
+| April 2026 | `Master_ewb_load` ADF-Pipeline | Orchestriert `Copy_LandingZone_to_LoadFS_ewb` → `Copy_Stage_ewb` sequenziell. RunId der ersten Pipeline wird als `cw_runId` an zweite übergeben |
 | April 2026 | PROJ.NTB out of scope | Abacus-internes Budget-System. Kein Synapse-View verwendet es |
 
 ---
@@ -762,6 +783,6 @@ erDiagram
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 8. April 2026 — Wave 1+2+3+4 deployed. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte). CI/CD aktiv (ACA). 93 Modelle, 450 Tests.*
+*EWB Analytics Platform | PPMC AG | Stand: 20. April 2026 — Wave 1+2+3+4 deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv. `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. 95 Modelle, 460 Tests.*
 
-> Letztes Update: Wave 4 deployed + CI/CD aktiviert + PSA-Performance-Fix (8. April 2026). 93 Modelle, 450 Tests, ACA-Timeout 7200s, psa_ewb_fibu_gl als Staging-Cache für GL-Performance. Nächster Schritt: ADF → GitHub `repository_dispatch` Trigger + Deployment auf `datavault` (Produktion).
+> Letztes Update: `Master_ewb_load` ADF-Pipeline deployed + `vault.load_status` Audit-Tabelle erstellt + dbt `on-run-end` Hook aktiv (20. April 2026). Nächster Schritt: GitLab Scheduled Job für automatischen dbt-Trigger + Deployment auf `datavault` (Produktion).

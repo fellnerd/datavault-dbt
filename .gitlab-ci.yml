@@ -144,9 +144,6 @@ deploy:test:
   stage: deploy
   rules:
     - if: '$CI_COMMIT_BRANCH == "test" && $CI_PIPELINE_SOURCE == "push"'
-    # ADF-Trigger via Pipeline Trigger API → nur auf test
-    - if: '$CI_PIPELINE_SOURCE == "trigger" && $CI_COMMIT_BRANCH == "test"'
-      when: on_success
     # Manuell aus GitLab UI → nur auf test, manuell bestätigen
     - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "test"'
       when: manual
@@ -156,6 +153,38 @@ deploy:test:
     - dbt run-operation stage_external_sources --target ewb-test
     - dbt run --target ewb-test
     - dbt test --target ewb-test
+  environment:
+    name: ewb-test
+
+# =============================================================================
+# DEPLOY TEST — ADF-Trigger via load_status_pending_v (GitLab Schedule)
+# Läuft alle 30 Min via GitLab Scheduled Pipeline auf Branch "test".
+# Prüft vault.load_status_pending_v — startet dbt nur wenn dbt_run_pending=1.
+# GitLab → Build → Schedules: "Every 30 min", Branch: test, Cron: */30 * * * *
+# =============================================================================
+deploy:test:adf-triggered:
+  stage: deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "test"'
+  resource_group: ewb-test-deploy
+  interruptible: false
+  timeout: 90 minutes
+  script:
+    - *setup_profiles
+    - |
+      DBT_DATABASE=datavault-test python3 scripts/check_load_pending.py
+      EXIT_CODE=$?
+      if [ $EXIT_CODE -eq 2 ]; then
+        echo "dbt_run_pending=0 — kein neuer ADF-Load. Job beendet."
+        exit 0
+      elif [ $EXIT_CODE -ne 0 ]; then
+        echo "Fehler beim Prüfen von vault.load_status_pending_v — Abbruch."
+        exit 1
+      fi
+      echo "dbt_run_pending=1 — starte dbt run..."
+      dbt run-operation stage_external_sources --target ewb-test
+      dbt run --target ewb-test
+      dbt test --target ewb-test
   environment:
     name: ewb-test
 
@@ -184,9 +213,6 @@ deploy:prod:
   rules:
     # Tag-Push (z.B. v1.0.0) → automatisch
     - if: '$CI_COMMIT_TAG =~ /^v/'
-      when: on_success
-    # ADF-Trigger via Pipeline Trigger API → nur auf main
-    - if: '$CI_PIPELINE_SOURCE == "trigger" && $CI_COMMIT_BRANCH == "main"'
       when: on_success
     # Manuell aus GitLab UI → nur auf main, manuell bestätigen
     - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "main"'

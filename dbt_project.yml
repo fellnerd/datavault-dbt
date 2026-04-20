@@ -4,6 +4,9 @@ config-version: 2
 
 profile: 'datavault'
 
+on-run-end:
+  - "{{ log_load_status() }}"
+
 # automate_dv dispatch: Eigene Macros haben Vorrang
 dispatch:
   - macro_namespace: automate_dv

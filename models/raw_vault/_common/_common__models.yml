@@ -1,5 +1,15 @@
 version: 2
-models: 
+models:
+- name: load_status_pending_v
+  description: "Monitoring-View auf vault.load_status — zeigt letzten ADF-Load, letzten dbt-Run und ob ein neuer dbt-Run aussteht (dbt_run_pending=1)."
+  columns:
+  - name: last_adf_load
+    description: "Letzter erfolgreicher ADF-Load heute (pipeline_name='load-fs_ewb')"
+  - name: last_dbt_run
+    description: "Letzter erfolgreicher dbt-Run heute (pipeline_name='dbt_run')"
+  - name: dbt_run_pending
+    description: "1 = ADF-Load liegt nach letztem dbt-Run → GitLab Trigger auslösen. 0 = kein Handlungsbedarf."
+
 - name: "hub_person"
   description: |
     Hub for person entity.
