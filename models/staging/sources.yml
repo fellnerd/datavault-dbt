@@ -2102,6 +2102,35 @@
           - "name": "jsonline"
             "data_type": "NVARCHAR(MAX)"
 
+      # ===== EWB / CDR (Compax RSN) =====
+      - "name": "ext_ewb_cdr_services"
+        "description": "CDR Services — tägliche Compax RSN Exports (Abos & Optionen). Folder-Scan über ewb/cdr/services/. BK: vertrags_nummer"
+        "external":
+          "location": "ewb/cdr/services/"
+          "file_format": "ParquetFormat"
+          "data_source": "StageFileSystem"
+        "columns":
+          - "name": "customer_id"
+            "data_type": "INT"
+          - "name": "external_customer_id"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "abo_option_name"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "rufnummer"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "icc"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "aktivierungs_datum"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "kundigungs_datum"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "mlz_datum"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "vertrags_nummer"
+            "data_type": "NVARCHAR(4000)"
+          - "name": "ist_option"
+            "data_type": "NVARCHAR(4000)"
+
       - "name": "ext_ewb_sp_projektekategorien_json"
         "description": "Sharepoint ProjekteKategorien (JSON). 24 rows. BK: Bezeichnung"
         "external":
