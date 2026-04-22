@@ -149,6 +149,8 @@
           "file_format": "ParquetFormat"
           "data_source": "StageFileSystem"
         "columns":
+          - "name": "SYSKEY"
+            "data_type": "NVARCHAR(4000)"
           - "name": "RECNUM"
             "data_type": "DECIMAL(38,18)"
           - "name": "DATE"
