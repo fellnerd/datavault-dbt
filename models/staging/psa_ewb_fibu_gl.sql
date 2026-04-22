@@ -16,7 +16,8 @@
 
 {{ config(
     materialized='incremental',
-    incremental_strategy='append',
+    incremental_strategy='delete+insert',
+    unique_key=['RECNUM', 'dss_source_file_name'],
     as_columnstore=false
 ) }}
 
