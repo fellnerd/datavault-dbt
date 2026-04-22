@@ -2545,6 +2545,78 @@ models:
         tests:
           - not_null
 
+  # ===== EWB / CDR (Compax RSN) =====
+
+  - name: ewb_cdr_services
+    description: "Staging: CDR Services (Compax RSN Abos & Optionen)"
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_ewb_cdr_services
+        business_keys:
+          - vertrags_nummer
+    columns:
+      - name: hk_cdr_services
+        description: "Hash Key — vertrags_nummer"
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_cdr_services
+        description: "Hash Diff — alle fachlichen Attribute"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: vertrags_nummer
+        description: "Business Key — Vertragsnummer"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: customer_id
+        description: "Compax Kunden-ID"
+        data_type: int
+      - name: external_customer_id
+        description: "Externe Kunden-ID"
+        data_type: nvarchar(4000)
+      - name: abo_option_name
+        description: "Abo- oder Options-Name"
+        data_type: nvarchar(4000)
+      - name: rufnummer
+        description: "Rufnummer"
+        data_type: nvarchar(4000)
+      - name: icc
+        description: "ICC-Nummer (SIM-Karte)"
+        data_type: nvarchar(4000)
+      - name: aktivierungs_datum
+        description: "Aktivierungsdatum (als String)"
+        data_type: nvarchar(4000)
+      - name: kundigungs_datum
+        description: "Kündigungsdatum (als String, nullable)"
+        data_type: nvarchar(4000)
+      - name: mlz_datum
+        description: "MLZ-Datum (als String, nullable)"
+        data_type: nvarchar(4000)
+      - name: ist_option
+        description: "Flag '0'/'1' — ist Option (als String)"
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: "Data source identifier (ewb_compax)"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+        data_type: datetime2(7)
+      - name: dss_business_key
+        description: "Concatenated business key string"
+        data_type: nvarchar(4000)
+
   - name: ewb_sp_projektekategorien
     description: "Staging: Sharepoint ProjekteKategorien (Kategorie-Lookup). JSON→OPENJSON. 24 rows."
     config:
