@@ -143,8 +143,9 @@ deploy:dev:full-refresh:
 deploy:test:
   stage: deploy
   rules:
+    # Push auf test → manuell (automatisch läuft deploy:test:adf-triggered)
     - if: '$CI_COMMIT_BRANCH == "test" && $CI_PIPELINE_SOURCE == "push"'
-    # Manuell aus GitLab UI → nur auf test, manuell bestätigen
+      when: manual
     - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "test"'
       when: manual
   timeout: 90 minutes
