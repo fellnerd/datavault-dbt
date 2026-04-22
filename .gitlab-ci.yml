@@ -172,8 +172,10 @@ deploy:test:adf-triggered:
   script:
     - *setup_profiles
     - |
+      set +e
       DBT_DATABASE=datavault-test python3 scripts/check_load_pending.py
       EXIT_CODE=$?
+      set -e
       if [ $EXIT_CODE -eq 2 ]; then
         echo "dbt_run_pending=0 — kein neuer ADF-Load. Job beendet."
         exit 0
