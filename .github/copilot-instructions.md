@@ -33,12 +33,13 @@ Delegiere task-spezifische Arbeit immer an den passenden Sub-Agenten:
 ## Data Vault 2.1 Entscheidungslogik
 
 ```
-Stabiler Business Key?           → HUB
-Attribute ändern sich über Zeit? → SATELLITE (am Hub)
-Beziehung zwischen Objekten?     → LINK
-Beziehung ohne eigenen BK?       → DC SATELLITE (am Link)
-Mehrere gleichzeitig gültige Werte? → MA SATELLITE (am Hub, src_cdk)
-Stabile Lookup-Werte?            → REFERENCE TABLE
+Stabiler Business Key?                → HUB
+Attribute ändern sich über Zeit?      → SATELLITE (am Hub)
+Mehrere gleichzeitig gültige Werte?   → MA SATELLITE (am Hub, src_cdk)
+Beziehung zwischen Objekten?          → LINK
+Unveränderliche Ereignis-Daten?       → TRANSACTION LINK (_tl Suffix)
+Beziehung ohne eigenen BK?            → DC SATELLITE (am Link)
+Stabile Lookup-Werte?                 → REFERENCE TABLE
 ```
 
 ## Schema-Konvention
@@ -63,9 +64,13 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Hash Key | `hk_<entity>` | `hk_buchungskopf` |
 | Hash Diff | `hd_<entity>` | `hd_buchungskopf` |
 | Hub | `vault.hub_<entity>` | `vault.hub_fibu_fhe` |
-| Satellite | `vault.sat_<entity>` | `vault.sat_fibu_fhe` |
+| Satellite | `vault.sat_<entity>__<source>` | `vault.sat_fibu_fhe__abacus` |
+| MA Satellite | `vault.sat_<entity>_ma__<source>` | `vault.sat_vertrag_optionen_ma__compax` |
+| Hash Diff (MA) | `hd_<entity>_ma` | `hd_vertrag_optionen_ma` |
 | Current View | `vault.sat_<entity>_current_v` | `vault.sat_fibu_fhe_current_v` |
 | Link | `vault.link_<e1>_<e2>` | `vault.link_beleg_lieferant` |
+| Transaction Link | `vault.link_<entity>_tl` | `vault.link_cdr_event_tl` |
+| Hash Key (TL) | `hk_link_<entity>_tl` | `hk_link_cdr_event_tl` |
 | Dimension | `mart.dim_<entity>_v` | `mart_project.dim_person_v` |
 | Faktentabelle | `mart.fakt_<content>_v` | `mart_project.fakt_stunden_v` |
 | Metadata | `dss_*` | `dss_load_date`, `dss_record_source` |
@@ -73,6 +78,9 @@ Stabile Lookup-Werte?            → REFERENCE TABLE
 | Erstellungszeitpunkt | `dss_create_datetime` | `GETDATE()` |
 
 `dss_record_source = 'ewb_abacus'`
+
+> **`__source` Suffix Regel:** Der `__source` Suffix gilt **NUR für Satellites** (einfach und MA), **NICHT** für Hubs oder Links.
+> Beispiel: `sat_vertrag__compax`, `sat_vertrag_ma__compax` ✅ — `hub_vertrag__compax` ❌, `link_vertrag_position__compax` ❌
 
 ## `_v` Suffix Konvention
 

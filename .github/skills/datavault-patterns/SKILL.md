@@ -10,6 +10,7 @@ Trigger-Phrasen:
 - "Hub erstellen", "Create hub"
 - "Satellite erstellen", "Add satellite"
 - "Link erstellen", "Create link"
+- "Transaction Link", "Non-Historized Link", "TL"
 - "DC Pattern", "Dependent Child"
 - "MA Sat", "Multi-Active"
 - "Reference Table"
@@ -28,6 +29,7 @@ Beziehung zwischen 2+ Entities?  → LINK
 Entity ohne eigenen BK?          → DC SATELLITE (am Link)
 Mehrere gleichzeitige Werte?     → MA SATELLITE (src_cdk)
 Stabile Lookup-Werte?            → REFERENCE TABLE
+Unveränderliche Ereignis-Daten?  → TRANSACTION LINK (_tl Suffix)
 Zeitraum einer Beziehung?        → EFFECTIVITY SATELLITE (am Link)
 Punktuelle Abfrage Optimierung?  → PIT TABLE
 ```
@@ -191,8 +193,68 @@ CONVERT(CHAR(64), HASHBYTES('SHA2_256',
 - Hash Key = `HASH(FK ^^ DCK1 ^^ DCK2)`
 
 ## MA Satellite (Multi-Active)
-- Zusätzliches `src_cdk` (customer-defined key) in der automate_dv config
+- Naming: `sat_<entity>_ma__<source>` — `_ma` Suffix vor `__<source>`
+- Hash Diff: `hd_<entity>_ma`
+- Zusätzliches `src_cdk` (Child-Dependent-Key) in der automate_dv config
 - Erlaubt mehrere gleichzeitig gültige Werte pro Hash Key
+- Beispiel: `sat_vertrag_optionen_ma__compax` (CDK: `abo_option_name`)
+
+## Transaction Link (TL) — Non-Historized
+
+Transaction Links speichern unveränderliche Ereignisse (z.B. CDR-Events, Buchungen).
+
+**Naming:** `link_<entity>_tl` — `_tl` Suffix, **KEIN** `__source` Suffix
+
+**Unterschied zu regulärem Link:**
+| Merkmal | Regulärer Link | Transaction Link (TL) |
+|---------|---------------|----------------------|
+| Naming | `link_<e1>_<e2>` | `link_<entity>_tl` |
+| Hash Diff | keiner | keiner |
+| Historisierung | keine | keine |
+| Event-ID im PK | nein | ja |
+| Satellite | Effectivity Sat / DC Sat | Transaction Sat (Non-Hist.) |
+
+**Template:**
+```sql
+{{ config(
+    materialized='incremental',
+    as_columnstore=false,
+    incremental_strategy='append',
+    post_hook=["{{ create_hash_index('hk_link_<entity>_tl') }}"]
+) }}
+
+{%- set yaml_metadata -%}
+source_model: "<staging_model>"
+src_pk: "hk_link_<entity>_tl"
+src_fk:
+  - "hk_<entity_1>"
+  - "hk_<entity_2>"
+src_ldts: "dss_load_date"
+src_source: "dss_record_source"
+{%- endset -%}
+
+{% set metadata_dict = fromyaml(yaml_metadata) %}
+
+{{ automate_dv.link(src_pk=metadata_dict["src_pk"],
+                    src_fk=metadata_dict["src_fk"],
+                    src_ldts=metadata_dict["src_ldts"],
+                    src_source=metadata_dict["src_source"],
+                    source_model=metadata_dict["source_model"]) }}
+```
+
+**Hash Key** enthält Event-ID + alle FKs: `Hash(event_id, fk_1, fk_2)`
+**Zugehöriger Transaction Satellite:** `sat_<entity>__<source>` — KEIN Hash Diff, KEIN post_hook für current_flag
+
+## `__source` Suffix Regel
+> Der `__source` Suffix gilt **NUR für Satellites** (einfach und MA), **NICHT** für Hubs oder Links.
+
+| Objekt | `__source` Suffix | Beispiel |
+|--------|:-----------------:|---------|
+| Hub | ❌ | `hub_vertrag` |
+| Satellite | ✅ | `sat_vertrag__compax` |
+| MA Satellite | ✅ | `sat_vertrag_optionen_ma__compax` |
+| Link | ❌ | `link_vertrag_position` |
+| Transaction Link | ❌ | `link_cdr_event_tl` |
 
 ## dbt_project.yml Konfiguration
 EWB-Modelle werden im `_common` Ordner abgelegt und nutzen Schema `vault` (bereits in `dbt_project.yml` unter `_common:` konfiguriert).

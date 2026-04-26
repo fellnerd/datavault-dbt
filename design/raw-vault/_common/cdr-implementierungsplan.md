@@ -377,7 +377,7 @@ M:N durch Datenanalyse bestätigt (33 Rufnummern auf > 1 Vertrag gleichzeitig).
 
 ---
 
-#### `link_cdr_event_tl` *(Schema: `vault_telecom`)*
+#### `link_cdr_event_tl` *(Transaction Link)*
 Transaction Link für CDR-Ereignisse. Verbindet den Vertrag mit der SIM-Karte pro Event.
 
 | Spalte | Typ | PK | Beschreibung |

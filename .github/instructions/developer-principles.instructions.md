@@ -27,6 +27,9 @@ Mehrere Werte gleichzeitig gültig (z.B. mehrere Rollen)?
 Stabile Lookup-Werte (Länder, Status)?
 └─ JA → REFERENCE TABLE (kein Hub!)
 
+Unveränderliche Ereignis-Daten (CDR, Transaktionen)?
+└─ JA → TRANSACTION LINK (_tl Suffix, Non-Historized)
+
 Performance-Problem bei Zeitabfragen?
 └─ JA → PIT TABLE (nur bei Bedarf)
 ```
@@ -74,12 +77,52 @@ hd_<dc>_<parent>_dc   -- Hash Diff
 ```
 
 ### MA Satellite (am Hub)
+> **Naming:** `sat_<entity>_ma__<source>` — `_ma` Suffix VOR dem `__source` Suffix. Beispiel: `sat_vertrag_optionen_ma__compax`
 ```
 hk_<entity>           -- FK zum Hub (PK Teil 1)
 dss_load_date         -- PK Teil 2
 <cdk_columns>          -- Child Dependent Keys (unterscheidet Records)
 hd_<entity>_ma        -- Hash Diff
 <attributes>           -- Attribute
+```
+
+## Naming Conventions
+
+### Standard Satellite
+`sat_<entity>__<source>` — doppelter Unterstrich vor Quellsystem-Suffix
+
+### MA Satellite (Multi-Active)
+`sat_<entity>_ma__<source>` — `_ma` Suffix VOR dem `__<source>` Doppelunterstrich
+- Hash Diff: `hd_<entity>_ma`
+- Beispiel: `sat_vertrag_optionen_ma__compax`
+
+### Transaction Link (TL)
+`link_<entity>_tl` — `_tl` Suffix kennzeichnet Non-Historized Transaction Link
+- Hash Key: `hk_link_<entity>_tl`
+- **Kein Hash Diff** — Transaktionsdaten sind unveränderlich
+- **Kein `dss_is_current` / `dss_end_date`** — Non-Historized
+- Dazugehöriger Transaction Satellite: `sat_<entity>__<source>` (ebenfalls Non-Historized)
+- Beispiel: `link_cdr_event_tl`, `hk_link_cdr_event_tl`
+
+### DC Satellite
+`sat_<entity>_dc__<source>` — `_dc` Suffix (analog zu `_ma`)
+
+### Quelle / Source Suffix
+- `__<source>` Doppelunterstrich-Suffix auf **Satellites** (nicht auf Hubs/Links)
+- Beispiele: `__abacus`, `__compax`, `__jira`
+- Hubs und Links haben keinen Source-Suffix (source-agnostisch)
+
+### Transaction Link (Non-Historized Link)
+Für unveränderliche Ereignis-Daten (CDR-Events, Transaktionen). Kein Hash Diff, kein SCD2.
+> **Naming:** `link_<entity>_tl` — `_tl` Suffix, **KEIN** `__source` Suffix
+> **Kein Hash Diff** — Events ändern sich nie (Non-Historized)
+> **Kein dss_is_current / dss_end_date**
+```
+hk_link_<entity>_tl  -- Transaction Link Hash Key (PK)
+hk_<entity_1>        -- FK zu Hub 1
+hk_<entity_2>        -- FK zu Hub 2
+dss_load_date         -- Ladezeitpunkt
+dss_record_source     -- Quelle
 ```
 
 ## Satellite-Schnitt Regeln
