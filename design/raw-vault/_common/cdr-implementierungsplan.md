@@ -134,7 +134,54 @@ Aktuelle Konvention: `<concept>_<modul>_<tabelle>_<suffix>` (z.B. `ewb_fibu_fhe_
 
 ## 4. Architektur-Entscheidungen
 
-### 4.1 UDRs als PSA-Tabelle (keine reine External-Table View)
+### 4.0 Schema-Konzept: `vault` vs. `vault_telecom`
+
+**Entscheid (2026-04-26):** CDR-Objekte werden auf zwei Schemas verteilt:
+
+| Schema | dbt-Ordner | Objekte | Begründung |
+|--------|-----------|---------|------------|
+| `vault` | `raw_vault/_common/` | `hub_vertrag`, `hub_kunde`, Satellites, `link_vertrag_kunde` | Source-agnostische Business-Konzepte — offen für weitere Quellen (Abacus, CRM) |
+| `vault_telecom` | `raw_vault/telecom/` | `hub_sim`, `link_vertrag_sim`, `link_cdr_event`, `sat_cdr_event__compax`, Referenztabellen | Telekom-spezifisch — kein Pendant in anderen Quellsystemen. Scope: RSN Mobile + künftig RSN Festnetz |
+
+**Warum nicht alles in `_common`?**  
+`hub_sim` (ICCID) ist ein rein telekommunikationsspezifisches Objekt ohne Pendant in Abacus oder anderen EWB-Quellen. Transaction-Links und CDR-Events gehören ebenfalls in die Telecom-Domäne.
+
+**Warum nicht alles in `vault_telecom`?**  
+`hub_vertrag` und `hub_kunde` sind universelle Business-Konzepte. Zukünftige Quellen (Abacus-Kunden via `external_customer_id`, Festnetz-Verträge) liefern in dieselben Hubs. Die Trennung erfolgt via `dss_record_source` und separaten Satellites pro Quelle.
+
+---
+
+### 4.1 hub_msisdn — Entscheid: **Hub erforderlich** (datenbasiert)
+
+**Datenanalyse auf `stg.ext_rsn_mobile_services_main` (datavault-dev, 2026-04-26):**
+
+| Metrik | Wert | Interpretation |
+|--------|------|----------------|
+| Total Rows | 650'112 | |
+| Distinct `vertrags_nummer` | 5'879 | |
+| Distinct `rufnummer` (non-null) | 5'930 | Mehr Rufnummern als Verträge |
+| Ratio rufnummer / vertrag | **1.0087** | Nicht 1:1 |
+| Verträge mit > 1 Rufnummer | **83 (1.4%)** | SIM-Wechsel / Multi-SIM |
+| Max. Rufnummern pro Vertrag | **5** | z.B. Vertrag `300203001` |
+| Rufnummern auf > 1 Vertrag | **33 (0.6%)** | ⚠️ Echter M:N im selben Snapshot |
+| Max. Verträge pro Rufnummer | **4** | z.B. `+41772611708` → 4 Verträge gleichzeitig |
+| NULL-Quote | **0.62%** | Akzeptabel |
+
+**Kritischer Befund — M:N im selben Snapshot:**  
+33 Rufnummern erscheinen auf > 1 Vertrag mit identischem `dss_load_date`. Beispiel `+41772611708` auf 4 Verträgen gleichzeitig. Diese M:N-Beziehung ist **inhärent im Quellsystem**, nicht durch historische Ladungen entstanden.
+
+**Entscheid: `hub_msisdn` wird implementiert** (Schema: `vault_telecom`)
+
+- `rufnummer` ist eine eigenständige Business-Entität (MSISDN / E.164-Format)
+- M:N zwischen Vertrag und Rufnummer bestätigt → `link_vertrag_msisdn` notwendig
+- `rufnummer` wird **nicht** als Payload in `sat_vertrag_optionen__compax` aufgenommen
+
+**Wo bleibt `rufnummer` in den Staging-Daten?**  
+Die Services-Datei liefert `rufnummer` als Spalte pro Zeile (= pro Vertrag × Abo-Option). Im Staging wird `rufnummer` für Hash-Key `hk_msisdn` verwendet. Der Link `link_vertrag_msisdn` wird aus Services geladen.
+
+---
+
+
 
 **Warum:** External-Table Scan ist für UDRs-Volumen zu langsam (>60 Min für Aggregate).
 
@@ -173,7 +220,7 @@ Laut User-Vorgabe: Lambda Vault erst im nächsten Schritt. Die 10-Minuten-Liefer
 
 ### 5.1 Hubs
 
-#### `hub_vertrag`
+#### `hub_vertrag` *(Schema: `vault`)*
 Zentrales Objekt — bindet Stammdaten (services) und Events (udrs). Source-agnostisch: künftige Festnetz-Verträge liefern ebenfalls in diesen Hub.
 
 | Spalte | Typ | PK | Quelle | Beschreibung |
@@ -190,7 +237,7 @@ Zentrales Objekt — bindet Stammdaten (services) und Events (udrs). Source-agno
 
 ---
 
-#### `hub_kunde`
+#### `hub_kunde` *(Schema: `vault`)*
 Source-agnostischer Kunden-Hub. Compax liefert aktuell als einzige Quelle. Weitere Quellen (Abacus via `external_customer_id`, CRM) liefern in denselben Hub mit eigenem `dss_record_source`.
 
 | Spalte | Typ | PK | Quelle | Beschreibung |
@@ -207,7 +254,7 @@ Source-agnostischer Kunden-Hub. Compax liefert aktuell als einzige Quelle. Weite
 
 ---
 
-#### `hub_sim`
+#### `hub_sim` *(Schema: `vault_telecom`)*
 SIM-Karte — ICCID ist global eindeutig (Industriestandard). Verbindet services (`icc`) und udrs (`iccid`).
 
 | Spalte | Typ | PK | Quelle | Beschreibung |
@@ -221,28 +268,24 @@ SIM-Karte — ICCID ist global eindeutig (Industriestandard). Verbindet services
 
 ---
 
-#### `hub_msisdn`
-Rufnummer (MSISDN). ⚠️ **Offene Entscheidung:** nur als Hub wenn Rufnummern-Portabilität (SIM ↔ Nummer) abgebildet werden soll. Sonst → Payload im Satellite.
+---
+
+> **`hub_msisdn` (Schema: `vault_telecom`)** — BK: `rufnummer` (E.164). M:N mit `hub_vertrag` durch Datenanalyse bestätigt. Siehe Abschnitt 4.1.
 
 | Spalte | Typ | PK | Quelle | Beschreibung |
 |--------|-----|----|--------|--------------|
 | `hk_msisdn` | CHAR(64) | ✅ | Hash(`rufnummer`) | Hash Key |
-| `rufnummer` | NVARCHAR(4000) | | services.rufnummer | Business Key (Rufnummer) |
+| `rufnummer` | NVARCHAR(4000) | | services.rufnummer | Business Key (MSISDN / E.164) |
 | `dss_business_key` | NVARCHAR | | `CONCAT_WS('||','default','default', rufnummer)` | |
 | `dss_load_date` | DATETIME2 | | | |
 | `dss_create_datetime` | DATETIME2 | | | |
 | `dss_record_source` | NVARCHAR | | | |
 
-**Nicht als Hub modelliert:**
-- `tarif` (Freitext-String, instabil) → `ref_tarif_v` Reference Table
-- `abo_option_name` → CDK im MA Satellite (keine eigene stabile Identität)
-- `id` (CDR-Event) → Transaction Link, nicht Hub (100M+ Hubs wäre Overkill)
-
 ---
 
 ### 5.2 Satellites
 
-#### `sat_kunde__compax`
+#### `sat_kunde__compax` *(Schema: `vault`)*
 Attribute des Kunden aus Compax. Enthält `external_customer_id` für späteren Abacus-Join.
 
 | Spalte | Typ | PK | Payload | Beschreibung |
@@ -260,7 +303,7 @@ Attribute des Kunden aus Compax. Enthält `external_customer_id` für späteren 
 
 ---
 
-#### `sat_vertrag_optionen__compax` *(Multi-Active Satellite)*
+#### `sat_vertrag_optionen__compax` *(Schema: `vault`, Multi-Active Satellite)*
 Abo-Optionen pro Vertrag. Jeder Vertrag hat 1..n Einträge (Haupt-Abo + Optionen). CDK = `abo_option_name`.
 
 | Spalte | Typ | PK | Rolle | Beschreibung |
@@ -269,6 +312,7 @@ Abo-Optionen pro Vertrag. Jeder Vertrag hat 1..n Einträge (Haupt-Abo + Optionen
 | `dss_load_date` | DATETIME2 | ✅ (Teil 2) | | Ladezeitpunkt |
 | `abo_option_name` | NVARCHAR(4000) | ✅ (Teil 3) | **CDK** | z.B. "Mobile M", "5GB Roaming Zone 2/3" |
 | `hd_vertrag_optionen` | CHAR(64) | | Hash Diff | Änderungserkennung |
+| `rufnummer` | NVARCHAR(4000) | | Payload | MSISDN — nur beim Haupt-Abo (ist_option=0) befüllt |
 | `ist_option` | NVARCHAR(4000) | | Payload | 0 = Haupt-Abo, 1 = Zusatzoption |
 | `aktivierungs_datum` | NVARCHAR(4000) | | Payload | Aktivierungsdatum der Option |
 | `kundigungs_datum` | NVARCHAR(4000) | | Payload | Kündigungsdatum (9999-12-31 = offen) |
@@ -288,7 +332,7 @@ Aktuell keine zusätzlichen SIM-Attribute in den Quelldaten. Entfällt bis weite
 
 ### 5.3 Links
 
-#### `link_vertrag_kunde`
+#### `link_vertrag_kunde` *(Schema: `vault`)*
 Beziehung zwischen Vertrag und Kunde aus Stammdaten-Datei. Pro Vertrag genau 1 Kunde.
 
 | Spalte | Typ | PK | Beschreibung |
@@ -303,7 +347,7 @@ Beziehung zwischen Vertrag und Kunde aus Stammdaten-Datei. Pro Vertrag genau 1 K
 
 ---
 
-#### `link_vertrag_sim`
+#### `link_vertrag_sim` *(Schema: `vault_telecom`, Cross-Schema: vault.hub_vertrag ↔ vault_telecom.hub_sim)*
 Beziehung zwischen Vertrag und SIM-Karte. Ermöglicht SIM-Wechsel-Historie.
 
 | Spalte | Typ | PK | Beschreibung |
@@ -318,14 +362,14 @@ Beziehung zwischen Vertrag und SIM-Karte. Ermöglicht SIM-Wechsel-Historie.
 
 ---
 
-#### `link_vertrag_msisdn` *(abhängig von Rufnummer-Hub-Entscheidung)*
-Beziehung zwischen Vertrag und Rufnummer. Nur relevant wenn hub_msisdn umgesetzt wird.
+#### `link_vertrag_msisdn` *(Schema: `vault_telecom`, Cross-Schema: vault.hub_vertrag ↔ vault_telecom.hub_msisdn)*
+M:N durch Datenanalyse bestätigt (33 Rufnummern auf > 1 Vertrag gleichzeitig).
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
 | `hk_link_vertrag_msisdn` | CHAR(64) | ✅ | Hash(`vertrag_id`, `rufnummer`) |
-| `hk_vertrag` | CHAR(64) | | FK → hub_vertrag |
-| `hk_msisdn` | CHAR(64) | | FK → hub_msisdn |
+| `hk_vertrag` | CHAR(64) | | FK → vault.hub_vertrag |
+| `hk_msisdn` | CHAR(64) | | FK → vault_telecom.hub_msisdn |
 | `dss_load_date` | DATETIME2 | | |
 | `dss_record_source` | NVARCHAR | | |
 
@@ -333,7 +377,7 @@ Beziehung zwischen Vertrag und Rufnummer. Nur relevant wenn hub_msisdn umgesetzt
 
 ---
 
-#### `link_cdr_event`
+#### `link_cdr_event` *(Schema: `vault_telecom`)*
 Transaction Link für CDR-Ereignisse. Verbindet den Vertrag mit der SIM-Karte pro Event.
 
 | Spalte | Typ | PK | Beschreibung |
@@ -350,7 +394,7 @@ Transaction Link für CDR-Ereignisse. Verbindet den Vertrag mit der SIM-Karte pr
 
 ### 5.4 Transaction Satellite (Non-Historized)
 
-#### `sat_cdr_event__compax`
+#### `sat_cdr_event__compax` *(Schema: `vault_telecom`, Non-Historized)*
 CDR-Events sind **unveränderliche Fakten** — keine Hash Diff, kein SCD2. Einmal geladen, nie geändert.
 
 | Spalte | Typ | PK | Beschreibung |
@@ -408,17 +452,18 @@ CDR-Events sind **unveränderliche Fakten** — keine Hash Diff, kein SCD2. Einm
 rsn_mobile_services_main (1 Zeile = 1 Vertrag × 1 Option)
 │  Staging aliasiert: vertrags_nummer → vertrag_id, customer_id → kunde_id
 │
+│  [vault._common]
 ├─► hub_vertrag        (BK: vertrag_id)
 ├─► hub_kunde          (BK: kunde_id)
-├─► hub_sim            (BK: icc)
-├─► hub_msisdn         (BK: rufnummer) ⚠️ optional
-│
 ├─► sat_kunde__compax              → external_customer_id
 ├─► sat_vertrag_optionen__compax   → CDK: abo_option_name, Payload: ist_option, datum-Felder
-│
 ├─► link_vertrag_kunde    (vertrag_id ↔ kunde_id)
+│
+│  [vault_telecom]
+├─► hub_sim            (BK: icc)
+├─► hub_msisdn         (BK: rufnummer) — M:N bestätigt, kein optionales Objekt mehr
 ├─► link_vertrag_sim      (vertrag_id ↔ icc)
-└─► link_vertrag_msisdn   (vertrag_id ↔ rufnummer) ⚠️ optional
+└─► link_vertrag_msisdn   (vertrag_id ↔ rufnummer)
 ```
 
 ### 5.7 Übersicht: Datenfluss CDR Events → DV-Objekte
@@ -427,9 +472,11 @@ rsn_mobile_services_main (1 Zeile = 1 Vertrag × 1 Option)
 rsn_mobile_cdr_main (PSA, 1 Zeile = 1 CDR-Event)
 │  Staging aliasiert: contract_id → vertrag_id, iccid → icc
 │
+│  [vault._common]
 ├─► hub_vertrag  (BK: vertrag_id — bereits durch services bekannt)
-├─► hub_sim      (BK: icc — bereits durch services bekannt)
 │
+│  [vault_telecom]
+├─► hub_sim      (BK: icc — bereits durch services bekannt)
 ├─► link_cdr_event    (vertrag_id ↔ icc ↔ id)
 └─► sat_cdr_event__compax  → alle Event-Metriken (non-historized)
 ```
