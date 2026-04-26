@@ -1,36 +1,8 @@
 erDiagram
-    %% Data Vault 2.1 — CDR Raw Vault (RSN Mobile / Compax)
-    %% Stand: 2026-04-26
-    %% Staging: rsn_mobile_services_main (Stammdaten) + rsn_mobile_cdr_main (PSA Events)
-    %% BK-Aliasing: vertrags_nummer→vertrag_id, customer_id→kunde_id, iccid→icc, contract_id→vertrag_id
-    %%
-    %% SCHEMA-VERTEILUNG:
-    %%   [vault]         (raw_vault/_common/)  — source-agnostische Business-Konzepte
-    %%     hub_vertrag, hub_kunde
-    %%     sat_kunde__compax, sat_vertrag_optionen_ma__compax (MA)
-    %%     link_vertrag_kunde
-    %%   [vault_telecom] (raw_vault/telecom/)  — Telekom-spezifische Objekte
-    %%     hub_sim, hub_msisdn
-    %%     link_vertrag_sim, link_vertrag_msisdn, link_cdr_event_tl (TL = Transaction Link)
-    %%     sat_cdr_event__compax (Transaction SAT — Non-Historized, kein Hash Diff)
-    %%     ref_abo_option_v, ref_tarif_v
-    %%
-    %% ENTSCHEIDUNG hub_msisdn (rufnummer):
-    %%   Datenanalyse (2026-04-26) auf ext_rsn_mobile_services_main (650k Zeilen) hat ergeben:
-    %%   - 83 Verträge (1.4%) haben > 1 Rufnummer → SIM-Wechsel / Multi-SIM
-    %%   - 33 Rufnummern (0.6%) erscheinen auf > 1 Vertrag IM SELBEN SNAPSHOT → echte M:N
-    %%   Beispiel: +41772611708 auf 4 Verträgen gleichzeitig (dss_load_date identisch)
-    %%   → rufnummer ist KEIN reines Vertragsattribut → hub_msisdn + link_vertrag_msisdn erforderlich
-
-    %% ============================================================
-    %% SCHEMA: vault  (raw_vault/_common/)
-    %% Source-agnostische Business-Konzepte — offen für weitere Quellen
-    %% ============================================================
-
     HUB_VERTRAG {
         char64      hk_vertrag          PK  "vault | Hash(vertrag_id)"
         nvarchar    vertrag_id              "services.vertrags_nummer / cdr.contract_id"
-        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',vertrag_id)"
+        nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
         datetime2   dss_load_date           "metadata"
         datetime2   dss_create_datetime     "metadata"
         varchar     dss_record_source       "metadata"
@@ -39,7 +11,7 @@ erDiagram
     HUB_KUNDE {
         char64      hk_kunde            PK  "vault | Hash(kunde_id)"
         nvarchar    kunde_id                "services.customer_id — aliasiert im Staging"
-        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',kunde_id)"
+        nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
         datetime2   dss_load_date           "metadata"
         datetime2   dss_create_datetime     "metadata"
         varchar     dss_record_source       "metadata"
@@ -86,7 +58,7 @@ erDiagram
     HUB_SIM {
         char64      hk_sim              PK  "vault_telecom | Hash(icc)"
         nvarchar    icc                     "services.icc = cdr.iccid (ICCID — global eindeutig)"
-        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',icc)"
+        nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
         datetime2   dss_load_date           "metadata"
         datetime2   dss_create_datetime     "metadata"
         varchar     dss_record_source       "metadata"
@@ -95,7 +67,7 @@ erDiagram
     HUB_MSISDN {
         char64      hk_msisdn           PK  "vault_telecom | Hash(rufnummer)"
         nvarchar    rufnummer               "services.rufnummer (MSISDN / E.164)"
-        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',rufnummer)"
+        nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
         datetime2   dss_load_date           "metadata"
         datetime2   dss_create_datetime     "metadata"
         varchar     dss_record_source       "metadata"
@@ -156,13 +128,13 @@ erDiagram
     }
 
     REF_ABO_OPTION_V {
-        nvarchar    abo_option_name     PK  "vault_telecom | BK — z.B. 'Mobile M', '5GB Roaming Zone 2/3'"
+        nvarchar    abo_option_name     PK  "vault_telecom | BK (z.B. Mobile M, 5GB Roaming Zone 2)"
         datetime2   dss_load_date           "metadata"
         varchar     dss_record_source       "metadata"
     }
 
     REF_TARIF_V {
-        nvarchar    tarif               PK  "vault_telecom | BK — z.B. 'Voice MO in National (CH + FL)'"
+        nvarchar    tarif               PK  "vault_telecom | BK (z.B. Voice MO National)"
         datetime2   dss_load_date           "metadata"
         varchar     dss_record_source       "metadata"
     }
