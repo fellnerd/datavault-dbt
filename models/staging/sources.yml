@@ -2102,9 +2102,9 @@
           - "name": "jsonline"
             "data_type": "NVARCHAR(MAX)"
 
-      # ===== EWB / CDR (Compax RSN) =====
-      - "name": "ext_ewb_cdr_services"
-        "description": "CDR Services — tägliche Compax RSN Exports (Abos & Optionen). Folder-Scan über ewb/cdr/services/. BK: vertrags_nummer"
+      # ===== RSN Mobile (Compax RSN — Rii Seez Net) =====
+      - "name": "ext_rsn_mobile_services_main"
+        "description": "RSN Mobile Services — tägliche Compax RSN Stammdaten (Abos & Optionen). Folder-Scan über ewb/cdr/services/. BK: vertrags_nummer"
         "external":
           "location": "ewb/cdr/services/"
           "file_format": "ParquetFormat"
@@ -2141,8 +2141,8 @@
           - "name": "dss_source_file_name"
             "data_type": "NVARCHAR(4000)"
 
-      - "name": "ext_ewb_cdr_udrs"
-        "description": "CDR UDRS (Usage Detail Records) — Compax RSN Verbindungsdaten (Call, Data, SMS). Folder-Scan über ewb/cdr/udrs/. BK: id"
+      - "name": "ext_rsn_mobile_cdr_main"
+        "description": "RSN Mobile CDR (Usage Detail Records) — Compax RSN Verbindungsdaten (Call, Data, SMS). Folder-Scan über ewb/cdr/udrs/. BK: id"
         "external":
           "location": "ewb/cdr/udrs/"
           "file_format": "ParquetFormat"
