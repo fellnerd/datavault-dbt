@@ -60,7 +60,7 @@ ADF-Pipelines sind deployed und via `Master_ewb_load` orchestriert. Der automati
 
 ### 0.4 Delete-Erkennung (Effectivity Satellite)
 
-Abacus liefert **Vollabzüge** — bei jedem Load sind alle aktuell gültigen Datensätze enthalten. Die aktuelle Architektur erkennt **keine Löschungen**: Wenn ein Abacus-Datensatz im nächsten Parquet-File fehlt, bleibt der letzte Satellite-Record auf `dss_is_current = 'Y'` stehen.
+Abacus liefert **Vollabzüge** Die aktuelle Architektur erkennt **keine Löschungen**: Wenn ein Abacus-Datensatz im nächsten Parquet-File fehlt, bleibt der letzte Satellite-Record auf `dss_is_current = 'Y'` stehen.
 
 | Entity | Löschung realistisch? | Business-Relevanz |
 |--------|----------------------|-------------------|
@@ -77,6 +77,33 @@ Abacus liefert **Vollabzüge** — bei jedem Load sind alle aktuell gültigen Da
 | Effectivity Satellites für `hub_person` + `hub_projekt` | ⬜ Out of scope (Phase 3/4) — für Produktivbetrieb klären |
 
 ---
+
+### 0.5 Hub Business Key Spalten-Refactoring
+
+**Hintergrund:** Bei der Modellierung der CDR-Domain (Phase CDR) wurde festgestellt, dass die bestehenden Hub-BK-Spalten source-spezifische Namen tragen (`empl_nr`, `projnr`, etc.). Dies widerspricht dem DV2.1-Prinzip, dass Hubs source-agnostische Business-Konzept-Namen verwenden sollen.
+
+**Problem:** Wenn ein zweites Quellsystem in denselben Hub lädt, muss es seine BK in die source-spezifisch benannte Spalte mappen — das ist irreführend und erschwert Multi-Source-Integration.
+
+**DV2.1-konformer Ansatz:** BK-Spalten im Hub tragen den generalisierten Business-Konzept-Namen. Das Mapping von Quell-Spaltenname → Hub-BK-Name erfolgt im Staging via `derived_columns`.
+
+| Hub | BK-Spalte (aktuell) | BK-Spalte (soll) | Staging-Mapping |
+|-----|---------------------|------------------|-----------------|
+| `hub_person` | `empl_nr` | `person_id` | `EMPL_NR` → `person_id` |
+| `hub_projekt` | `projnr` | `projekt_id` | `PROJNR` → `projekt_id` |
+| `hub_hauptbuch` | `recnum` | `hauptbuch_id` | `RECNUM` → `hauptbuch_id` |
+| `hub_buchungskopf` | `recnum` | `buchungskopf_id` | `RECNUM` → `buchungskopf_id` |
+| `hub_kreditorenbeleg` | `belnr` | `kreditorenbeleg_id` | `BELNR` → `kreditorenbeleg_id` |
+| `hub_kreditor` | `knr` | `kreditor_id` | `KNR` → `kreditor_id` |
+| `hub_kostenstelle` | `kst` | `kostenstelle_id` | `KST` → `kostenstelle_id` |
+| `hub_konto` | `kto` | `konto_id` | `KTO` → `konto_id` |
+| `hub_adresse` | `adressnr` | `adresse_id` | `ADRESSNR` → `adresse_id` |
+| `hub_projekt` | `projnr` | `projekt_id` | `PROJNR` → `projekt_id` |
+
+> **Neue CDR-Hubs** (`hub_vertrag`, `hub_kunde`, `hub_sim`) werden von Anfang an mit generalisierten BK-Namen (`vertrag_id`, `kunde_id`, `icc`) erstellt.
+
+| Aufgabe | Status |
+|---------|--------|
+| Hub BK Refactoring (alle bestehenden Abacus-Hubs) | ⬜ Technische Schuld — vor Multi-Source-Integration umsetzen |
 
 ## 1. Projektziel
 

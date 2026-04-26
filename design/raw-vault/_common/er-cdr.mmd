@@ -1,0 +1,172 @@
+erDiagram
+    %% Data Vault 2.1 — CDR Raw Vault (RSN Mobile / Compax)
+    %% Schema: vault | Quellen: Compax/RSN ('ewb_compax')
+    %% Stand: 2026-04-26 | Hubs: 4 | Sats: 2 (inkl. 1 MA) | Links: 4 | Trans-Sat: 1 | Refs: 2
+    %% Staging: rsn_mobile_services_main (Stammdaten) + rsn_mobile_cdr_main (PSA Events)
+    %% BK-Aliasing: vertrags_nummer→vertrag_id, customer_id→kunde_id, iccid→icc, contract_id→vertrag_id
+
+    %% === HUBS ===
+
+    HUB_VERTRAG {
+        char64      hk_vertrag          PK  "Hash(vertrag_id)"
+        nvarchar    vertrag_id              "services.vertrags_nummer / cdr.contract_id — aliasiert im Staging"
+        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',vertrag_id)"
+        datetime2   dss_load_date           "metadata"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata — z.B. ewb_compax"
+    }
+
+    HUB_KUNDE {
+        char64      hk_kunde            PK  "Hash(kunde_id)"
+        nvarchar    kunde_id                "services.customer_id — aliasiert im Staging"
+        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',kunde_id)"
+        datetime2   dss_load_date           "metadata"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    HUB_SIM {
+        char64      hk_sim              PK  "Hash(icc)"
+        nvarchar    icc                     "services.icc = cdr.iccid (ICCID — global eindeutig)"
+        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',icc)"
+        datetime2   dss_load_date           "metadata"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    HUB_MSISDN {
+        char64      hk_msisdn           PK  "Hash(rufnummer) — optional, abhängig von Portabilitätsentscheidung"
+        nvarchar    rufnummer               "services.rufnummer (MSISDN)"
+        nvarchar    dss_business_key        "CONCAT_WS('||','default','default',rufnummer)"
+        datetime2   dss_load_date           "metadata"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    %% === SATELLITES ===
+
+    SAT_KUNDE__COMPAX {
+        char64      hk_kunde            FK  "PK Teil 1"
+        datetime2   dss_load_date           "PK Teil 2"
+        char64      hd_kunde                "Hash Diff"
+        nvarchar    external_customer_id    "Externe ID — potentieller SAL zu hub_person (Abacus)"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+        char1       dss_is_current          "Y/N — via post_hook"
+        datetime2   dss_end_date            "NULL=aktuell — via post_hook"
+    }
+
+    SAT_VERTRAG_OPTIONEN__COMPAX {
+        char64      hk_vertrag          FK  "PK Teil 1"
+        datetime2   dss_load_date           "PK Teil 2"
+        nvarchar    abo_option_name          "CDK — PK Teil 3 (Multi-Active Key)"
+        char64      hd_vertrag_optionen      "Hash Diff"
+        nvarchar    ist_option               "0=Haupt-Abo / 1=Zusatzoption"
+        nvarchar    aktivierungs_datum        "Aktivierungsdatum (Vertragsbeginn)"
+        nvarchar    kundigungs_datum          "Kündigungsdatum (9999-12-31 = offen)"
+        nvarchar    mlz_datum                "Mindestlaufzeit-Ende"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    %% === LINKS ===
+
+    LINK_VERTRAG_KUNDE {
+        char64      hk_link_vertrag_kunde    PK  "Hash(vertrag_id, kunde_id)"
+        char64      hk_vertrag              FK  ""
+        char64      hk_kunde               FK  ""
+        datetime2   dss_load_date               "metadata"
+        varchar     dss_record_source           "metadata"
+    }
+
+    LINK_VERTRAG_SIM {
+        char64      hk_link_vertrag_sim      PK  "Hash(vertrag_id, icc)"
+        char64      hk_vertrag              FK  ""
+        char64      hk_sim                  FK  ""
+        datetime2   dss_load_date               "metadata"
+        varchar     dss_record_source           "metadata"
+    }
+
+    LINK_VERTRAG_MSISDN {
+        char64      hk_link_vertrag_msisdn   PK  "Hash(vertrag_id, rufnummer) — optional"
+        char64      hk_vertrag              FK  ""
+        char64      hk_msisdn              FK  ""
+        datetime2   dss_load_date               "metadata"
+        varchar     dss_record_source           "metadata"
+    }
+
+    LINK_CDR_EVENT {
+        char64      hk_link_cdr_event        PK  "Hash(id, vertrag_id, icc)"
+        char64      hk_vertrag              FK  "via contract_id → vertrag_id"
+        char64      hk_sim                  FK  "via iccid → icc"
+        datetime2   dss_load_date               "metadata"
+        varchar     dss_record_source           "metadata"
+    }
+
+    %% === TRANSACTION SATELLITE (Non-Historized) ===
+
+    SAT_CDR_EVENT__COMPAX {
+        char64      hk_link_cdr_event    FK  "PK Teil 1"
+        datetime2   dss_load_date            "PK Teil 2 — non-historized, kein Hash Diff"
+        nvarchar    id                       "CDR-Event-ID (Compax intern, ~2.7 Mrd)"
+        nvarchar    signaling_start          "Beginn Signalisierung"
+        nvarchar    connection_start         "Verbindungsbeginn"
+        nvarchar    duration                 "Dauer in Sekunden"
+        nvarchar    a                        "A-Rufnummer (Anrufer)"
+        nvarchar    b                        "B-Rufnummer (Angerufener)"
+        nvarchar    pai                      "P-Asserted-Identity"
+        nvarchar    imsi                     "SIM-Netz-ID (228-02 = Sunrise CH)"
+        nvarchar    record_type              "MOC / MTC / FORW / DATA / SMS"
+        nvarchar    service_type             "GPR (Daten) / Voice / SMS"
+        nvarchar    call_type                "Anruftyp"
+        nvarchar    bytes_in                 "Empfangene Bytes — KERNMETRIK"
+        nvarchar    bytes_out                "Gesendete Bytes — KERNMETRIK"
+        nvarchar    price                    "Endkundenpreis"
+        nvarchar    ws_price                 "Wholesale-Preis"
+        nvarchar    tarif                    "Freitext-Tarif — Mart-Gruppierung"
+        nvarchar    r_mcc_mnc                "Roaming MCC/MNC (leer = national)"
+        varchar     ___                      "... + tap3, data_packet, result_code, result_status, privacy, display_name, diversion_reason, p_chrg_v, p_ch_o, iccid"
+        datetime2   dss_create_datetime      "metadata"
+        varchar     dss_record_source        "metadata — kein dss_is_current, kein dss_end_date"
+    }
+
+    %% === REFERENCE TABLES ===
+
+    REF_ABO_OPTION_V {
+        nvarchar    abo_option_name     PK  "BK — z.B. 'Mobile M', '5GB Roaming Zone 2/3'"
+        datetime2   dss_load_date           "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    REF_TARIF_V {
+        nvarchar    tarif               PK  "BK — z.B. 'Voice MO in National (CH + FL)'"
+        datetime2   dss_load_date           "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    %% === RELATIONSHIPS ===
+
+    %% Hub → Satellite
+    HUB_KUNDE       ||--o{ SAT_KUNDE__COMPAX             : "hk_kunde"
+    HUB_VERTRAG     ||--o{ SAT_VERTRAG_OPTIONEN__COMPAX  : "hk_vertrag (MA-CDK: abo_option_name)"
+
+    %% Hub → Link (Services)
+    HUB_VERTRAG     ||--o{ LINK_VERTRAG_KUNDE             : "hk_vertrag"
+    HUB_KUNDE       ||--o{ LINK_VERTRAG_KUNDE             : "hk_kunde"
+
+    HUB_VERTRAG     ||--o{ LINK_VERTRAG_SIM               : "hk_vertrag"
+    HUB_SIM         ||--o{ LINK_VERTRAG_SIM               : "hk_sim"
+
+    HUB_VERTRAG     ||--o{ LINK_VERTRAG_MSISDN            : "hk_vertrag"
+    HUB_MSISDN      ||--o{ LINK_VERTRAG_MSISDN            : "hk_msisdn"
+
+    %% Hub → CDR Transaction Link
+    HUB_VERTRAG     ||--o{ LINK_CDR_EVENT                 : "hk_vertrag (via contract_id)"
+    HUB_SIM         ||--o{ LINK_CDR_EVENT                 : "hk_sim (via iccid)"
+
+    %% Link → Transaction Satellite
+    LINK_CDR_EVENT  ||--o{ SAT_CDR_EVENT__COMPAX          : "hk_link_cdr_event"
+
+    %% Satellite → Reference (Lookup)
+    SAT_VERTRAG_OPTIONEN__COMPAX    }o--|| REF_ABO_OPTION_V  : "abo_option_name"
+    SAT_CDR_EVENT__COMPAX           }o--|| REF_TARIF_V        : "tarif"

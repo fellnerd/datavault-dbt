@@ -173,33 +173,37 @@ Laut User-Vorgabe: Lambda Vault erst im nächsten Schritt. Die 10-Minuten-Liefer
 
 ### 5.1 Hubs
 
-#### `hub_mobilvertrag`
-Zentrales Objekt — bindet Stammdaten (services) und Events (udrs).
+#### `hub_vertrag`
+Zentrales Objekt — bindet Stammdaten (services) und Events (udrs). Source-agnostisch: künftige Festnetz-Verträge liefern ebenfalls in diesen Hub.
 
 | Spalte | Typ | PK | Quelle | Beschreibung |
 |--------|-----|----|--------|--------------|
-| `hk_mobilvertrag` | CHAR(64) | ✅ | Hash(`vertrags_nummer`) | Hash Key |
-| `vertrags_nummer` | NVARCHAR(4000) | | services | Business Key (= `contract_id` in udrs) |
-| `dss_business_key` | NVARCHAR | | `CONCAT_WS('||','default','default', vertrags_nummer)` | Normierter BK |
+| `hk_vertrag` | CHAR(64) | ✅ | Hash(`vertrag_id`) | Hash Key |
+| `vertrag_id` | NVARCHAR(4000) | | services.`vertrags_nummer` / udrs.`contract_id` | Business Key — im Staging als `vertrag_id` aliasiert |
+| `dss_business_key` | NVARCHAR | | `CONCAT_WS('||','default','default', vertrag_id)` | Normierter BK |
 | `dss_load_date` | DATETIME2 | | ADF TriggerTime | Ladezeitpunkt |
 | `dss_create_datetime` | DATETIME2 | | GETDATE() | Erstellungszeitpunkt |
 | `dss_record_source` | NVARCHAR | | ADF configured | Quelle |
 
-> **Feeds:** `rsn_mobile_services_main` (täglich) + `rsn_mobile_cdr_main` (alle 10 min via `contract_id`)
+> **Feeds:** `rsn_mobile_services_main` (täglich) + `rsn_mobile_cdr_main` (alle 10 min via `contract_id`)  
+> **Staging-Mapping:** `vertrags_nummer` → `vertrag_id` (services); `contract_id` → `vertrag_id` (cdr)
 
 ---
 
-#### `hub_mobilkunde`
-Compax-interne Kunden-ID. Spätere Integration mit `hub_person` via `external_customer_id` möglich.
+#### `hub_kunde`
+Source-agnostischer Kunden-Hub. Compax liefert aktuell als einzige Quelle. Weitere Quellen (Abacus via `external_customer_id`, CRM) liefern in denselben Hub mit eigenem `dss_record_source`.
 
 | Spalte | Typ | PK | Quelle | Beschreibung |
 |--------|-----|----|--------|--------------|
-| `hk_mobilkunde` | CHAR(64) | ✅ | Hash(`customer_id`) | Hash Key |
-| `customer_id` | NVARCHAR(4000) | | services | Business Key (6-stellig, z.B. 704253) |
-| `dss_business_key` | NVARCHAR | | `CONCAT_WS('||','default','default', customer_id)` | |
+| `hk_kunde` | CHAR(64) | ✅ | Hash(`kunde_id`) | Hash Key |
+| `kunde_id` | NVARCHAR(4000) | | services.`customer_id` | Business Key — im Staging als `kunde_id` aliasiert |
+| `dss_business_key` | NVARCHAR | | `CONCAT_WS('||','default','default', kunde_id)` | |
 | `dss_load_date` | DATETIME2 | | | |
 | `dss_create_datetime` | DATETIME2 | | | |
 | `dss_record_source` | NVARCHAR | | | |
+
+> **Staging-Mapping:** `customer_id` → `kunde_id`  
+> **Zukünftig:** Abacus-Kunden (`ADRESSNR` → `kunde_id`, `dss_record_source='ewb_abacus'`) → Same-As Link wenn `external_customer_id = ADRESSNR`
 
 ---
 
@@ -238,14 +242,14 @@ Rufnummer (MSISDN). ⚠️ **Offene Entscheidung:** nur als Hub wenn Rufnummern-
 
 ### 5.2 Satellites
 
-#### `sat_mobilkunde__compax`
+#### `sat_kunde__compax`
 Attribute des Kunden aus Compax. Enthält `external_customer_id` für späteren Abacus-Join.
 
 | Spalte | Typ | PK | Payload | Beschreibung |
 |--------|-----|----|---------|--------------|
-| `hk_mobilkunde` | CHAR(64) | ✅ (Teil 1) | FK | Fremdschlüssel zu hub_mobilkunde |
+| `hk_kunde` | CHAR(64) | ✅ (Teil 1) | FK | Fremdschlüssel zu hub_kunde |
 | `dss_load_date` | DATETIME2 | ✅ (Teil 2) | | Ladezeitpunkt |
-| `hd_mobilkunde` | CHAR(64) | | Hash Diff | Änderungserkennung |
+| `hd_kunde` | CHAR(64) | | Hash Diff | Änderungserkennung |
 | `external_customer_id` | NVARCHAR(4000) | | ✅ | Externe ID (Abacus-Kundennr.?) |
 | `dss_create_datetime` | DATETIME2 | | | |
 | `dss_record_source` | NVARCHAR | | | |
@@ -256,15 +260,15 @@ Attribute des Kunden aus Compax. Enthält `external_customer_id` für späteren 
 
 ---
 
-#### `sat_ma_mobilvertrag_optionen__compax` *(Multi-Active Satellite)*
+#### `sat_vertrag_optionen__compax` *(Multi-Active Satellite)*
 Abo-Optionen pro Vertrag. Jeder Vertrag hat 1..n Einträge (Haupt-Abo + Optionen). CDK = `abo_option_name`.
 
 | Spalte | Typ | PK | Rolle | Beschreibung |
 |--------|-----|----|-------|--------------|
-| `hk_mobilvertrag` | CHAR(64) | ✅ (Teil 1) | FK | Fremdschlüssel zu hub_mobilvertrag |
+| `hk_vertrag` | CHAR(64) | ✅ (Teil 1) | FK | Fremdschlüssel zu hub_vertrag |
 | `dss_load_date` | DATETIME2 | ✅ (Teil 2) | | Ladezeitpunkt |
 | `abo_option_name` | NVARCHAR(4000) | ✅ (Teil 3) | **CDK** | z.B. "Mobile M", "5GB Roaming Zone 2/3" |
-| `hd_ma_mobilvertrag_optionen` | CHAR(64) | | Hash Diff | Änderungserkennung |
+| `hd_vertrag_optionen` | CHAR(64) | | Hash Diff | Änderungserkennung |
 | `ist_option` | NVARCHAR(4000) | | Payload | 0 = Haupt-Abo, 1 = Zusatzoption |
 | `aktivierungs_datum` | NVARCHAR(4000) | | Payload | Aktivierungsdatum der Option |
 | `kundigungs_datum` | NVARCHAR(4000) | | Payload | Kündigungsdatum (9999-12-31 = offen) |
@@ -289,9 +293,9 @@ Beziehung zwischen Vertrag und Kunde aus Stammdaten-Datei. Pro Vertrag genau 1 K
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
-| `hk_link_vertrag_kunde` | CHAR(64) | ✅ | Hash(`vertrags_nummer`, `customer_id`) |
-| `hk_mobilvertrag` | CHAR(64) | | FK → hub_mobilvertrag |
-| `hk_mobilkunde` | CHAR(64) | | FK → hub_mobilkunde |
+| `hk_link_vertrag_kunde` | CHAR(64) | ✅ | Hash(`vertrag_id`, `kunde_id`) |
+| `hk_vertrag` | CHAR(64) | | FK → hub_vertrag |
+| `hk_kunde` | CHAR(64) | | FK → hub_kunde |
 | `dss_load_date` | DATETIME2 | | |
 | `dss_record_source` | NVARCHAR | | |
 
@@ -304,8 +308,8 @@ Beziehung zwischen Vertrag und SIM-Karte. Ermöglicht SIM-Wechsel-Historie.
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
-| `hk_link_vertrag_sim` | CHAR(64) | ✅ | Hash(`vertrags_nummer`, `icc`) |
-| `hk_mobilvertrag` | CHAR(64) | | FK → hub_mobilvertrag |
+| `hk_link_vertrag_sim` | CHAR(64) | ✅ | Hash(`vertrag_id`, `icc`) |
+| `hk_vertrag` | CHAR(64) | | FK → hub_vertrag |
 | `hk_sim` | CHAR(64) | | FK → hub_sim |
 | `dss_load_date` | DATETIME2 | | |
 | `dss_record_source` | NVARCHAR | | |
@@ -319,8 +323,8 @@ Beziehung zwischen Vertrag und Rufnummer. Nur relevant wenn hub_msisdn umgesetzt
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
-| `hk_link_vertrag_msisdn` | CHAR(64) | ✅ | Hash(`vertrags_nummer`, `rufnummer`) |
-| `hk_mobilvertrag` | CHAR(64) | | FK → hub_mobilvertrag |
+| `hk_link_vertrag_msisdn` | CHAR(64) | ✅ | Hash(`vertrag_id`, `rufnummer`) |
+| `hk_vertrag` | CHAR(64) | | FK → hub_vertrag |
 | `hk_msisdn` | CHAR(64) | | FK → hub_msisdn |
 | `dss_load_date` | DATETIME2 | | |
 | `dss_record_source` | NVARCHAR | | |
@@ -334,9 +338,9 @@ Transaction Link für CDR-Ereignisse. Verbindet den Vertrag mit der SIM-Karte pr
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
-| `hk_link_cdr_event` | CHAR(64) | ✅ | Hash(`id`, `contract_id`, `iccid`) |
-| `hk_mobilvertrag` | CHAR(64) | | FK → hub_mobilvertrag (via `contract_id`) |
-| `hk_sim` | CHAR(64) | | FK → hub_sim (via `iccid`) |
+| `hk_link_cdr_event` | CHAR(64) | ✅ | Hash(`id`, `vertrag_id`, `icc`) |
+| `hk_vertrag` | CHAR(64) | | FK → hub_vertrag (via `contract_id` → `vertrag_id`) |
+| `hk_sim` | CHAR(64) | | FK → hub_sim (via `iccid` → `icc`) |
 | `dss_load_date` | DATETIME2 | | |
 | `dss_record_source` | NVARCHAR | | |
 
@@ -402,29 +406,31 @@ CDR-Events sind **unveränderliche Fakten** — keine Hash Diff, kein SCD2. Einm
 
 ```
 rsn_mobile_services_main (1 Zeile = 1 Vertrag × 1 Option)
+│  Staging aliasiert: vertrags_nummer → vertrag_id, customer_id → kunde_id
 │
-├─► hub_mobilvertrag       (BK: vertrags_nummer)
-├─► hub_mobilkunde         (BK: customer_id)
-├─► hub_sim                (BK: icc)
-├─► hub_msisdn             (BK: rufnummer) ⚠️ optional
+├─► hub_vertrag        (BK: vertrag_id)
+├─► hub_kunde          (BK: kunde_id)
+├─► hub_sim            (BK: icc)
+├─► hub_msisdn         (BK: rufnummer) ⚠️ optional
 │
-├─► sat_mobilkunde__compax              → external_customer_id
-├─► sat_ma_mobilvertrag_optionen__compax → abo_option_name (CDK), ist_option, datum-Felder
+├─► sat_kunde__compax              → external_customer_id
+├─► sat_vertrag_optionen__compax   → CDK: abo_option_name, Payload: ist_option, datum-Felder
 │
-├─► link_vertrag_kunde     (vertrags_nummer ↔ customer_id)
-├─► link_vertrag_sim       (vertrags_nummer ↔ icc)
-└─► link_vertrag_msisdn    (vertrags_nummer ↔ rufnummer) ⚠️ optional
+├─► link_vertrag_kunde    (vertrag_id ↔ kunde_id)
+├─► link_vertrag_sim      (vertrag_id ↔ icc)
+└─► link_vertrag_msisdn   (vertrag_id ↔ rufnummer) ⚠️ optional
 ```
 
 ### 5.7 Übersicht: Datenfluss CDR Events → DV-Objekte
 
 ```
 rsn_mobile_cdr_main (PSA, 1 Zeile = 1 CDR-Event)
+│  Staging aliasiert: contract_id → vertrag_id, iccid → icc
 │
-├─► hub_mobilvertrag  (BK: contract_id — bereits durch services bekannt)
-├─► hub_sim           (BK: iccid — bereits durch services bekannt)
+├─► hub_vertrag  (BK: vertrag_id — bereits durch services bekannt)
+├─► hub_sim      (BK: icc — bereits durch services bekannt)
 │
-├─► link_cdr_event    (contract_id ↔ iccid ↔ id)
+├─► link_cdr_event    (vertrag_id ↔ icc ↔ id)
 └─► sat_cdr_event__compax  → alle Event-Metriken (non-historized)
 ```
 
@@ -436,8 +442,8 @@ rsn_mobile_cdr_main (PSA, 1 Zeile = 1 CDR-Event)
 
 | Dimension | Quelle | Zweck |
 |-----------|--------|-------|
-| `dim_mobilvertrag_v` | hub_mobilvertrag + sat_mobilvertrag__compax | Vertragsperspektive |
-| `dim_mobilkunde_v` | hub_mobilkunde + sat_mobilkunde__compax | Kundenperspektive |
+| `dim_mobilvertrag_v` | hub_vertrag + sat_vertrag_optionen__compax | Vertragsperspektive |
+| `dim_mobilkunde_v` | hub_kunde + sat_kunde__compax | Kundenperspektive |
 | `dim_sim_v` | hub_sim | SIM-Perspektive |
 | `dim_tarif_v` | ref_tarif_v | Tarif-Dimension |
 | `dim_datum_v` | (bereits vorhanden) | Zeit |
@@ -510,9 +516,9 @@ FROM mart.fakt_datenvolumen_v
 6. Deploy + Tests
 
 ### Phase D — Raw Vault
-1. Hubs: `hub_mobilvertrag`, `hub_mobilkunde`, `hub_sim`, `hub_msisdn`
-2. Reguläre Satellites: `sat_mobilkunde__compax`, `sat_sim__compax`
-3. MA-Satellite: `sat_ma_mobilvertrag_optionen__compax`
+1. Hubs: `hub_vertrag`, `hub_kunde`, `hub_sim`, `hub_msisdn`
+2. Reguläre Satellites: `sat_kunde__compax`, `sat_sim__compax`
+3. MA-Satellite: `sat_vertrag_optionen__compax`
 4. Links: `link_vertrag_kunde_sim_msisdn`, `link_cdr_event`
 5. Non-historized Transaction Satellite: `sat_cdr_event__compax`
 6. Current Views (`*_current_v`) für alle SCD2-Satellites
