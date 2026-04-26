@@ -7,12 +7,12 @@ erDiagram
     %% SCHEMA-VERTEILUNG:
     %%   [vault]         (raw_vault/_common/)  — source-agnostische Business-Konzepte
     %%     hub_vertrag, hub_kunde
-    %%     sat_kunde__compax, sat_vertrag_optionen__compax (MA)
+    %%     sat_kunde__compax, sat_vertrag_optionen_ma__compax (MA)
     %%     link_vertrag_kunde
     %%   [vault_telecom] (raw_vault/telecom/)  — Telekom-spezifische Objekte
     %%     hub_sim, hub_msisdn
-    %%     link_vertrag_sim, link_vertrag_msisdn, link_cdr_event
-    %%     sat_cdr_event__compax (Transaction Sat)
+    %%     link_vertrag_sim, link_vertrag_msisdn, link_cdr_event_tl (TL = Transaction Link)
+    %%     sat_cdr_event__compax (Transaction SAT — Non-Historized, kein Hash Diff)
     %%     ref_abo_option_v, ref_tarif_v
     %%
     %% ENTSCHEIDUNG hub_msisdn (rufnummer):
@@ -56,11 +56,11 @@ erDiagram
         datetime2   dss_end_date            "NULL=aktuell — via post_hook"
     }
 
-    SAT_VERTRAG_OPTIONEN__COMPAX {
+    SAT_VERTRAG_OPTIONEN_MA__COMPAX {
         char64      hk_vertrag          FK  "vault | PK Teil 1"
         datetime2   dss_load_date           "PK Teil 2"
         nvarchar    abo_option_name          "CDK — PK Teil 3 (Multi-Active Key)"
-        char64      hd_vertrag_optionen      "Hash Diff"
+        char64      hd_vertrag_optionen_ma   "Hash Diff"
         nvarchar    ist_option               "0=Haupt-Abo / 1=Zusatzoption"
         nvarchar    aktivierungs_datum        "Aktivierungsdatum (Vertragsbeginn)"
         nvarchar    kundigungs_datum          "Kündigungsdatum (9999-12-31 = offen)"
@@ -117,8 +117,8 @@ erDiagram
         varchar     dss_record_source           "metadata"
     }
 
-    LINK_CDR_EVENT {
-        char64      hk_link_cdr_event        PK  "vault_telecom | Hash(id, vertrag_id, icc)"
+    LINK_CDR_EVENT_TL {
+        char64      hk_link_cdr_event_tl      PK  "vault_telecom | Hash(id, vertrag_id, icc)"
         char64      hk_vertrag              FK  "→ vault.hub_vertrag (via contract_id)"
         char64      hk_sim                  FK  "→ vault_telecom.hub_sim (via iccid)"
         datetime2   dss_load_date               "metadata"
@@ -126,7 +126,7 @@ erDiagram
     }
 
     SAT_CDR_EVENT__COMPAX {
-        char64      hk_link_cdr_event    FK  "vault_telecom | PK Teil 1"
+        char64      hk_link_cdr_event_tl  FK  "vault_telecom | PK Teil 1"
         datetime2   dss_load_date            "PK Teil 2 — non-historized, kein Hash Diff"
         nvarchar    id                       "CDR-Event-ID (Compax intern, ~2.7 Mrd)"
         nvarchar    signaling_start          "Beginn Signalisierung"
@@ -170,8 +170,8 @@ erDiagram
     %% === RELATIONSHIPS ===
 
     %% vault: Hub → Satellite
-    HUB_KUNDE       ||--o{ SAT_KUNDE__COMPAX             : "hk_kunde"
-    HUB_VERTRAG     ||--o{ SAT_VERTRAG_OPTIONEN__COMPAX  : "hk_vertrag (MA-CDK: abo_option_name)"
+    HUB_KUNDE       ||--o{ SAT_KUNDE__COMPAX               : "hk_kunde"
+    HUB_VERTRAG     ||--o{ SAT_VERTRAG_OPTIONEN_MA__COMPAX : "hk_vertrag (MA-CDK: abo_option_name)"
 
     %% vault: Hub → Link
     HUB_VERTRAG     ||--o{ LINK_VERTRAG_KUNDE             : "hk_vertrag"
@@ -184,12 +184,12 @@ erDiagram
     HUB_VERTRAG     ||--o{ LINK_VERTRAG_MSISDN            : "vault.hk_vertrag"
     HUB_MSISDN      ||--o{ LINK_VERTRAG_MSISDN            : "vault_telecom.hk_msisdn"
 
-    HUB_VERTRAG     ||--o{ LINK_CDR_EVENT                 : "vault.hk_vertrag (via contract_id)"
-    HUB_SIM         ||--o{ LINK_CDR_EVENT                 : "vault_telecom.hk_sim (via iccid)"
+    HUB_VERTRAG     ||--o{ LINK_CDR_EVENT_TL               : "vault.hk_vertrag (via contract_id)"
+    HUB_SIM         ||--o{ LINK_CDR_EVENT_TL               : "vault_telecom.hk_sim (via iccid)"
 
-    %% vault_telecom: Link → Transaction Satellite
-    LINK_CDR_EVENT  ||--o{ SAT_CDR_EVENT__COMPAX          : "hk_link_cdr_event"
+    %% vault_telecom: Transaction Link → Transaction Satellite
+    LINK_CDR_EVENT_TL ||--o{ SAT_CDR_EVENT__COMPAX         : "hk_link_cdr_event_tl"
 
     %% vault_telecom: Satellite → Reference (Lookup)
-    SAT_VERTRAG_OPTIONEN__COMPAX    }o--|| REF_ABO_OPTION_V  : "abo_option_name"
+    SAT_VERTRAG_OPTIONEN_MA__COMPAX }o--|| REF_ABO_OPTION_V  : "abo_option_name"
     SAT_CDR_EVENT__COMPAX           }o--|| REF_TARIF_V        : "tarif"

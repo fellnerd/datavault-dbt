@@ -141,7 +141,7 @@ Aktuelle Konvention: `<concept>_<modul>_<tabelle>_<suffix>` (z.B. `ewb_fibu_fhe_
 | Schema | dbt-Ordner | Objekte | Begründung |
 |--------|-----------|---------|------------|
 | `vault` | `raw_vault/_common/` | `hub_vertrag`, `hub_kunde`, Satellites, `link_vertrag_kunde` | Source-agnostische Business-Konzepte — offen für weitere Quellen (Abacus, CRM) |
-| `vault_telecom` | `raw_vault/telecom/` | `hub_sim`, `link_vertrag_sim`, `link_cdr_event`, `sat_cdr_event__compax`, Referenztabellen | Telekom-spezifisch — kein Pendant in anderen Quellsystemen. Scope: RSN Mobile + künftig RSN Festnetz |
+| `vault_telecom` | `raw_vault/telecom/` | `hub_sim`, `link_vertrag_sim`, `link_cdr_event_tl`, `sat_cdr_event__compax`, Referenztabellen | Telekom-spezifisch — kein Pendant in anderen Quellsystemen. Scope: RSN Mobile + künftig RSN Festnetz |
 
 **Warum nicht alles in `_common`?**  
 `hub_sim` (ICCID) ist ein rein telekommunikationsspezifisches Objekt ohne Pendant in Abacus oder anderen EWB-Quellen. Transaction-Links und CDR-Events gehören ebenfalls in die Telecom-Domäne.
@@ -174,7 +174,7 @@ Aktuelle Konvention: `<concept>_<modul>_<tabelle>_<suffix>` (z.B. `ewb_fibu_fhe_
 
 - `rufnummer` ist eine eigenständige Business-Entität (MSISDN / E.164-Format)
 - M:N zwischen Vertrag und Rufnummer bestätigt → `link_vertrag_msisdn` notwendig
-- `rufnummer` wird **nicht** als Payload in `sat_vertrag_optionen__compax` aufgenommen
+- `rufnummer` wird **nicht** als Payload in `sat_vertrag_optionen_ma__compax` aufgenommen
 
 **Wo bleibt `rufnummer` in den Staging-Daten?**  
 Die Services-Datei liefert `rufnummer` als Spalte pro Zeile (= pro Vertrag × Abo-Option). Im Staging wird `rufnummer` für Hash-Key `hk_msisdn` verwendet. Der Link `link_vertrag_msisdn` wird aus Services geladen.
@@ -303,7 +303,7 @@ Attribute des Kunden aus Compax. Enthält `external_customer_id` für späteren 
 
 ---
 
-#### `sat_vertrag_optionen__compax` *(Schema: `vault`, Multi-Active Satellite)*
+#### `sat_vertrag_optionen_ma__compax` *(Schema: `vault`, Multi-Active Satellite)*
 Abo-Optionen pro Vertrag. Jeder Vertrag hat 1..n Einträge (Haupt-Abo + Optionen). CDK = `abo_option_name`.
 
 | Spalte | Typ | PK | Rolle | Beschreibung |
@@ -311,7 +311,7 @@ Abo-Optionen pro Vertrag. Jeder Vertrag hat 1..n Einträge (Haupt-Abo + Optionen
 | `hk_vertrag` | CHAR(64) | ✅ (Teil 1) | FK | Fremdschlüssel zu hub_vertrag |
 | `dss_load_date` | DATETIME2 | ✅ (Teil 2) | | Ladezeitpunkt |
 | `abo_option_name` | NVARCHAR(4000) | ✅ (Teil 3) | **CDK** | z.B. "Mobile M", "5GB Roaming Zone 2/3" |
-| `hd_vertrag_optionen` | CHAR(64) | | Hash Diff | Änderungserkennung |
+| `hd_vertrag_optionen_ma` | CHAR(64) | | Hash Diff | Änderungserkennung |
 | `rufnummer` | NVARCHAR(4000) | | Payload | MSISDN — nur beim Haupt-Abo (ist_option=0) befüllt |
 | `ist_option` | NVARCHAR(4000) | | Payload | 0 = Haupt-Abo, 1 = Zusatzoption |
 | `aktivierungs_datum` | NVARCHAR(4000) | | Payload | Aktivierungsdatum der Option |
@@ -377,12 +377,12 @@ M:N durch Datenanalyse bestätigt (33 Rufnummern auf > 1 Vertrag gleichzeitig).
 
 ---
 
-#### `link_cdr_event` *(Schema: `vault_telecom`)*
+#### `link_cdr_event_tl` *(Schema: `vault_telecom`)*
 Transaction Link für CDR-Ereignisse. Verbindet den Vertrag mit der SIM-Karte pro Event.
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
-| `hk_link_cdr_event` | CHAR(64) | ✅ | Hash(`id`, `vertrag_id`, `icc`) |
+| `hk_link_cdr_event_tl` | CHAR(64) | ✅ | Hash(`id`, `vertrag_id`, `icc`) |
 | `hk_vertrag` | CHAR(64) | | FK → hub_vertrag (via `contract_id` → `vertrag_id`) |
 | `hk_sim` | CHAR(64) | | FK → hub_sim (via `iccid` → `icc`) |
 | `dss_load_date` | DATETIME2 | | |
@@ -399,7 +399,7 @@ CDR-Events sind **unveränderliche Fakten** — keine Hash Diff, kein SCD2. Einm
 
 | Spalte | Typ | PK | Beschreibung |
 |--------|-----|----|--------------|
-| `hk_link_cdr_event` | CHAR(64) | ✅ (Teil 1) | FK → link_cdr_event |
+| `hk_link_cdr_event_tl` | CHAR(64) | ✅ (Teil 1) | FK → link_cdr_event_tl |
 | `dss_load_date` | DATETIME2 | ✅ (Teil 2) | Ladezeitpunkt |
 | `id` | NVARCHAR(4000) | | CDR-Event-ID (Compax intern, ~2.7 Mrd) |
 | `signaling_start` | NVARCHAR(4000) | | Beginn Signalisierung |
@@ -456,7 +456,7 @@ rsn_mobile_services_main (1 Zeile = 1 Vertrag × 1 Option)
 ├─► hub_vertrag        (BK: vertrag_id)
 ├─► hub_kunde          (BK: kunde_id)
 ├─► sat_kunde__compax              → external_customer_id
-├─► sat_vertrag_optionen__compax   → CDK: abo_option_name, Payload: ist_option, datum-Felder
+├─► sat_vertrag_optionen_ma__compax   → CDK: abo_option_name, Payload: ist_option, datum-Felder
 ├─► link_vertrag_kunde    (vertrag_id ↔ kunde_id)
 │
 │  [vault_telecom]
@@ -477,7 +477,7 @@ rsn_mobile_cdr_main (PSA, 1 Zeile = 1 CDR-Event)
 │
 │  [vault_telecom]
 ├─► hub_sim      (BK: icc — bereits durch services bekannt)
-├─► link_cdr_event    (vertrag_id ↔ icc ↔ id)
+├─► link_cdr_event_tl    (vertrag_id ↔ icc ↔ id)
 └─► sat_cdr_event__compax  → alle Event-Metriken (non-historized)
 ```
 
@@ -489,7 +489,7 @@ rsn_mobile_cdr_main (PSA, 1 Zeile = 1 CDR-Event)
 
 | Dimension | Quelle | Zweck |
 |-----------|--------|-------|
-| `dim_mobilvertrag_v` | hub_vertrag + sat_vertrag_optionen__compax | Vertragsperspektive |
+| `dim_mobilvertrag_v` | hub_vertrag + sat_vertrag_optionen_ma__compax | Vertragsperspektive |
 | `dim_mobilkunde_v` | hub_kunde + sat_kunde__compax | Kundenperspektive |
 | `dim_sim_v` | hub_sim | SIM-Perspektive |
 | `dim_tarif_v` | ref_tarif_v | Tarif-Dimension |
@@ -565,8 +565,8 @@ FROM mart.fakt_datenvolumen_v
 ### Phase D — Raw Vault
 1. Hubs: `hub_vertrag`, `hub_kunde`, `hub_sim`, `hub_msisdn`
 2. Reguläre Satellites: `sat_kunde__compax`, `sat_sim__compax`
-3. MA-Satellite: `sat_vertrag_optionen__compax`
-4. Links: `link_vertrag_kunde_sim_msisdn`, `link_cdr_event`
+3. MA-Satellite: `sat_vertrag_optionen_ma__compax`
+4. Links: `link_vertrag_kunde_sim_msisdn`, `link_cdr_event_tl`
 5. Non-historized Transaction Satellite: `sat_cdr_event__compax`
 6. Current Views (`*_current_v`) für alle SCD2-Satellites
 7. Reference Tables: `ref_tarif_v`, `ref_abo_option_v`
