@@ -3,11 +3,16 @@
     Parent Hub: hub_person
     Source: ewb_lohn_len_main
 
-    Payload (20 Spalten, datenbasiert bereinigt):
+    Payload (18 Spalten, datenbasiert bereinigt):
       Identität:   EMPL_ID, LAST_NAME, FIRST_NAME, ABRV, BADGE_ID, BIRTHDAY, SEX, NATIONALITY, BIRTH_PLACE
-      Anstellung:  HOME_DEPT_NR, ADR_INR, DATE_IN, DATE_OUT, TYPE, MUTATION_DATE, LPE_YEAR, LPE_MONTH
+      Anstellung:  HOME_DEPT_NR, ADR_INR, DATE_IN, DATE_OUT, TYPE, MUTATION_DATE
       CH-SV:       SOC_INSURANCE_NR
       Compliance:  RELEVANT_FOR_LOGIB, ZEMIS_NR
+
+    Bewusst ausgeschlossen:
+      - LPE_YEAR, LPE_MONTH: Lohnperioden-Identifikatoren, keine Personenattribute.
+        Perioden-Wechsel sollen KEINE neuen Satellite-Versionen erzeugen.
+        Deduplication auf aktuellste Periode erfolgt in ewb_lohn_len_dedup.
 
     Entfernt (konstante/leere Felder):
       - CALC_GROUP, BOOK_GROUP, CONTRACT, CONTRACT_TYPE → alle 0
@@ -56,8 +61,6 @@ src_payload:
     - "date_out"
     - "type"
     - "mutation_date"
-    - "lpe_year"
-    - "lpe_month"
     - "soc_insurance_nr"
     - "relevant_for_logib"
     - "zemis_nr"

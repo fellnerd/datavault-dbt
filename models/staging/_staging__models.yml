@@ -776,6 +776,14 @@ models:
           - not_null
       - name: dss_run_id
         description: dbt run identifier
+  - name: ewb_lohn_len_dedup
+    description: >
+      Deduplication helper view für LOHN.LEN.Main.
+      Reduziert auf eine Zeile pro EMPL_NR (aktuellste Lohnperiode nach LPE_YEAR/LPE_MONTH).
+      LPE_YEAR/LPE_MONTH sind Perioden-Identifikatoren, keine Personenattribute —
+      sie sollen keine Pseudo-SCD2-Versionen in sat_person__abacus erzeugen.
+      Intern — wird nur von ewb_lohn_len_main als source_model referenziert.
+
   - name: ewb_lohn_len_main
     description: Staging view for person from _common
     config:
@@ -791,6 +799,7 @@ models:
         data_type: char(64)
         tests:
           - not_null
+          - unique
       - name: hd_person
         description: Hash Diff for change detection
         data_type: char(64)
@@ -819,10 +828,6 @@ models:
       - name: book_group
         description: Payload attribute
       - name: adr_inr
-        description: Payload attribute
-      - name: lpe_year
-        description: Payload attribute
-      - name: lpe_month
         description: Payload attribute
       - name: date_in
         description: Payload attribute

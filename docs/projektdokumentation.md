@@ -105,6 +105,31 @@ Abacus liefert **Vollabzüge** Die aktuelle Architektur erkennt **keine Löschun
 |---------|--------|
 | Hub BK Refactoring (alle bestehenden Abacus-Hubs) | ⬜ Technische Schuld — vor Multi-Source-Integration umsetzen |
 
+---
+
+### 0.6 Lohnperioden-Satellit (sat_person_lohn_ma__abacus)
+
+**Hintergrund:** `LOHN.LEN.Main` liefert eine Zeile pro Mitarbeiter × Lohnperiode (`LPE_YEAR` × `LPE_MONTH`). Aktuell wird in `ewb_lohn_len_dedup` auf die **aktuellste Periode pro EMPL_NR** dedupliziert, damit `sat_person__abacus` keine Pseudo-SCD2-Versionen erzeugt.
+
+**Folge:** `LPE_YEAR` und `LPE_MONTH` sind weder im Hashdiff noch im Payload von `sat_person__abacus`. Perioden-Informationen (z. B. "Wann war Person X in welcher Lohnperiode aktiv?") sind **nicht im Vault** verfügbar.
+
+**DV2.1-konformer Ansatz:** Multi-Active Satellite auf `hub_person`:
+
+```
+hub_person
+  ├── sat_person__abacus           ← Personenstamm, deduped (aktuell deployed)
+  └── sat_person_lohn_ma__abacus   ← Lohnperioden, CDK = LPE_YEAR || LPE_MONTH
+                                      Source: ext_ewb_lohn_len_main (NICHT deduped)
+                                      Payload: lohnperiodenbezogene Felder
+```
+
+Naming-Konvention: `_ma` vor `__<source>` → `sat_person_lohn_ma__abacus`
+
+| Aufgabe | Status |
+|---------|--------|
+| `sat_person_lohn_ma__abacus` erstellen (MA-Satellite, CDK = LPE_YEAR+LPE_MONTH) | ⬜ Backlog — klären ob EWB Perioden-Analyse benötigt |
+| Staging `ewb_lohn_len_main` für MA-Sat anpassen (src_cdk) | ⬜ Backlog |
+
 ## 1. Projektziel
 
 Aufbau einer modernen, skalierbaren Datenplattform auf Basis des **Data Vault 2.1**-Standards im EWB Azure-Tenant. Alle relevanten Quellsysteme (Abacus ERP, IDMS, ISE u.a.) werden täglich in eine zentrale Datenbasis geladen, historisch gesichert und für Power BI-Berichte bereitgestellt.

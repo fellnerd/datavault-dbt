@@ -1,17 +1,21 @@
 /*
  * Staging Model: ewb_lohn_len_main
  *
- * Source: ext_ewb_lohn_len_main (Abacus LOHN.LEN.Main)
+ * Source: ewb_lohn_len_dedup (dedup view auf ext_ewb_lohn_len_main)
  * Business Key: EMPL_NR
  * Hash Key: hk_person
- * Payload: 20 Spalten — nur gepflegte Spalten (datenbasiert bereinigt)
+ * Payload: 18 Spalten — nur gepflegte Spalten (datenbasiert bereinigt)
+ *
+ * Hinweis: LPE_YEAR/LPE_MONTH sind Perioden-Identifikatoren, keine Personenattribute.
+ * Sie werden bewusst aus dem Hashdiff ausgeschlossen, damit Perioden-Wechsel
+ * keine Pseudo-SCD2-Versionen erzeugen. Die Deduplication auf die aktuellste
+ * Periode erfolgt in ewb_lohn_len_dedup.
  *
  * Uses automate_dv.stage() macro for standardized staging.
  */
 
 {%- set yaml_metadata -%}
-source_model:
-  staging: "ext_ewb_lohn_len_main"
+source_model: "ewb_lohn_len_dedup"
 
 derived_columns:
   dss_record_source: "!ewb_abacus"
@@ -40,8 +44,6 @@ hashed_columns:
       - "FIRST_NAME"
       - "HOME_DEPT_NR"
       - "LAST_NAME"
-      - "LPE_MONTH"
-      - "LPE_YEAR"
       - "MUTATION_DATE"
       - "NATIONALITY"
       - "RELEVANT_FOR_LOGIB"
