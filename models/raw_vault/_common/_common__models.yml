@@ -3453,3 +3453,281 @@ models:
     data_type: "varchar(100)"
     tests:
     - not_null
+
+# ============================================================
+# CDR-Projekt: RSN Mobile / Compax
+# ============================================================
+
+- name: "hub_vertrag"
+  description: |
+    Hub für Vertrags-Entitäten aus dem RSN Mobile / Compax-System.
+    Business Key: vertrag_id (eindeutige Vertrags-ID aus Compax).
+    Konsolidierungspunkt für alle Vertragsdaten über Quellsysteme hinweg.
+  columns:
+  - name: "hk_vertrag"
+    description: "Hash Key (Primary Key) — SHA-Hash über vertrag_id"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "vertrag_id"
+    description: "Business Key — eindeutige Vertrags-ID aus Compax/RSN Mobile"
+    data_type: "nvarchar(255)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp — Ladezeitpunkt in den Vault"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — rsn_compax"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_business_key_vertrag"
+    description: "Concatenated business key (tenant||ccode||vertrag_id)"
+    data_type: "nvarchar(max)"
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp im Quellsystem"
+    data_type: "datetime2(7)"
+
+- name: "hub_kunde"
+  description: |
+    Hub für Kunden-Entitäten aus dem RSN Mobile / Compax-System.
+    Business Key: kunde_id (eindeutige Kunden-ID aus Compax).
+    Cross-Source-Konsolidierung: Kann mit anderen Kundenhubs verknüpft werden.
+  columns:
+  - name: "hk_kunde"
+    description: "Hash Key (Primary Key) — SHA-Hash über kunde_id"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "kunde_id"
+    description: "Business Key — eindeutige Kunden-ID aus Compax/RSN Mobile"
+    data_type: "nvarchar(255)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp — Ladezeitpunkt in den Vault"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — rsn_compax"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_business_key_kunde"
+    description: "Concatenated business key (tenant||ccode||kunde_id)"
+    data_type: "nvarchar(max)"
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp im Quellsystem"
+    data_type: "datetime2(7)"
+
+- name: "sat_kunde__compax"
+  description: |
+    Satellite für Kunden-Attribute aus dem Compax/RSN Mobile-System.
+    Enthält Identitäts-, Kontakt- und Adressdaten des Kunden.
+    SCD2-historisiert via dss_is_current / dss_end_date.
+  columns:
+  - name: "hk_kunde"
+    description: "Hash Key (FK to hub_kunde)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hashdiff"
+    description: "Hash Diff für Change Detection (aliased from hd_kunde)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "vorname"
+    description: "Vorname des Kunden"
+    data_type: "nvarchar(255)"
+  - name: "nachname"
+    description: "Nachname des Kunden"
+    data_type: "nvarchar(255)"
+  - name: "geburtsdatum"
+    description: "Geburtsdatum des Kunden"
+    data_type: "date"
+  - name: "geschlecht"
+    description: "Geschlecht des Kunden"
+    data_type: "nvarchar(50)"
+  - name: "sprache"
+    description: "Korrespondenzsprache des Kunden"
+    data_type: "nvarchar(10)"
+  - name: "email"
+    description: "E-Mail-Adresse des Kunden"
+    data_type: "nvarchar(255)"
+  - name: "telefon_privat"
+    description: "Private Telefonnummer des Kunden"
+    data_type: "nvarchar(50)"
+  - name: "telefon_mobile"
+    description: "Mobile Telefonnummer des Kunden"
+    data_type: "nvarchar(50)"
+  - name: "strasse"
+    description: "Strasse und Hausnummer der Kundenadresse"
+    data_type: "nvarchar(255)"
+  - name: "plz"
+    description: "Postleitzahl der Kundenadresse"
+    data_type: "nvarchar(20)"
+  - name: "ort"
+    description: "Ort der Kundenadresse"
+    data_type: "nvarchar(255)"
+  - name: "land"
+    description: "Land der Kundenadresse (ISO-Code)"
+    data_type: "nvarchar(10)"
+  - name: "debitor_nr"
+    description: "Debitor-Nummer in Abacus (Cross-Reference)"
+    data_type: "nvarchar(50)"
+  - name: "kunden_typ"
+    description: "Typ des Kunden (Privat/Geschäft/etc.)"
+    data_type: "nvarchar(50)"
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp im Quellsystem"
+    data_type: "datetime2(7)"
+  - name: "dss_is_current"
+    description: "Aktueller Datensatz-Flag (Y/N)"
+    data_type: "char(1)"
+    tests:
+    - accepted_values:
+        values: ['Y', 'N']
+  - name: "dss_end_date"
+    description: "Ablaufdatum des Datensatzes (NULL = aktuell)"
+    data_type: "datetime2(7)"
+
+- name: "sat_vertrag_optionen_ma__compax"
+  description: |
+    Multi-Active Satellite für Vertrags-Optionen aus dem Compax/RSN Mobile-System.
+    CDK (Composite Dependent Key): abo_option_name — jede Option ist ein separater Datensatz.
+    Gleichzeitig mehrere Optionen pro Vertrag möglich (Multi-Active Pattern).
+    KEINE SCD2-Historisierung — kein dss_is_current / dss_end_date.
+  columns:
+  - name: "hk_vertrag"
+    description: "Hash Key (FK to hub_vertrag)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "abo_option_name"
+    description: "CDK — Name der Abo-Option (z.B. 'Roaming', 'Voicemail')"
+    data_type: "nvarchar(255)"
+    tests:
+    - not_null
+  - name: "hd_vertrag_optionen_ma"
+    description: "Hash Diff für Change Detection der Option"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "ist_option"
+    description: "Kennzeichen ob Option aktiv (Y/N)"
+    data_type: "char(1)"
+  - name: "aktivierungs_datum"
+    description: "Datum der Option-Aktivierung"
+    data_type: "date"
+  - name: "kundigungs_datum"
+    description: "Datum der Option-Kündigung"
+    data_type: "date"
+  - name: "mlz_datum"
+    description: "Mindestlaufzeit-Datum der Option"
+    data_type: "date"
+  - name: "dss_load_date"
+    description: "Load timestamp (= Effectivity)"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: "sat_vertrag_eff__compax"
+  description: |
+    Effectivity Satellite für Verträge aus dem Compax/RSN Mobile-System.
+    Minimale Payload: is_active (CHAR(1)) — verfolgt den Aktivitätsstatus über Zeit.
+    SCD2-historisiert via dss_is_current / dss_end_date.
+    Wird in Mart-Modellen für Filterung aktiver Verträge verwendet.
+  columns:
+  - name: "hk_vertrag"
+    description: "Hash Key (FK to hub_vertrag)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hashdiff"
+    description: "Hash Diff für Change Detection (aliased from hd_vertrag_eff)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "is_active"
+    description: "Aktivitätsstatus des Vertrags (Y = aktiv, N = inaktiv)"
+    data_type: "char(1)"
+    tests:
+    - accepted_values:
+        values: ['Y', 'N']
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp im Quellsystem"
+    data_type: "datetime2(7)"
+  - name: "dss_is_current"
+    description: "Aktueller Datensatz-Flag (Y/N)"
+    data_type: "char(1)"
+    tests:
+    - accepted_values:
+        values: ['Y', 'N']
+  - name: "dss_end_date"
+    description: "Ablaufdatum des Datensatzes (NULL = aktuell)"
+    data_type: "datetime2(7)"
+
+- name: "link_vertrag_kunde"
+  description: |
+    Link zwischen hub_vertrag und hub_kunde.
+    Modelliert die N:1 Beziehung: Ein Vertrag gehört zu einem Kunden,
+    ein Kunde kann mehrere Verträge besitzen.
+    Source: rsn_mobile_services_main (rsn_compax).
+  columns:
+  - name: "hk_link_vertrag_kunde"
+    description: "Link Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_vertrag"
+    description: "FK to hub_vertrag"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_kunde"
+    description: "FK to hub_kunde"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null

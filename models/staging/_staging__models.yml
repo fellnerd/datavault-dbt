@@ -2622,6 +2622,296 @@ models:
         description: "Concatenated business key string"
         data_type: nvarchar(4000)
 
+  # ===== RSN Mobile (Compax RSN — Rii Seez Net) =====
+
+  - name: rsn_mobile_services_main
+    description: >
+      Staging view für RSN Mobile Stammdaten (Compax RSN Abos & Optionen).
+      Quelle: ext_rsn_mobile_services_main (Folder-Scan ewb/cdr/services/).
+      Erzeugt Hash Keys für 4 Hubs (vertrag, kunde, sim, msisdn), 3 Link-Keys und 3 Hashdiffs.
+      Record Source override: rsn_compax (ADF-Lieferung aktuell fehlerhaft).
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_rsn_mobile_services_main
+        business_keys:
+          - vertrags_nummer
+          - customer_id
+          - icc
+          - rufnummer
+    columns:
+      - name: hk_vertrag
+        description: "Hash Key → hub_vertrag (vertrag_id ← vertrags_nummer)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_kunde
+        description: "Hash Key → hub_kunde (kunde_id ← customer_id)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_sim
+        description: "Hash Key → hub_sim (icc)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_msisdn
+        description: "Hash Key → hub_msisdn (rufnummer)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_vertrag_kunde
+        description: "Link Hash Key — vertrag ↔ kunde"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_vertrag_sim
+        description: "Link Hash Key — vertrag ↔ sim"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_vertrag_msisdn
+        description: "Link Hash Key — vertrag ↔ msisdn"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_kunde
+        description: "Hash Diff → sat_kunde__compax (external_customer_id)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_vertrag_optionen_ma
+        description: "Hash Diff → sat_vertrag_optionen_ma__compax (aktivierungs_datum, ist_option, kundigungs_datum, mlz_datum)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_vertrag_eff
+        description: "Hash Diff → sat_vertrag_eff__compax (is_active = derived literal '1')"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: vertrag_id
+        description: "Derived alias von vertrags_nummer (BK für hub_vertrag)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: kunde_id
+        description: "Derived alias von customer_id (BK für hub_kunde)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: vertrags_nummer
+        description: "Quell-Business Key — Vertragsnummer"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: customer_id
+        description: "Compax Kunden-ID (BK für hub_kunde)"
+        data_type: nvarchar(4000)
+      - name: external_customer_id
+        description: "Externe Kunden-ID (Payload sat_kunde)"
+        data_type: nvarchar(4000)
+      - name: abo_option_name
+        description: "Abo- oder Options-Name"
+        data_type: nvarchar(4000)
+      - name: rufnummer
+        description: "Rufnummer (MSISDN — BK für hub_msisdn)"
+        data_type: nvarchar(4000)
+      - name: icc
+        description: "ICC-Nummer / SIM-Karte (BK für hub_sim)"
+        data_type: nvarchar(4000)
+      - name: aktivierungs_datum
+        description: "Aktivierungsdatum (als String, Payload)"
+        data_type: nvarchar(4000)
+      - name: kundigungs_datum
+        description: "Kündigungsdatum (als String, nullable, Payload)"
+        data_type: nvarchar(4000)
+      - name: mlz_datum
+        description: "MLZ-Datum (als String, nullable, Payload)"
+        data_type: nvarchar(4000)
+      - name: ist_option
+        description: "Flag '0'/'1' — ist Option (Payload)"
+        data_type: nvarchar(4000)
+      - name: is_active
+        description: "Derived Literal '1' — immer aktiv (Payload sat_vertrag_eff)"
+        data_type: nvarchar(1)
+      - name: dss_record_source
+        description: "Data source identifier (rsn_compax)"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+        data_type: datetime2(7)
+      - name: dss_business_key_vertrag
+        description: "Concatenated business key string — Vertrag"
+        data_type: nvarchar(4000)
+      - name: dss_business_key_kunde
+        description: "Concatenated business key string — Kunde"
+        data_type: nvarchar(4000)
+      - name: dss_business_key_sim
+        description: "Concatenated business key string — SIM"
+        data_type: nvarchar(4000)
+      - name: dss_business_key_msisdn
+        description: "Concatenated business key string — MSISDN"
+        data_type: nvarchar(4000)
+
+  - name: psa_rsn_mobile_cdr_main
+    description: >
+      PSA (Persistent Staging Area) für RSN Mobile CDR Events — gecachte Verbindungsdaten
+      (Call, Data, SMS) aus ADLS in einer lokalen SQL-Tabelle. Folder-Scan über ewb/cdr/udrs/.
+      Inkrementell per dss_source_file_name: bereits geladene Dateien werden übersprungen.
+      Vermeidet wiederholte teure PolyBase-Scans über alle UDR-Files.
+    config:
+      meta:
+        entity_type: psa
+        source_type: external_table
+        external_table: ext_rsn_mobile_cdr_main
+    columns:
+      - name: id
+        description: "CDR Event ID (BK)"
+        tests:
+          - not_null
+      - name: dss_source_file_name
+        description: "Quelldatei-Name (für inkrementelle Steuerung)"
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp"
+        tests:
+          - not_null
+      - name: contract_id
+        description: "Vertrags-ID (FK → hub_vertrag)"
+      - name: iccid
+        description: "ICC-ID der SIM-Karte (FK → hub_sim)"
+      - name: signaling_start
+        description: "Signalisierungsstart"
+      - name: connection_start
+        description: "Verbindungsstart"
+      - name: duration
+        description: "Dauer in Sekunden"
+      - name: call_type
+        description: "Anruftyp"
+      - name: service_type
+        description: "Service-Typ (Voice, Data, SMS)"
+      - name: price
+        description: "Preis"
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+
+  - name: rsn_mobile_cdr_main
+    description: >
+      Staging view für RSN Mobile CDR Events (Call Detail Records).
+      Quelle: psa_rsn_mobile_cdr_main (PSA-Tabelle, kein External Table direkt).
+      Hash Keys: hk_vertrag (contract_id), hk_sim (iccid), hk_link_cdr_event_tl (id, vertrag_id, icc).
+      Transaction Link Pattern — jede CDR-Zeile ist ein Event.
+    config:
+      meta:
+        entity_type: standard
+        source_type: psa_table
+        external_table: ext_rsn_mobile_cdr_main
+        business_keys:
+          - id
+    columns:
+      - name: hk_vertrag
+        description: "Hash Key → hub_vertrag (vertrag_id ← contract_id)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_sim
+        description: "Hash Key → hub_sim (icc ← iccid)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_cdr_event_tl
+        description: "Transaction Link Hash Key — CDR Event (id, vertrag_id, icc)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: vertrag_id
+        description: "Derived alias von contract_id (BK für hub_vertrag)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: icc
+        description: "Derived alias von iccid (BK für hub_sim)"
+        data_type: nvarchar(4000)
+      - name: id
+        description: "CDR Event ID (Business Key)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: contract_id
+        description: "Quell-Vertrags-ID"
+        data_type: nvarchar(4000)
+      - name: iccid
+        description: "Quell-ICC-ID der SIM-Karte"
+        data_type: nvarchar(4000)
+      - name: signaling_start
+        description: "Signalisierungsstart"
+        data_type: nvarchar(4000)
+      - name: connection_start
+        description: "Verbindungsstart"
+        data_type: nvarchar(4000)
+      - name: duration
+        description: "Dauer"
+        data_type: nvarchar(4000)
+      - name: imsi
+        description: "IMSI der SIM"
+        data_type: nvarchar(4000)
+      - name: a
+        description: "A-Nummer (anrufende Seite)"
+        data_type: nvarchar(4000)
+      - name: b
+        description: "B-Nummer (angerufene Seite)"
+        data_type: nvarchar(4000)
+      - name: call_type
+        description: "Anruftyp"
+        data_type: nvarchar(4000)
+      - name: record_type
+        description: "Record-Typ"
+        data_type: nvarchar(4000)
+      - name: service_type
+        description: "Service-Typ (Voice, Data, SMS)"
+        data_type: nvarchar(4000)
+      - name: bytes_in
+        description: "Datenvolumen eingehend"
+        data_type: nvarchar(4000)
+      - name: bytes_out
+        description: "Datenvolumen ausgehend"
+        data_type: nvarchar(4000)
+      - name: price
+        description: "Preis"
+        data_type: nvarchar(4000)
+      - name: tarif
+        description: "Tarif"
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: "Data source identifier (rsn_compax)"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+        data_type: datetime2(7)
+      - name: dss_business_key_vertrag
+        description: "Concatenated business key string — Vertrag"
+        data_type: nvarchar(4000)
+      - name: dss_business_key_sim
+        description: "Concatenated business key string — SIM"
+        data_type: nvarchar(4000)
+
   - name: ewb_sp_projektekategorien
     description: "Staging: Sharepoint ProjekteKategorien (Kategorie-Lookup). JSON→OPENJSON. 24 rows."
     config:

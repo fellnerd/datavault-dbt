@@ -1,0 +1,279 @@
+version: 2
+
+# ============================================================
+# Telecom Vault — Schema: vault_telecom
+# Domain: RSN Mobile / Compax CDR-Projekt
+# ============================================================
+# Hubs:       hub_sim, hub_msisdn
+# Links:      link_vertrag_sim, link_vertrag_msisdn, link_cdr_event_tl
+# Satellites: sat_cdr_event__compax
+# ============================================================
+
+models:
+
+- name: "hub_sim"
+  description: |
+    Hub für SIM-Karten-Entitäten aus dem RSN Mobile / Compax-System.
+    Business Key: icc (Integrated Circuit Card Identifier — eindeutige SIM-ID).
+    Telecom-spezifisches Objekt im Schema vault_telecom.
+  columns:
+  - name: "hk_sim"
+    description: "Hash Key (Primary Key) — SHA-Hash über icc"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "icc"
+    description: "Business Key — ICC-ID der SIM-Karte (Integrated Circuit Card Identifier)"
+    data_type: "nvarchar(255)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp — Ladezeitpunkt in den Vault"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — rsn_compax"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_business_key_sim"
+    description: "Concatenated business key (tenant||ccode||icc)"
+    data_type: "nvarchar(max)"
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp im Quellsystem"
+    data_type: "datetime2(7)"
+
+- name: "hub_msisdn"
+  description: |
+    Hub für Rufnummer/MSISDN-Entitäten aus dem RSN Mobile / Compax-System.
+    Business Key: rufnummer (MSISDN — Mobile Subscriber Integrated Services Digital Network Number).
+    Rufnummern können Verträgen zugewiesen und wieder entzogen werden.
+    Telecom-spezifisches Objekt im Schema vault_telecom.
+  columns:
+  - name: "hk_msisdn"
+    description: "Hash Key (Primary Key) — SHA-Hash über rufnummer"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "rufnummer"
+    description: "Business Key — Rufnummer / MSISDN (inkl. Ländervorwahl)"
+    data_type: "nvarchar(50)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp — Ladezeitpunkt in den Vault"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — rsn_compax"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+  - name: "dss_business_key_msisdn"
+    description: "Concatenated business key (tenant||ccode||rufnummer)"
+    data_type: "nvarchar(max)"
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp im Quellsystem"
+    data_type: "datetime2(7)"
+
+- name: "link_vertrag_sim"
+  description: |
+    Cross-Schema Link zwischen vault.hub_vertrag und vault_telecom.hub_sim.
+    Modelliert die Zuordnung einer SIM-Karte zu einem Mobilfunk-Vertrag.
+    Eine SIM kann im Lauf der Zeit verschiedenen Verträgen zugeordnet sein.
+    Source: rsn_mobile_services_main (rsn_compax).
+  columns:
+  - name: "hk_link_vertrag_sim"
+    description: "Link Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_vertrag"
+    description: "FK to vault.hub_vertrag"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_sim"
+    description: "FK to vault_telecom.hub_sim"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: "link_vertrag_msisdn"
+  description: |
+    Cross-Schema Link zwischen vault.hub_vertrag und vault_telecom.hub_msisdn.
+    Modelliert die Zuordnung einer Rufnummer zu einem Mobilfunk-Vertrag.
+    Rufnummern können wechseln (Portierung), daher als separater Link modelliert.
+    Source: rsn_mobile_services_main (rsn_compax).
+  columns:
+  - name: "hk_link_vertrag_msisdn"
+    description: "Link Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_vertrag"
+    description: "FK to vault.hub_vertrag"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_msisdn"
+    description: "FK to vault_telecom.hub_msisdn"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: "link_cdr_event_tl"
+  description: |
+    Transaction Link für CDR-Events (Call Detail Records).
+    Verbindet vault.hub_vertrag mit vault_telecom.hub_sim für jedes Gesprächs-/Datenereignis.
+    Als Transaction Link ist er nie-historisiert — jeder Record repräsentiert einen atomaren Fakt.
+    Die eigentlichen CDR-Attribute sind im Transaction Satellite sat_cdr_event__compax gespeichert.
+    Source: rsn_mobile_cdr_main (rsn_compax).
+  columns:
+  - name: "hk_link_cdr_event_tl"
+    description: "Transaction Link Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_vertrag"
+    description: "FK to vault.hub_vertrag"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_sim"
+    description: "FK to vault_telecom.hub_sim"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null
+
+- name: "sat_cdr_event__compax"
+  description: |
+    Transaction Satellite für CDR-Events am link_cdr_event_tl.
+    Enthält alle Attribute eines Call Detail Records (Gespräch, SMS, Daten).
+    Transaction Satellite Pattern:
+      - KEIN hashdiff (jeder CDR ist eine einzigartige Transaktion)
+      - KEINE dss_is_current / dss_end_date (nie-historisiert)
+      - Jeder Record wird genau einmal geladen, nie überschrieben
+    Source: rsn_mobile_cdr_main (rsn_compax).
+  columns:
+  - name: "hk_link_cdr_event_tl"
+    description: "Transaction Link Hash Key (FK to link_cdr_event_tl)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "id"
+    description: "CDR-ID aus dem Quellsystem (Compax)"
+    data_type: "nvarchar(255)"
+  - name: "signaling_start"
+    description: "Startzeitpunkt der Signalisierung (Rufaufbau)"
+    data_type: "datetime2(7)"
+  - name: "connection_start"
+    description: "Startzeitpunkt der Verbindung (Gesprächsbeginn)"
+    data_type: "datetime2(7)"
+  - name: "duration"
+    description: "Dauer der Verbindung in Sekunden"
+    data_type: "int"
+  - name: "a"
+    description: "A-Rufnummer (anrufende Partei)"
+    data_type: "nvarchar(50)"
+  - name: "b"
+    description: "B-Rufnummer (angerufene Partei)"
+    data_type: "nvarchar(50)"
+  - name: "pai"
+    description: "P-Asserted-Identity (SIP PAI Header)"
+    data_type: "nvarchar(100)"
+  - name: "imsi"
+    description: "IMSI — International Mobile Subscriber Identity"
+    data_type: "nvarchar(20)"
+  - name: "iccid"
+    description: "ICCID — Integrated Circuit Card Identifier der SIM"
+    data_type: "nvarchar(30)"
+  - name: "record_type"
+    description: "Typ des CDR-Records (MOC, MTC, SMS, Data, etc.)"
+    data_type: "nvarchar(50)"
+  - name: "service_type"
+    description: "Dienst-Typ (Voice, SMS, Data)"
+    data_type: "nvarchar(50)"
+  - name: "call_type"
+    description: "Anruf-Typ (national, international, roaming, etc.)"
+    data_type: "nvarchar(50)"
+  - name: "bytes_in"
+    description: "Empfangene Datenmenge in Bytes (für Datendienste)"
+    data_type: "bigint"
+  - name: "bytes_out"
+    description: "Gesendete Datenmenge in Bytes (für Datendienste)"
+    data_type: "bigint"
+  - name: "price"
+    description: "Verrecheneter Preis für das Ereignis (CHF)"
+    data_type: "decimal(18,4)"
+  - name: "ws_price"
+    description: "Wholesale-Preis / Einkaufspreis für das Ereignis (CHF)"
+    data_type: "decimal(18,4)"
+  - name: "tarif"
+    description: "Angewendeter Tarif für das Ereignis"
+    data_type: "nvarchar(100)"
+  - name: "r_mcc_mnc"
+    description: "Roaming MCC/MNC — Netzkennzahl des besuchten Netzes"
+    data_type: "nvarchar(10)"
+  - name: "result_code"
+    description: "Ergebnis-Code des Ereignisses (technisch)"
+    data_type: "nvarchar(20)"
+  - name: "result_status"
+    description: "Ergebnis-Status (success, failed, etc.)"
+    data_type: "nvarchar(50)"
+  - name: "privacy"
+    description: "Datenschutz-Kennzeichen (anonymisiert/nicht anonymisiert)"
+    data_type: "nvarchar(10)"
+  - name: "tap3"
+    description: "TAP3-Roaming-Record Referenz"
+    data_type: "nvarchar(100)"
+  - name: "data_packet"
+    description: "Datenpaket-Referenz / Rohdaten-Referenz"
+    data_type: "nvarchar(max)"
+  - name: "dss_load_date"
+    description: "Load timestamp (= Effectivity für Transaction Satellites)"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier"
+    data_type: "varchar(100)"
+    tests:
+    - not_null

@@ -1,7 +1,8 @@
 # CDR-Reporting Mobile — Implementierungsplan
 
 **Erstellt:** 22. April 2026  
-**Status:** 📋 PLAN (keine Umsetzung)  
+**Status:** 🚧 IN ARBEIT — Phase A ✅ abgeschlossen, Phase C + D in Umsetzung  
+**Letztes Update:** 5. Mai 2026  
 **Scope:** Mobile-Telefonie CDR-Daten von Compax (RSN — Rii Seez Net)  
 **Nicht im Scope:** Lambda Vault (Real-Time), Festnetz-CDR (später)
 
@@ -605,10 +606,12 @@ FROM mart.fakt_datenvolumen_v
 4. Validieren: SELECT auf neue Namen funktioniert
 
 ### Phase B — ADF Pipeline Anpassung
+> **⚠️ BLOCKER: Erfordert Azure-Zugang. dss_record_source Bug aktiv (liefert Timestamp statt 'rsn_compax').**  
+> Staging-Layer überschreibt `dss_record_source` mit `'rsn_compax'` (derived column) — temporärer Workaround aktiv.
+
 1. `Copy_CRD_Test` umbenennen auf `Copy_RSN_Mobile_Test` (oder separate Pipelines `Copy_RSN_Mobile_Services` + `Copy_RSN_Mobile_CDR`)
-2. `dss_record_source` auf `rsn_compax` umstellen
-3. Additional Columns prüfen (momentan liefert `dss_record_source` fälschlicherweise den Timestamp — Bug)
-4. Neue Testläufe triggern, Parquets validieren
+2. `dss_record_source` auf `rsn_compax` umstellen (Additional Columns Bug fixen)
+3. Neue Testläufe triggern, Parquets validieren
 
 ### Phase C — Staging
 1. `rsn_mobile_services_main.sql` (View auf External Table via `automate_dv.stage()`)
