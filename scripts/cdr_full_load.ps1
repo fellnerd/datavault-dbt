@@ -41,39 +41,22 @@ function Write-Log {
 }
 
 function Invoke-Dbt {
-    param([string]$Args, [string]$StepName)
+    param([string[]]$DbtArgs, [string]$StepName)
     Write-Log "START: $StepName"
-    Write-Log "CMD:   dbt $Args"
+    Write-Log "CMD:   dbt $($DbtArgs -join ' ')"
 
     $start = Get-Date
-    $proc  = Start-Process -FilePath "dbt" `
-                           -ArgumentList $Args `
-                           -WorkingDirectory $ProjectDir `
-                           -NoNewWindow -PassThru -Wait `
-                           -RedirectStandardOutput "$env:TEMP\dbt_stdout.txt" `
-                           -RedirectStandardError  "$env:TEMP\dbt_stderr.txt"
+    & dbt @DbtArgs 2>&1 | Tee-Object -FilePath $LogFile -Append
+    $exitCode = $LASTEXITCODE
+    $elapsed  = [int](New-TimeSpan -Start $start -End (Get-Date)).TotalSeconds
 
-    $elapsed = [int](New-TimeSpan -Start $start -End (Get-Date)).TotalSeconds
-
-    # Append stdout/stderr to log
-    if (Test-Path "$env:TEMP\dbt_stdout.txt") {
-        Get-Content "$env:TEMP\dbt_stdout.txt" | ForEach-Object { Add-Content -Path $LogFile -Value "  | $_" }
-    }
-    if (Test-Path "$env:TEMP\dbt_stderr.txt") {
-        $errContent = Get-Content "$env:TEMP\dbt_stderr.txt" -Raw
-        if ($errContent.Trim()) {
-            Add-Content -Path $LogFile -Value "  [STDERR] $errContent"
-        }
-    }
-
-    if ($proc.ExitCode -ne 0) {
-        Write-Log "FAILED: $StepName (exit $($proc.ExitCode), ${elapsed}s)" "ERROR"
+    if ($exitCode -ne 0) {
+        Write-Log "FAILED: $StepName (exit $exitCode, ${elapsed}s)" "ERROR"
         Write-Log "Log: $LogFile" "ERROR"
-        exit $proc.ExitCode
+        exit $exitCode
     }
 
     Write-Log "OK: $StepName (${elapsed}s)"
-    return $elapsed
 }
 
 # ── Activate venv ──────────────────────────────────────────────────────────
@@ -96,7 +79,7 @@ $totalStart = Get-Date
 # ── Step 1: External Table umstellen ───────────────────────────────────────
 if ($StepFrom -le 1) {
     Invoke-Dbt `
-        "run-operation stage_external_sources --vars `"ext_full_refresh: true`" --target $Target" `
+        @("run-operation", "stage_external_sources", "--vars", "ext_full_refresh: true", "--target", $Target) `
         "Step 1/3 — stage_external_sources (merged/)"
 } else {
     Write-Log "Step 1 übersprungen (StepFrom=$StepFrom)"
@@ -105,7 +88,7 @@ if ($StepFrom -le 1) {
 # ── Step 2: PSA Full-Refresh ───────────────────────────────────────────────
 if ($StepFrom -le 2) {
     Invoke-Dbt `
-        "run --select psa_rsn_mobile_cdr_main --full-refresh --target $Target" `
+        @("run", "--select", "psa_rsn_mobile_cdr_main", "--full-refresh", "--target", $Target) `
         "Step 2/3 — PSA Full-Refresh (psa_rsn_mobile_cdr_main)"
 } else {
     Write-Log "Step 2 übersprungen (StepFrom=$StepFrom)"
@@ -124,7 +107,7 @@ if ($StepFrom -le 3) {
     ) -join " "
 
     Invoke-Dbt `
-        "run --select $vaultModels --full-refresh --target $Target" `
+        (@("run", "--select") + $vaultModels.Split(" ") + @("--full-refresh", "--target", $Target)) `
         "Step 3/3 — Vault Full-Refresh (14 Modelle)"
 }
 
