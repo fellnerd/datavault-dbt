@@ -59,6 +59,14 @@ function Invoke-Dbt {
     Write-Log "OK: $StepName (${elapsed}s)"
 }
 
+function Invoke-RowCounts {
+    param([string]$Label)
+    Write-Log "--- Row Counts nach: $Label ---"
+    & dbt @("run-operation", "log_row_counts", "--target", $Target) 2>&1 |
+        Where-Object { $_ -match "Row Count|rows|not deployed|=====" } |
+        Tee-Object -FilePath $LogFile -Append
+}
+
 # ── Activate venv ──────────────────────────────────────────────────────────
 $venvActivate = Join-Path $ProjectDir ".venv\Scripts\Activate.ps1"
 if (Test-Path $venvActivate) {
@@ -81,6 +89,7 @@ if ($StepFrom -le 1) {
     Invoke-Dbt `
         @("run-operation", "stage_external_sources", "--vars", "ext_full_refresh: true", "--target", $Target) `
         "Step 1/3 — stage_external_sources (merged/)"
+    Invoke-RowCounts "Step 1 (External Tables)"
 } else {
     Write-Log "Step 1 übersprungen (StepFrom=$StepFrom)"
 }
@@ -90,6 +99,7 @@ if ($StepFrom -le 2) {
     Invoke-Dbt `
         @("run", "--select", "psa_rsn_mobile_cdr_main", "--full-refresh", "--target", $Target) `
         "Step 2/3 — PSA Full-Refresh (psa_rsn_mobile_cdr_main)"
+    Invoke-RowCounts "Step 2 (PSA)"
 } else {
     Write-Log "Step 2 übersprungen (StepFrom=$StepFrom)"
 }
@@ -109,6 +119,7 @@ if ($StepFrom -le 3) {
     Invoke-Dbt `
         (@("run", "--select") + $vaultModels.Split(" ") + @("--full-refresh", "--target", $Target)) `
         "Step 3/3 — Vault Full-Refresh (14 Modelle)"
+    Invoke-RowCounts "Step 3 (Vault)"
 }
 
 # ── Done ───────────────────────────────────────────────────────────────────
