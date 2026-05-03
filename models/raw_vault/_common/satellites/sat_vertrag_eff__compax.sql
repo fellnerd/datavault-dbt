@@ -1,52 +1,52 @@
 {#
     Effectivity Satellite: sat_vertrag_eff__compax
-    Parent Hub: hub_vertrag
+    Parent Link: link_vertrag_kunde
+    Driving FK (DFK): hk_vertrag
+    Secondary FK (SFK): hk_kunde
     Source: rsn_mobile_services_main
 
-    Payload:
-      is_active — Gibt an ob der Vertrag aktiv ist (CHAR(1): 'Y'/'N')
+    Verfolgt die fachliche Gültigkeit der Vertrag-Kunde-Beziehung über Zeit:
+      aktivierungs_datum → START_DATE  (Vertragsbeginn)
+      kundigungs_datum   → END_DATE    (Kündigungsdatum; 9999-12-31 = offen)
 
-    Effectivity Satellite Pattern: Verfolgt den Aktivitätsstatus eines
-    Vertrags über die Zeit. Minimale Payload, nur is_active Flag.
-    SCD2 Historisierung via update_satellite_end_date / update_is_current.
+    automate_dv.eff_sat() verwaltet Open/Close-Perioden automatisch:
+    - Neuer Record wenn DFK+SFK-Kombination erstmals auftaucht
+    - END_DATE wird geschlossen wenn DFK mit anderem SFK erscheint
 
     Developer: Daniel Fellner, MSc
     Company:   ppmc analytics ag
     Contact:   office@ppmcag.com
     Version:   2025-05-03 V1.0 Initialversion — EWB CDR-Projekt (RSN Mobile / Compax)
+               2025-05-03 V1.1 Korrektur: automate_dv.eff_sat() statt sat() — Link-basiert
 #}
 
 {{ config(
     materialized='incremental',
     as_columnstore=false,
-    post_hook=[
-        "{{ create_hash_index('hk_vertrag') }}",
-        "{{ update_satellite_end_date(this, 'hk_vertrag', 'dss_load_date') }}",
-        "{{ update_is_current(this, 'hk_vertrag', 'dss_load_date') }}"
-    ]
+    post_hook=["{{ create_hash_index('hk_link_vertrag_kunde') }}"]
 ) }}
 
 {%- set yaml_metadata -%}
 source_model: "rsn_mobile_services_main"
-src_pk: "hk_vertrag"
-src_hashdiff:
-  source_column: "hd_vertrag_eff"
-  alias: "HASHDIFF"
-src_payload:
-    - "is_active"
-src_extra_columns:
-    - "dss_create_datetime"
+src_pk: "hk_link_vertrag_kunde"
+src_dfk: "hk_vertrag"
+src_sfk: "hk_kunde"
+src_start_date: "aktivierungs_datum"
+src_end_date: "kundigungs_datum"
+src_eff: "dss_load_date"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
 
-{{ automate_dv.sat(
+{{ automate_dv.eff_sat(
     src_pk=metadata_dict["src_pk"],
-    src_hashdiff=metadata_dict["src_hashdiff"],
-    src_payload=metadata_dict["src_payload"],
-    src_extra_columns=metadata_dict["src_extra_columns"],
+    src_dfk=metadata_dict["src_dfk"],
+    src_sfk=metadata_dict["src_sfk"],
+    src_start_date=metadata_dict["src_start_date"],
+    src_end_date=metadata_dict["src_end_date"],
+    src_eff=metadata_dict["src_eff"],
     src_ldts=metadata_dict["src_ldts"],
     src_source=metadata_dict["src_source"],
     source_model=metadata_dict["source_model"]

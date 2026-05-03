@@ -1,0 +1,211 @@
+{
+  "concept": "_common",
+  "entityName": "kunde",
+  "sourceTable": "rsn_mobile_services_main",
+  "generatedObjects": ["hub", "satellite"],
+  "columns": [
+    {
+      "name": "kunde_id",
+      "sourceName": "kunde_id",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "vorname",
+      "sourceName": "vorname",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "nachname",
+      "sourceName": "nachname",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "geburtsdatum",
+      "sourceName": "geburtsdatum",
+      "dataType": "DATE",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "geschlecht",
+      "sourceName": "geschlecht",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "sprache",
+      "sourceName": "sprache",
+      "dataType": "NVARCHAR(10)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "email",
+      "sourceName": "email",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "telefon_privat",
+      "sourceName": "telefon_privat",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "telefon_mobile",
+      "sourceName": "telefon_mobile",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "strasse",
+      "sourceName": "strasse",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "plz",
+      "sourceName": "plz",
+      "dataType": "NVARCHAR(20)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "ort",
+      "sourceName": "ort",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "land",
+      "sourceName": "land",
+      "dataType": "NVARCHAR(10)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "debitor_nr",
+      "sourceName": "debitor_nr",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "kunden_typ",
+      "sourceName": "kunden_typ",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "dss_business_key_kunde",
+      "sourceName": "dss_business_key_kunde",
+      "dataType": "NVARCHAR(MAX)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "VARCHAR(100)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_create_datetime",
+      "sourceName": "dss_create_datetime",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "hk_kunde",
+      "sourceName": "hk_kunde",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hd_kunde",
+      "sourceName": "hd_kunde",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    }
+  ],
+  "savedAt": "2025-05-03T12:00:00.000Z",
+  "satellites": [
+    {
+      "id": "sat-1",
+      "name": "kunde"
+    }
+  ]
+}

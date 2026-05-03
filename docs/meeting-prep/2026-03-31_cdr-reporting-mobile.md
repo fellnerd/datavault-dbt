@@ -201,3 +201,19 @@ JOIN vault.hub_mobilvertrag v ON ...
 | `mlz_datum` | DATETIME | Mindestlaufzeit-Ende | Satellite |
 | `vertrags_nummer` | VARCHAR | Vertragsnummer → = `contract_id` in CDR | Business Key Hub Vertrag |
 | `ist_option` | BIT/INT | Ist Zusatzoption? (0/1) | Satellite, Filter |
+
+
+
+
+# Infos aus dem Termin
+innehalb der vertragslaufzeit kann die rufnummer gewechselt werdern
+Vertragnummer, Kundennummer bleibt gleich
+Rufnummer ist auf den Haupvertrag gebunden... wir gehen davon aus das eine 1 nummer 1 vertrag entspricht --> die doppelten einträge aktuell sind alte einträge, sollte aber in zukunft nicht mehr vorkommen
+datum bei Kündigungsdatun --> wann der Vertrag tatsächlich gekündigt wird
+1 Kunde kann mehere vertragsnummer haben, 1 vertrag nur 1 rufnummer --> vertragsnummer ist link zu den cdr
+iscm kann sich ändern, rufnummer kann kleich bleiben
+bytes in sollte immer leer sein, bites_in_out ist aus Kundensicht was er empfangen und gesendet hat
+r_mcc_mnc -> id in welchen land und welchen provider hat er ein verbindung hersgestellt (roaming)
+nachdem jeden tag neue files kommen, muss eine history vorhanden sein um nachzuvollziehen wann der kunde zb. gekündigt hat.
+zb kunde 71xxx kann in einem weiteren export nachdem er gekündigt hat nicht mehr vorkommen. Also Kündigungsdatum ist in der spalte eingetragen und in einen späteren export ist er nicht mehr in der liste
+Bei der Beladung muss auf die historisierung im initialload aufgepasst werden

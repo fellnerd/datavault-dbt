@@ -1,0 +1,21 @@
+{
+    "name": "cdr_udrs_parquet_sink",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "analyticsstoraccount001",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "Parquet",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "folderPath": "ewb/cdr/udrs",
+                "fileSystem": "stage-fs"
+            },
+            "compressionCodec": "snappy"
+        },
+        "schema": []
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}

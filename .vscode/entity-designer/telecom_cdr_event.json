@@ -1,0 +1,285 @@
+{
+  "concept": "telecom",
+  "entityName": "cdr_event",
+  "sourceTable": "rsn_mobile_cdr_main",
+  "generatedObjects": ["hub", "satellite", "links"],
+  "columns": [
+    {
+      "name": "hk_vertrag",
+      "sourceName": "hk_vertrag",
+      "dataType": "CHAR(64)",
+      "columnType": "link",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hk_sim",
+      "sourceName": "hk_sim",
+      "dataType": "CHAR(64)",
+      "columnType": "link",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "id",
+      "sourceName": "id",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "signaling_start",
+      "sourceName": "signaling_start",
+      "dataType": "DATETIME2(7)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "connection_start",
+      "sourceName": "connection_start",
+      "dataType": "DATETIME2(7)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "duration",
+      "sourceName": "duration",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "a",
+      "sourceName": "a",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "b",
+      "sourceName": "b",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "pai",
+      "sourceName": "pai",
+      "dataType": "NVARCHAR(100)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "imsi",
+      "sourceName": "imsi",
+      "dataType": "NVARCHAR(20)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "iccid",
+      "sourceName": "iccid",
+      "dataType": "NVARCHAR(30)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "record_type",
+      "sourceName": "record_type",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "service_type",
+      "sourceName": "service_type",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "call_type",
+      "sourceName": "call_type",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "bytes_in",
+      "sourceName": "bytes_in",
+      "dataType": "BIGINT",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "bytes_out",
+      "sourceName": "bytes_out",
+      "dataType": "BIGINT",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "price",
+      "sourceName": "price",
+      "dataType": "DECIMAL(18,4)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "ws_price",
+      "sourceName": "ws_price",
+      "dataType": "DECIMAL(18,4)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "tarif",
+      "sourceName": "tarif",
+      "dataType": "NVARCHAR(100)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "r_mcc_mnc",
+      "sourceName": "r_mcc_mnc",
+      "dataType": "NVARCHAR(10)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "result_code",
+      "sourceName": "result_code",
+      "dataType": "NVARCHAR(20)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "result_status",
+      "sourceName": "result_status",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "privacy",
+      "sourceName": "privacy",
+      "dataType": "NVARCHAR(10)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "tap3",
+      "sourceName": "tap3",
+      "dataType": "NVARCHAR(100)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "data_packet",
+      "sourceName": "data_packet",
+      "dataType": "NVARCHAR(MAX)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-1",
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "VARCHAR(100)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hk_link_cdr_event_tl",
+      "sourceName": "hk_link_cdr_event_tl",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    }
+  ],
+  "savedAt": "2025-05-03T12:00:00.000Z",
+  "satellites": [
+    {
+      "id": "sat-1",
+      "name": "cdr_event"
+    }
+  ]
+}

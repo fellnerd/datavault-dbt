@@ -1,0 +1,66 @@
+{
+  "concept": "telecom",
+  "entityName": "msisdn",
+  "sourceTable": "rsn_mobile_services_main",
+  "generatedObjects": ["hub"],
+  "columns": [
+    {
+      "name": "rufnummer",
+      "sourceName": "rufnummer",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_business_key_msisdn",
+      "sourceName": "dss_business_key_msisdn",
+      "dataType": "NVARCHAR(MAX)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "VARCHAR(100)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_create_datetime",
+      "sourceName": "dss_create_datetime",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "hk_msisdn",
+      "sourceName": "hk_msisdn",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hk_link_vertrag_msisdn",
+      "sourceName": "hk_link_vertrag_msisdn",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    }
+  ],
+  "savedAt": "2025-05-03T12:00:00.000Z",
+  "satellites": []
+}

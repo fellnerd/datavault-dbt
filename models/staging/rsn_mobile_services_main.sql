@@ -15,7 +15,7 @@
  *   hd_kunde               → sat_kunde__compax       (external_customer_id)
  *   hd_vertrag_optionen_ma → sat_vertrag_optionen_ma__compax (aktivierungs_datum, ist_option,
  *                            kundigungs_datum, mlz_datum)
- *   hd_vertrag_eff         → sat_vertrag_eff__compax  (is_active — derived literal '1')
+ *   hd_vertrag_eff         → (nicht mehr verwendet — eff_sat nutzt aktivierungs/kundigungs_datum direkt)
  *
  * Record Source override: rsn_compax (ADF-Lieferung aktuell fehlerhaft)
  *

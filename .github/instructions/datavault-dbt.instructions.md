@@ -10,7 +10,7 @@ Dieses Projekt implementiert eine virtualisierte Data Vault 2.1 Architektur als 
 ### Komponenten
 - **Source:** PostgreSQL (jira) → Synapse Pipeline → ADLS Gen2 Parquet
 - **Staging:** Azure SQL External Tables (PolyBase) → `[stg].[ext_*]`
-- **Transformation:** dbt Core auf Linux VM (10.0.0.25)
+- **Transformation:** dbt Core (lokal)
 - **Target:** Azure SQL Database (`sql-datavault-weu-001.database.windows.net`)
 
 ### Datenfluss

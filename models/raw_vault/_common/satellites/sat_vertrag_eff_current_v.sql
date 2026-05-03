@@ -1,17 +1,15 @@
 {#
     Current View: sat_vertrag_eff_current_v
-    Satellite: sat_vertrag_eff__compax
-    Hub: hub_vertrag
+    Effectivity Satellite: sat_vertrag_eff__compax
+    Link: link_vertrag_kunde
 
-    Canonical access layer für sat_vertrag_eff__compax.
-    Stellt dss_is_current und dss_end_date für Downstream-Konsumenten bereit.
-    SCD1: WHERE dss_is_current = 'Y' → aktueller Aktivitätsstatus des Vertrags
-    SCD2: Kein Filter (vollständige Historie der Statuswechsel)
+    Zeigt aktive Vertrag-Kunde-Beziehungen (END_DATE = 9999-12-31).
+    automate_dv.eff_sat() verwendet START_DATE / END_DATE (keine dss_is_current).
+    Aktiv = kundigungs_datum ist '9999-12-31' (kein Kündigungsdatum gesetzt).
 #}
 
 {{ config(materialized='view') }}
 
-{{ satellite_current_view(
-    satellite_model='sat_vertrag_eff__compax',
-    hashkey_column='hk_vertrag'
-) }}
+SELECT *
+FROM {{ ref('sat_vertrag_eff__compax') }}
+WHERE CAST(kundigungs_datum AS DATE) = '9999-12-31'

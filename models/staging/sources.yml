@@ -2144,7 +2144,7 @@
       - "name": "ext_rsn_mobile_cdr_main"
         "description": "RSN Mobile CDR (Usage Detail Records) — Compax RSN Verbindungsdaten (Call, Data, SMS). Folder-Scan über ewb/cdr/udrs/. BK: id"
         "external":
-          "location": "ewb/cdr/udrs/"
+          "location": "ewb/cdr/udrs/merged/"
           "file_format": "ParquetFormat"
           "data_source": "StageFileSystem"
         "columns":

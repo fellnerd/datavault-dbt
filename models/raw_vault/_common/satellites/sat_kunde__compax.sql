@@ -4,15 +4,16 @@
     Source: rsn_mobile_services_main
 
     Payload:
-      Identität:   vorname, nachname, geburtsdatum, geschlecht, sprache
-      Kontakt:     email, telefon_privat, telefon_mobile
-      Adresse:     strasse, plz, ort, land
-      Abacus:      debitor_nr, kunden_typ
+      Identität:   external_customer_id (Compax Kundennummer — einziges verfügbares Kunden-Attribut)
+
+    Hinweis: Die Compax RSN-Services-Lieferung enthält ausschliesslich external_customer_id
+    als Kunden-Attribut. Persönliche Daten (Name, Adresse etc.) sind nicht im Export enthalten.
 
     Developer: Daniel Fellner, MSc
     Company:   ppmc analytics ag
     Contact:   office@ppmcag.com
     Version:   2025-05-03 V1.0 Initialversion — EWB CDR-Projekt (RSN Mobile / Compax)
+               2025-05-03 V1.1 Payload auf external_customer_id reduziert (Compax-Quelldaten)
 #}
 
 {{ config(
@@ -20,8 +21,7 @@
     as_columnstore=false,
     post_hook=[
         "{{ create_hash_index('hk_kunde') }}",
-        "{{ update_satellite_end_date(this, 'hk_kunde', 'dss_load_date') }}",
-        "{{ update_is_current(this, 'hk_kunde', 'dss_load_date') }}"
+        "{{ update_satellite_current_flag(this, 'hk_kunde') }}"
     ]
 ) }}
 
@@ -32,20 +32,7 @@ src_hashdiff:
   source_column: "hd_kunde"
   alias: "HASHDIFF"
 src_payload:
-    - "vorname"
-    - "nachname"
-    - "geburtsdatum"
-    - "geschlecht"
-    - "sprache"
-    - "email"
-    - "telefon_privat"
-    - "telefon_mobile"
-    - "strasse"
-    - "plz"
-    - "ort"
-    - "land"
-    - "debitor_nr"
-    - "kunden_typ"
+    - "external_customer_id"
 src_extra_columns:
     - "dss_create_datetime"
 src_ldts: "dss_load_date"

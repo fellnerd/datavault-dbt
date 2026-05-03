@@ -1,0 +1,23 @@
+{
+    "now": "2026-05-03T13:57:16.379Z",
+    "perfNow": 16563.300000190735,
+    "diagnosticCorrelation": "b1d48abf-bd40-43a7-80cb-b44f19f438fc",
+    "source": "DownloadSupportFiles",
+    "environment": {
+        "productName": "adf",
+        "buildVersion": "1.0.042426.8",
+        "environmentType": 3,
+        "resourceName": "analytics-datafactory001",
+        "resourceRegion": "switzerlandnorth",
+        "resourceGroup": "arg-analytics-ewb-01",
+        "subscriptionId": "68defcb4-5f61-4456-90f5-ff6bb0305183",
+        "sessionId": "4W7aeMqwLmYeZg4bo/ntIq",
+        "operationId": "",
+        "gitType": "live",
+        "loggingKey": "b25d0eac-6638-4ef9-876f-0f0a9406195c"
+    },
+    "additionalInfo": {
+        "selectedResource": "Copy_CDR_Data",
+        "selectedResourceType": "pipeline"
+    }
+}

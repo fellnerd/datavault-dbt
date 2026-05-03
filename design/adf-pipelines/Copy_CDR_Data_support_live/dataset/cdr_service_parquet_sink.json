@@ -1,0 +1,62 @@
+{
+    "name": "cdr_service_parquet_sink",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "analyticsstoraccount001",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "Parquet",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "folderPath": "ewb/cdr/services",
+                "fileSystem": "stage-fs"
+            },
+            "compressionCodec": "snappy"
+        },
+        "schema": [
+            {
+                "name": "customer_id",
+                "type": "INT32"
+            },
+            {
+                "name": "external_customer_id",
+                "type": "UTF8"
+            },
+            {
+                "name": "abo_option_name",
+                "type": "UTF8"
+            },
+            {
+                "name": "rufnummer",
+                "type": "UTF8"
+            },
+            {
+                "name": "icc",
+                "type": "UTF8"
+            },
+            {
+                "name": "aktivierungs_datum",
+                "type": "UTF8"
+            },
+            {
+                "name": "kundigungs_datum",
+                "type": "UTF8"
+            },
+            {
+                "name": "mlz_datum",
+                "type": "UTF8"
+            },
+            {
+                "name": "vertrags_nummer",
+                "type": "UTF8"
+            },
+            {
+                "name": "ist_option",
+                "type": "UTF8"
+            }
+        ]
+    },
+    "type": "Microsoft.DataFactory/factories/datasets"
+}

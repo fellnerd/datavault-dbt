@@ -1,0 +1,21 @@
+{
+    "name": "SFTP_MVNO_CDRs",
+    "type": "Microsoft.DataFactory/factories/linkedservices",
+    "properties": {
+        "annotations": [],
+        "type": "Sftp",
+        "typeProperties": {
+            "host": "10.40.101.10",
+            "port": 22,
+            "skipHostKeyValidation": false,
+            "hostKeyFingerprint": "ssh-ed25519 32 5a:f1:da:25:0d:19:68:53:27:3a:b3:0b:ed:bb:3e:47",
+            "authenticationType": "Basic",
+            "userName": "ppmc_ewb",
+            "encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiJlNzcyY2I1Mi04N2RlLTQyYmQtOWFhYy1kMDQ5ZDE3ZTZiYjciLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+        },
+        "connectVia": {
+            "referenceName": "integrationruntime001",
+            "type": "IntegrationRuntimeReference"
+        }
+    }
+}

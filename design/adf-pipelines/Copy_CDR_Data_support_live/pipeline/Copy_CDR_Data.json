@@ -1,0 +1,780 @@
+{
+    "name": "Copy_CDR_Data",
+    "properties": {
+        "activities": [
+            {
+                "name": "Copy_Services",
+                "type": "Copy",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [
+                    {
+                        "name": "Source",
+                        "value": "/services/"
+                    },
+                    {
+                        "name": "Destination",
+                        "value": "load-fs/ewb/cdr/services/"
+                    }
+                ],
+                "typeProperties": {
+                    "source": {
+                        "type": "DelimitedTextSource",
+                        "additionalColumns": [
+                            {
+                                "name": "dss_record_source",
+                                "value": "ewb/cdr/services"
+                            },
+                            {
+                                "name": "dss_load_date",
+                                "value": {
+                                    "value": "@pipeline().TriggerTime",
+                                    "type": "Expression"
+                                }
+                            },
+                            {
+                                "name": "dss_run_id",
+                                "value": {
+                                    "value": "@pipeline().RunId",
+                                    "type": "Expression"
+                                }
+                            },
+                            {
+                                "name": "dss_stage_timestamp",
+                                "value": {
+                                    "value": "@pipeline().TriggerTime",
+                                    "type": "Expression"
+                                }
+                            },
+                            {
+                                "name": "dss_source_file_name",
+                                "value": "$$FILENAME"
+                            }
+                        ],
+                        "storeSettings": {
+                            "type": "SftpReadSettings",
+                            "recursive": true,
+                            "wildcardFileName": "*",
+                            "enablePartitionDiscovery": false,
+                            "disableChunking": false
+                        },
+                        "formatSettings": {
+                            "type": "DelimitedTextReadSettings",
+                            "skipLineCount": 0
+                        }
+                    },
+                    "sink": {
+                        "type": "ParquetSink",
+                        "storeSettings": {
+                            "type": "AzureBlobFSWriteSettings",
+                            "copyBehavior": "PreserveHierarchy"
+                        },
+                        "formatSettings": {
+                            "type": "ParquetWriteSettings"
+                        }
+                    },
+                    "enableStaging": false,
+                    "translator": {
+                        "type": "TabularTranslator",
+                        "mappings": [
+                            {
+                                "source": {
+                                    "name": "customer_id",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "customer_id",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "external_customer_id",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "external_customer_id",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "abo_option_name",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "abo_option_name",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "rufnummer",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "rufnummer",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "icc",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "icc",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "aktivierungs_datum",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "aktivierungs_datum",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "kundigungs_datum",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "kundigungs_datum",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "mlz_datum",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "mlz_datum",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "vertrags_nummer",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "vertrags_nummer",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "ist_option",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "ist_option",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_record_source",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_record_source",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_load_date",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_load_date",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_run_id",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_run_id",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_stage_timestamp",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_stage_timestamp",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_source_file_name",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_source_file_name",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            }
+                        ],
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                            "allowDataTruncation": true,
+                            "treatBooleanAsNumber": false
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "SourceDataset_i5e",
+                        "type": "DatasetReference"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "cdr_service_parquet_sink",
+                        "type": "DatasetReference"
+                    }
+                ]
+            },
+            {
+                "name": "Copy_UDRS",
+                "type": "Copy",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [
+                    {
+                        "name": "Source",
+                        "value": "/services/"
+                    },
+                    {
+                        "name": "Destination",
+                        "value": "load-fs/ewb/cdr/services/"
+                    }
+                ],
+                "typeProperties": {
+                    "source": {
+                        "type": "DelimitedTextSource",
+                        "additionalColumns": [
+                            {
+                                "name": "dss_record_source",
+                                "value": "ewb/cdr/udrs"
+                            },
+                            {
+                                "name": "dss_load_date",
+                                "value": {
+                                    "value": "@pipeline().TriggerTime",
+                                    "type": "Expression"
+                                }
+                            },
+                            {
+                                "name": "dss_run_id",
+                                "value": {
+                                    "value": "@pipeline().RunId",
+                                    "type": "Expression"
+                                }
+                            },
+                            {
+                                "name": "dss_stage_timestamp",
+                                "value": {
+                                    "value": "@pipeline().TriggerTime",
+                                    "type": "Expression"
+                                }
+                            },
+                            {
+                                "name": "dss_source_file_name",
+                                "value": "$$FILENAME"
+                            }
+                        ],
+                        "storeSettings": {
+                            "type": "SftpReadSettings",
+                            "recursive": true,
+                            "wildcardFileName": "*",
+                            "enablePartitionDiscovery": false,
+                            "disableChunking": false
+                        },
+                        "formatSettings": {
+                            "type": "DelimitedTextReadSettings",
+                            "skipLineCount": 0
+                        }
+                    },
+                    "sink": {
+                        "type": "ParquetSink",
+                        "storeSettings": {
+                            "type": "AzureBlobFSWriteSettings",
+                            "copyBehavior": "PreserveHierarchy"
+                        },
+                        "formatSettings": {
+                            "type": "ParquetWriteSettings"
+                        }
+                    },
+                    "enableStaging": false,
+                    "translator": {
+                        "type": "TabularTranslator",
+                        "mappings": [
+                            {
+                                "source": {
+                                    "name": "id",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "id",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "contract_id",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "contract_id",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "signaling_start",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "signaling_start",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "connection_start",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "connection_start",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "duration",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "duration",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "imsi",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "imsi",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "iccid",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "iccid",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "a",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "a",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "pai",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "pai",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "b",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "b",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "privacy",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "privacy",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "display_name",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "display_name",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "diversion_reason",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "diversion_reason",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "p_chrg_v",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "p_chrg_v",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "p_ch_o",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "p_ch_o",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "result_code",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "result_code",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "result_status",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "result_status",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "call_type",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "call_type",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "record_type",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "record_type",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "service_type",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "service_type",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "bytes_in",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "bytes_in",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "bytes_out",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "bytes_out",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "data_packet",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "data_packet",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "r_mcc_mnc",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "r_mcc_mnc",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "price",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "price",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "ws_price",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "ws_price",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "tarif",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "tarif",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "tap3",
+                                    "type": "String",
+                                    "physicalType": "String"
+                                },
+                                "sink": {
+                                    "name": "tap3",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_record_source",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_record_source",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_load_date",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_load_date",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_run_id",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_run_id",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_stage_timestamp",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_stage_timestamp",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            },
+                            {
+                                "source": {
+                                    "name": "dss_source_file_name",
+                                    "type": "String"
+                                },
+                                "sink": {
+                                    "name": "dss_source_file_name",
+                                    "type": "String",
+                                    "physicalType": "UTF8"
+                                }
+                            }
+                        ],
+                        "typeConversion": true,
+                        "typeConversionSettings": {
+                            "allowDataTruncation": true,
+                            "treatBooleanAsNumber": false
+                        }
+                    }
+                },
+                "inputs": [
+                    {
+                        "referenceName": "Source_udrs_csv",
+                        "type": "DatasetReference"
+                    }
+                ],
+                "outputs": [
+                    {
+                        "referenceName": "cdr_udrs_parquet_sink",
+                        "type": "DatasetReference"
+                    }
+                ]
+            }
+        ],
+        "annotations": [],
+        "lastPublishTime": "2026-04-22T20:42:48Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

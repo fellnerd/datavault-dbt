@@ -1,0 +1,191 @@
+{
+  "concept": "_common",
+  "entityName": "vertrag",
+  "sourceTable": "rsn_mobile_services_main",
+  "generatedObjects": ["hub", "satellite", "links"],
+  "columns": [
+    {
+      "name": "vertrag_id",
+      "sourceName": "vertrag_id",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "kunde_id",
+      "sourceName": "kunde_id",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "link",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "icc",
+      "sourceName": "icc",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "link",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "rufnummer",
+      "sourceName": "rufnummer",
+      "dataType": "NVARCHAR(50)",
+      "columnType": "link",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "is_active",
+      "sourceName": "is_active",
+      "dataType": "CHAR(1)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-eff",
+      "nullable": false
+    },
+    {
+      "name": "abo_option_name",
+      "sourceName": "abo_option_name",
+      "dataType": "NVARCHAR(255)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-optionen-ma",
+      "nullable": false
+    },
+    {
+      "name": "ist_option",
+      "sourceName": "ist_option",
+      "dataType": "CHAR(1)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-optionen-ma",
+      "nullable": true
+    },
+    {
+      "name": "aktivierungs_datum",
+      "sourceName": "aktivierungs_datum",
+      "dataType": "DATE",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-optionen-ma",
+      "nullable": true
+    },
+    {
+      "name": "kundigungs_datum",
+      "sourceName": "kundigungs_datum",
+      "dataType": "DATE",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-optionen-ma",
+      "nullable": true
+    },
+    {
+      "name": "mlz_datum",
+      "sourceName": "mlz_datum",
+      "dataType": "DATE",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-optionen-ma",
+      "nullable": true
+    },
+    {
+      "name": "dss_business_key_vertrag",
+      "sourceName": "dss_business_key_vertrag",
+      "dataType": "NVARCHAR(MAX)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "VARCHAR(100)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "dss_create_datetime",
+      "sourceName": "dss_create_datetime",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "hk_vertrag",
+      "sourceName": "hk_vertrag",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hd_vertrag_eff",
+      "sourceName": "hd_vertrag_eff",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hd_vertrag_optionen_ma",
+      "sourceName": "hd_vertrag_optionen_ma",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hk_link_vertrag_kunde",
+      "sourceName": "hk_link_vertrag_kunde",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hk_link_vertrag_sim",
+      "sourceName": "hk_link_vertrag_sim",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hk_link_vertrag_msisdn",
+      "sourceName": "hk_link_vertrag_msisdn",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    }
+  ],
+  "savedAt": "2025-05-03T12:00:00.000Z",
+  "satellites": [
+    {
+      "id": "sat-eff",
+      "name": "vertrag_eff"
+    },
+    {
+      "id": "sat-optionen-ma",
+      "name": "vertrag_optionen_ma"
+    }
+  ]
+}
