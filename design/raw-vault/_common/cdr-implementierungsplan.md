@@ -151,7 +151,7 @@ Aktuelle Konvention: `<concept>_<modul>_<tabelle>_<suffix>` (z.B. `ewb_fibu_fhe_
 
 ---
 
-### 4.1 hub_msisdn — Entscheid: **Hub erforderlich** (datenbasiert)
+### 4.1 hub_msisdn — Entscheid: **Hub erforderlich** (Begründung aktualisiert 2026-05-03)
 
 **Datenanalyse auf `stg.ext_rsn_mobile_services_main` (datavault-dev, 2026-04-26):**
 
@@ -161,23 +161,27 @@ Aktuelle Konvention: `<concept>_<modul>_<tabelle>_<suffix>` (z.B. `ewb_fibu_fhe_
 | Distinct `vertrags_nummer` | 5'879 | |
 | Distinct `rufnummer` (non-null) | 5'930 | Mehr Rufnummern als Verträge |
 | Ratio rufnummer / vertrag | **1.0087** | Nicht 1:1 |
-| Verträge mit > 1 Rufnummer | **83 (1.4%)** | SIM-Wechsel / Multi-SIM |
+| Verträge mit > 1 Rufnummer | **83 (1.4%)** | SIM-Wechsel in der Historie |
 | Max. Rufnummern pro Vertrag | **5** | z.B. Vertrag `300203001` |
-| Rufnummern auf > 1 Vertrag | **33 (0.6%)** | ⚠️ Echter M:N im selben Snapshot |
-| Max. Verträge pro Rufnummer | **4** | z.B. `+41772611708` → 4 Verträge gleichzeitig |
+| Rufnummern auf > 1 Vertrag | **33 (0.6%)** | Legacy-/Schmutz-Daten (s. u.) |
+| Max. Verträge pro Rufnummer | **4** | z.B. `+41772611708` → 4 Verträge |
 | NULL-Quote | **0.62%** | Akzeptabel |
 
-**Kritischer Befund — M:N im selben Snapshot:**  
-33 Rufnummern erscheinen auf > 1 Vertrag mit identischem `dss_load_date`. Beispiel `+41772611708` auf 4 Verträgen gleichzeitig. Diese M:N-Beziehung ist **inhärent im Quellsystem**, nicht durch historische Ladungen entstanden.
+**Aktualisierte Einordnung (Meeting 2026-05-03):**  
+EWB/RSN hat bestätigt: Geschäftsregel ist **1 Vertrag = 1 Rufnummer**. Die 33 Rufnummern auf mehreren Verträgen im Snapshot sind **Legacy-/Schmutz-Daten** aus alten Migrationen — kein echter M:N. In Zukunft wird dieser Zustand nicht mehr eintreten.
 
-**Entscheid: `hub_msisdn` wird implementiert** (Schema: `vault_telecom`)
+**Entscheid: `hub_msisdn` wird trotzdem implementiert** (Schema: `vault_telecom`)
 
-- `rufnummer` ist eine eigenständige Business-Entität (MSISDN / E.164-Format)
-- M:N zwischen Vertrag und Rufnummer bestätigt → `link_vertrag_msisdn` notwendig
-- `rufnummer` wird **nicht** als Payload in `sat_vertrag_optionen_ma__compax` aufgenommen
+Begründung (auf Basis Meeting-Erkenntnisse):
+
+1. **ICC ändert sich, Rufnummer bleibt:** Wenn ein SIM-Tausch erfolgt (`icc` / ICCID ändert sich), bleibt die Rufnummer (MSISDN) für den Kunden unverändert. Die Rufnummer ist die **öffentliche, stabile Identität** — der Hub ist das Anker-Objekt für diese Identität.
+2. **Navigationspfad:** Support-Use-Case "Rufnummer 079… ruft an — welcher Kunde?" erfordert Navigation Rufnummer → Vertrag → Kunde. Ohne Hub ist dieser Pfad nicht zuverlässig abbildbar.
+3. **Kardinalität über Zeit:** Obwohl aktuell 1:1, kann eine Rufnummer historisch auf mehreren Verträgen gewesen sein (Nummer-Portierung, SIM-Tausch, Altdaten). Der Link `link_vertrag_msisdn` speichert diese Zeitreihe korrekt.
+
+`rufnummer` wird **nicht** als Payload in `sat_vertrag_optionen_ma__compax` aufgenommen (eigener Hub + Link).
 
 **Wo bleibt `rufnummer` in den Staging-Daten?**  
-Die Services-Datei liefert `rufnummer` als Spalte pro Zeile (= pro Vertrag × Abo-Option). Im Staging wird `rufnummer` für Hash-Key `hk_msisdn` verwendet. Der Link `link_vertrag_msisdn` wird aus Services geladen.
+Die Services-Datei liefert `rufnummer` pro Zeile (= pro Vertrag × Abo-Option). Im Staging wird `rufnummer` für Hash-Key `hk_msisdn` verwendet. Der Link `link_vertrag_msisdn` wird aus Services geladen (nur Zeilen mit `ist_option = '0'`, da Rufnummer nur am Haupt-Abo hängt).
 
 ---
 
@@ -208,6 +212,57 @@ Volumen klein (650k) → kein PSA nötig, direkt View auf External Table.
 ### 4.3 Kein Lambda Vault (vorerst)
 
 Laut User-Vorgabe: Lambda Vault erst im nächsten Schritt. Die 10-Minuten-Lieferung der UDRs wird vorerst als Batch behandelt — dbt-Lauf im definierten Intervall (z.B. stündlich oder täglich).
+
+### 4.4 bytes_in ist immer leer — nur bytes_out ist Kernmetrik (Meeting 2026-05-03)
+
+**Bestätigung aus Meeting:** `bytes_in` ist aus Systemgründen immer leer. `bytes_out` repräsentiert das **Datenvolumen aus Kundensicht** (was der Kunde gesendet und empfangen hat). 
+
+**Konsequenz für Modell und Mart:**
+- `bytes_in` bleibt im Payload von `sat_cdr_event__compax` (Raw-Daten vollständig halten), wird aber als "immer leer" dokumentiert
+- **Mart-Metrik** (Abschnitt 6.3): Korrektur — statt `bytes_in + bytes_out` gilt: `bytes_out` allein ist das massgebliche Datenvolumen
+- Hashdiff-Einfluss: keiner (Transaction Satellite = non-historized, kein hashdiff)
+
+### 4.5 Delete-Erkennung bei Services — Effectivity Satellite (Meeting 2026-05-03)
+
+**Anforderung:** Das tägliche Services-File ist ein **Vollabzug der aktiven Verträge**. Wenn ein Kunde kündigt, verschwindet er aus dem nächsten Export — er kommt nicht mehr vor. Die `dss_is_current = 'Y'` im Satellite würde fälschlicherweise bestehen bleiben.
+
+**Beispiel:**
+```
+2026-05-01: Export enthält Vertrag 300201001 (aktiv, kündigungs_datum = 9999-12-31)
+            → sat_vertrag_optionen_ma__compax: dss_is_current = 'Y'
+2026-05-05: Kündigung → kündigungs_datum = 2026-05-04 eingetragen
+            → sat_vertrag_optionen_ma__compax: neue Version, dss_is_current = 'Y'
+2026-05-10: Vertrag nicht mehr im Export (verschwunden)
+            → KEIN neuer Satellite-Record → dss_is_current bleibt 'Y' ← FALSCH
+```
+
+**DV2.1-Lösung: Effectivity Satellite** `sat_vertrag_eff__compax`  
+Nach jedem Lauf: Hub-Keys des heutigen Exports mit Hub-Keys des Satellite-Bestands vergleichen → für fehlende Keys einen Tombstone-Record schreiben.
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| `hk_vertrag` | CHAR(64) | FK → hub_vertrag |
+| `dss_load_date` | DATETIME2 | Ladezeitpunkt |
+| `is_active` | CHAR(1) | 'Y' = im heutigen Export vorhanden, 'N' = verschwunden (Tombstone) |
+| `dss_record_source` | NVARCHAR | |
+
+**Priorität:** Phase D (gemeinsam mit anderen Satellites), **vor** Mart-Implementierung.
+
+> **Hinweis:** Das `kündigungs_datum` im MA-Satellite deckt die *angekündigte* Kündigung. Der Effectivity Satellite deckt das *tatsächliche Verschwinden* aus dem Quellsystem — beide Informationen sind wertvoll.
+
+### 4.6 Initial Load Historisierung (Meeting 2026-05-03)
+
+**Anforderung:** "Bei der Beladung muss auf die Historisierung im Initialload aufgepasst werden."
+
+Das Services-File enthält beim Erstladen bereits historische Einträge:
+- Aktive Verträge (kündigungs_datum = 9999-12-31)
+- Bereits gekündigte Verträge mit gesetztem kündigungs_datum (rückwärtige Historie)
+
+**Ladeprinzip:**
+1. **Alle Einträge laden** (inkl. bereits gekündigter) — Raw Vault behält immer alle Rohdaten
+2. `kündigungs_datum` im Payload steuert die fachliche "Ist aktiv"-Logik im Mart
+3. Effectivity Satellite: beim Erstlauf gibt es keine "Vergangenheit" → kein Tombstone-Record beim Initial Load, erst ab dem zweiten Lauf wird verglichen
+4. **Sentinel-Wert 9999-12-31** bei kündigungs_datum = offenes Vertragsende → im Mart als `NULL` oder `CAST(NULL AS DATE)` behandeln
 
 ---
 
@@ -432,7 +487,7 @@ CDR-Events sind **unveränderliche Fakten** — keine Hash Diff, kein SCD2. Einm
 | `dss_record_source` | NVARCHAR | | |
 
 > ⚠️ **Kein Hash Diff** — Events ändern sich nie (Non-Historized). Kein `dss_is_current` / `dss_end_date`.  
-> **Mart-Metriken:** `bytes_in`, `bytes_out` → GB-Volumen; `duration` → Gesprächsminuten; `price` / `ws_price` → Erlös/Kosten-Vergleich
+> **Mart-Metriken:** ~~`bytes_in`~~ (immer leer), `bytes_out` → GB-Volumen (Kundenperspektive); `duration` → Gesprächsminuten; `price` / `ws_price` → Erlös/Kosten-Vergleich
 
 ---
 
@@ -499,7 +554,7 @@ rsn_mobile_cdr_main (PSA, 1 Zeile = 1 CDR-Event)
 
 | Fakt | Quelle | Grain | Kernmetriken |
 |------|--------|-------|-------------|
-| `fakt_cdr_v` | sat_cdr_event__compax | 1 Zeile = 1 CDR-Event | bytes_in, bytes_out, duration, price, ws_price |
+| `fakt_cdr_v` | sat_cdr_event__compax | 1 Zeile = 1 CDR-Event | ~~bytes_in~~ (leer), **bytes_out**, duration, price, ws_price |
 | `fakt_datenvolumen_v` (aggregiert) | fakt_cdr_v | Vertrag × Tag | gb_total, gb_national, gb_roaming |
 | `fakt_anrufe_v` (aggregiert) | fakt_cdr_v | Vertrag × Tag | count_mo, count_mt, duration_total |
 
@@ -511,7 +566,7 @@ Aus Meeting-Prep:
 SELECT
     k.customer_id,
     s.abo_option_name,
-    SUM(c.bytes_in + c.bytes_out) / 1024.0/1024.0/1024.0 AS total_gb,
+    SUM(c.bytes_out) / 1024.0/1024.0/1024.0 AS total_gb,  -- bytes_in ist immer leer
     CASE WHEN total_gb > 10 THEN 'Flat lohnt sich' ELSE 'Daten-Tarif' END AS empfehlung
 FROM mart.fakt_datenvolumen_v
 ...
@@ -525,8 +580,9 @@ FROM mart.fakt_datenvolumen_v
 - [ ] **customer_id ↔ Abacus:** Ist `external_customer_id` identisch mit Abacus-Kundennummer (PUBL.ADR.ADRESSNR)? → ermöglicht Integration mit `hub_person`
 - [ ] **Tarif-Schwellwerte:** Ab welchem GB-Wert welche Empfehlung? (für Mart-Logik)
 - [ ] **Auswertungszeitraum:** Monat / Abrechnungsperiode / rollierend 30 Tage?
-- [ ] **bytes_in / bytes_out Richtung:** Aus Kundensicht oder Netzwerksicht?
-- [ ] **Rufnummer-Portabilität:** Wird MSISDN-Wechsel in services abgebildet? (bei JA → hub_msisdn Pflicht, sonst Payload)
+- [x] **bytes_in / bytes_out Richtung:** ~~Aus Kundensicht oder Netzwerksicht?~~ → **Beantwortet (2026-05-03):** `bytes_in` ist immer leer. `bytes_out` = Datenvolumen aus Kundensicht (gesendet + empfangen). Nur `bytes_out` als Mart-Metrik verwenden.
+- [x] **Rufnummer-Portabilität / M:N:** ~~Wird MSISDN-Wechsel in services abgebildet?~~ → **Beantwortet (2026-05-03):** 1 Vertrag = 1 Rufnummer (Geschäftsregel). M:N-Befund in Daten sind Legacy-Altdaten. hub_msisdn bleibt dennoch (ICCID ändert sich, Rufnummer bleibt = stabiler Anker; Navigationspfad Rufnummer → Vertrag → Kunde). Siehe Abschnitt 4.1.
+- [x] **Delete-Erkennung:** → **Beantwortet (2026-05-03):** Effectivity Satellite `sat_vertrag_eff__compax` erforderlich. Kunden verschwinden nach Kündigung aus dem Export. Siehe Abschnitt 4.5.
 
 ### Technisch
 - [ ] **ADLS-Folder umbenennen** (`ewb/cdr/*` → `rsn/mobile/*`)? Jetzt oder später?
@@ -564,13 +620,14 @@ FROM mart.fakt_datenvolumen_v
 
 ### Phase D — Raw Vault
 1. Hubs: `hub_vertrag`, `hub_kunde`, `hub_sim`, `hub_msisdn`
-2. Reguläre Satellites: `sat_kunde__compax`, `sat_sim__compax`
+2. Reguläre Satellites: `sat_kunde__compax`
 3. MA-Satellite: `sat_vertrag_optionen_ma__compax`
-4. Links: `link_vertrag_kunde_sim_msisdn`, `link_cdr_event_tl`
-5. Non-historized Transaction Satellite: `sat_cdr_event__compax`
-6. Current Views (`*_current_v`) für alle SCD2-Satellites
-7. Reference Tables: `ref_tarif_v`, `ref_abo_option_v`
-8. ER-Diagramm aktualisieren (`design/raw-vault/_common/er-diagram.mmd`)
+4. **Effectivity Satellite: `sat_vertrag_eff__compax`** ← NEU (2026-05-03), Delete-Erkennung
+5. Links: `link_vertrag_kunde`, `link_vertrag_sim`, `link_vertrag_msisdn`, `link_cdr_event_tl`
+6. Non-historized Transaction Satellite: `sat_cdr_event__compax`
+7. Current Views (`*_current_v`) für alle SCD2-Satellites
+8. Reference Tables: `ref_tarif_v`, `ref_abo_option_v`
+9. ER-Diagramm aktualisieren (`design/raw-vault/_common/er-cdr.mmd` + `er-diagram.mmd`)
 
 ### Phase E — Mart
 1. Mart-Schema `mart_mobile` in `dbt_project.yml` konfigurieren

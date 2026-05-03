@@ -28,6 +28,14 @@ erDiagram
         datetime2   dss_end_date            "NULL=aktuell — via post_hook"
     }
 
+    SAT_VERTRAG_EFF__COMPAX {
+        char64      hk_vertrag          FK  "vault | PK Teil 1"
+        datetime2   dss_load_date           "PK Teil 2"
+        char1       is_active               "Y = im Export vorhanden, N = verschwunden (Tombstone)"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
     SAT_VERTRAG_OPTIONEN_MA__COMPAX {
         char64      hk_vertrag          FK  "vault | PK Teil 1"
         datetime2   dss_load_date           "PK Teil 2"
@@ -143,6 +151,7 @@ erDiagram
 
     %% vault: Hub → Satellite
     HUB_KUNDE       ||--o{ SAT_KUNDE__COMPAX               : "hk_kunde"
+    HUB_VERTRAG     ||--o{ SAT_VERTRAG_EFF__COMPAX          : "hk_vertrag (Effectivity)"
     HUB_VERTRAG     ||--o{ SAT_VERTRAG_OPTIONEN_MA__COMPAX : "hk_vertrag (MA-CDK: abo_option_name)"
 
     %% vault: Hub → Link
