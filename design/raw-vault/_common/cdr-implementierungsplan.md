@@ -1,7 +1,7 @@
 # CDR-Reporting Mobile — Implementierungsplan
 
 **Erstellt:** 22. April 2026  
-**Status:** 🚧 IN ARBEIT — Phase A ✅ abgeschlossen, Phase C + D in Umsetzung  
+**Status:** 🚧 Phase A–D ✅ — Full Load (9.44M Rows) abgeschlossen, **3 Validierungs-Findings offen** (siehe §11)  
 **Letztes Update:** 5. Mai 2026  
 **Scope:** Mobile-Telefonie CDR-Daten von Compax (RSN — Rii Seez Net)  
 **Nicht im Scope:** Lambda Vault (Real-Time), Festnetz-CDR (später)
@@ -661,10 +661,201 @@ FROM mart.fakt_datenvolumen_v
 
 ## 10. Erfolgskriterien
 
-- [ ] `ext_rsn_mobile_services_main` + `ext_rsn_mobile_cdr_main` existieren auf dev + test
-- [ ] Staging Views deployt, Tests grün
-- [ ] Raw Vault komplett modelliert, Tests grün (unique Hash Keys, not null BK)
-- [ ] Current Views liefern aktuellen Stammdaten
+- [x] `ext_rsn_mobile_services_main` + `ext_rsn_mobile_cdr_main` existieren auf dev + test
+- [x] Staging Views deployt, Tests grün
+- [x] Raw Vault komplett modelliert auf datavault-dev (14 Modelle PASS, Full Load 9.44M Rows)
+- [ ] Validierungs-Findings (siehe §11) behoben: D1 current_v, E2 MA-Hashdiff, F2 Kunde-Hashdiff
+- [ ] Current Views liefern korrekt aktive Stammdaten (blockiert durch D1)
+- [ ] ADF Delta-Load implementiert (siehe §12)
 - [ ] Mart-Metrik "Datenvolumen pro Vertrag/Monat" funktioniert end-to-end
 - [ ] Power BI kann auf `mart_mobile.fakt_datenvolumen_v` zugreifen
 - [ ] ER-Diagramme aktualisiert
+
+---
+
+## 11. Full Load Ergebnisse + Test Suite (2026-05-04)
+
+### 11.1 Full Load Run
+
+**Run-ID:** `cdr_full_load_ewb-dev_20260503_222518`  
+**Dauer:** 76 Min (Step 2 PSA: 11 Min, Step 3 Vault: 64 Min)  
+**Source:** `ewb/cdr/udrs/merged/data_<GUID>.parquet` (MergeFiles ADF Output, 9'440'966 Rows)  
+**Ergebnis:** PASS=15, ERROR=0, SKIP=0
+
+**Slowest Models:**
+| Modell | Dauer |
+|--------|------:|
+| `sat_cdr_event__compax` | 1756s (~29 Min) |
+| `link_cdr_event_tl` | 938s (~16 Min) |
+| `sat_vertrag_optionen_ma__compax` | 350s |
+| `sat_kunde__compax` | 154s |
+
+**Final Row Counts (datavault-dev, post Full Load):**
+
+| Tabelle | Rows |
+|---|---:|
+| `stg.psa_rsn_mobile_cdr_main` | 9'440'966 |
+| `vault_telecom.link_cdr_event_tl` | 9'439'748 |
+| `vault_telecom.sat_cdr_event__compax` | 9'439'748 |
+| `vault.sat_vertrag_eff__compax` | 650'112 |
+| `vault.sat_vertrag_optionen_ma__compax` | 7'507 |
+| `vault.sat_kunde__compax` | 5'177 |
+| `vault.link_vertrag_kunde` | 6'009 |
+| `vault.hub_vertrag` | 5'879 |
+| `vault_telecom.link_vertrag_sim` | 5'986 |
+| `vault_telecom.link_vertrag_msisdn` | 5'969 |
+| `vault_telecom.hub_sim` | 5'966 |
+| `vault_telecom.hub_msisdn` | 5'930 |
+| `vault.hub_kunde` | 4'475 |
+
+**Delta PSA → Vault:** 1'218 Records werden im Staging→Vault verworfen (9'440'966 → 9'439'748). Hypothese: CDRs ohne valide Business-Key-Komponenten (NULL in `id`/`contract_id`/`iccid`). Separat untersuchen.
+
+### 11.2 Test Suite Ergebnisse
+
+Tests A–G aus `plan.md` (SQL-only gegen datavault-dev). B und C übersprungen (benötigen dbt-Run).
+
+| Test | Beschreibung | Ergebnis | Status |
+|------|--------------|----------|--------|
+| A1 | PSA Total = 9'440'966 | exakt | ✅ PASS |
+| A2 | PSA `(id, dss_source_file_name)` duplikatfrei | 0 (1M-Sample, full timeout) | ✅ PASS |
+| A3 | TL = Sat (1:1) | diff=0 | ✅ PASS |
+| A4 | Sat ohne Link-Parent | 0 | ✅ PASS |
+| A5 | hk_vertrag → hub_vertrag fehlend | 0 | ✅ PASS |
+| A6 | hk_sim → hub_sim fehlend | 22 | ⚠️ DOKU (0,0002%) |
+| A7 | Hubs duplikatfrei | alle 0 | ✅ PASS |
+| D1 | `sat_vertrag_eff_current_v` aktive Verträge | **0** (erwartet: ~5'000) | ❌ **FAIL** |
+| D2 | Verträge mit > 1 eff-Sat-Records | 804/592/576 max | ✅ Open/Close aktiv |
+| D3 | Gekündigt nicht in current_v | 0 (trivial wegen D1) | ⚠️ blockiert durch D1 |
+| E1 | > 1 aktive Option pro Vertrag | 0 (blockiert durch D1-Sentinel) | ⚠️ blockiert |
+| E2 | MA Sat Hashdiff-Eindeutigkeit | **53 Duplikate** | ❌ **FAIL** |
+| F1 | sat_kunde_current_v = hub_kunde | 4'475 = 4'475 | ✅ PASS |
+| F2 | sat_kunde Hashdiff-Eindeutigkeit | **52 Duplikate** | ❌ **FAIL** |
+| G1 | Transaction Sat 1:1 mit Link | 0 dups | ✅ PASS |
+| G2 | CDR-Volumen pro Tag | 239 Tage lückenlos (2024-10-15 → 2025-06-10), avg 39'496/Tag | ✅ PASS |
+
+### 11.3 Findings & Fixes
+
+#### Finding 1 — `sat_vertrag_eff_current_v` filtert leer (CRITICAL)
+
+**Problem:** View filtert `WHERE CAST(kundigungs_datum AS DATE) = '9999-12-31'`, aber die Quelle nutzt diesen Sentinel **nicht**. `MIN(kundigungs_datum)` liefert leeren String `''`, `MAX = 2026-01-05`. → 0 aktive Verträge angezeigt.
+
+**Hypothesen zur Quell-Konvention:**
+- Aktive Verträge tragen `kundigungs_datum = ''` (leerer String) oder `NULL`
+- Oder `eff_sat()` schreibt `dss_end_date` separat, was als Aktiv-Indikator dienen sollte
+
+**Action:**
+- [ ] **fix-d1-1** Quell-Konvention für aktive Verträge ermitteln (Compax-Doku oder Sample-Query auf `rsn_mobile_services_main` mit aktiven Abos)
+- [ ] **fix-d1-2** `sat_vertrag_eff_current_v.sql` Filter anpassen — vermutlich `WHERE kundigungs_datum IS NULL OR kundigungs_datum = ''` oder Logik über `dss_end_date`/Effectivity-Status
+- [ ] **fix-d1-3** Test D1 + D3 + E1 nach Fix erneut ausführen
+
+#### Finding 2 — MA Sat Hashdiff-Duplikate (53)
+
+**Problem:** 53 `(hk_vertrag, hd_vertrag_optionen_ma, dss_load_date)`-Kombinationen mit > 1 Record in `sat_vertrag_optionen_ma__compax`.
+
+**Hypothesen:**
+- Multi-Active Sub-Key fehlt im Hashdiff-Setup (mehrere Optionen erzeugen denselben hd-Wert)
+- automate_dv MA-Sat erwartet expliziten `multi_active_attributes` — aktuelles Modell verwendet jedoch reguläres `sat()`-Macro? Code prüfen.
+
+**Action:**
+- [ ] **fix-e2-1** `models/raw_vault/_common/satellites/sat_vertrag_optionen_ma__compax.sql` öffnen — prüfen ob `automate_dv.ma_sat()` (statt `sat()`) verwendet wird und ob `src_cdk` (Child-Dependent-Key, z.B. `abo_option_name`) gesetzt ist
+- [ ] **fix-e2-2** Bei Bedarf auf `ma_sat()` umstellen mit `src_cdk: ['abo_option_name']` (oder vergleichbare Sub-Key-Spalte)
+- [ ] **fix-e2-3** `--full-refresh` und Test E2 erneut ausführen
+
+#### Finding 3 — `sat_kunde__compax` Hashdiff-Duplikate (52)
+
+**Problem:** 52 `(hk_kunde, HASHDIFF, dss_load_date)`-Kombinationen mehrfach. Trotz F1=PASS (current_v stimmt), gibt es im Sat doppelte Records pro Load-Tag.
+
+**Hypothesen:**
+- Stage-View `rsn_mobile_services_main` liefert Duplikate pro Kunde (mehrere `vertrags_nummer` mit gleicher `customer_id` + identischem `external_customer_id` → 1 Kunde, mehrere Stage-Rows)
+- automate_dv `sat()` dedupliziert via `RANK() OVER (PARTITION BY hk, hashdiff ORDER BY ldts)` — bei identischen `dss_load_date` und mehreren Source-Rows können Duplikate entstehen
+- Spalten-Hinweis: Sat verwendet `HASHDIFF` (uppercase) statt `hd_kunde`
+
+**Action:**
+- [ ] **fix-f2-1** Stage-View `rsn_mobile_services_main` auf Kunden-Duplikate prüfen: `SELECT customer_id, COUNT(DISTINCT external_customer_id) FROM stg.rsn_mobile_services_main GROUP BY customer_id HAVING COUNT(*) > 1`
+- [ ] **fix-f2-2** Falls Stage-Duplikate: `DISTINCT` oder `ROW_NUMBER()` in der Stage-Logik einführen (Pattern wie EWB-Stages)
+- [ ] **fix-f2-3** Falls Quelle: `--full-refresh` von `sat_kunde__compax` und Test F2 erneut
+
+### 11.4 Strukturelle Beobachtungen (Nicht-Findings)
+
+- **A6 — 22 SIM-FK ohne Hub:** CDRs für SIMs ohne aktiven `services`-Eintrag. Akzeptabel (gekündigte SIMs vor Initial-Load). Dokumentiert.
+- **D2 — bis zu 804 eff-Sat-Records pro Vertrag:** Auffällig hoch. Bei täglichem Load über 2 Jahre theoretisch möglich, aber sollte verifiziert werden, dass `eff_sat()` tatsächliche Open/Close-Änderungen erkennt und nicht bei jedem Load eine neue Zeile erzeugt. Optional: nach Finding 1 erneut prüfen.
+
+---
+
+## 12. ADF Delta Load — Inkrementelle CDR-Verarbeitung
+
+**Status:** Initial Load abgeschlossen. Delta-Logik noch nicht implementiert.
+
+### 12.1 Architektur
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ Stufe 1: SFTP Delta Copy (NEU — Pipeline Copy_CDR_Data_Delta)    │
+│   GetMetadata SFTP /udrs/                                        │
+│       ↓                                                           │
+│   Lookup: EXEC stg.usp_get_loaded_cdr_filenames                  │
+│       ↓                                                           │
+│   Filter: SFTP-Files NOT IN loaded_files                         │
+│       ↓                                                           │
+│   ForEach (parallel) → Copy SFTP → ADLS ewb/cdr/udrs/incoming/  │
+│                        (1 Datei pro SFTP-File, kein MergeFiles)  │
+└──────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Stufe 2: dbt Pipeline (bestehend)                                │
+│   ext_rsn_mobile_cdr_main LOCATION = ewb/cdr/udrs/incoming/      │
+│       ↓                                                           │
+│   psa_rsn_mobile_cdr_main (delete+insert per filename, idemp.)   │
+│       ↓                                                           │
+│   Vault Layer (incremental, hash-basiert)                        │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 12.2 Schlüssel-Entscheidungen
+
+1. **Kein MergeFiles im Delta-Mode** — sonst geht der filename-basierte PSA-Filter verloren. Initial-Load durfte mergen (1 Riesen-File mit GUID-Name); Delta-Mode muss 1 ADLS-File pro SFTP-File ablegen.
+2. **Folder `ewb/cdr/udrs/incoming/`** statt `merged/` — semantisch klar getrennt. Initial-File `merged/data_<GUID>.parquet` bleibt als historische Referenz; alle dort enthaltenen Records sind bereits im PSA.
+3. **UDP `stg.usp_get_loaded_cdr_filenames`** liefert die "Bereits-geladen-Liste". SQL-only, keine ADLS-Marker, keine Race-Conditions.
+4. **`sources.yml` Migration:** Nach Initial-Load LOCATION von `merged/` auf `incoming/` umstellen. Voraussetzung: erster Delta-Lauf hat bereits Files in `incoming/` abgelegt (sonst leerer Ordner → External-Table-Fehler).
+
+### 12.3 UDP Definition
+
+```sql
+CREATE PROCEDURE stg.usp_get_loaded_cdr_filenames AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT DISTINCT dss_source_file_name AS name
+    FROM stg.psa_rsn_mobile_cdr_main
+    WHERE dss_source_file_name IS NOT NULL;
+END
+```
+- Rückgabespalte `name` → konsistent mit ADF `item().name`
+- Linked Service: bestehender Azure SQL Linked Service (Target je Datenbank)
+
+### 12.4 ADF Filter-Expression
+
+```
+@not(contains(string(activity('Lookup_LoadedFiles').output.value), item().name))
+```
+
+### 12.5 Edge Cases
+
+- **SFTP-File wird ersetzt (gleicher Name, neuer Inhalt):** Filter überspringt es → alter Stand bleibt. **Risiko.** Mitigation: Compax-Konvention verifizieren (Filename enthält Timestamp → unique).
+- **Hub_vertrag enthält Vertrag, der in `services` fehlt (alte CDRs):** Bereits heute der Fall (siehe A6). Hub wird über CDR-Staging mit-erzeugt. Akzeptabel.
+- **Pipeline-Fail mitten in ForEach:** Erfolgreich kopierte Files sind in PSA-Liste (über `dss_source_file_name`) — bei Re-Run werden sie übersprungen. **Idempotent.** ✅
+
+### 12.6 Umsetzungsschritte
+
+| Step | Beschreibung | Abhängigkeit |
+|------|--------------|--------------|
+| **delta-1** | UDP `stg.usp_get_loaded_cdr_filenames` auf datavault-dev anlegen | — |
+| **delta-2** | ADF Pipeline `Copy_CDR_Data_Delta` erstellen (GetMeta → Lookup → Filter → ForEach → ADLS `incoming/`) | — |
+| **delta-3** | `sources.yml` LOCATION für `ext_rsn_mobile_cdr_main`: `merged/` → `incoming/` | delta-1, delta-2 |
+| **delta-4** | Erste Delta-Beladung testen: ADF triggern → `stage_external_sources` → `dbt run --select psa_rsn_mobile_cdr_main+` → Counts validieren | delta-3 |
+| **delta-5** | ADF-Schedule definieren (täglich/stündlich, abh. SFTP-Lieferrhythmus) | delta-4 |
+| **delta-6** | Alte Pipeline `Copy_CDR_Data` (MergeFiles) als Initial-Load-Tool dokumentieren / disablen | delta-4 |
+| **delta-7** | UDP + Pipeline auf `datavault-test` und `datavault` (Prod) deployen | delta-4 |
+
+### 12.7 Out-of-Scope
+
+- ADF → dbt Trigger (load_status Tabelle) — separater Plan in `plan.md`
+- 2-stufige CSV→Parquet Architektur — nicht mehr nötig (MergeFiles für Initial OK; Delta liefert direkt Parquet pro SFTP-File)
