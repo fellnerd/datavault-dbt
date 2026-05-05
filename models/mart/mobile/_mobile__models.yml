@@ -1,0 +1,292 @@
+version: 2
+
+models:
+  # ===========================================================================
+  # MART: MOBILE-DOMAIN — Star Schema (mart_mobile)
+  # CDR / Mobilfunk-Auswertungen aus RSN Mobile / Compax
+  # Dimensionen (dim_*_v) + Faktentabellen (fakt_*_v) + Base-Tables (fakt_*__base)
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # DIMENSIONEN
+  # ---------------------------------------------------------------------------
+
+  - name: dim_mobilvertrag_v
+    description: |
+      Mobilfunk-Vertraege mit Abo-Bezeichnung und Aktivierungsstatus.
+      Grain: 1 Zeile pro eindeutigem Mobilfunk-Vertrag.
+      Quellen: hub_vertrag, sat_vertrag_eff__compax, sat_vertrag_optionen_ma__compax.
+      is_active='Y' wenn kundigungs_datum leer/NULL (Compax-Konvention).
+    columns:
+      - name: vertrag_key
+        description: "Surrogate Key (MD5 auf vertrag_id)"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: vertrag_id
+        description: "Technische ID (Compax Vertrags-ID)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: vertrag_code
+        description: "Sprechender Schluessel (= vertrag_id)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: vertrag_name
+        description: "Abo-Bezeichnung (aus Haupt-Abo ist_option='0'); Fallback: vertrag_id"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: abo_name
+        description: "Haupt-Abo Bezeichnung (abo_option_name WHERE ist_option='0', neuester Record)"
+        data_type: nvarchar(255)
+      - name: aktivierungs_datum
+        description: "Vertragsbeginn (aus sat_vertrag_eff__compax START_DATE)"
+        data_type: date
+      - name: kundigungs_datum
+        description: "Kündigungsdatum; NULL wenn Vertrag noch aktiv ('' oder NULL in Quelle)"
+        data_type: date
+      - name: is_active
+        description: "'Y' wenn Vertrag aktiv (kundigungs_datum leer), 'N' wenn gekündigt"
+        data_type: nvarchar(1)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Y', 'N']
+      - name: dss_load_date
+        description: "Ladezeitpunkt des Hub-Records"
+        data_type: datetime2
+      - name: dss_record_source
+        description: "Quellsystem (ewb_compax)"
+        data_type: nvarchar(255)
+
+  - name: dim_mobilkunde_v
+    description: |
+      Mobile Kundenstammdaten aus Compax RSN.
+      Grain: 1 Zeile pro eindeutigem Kunden (hub_kunde).
+      Hinweis: Compax liefert nur external_customer_id (= Abacus Kundennummer).
+      Persönliche Daten (Name, Adresse) sind nicht im Compax-Export enthalten.
+    columns:
+      - name: kunde_key
+        description: "Surrogate Key (MD5 auf kunde_id)"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: kunde_id
+        description: "Technische ID (Compax Kunden-ID)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kunde_code
+        description: "Sprechender Schluessel (= kunde_id)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: kunde_name
+        description: "Kunden-Bezeichnung; immer 'UNKNOWN' (kein Name in Compax-Daten)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: external_customer_id
+        description: "Abacus Kundennummer (aus sat_kunde__compax)"
+        data_type: nvarchar(255)
+      - name: dss_load_date
+        data_type: datetime2
+      - name: dss_record_source
+        data_type: nvarchar(255)
+
+  - name: dim_sim_v
+    description: |
+      SIM-Karten Stammdaten.
+      Grain: 1 Zeile pro eindeutiger SIM-Karte (ICCID = Business Key).
+      Compax liefert keine weiteren SIM-Attribute ausser der ICCID.
+    columns:
+      - name: sim_key
+        description: "Surrogate Key (MD5 auf icc/ICCID)"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: sim_id
+        description: "ICCID (Integrated Circuit Card Identifier)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: sim_code
+        description: "Sprechender Schluessel (= ICCID)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: sim_name
+        description: "SIM-Bezeichnung (= ICCID; kein separater Name in Quelldaten)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: dss_load_date
+        data_type: datetime2
+      - name: dss_record_source
+        data_type: nvarchar(255)
+
+  # ---------------------------------------------------------------------------
+  # FAKTENTABELLEN (öffentliche Schnittstellen = Views)
+  # ---------------------------------------------------------------------------
+
+  - name: fakt_cdr_v
+    description: |
+      Atomarer CDR-Grain: 1 Zeile = 1 Call Detail Record.
+      Zeigt alle im Vault verfügbaren CDR-Events (kein Zeitfilter in der View).
+      Nach Aktivierung der 30-Tage-Retention-Purge (§13.8 Implementierungsplan)
+      enthält der Vault nur noch die letzten 30 Tage.
+      record_type: DATA, MOC, MTC, FORW, SMS.
+    columns:
+      - name: vertrag_key
+        description: "FK → dim_mobilvertrag_v.vertrag_key"
+        data_type: bigint
+        tests:
+          - not_null
+      - name: kunde_key
+        description: "FK → dim_mobilkunde_v.kunde_key; NULL für Verträge ohne Kunden-Zuordnung"
+        data_type: bigint
+      - name: sim_key
+        description: "FK → dim_sim_v.sim_key"
+        data_type: bigint
+        tests:
+          - not_null
+      - name: verbindungs_datum_key
+        description: "Datum-Key (INT yyyyMMdd) des Verbindungsbeginns; NULL bei ungültigem Datum"
+        data_type: int
+      - name: record_type
+        description: "CDR-Typ: DATA / MOC / MTC / FORW / SMS"
+        data_type: nvarchar(20)
+      - name: service_type
+        description: "Service-Klassifizierung aus Compax"
+        data_type: nvarchar(20)
+      - name: tarif
+        description: "Tarifkennung (Degenerate Dimension)"
+        data_type: nvarchar(255)
+      - name: event_id
+        description: "Originale CDR-ID aus Compax (Degenerate Dimension)"
+        data_type: nvarchar(255)
+      - name: is_roaming
+        description: "1 = Roaming-Event (r_mcc_mnc gesetzt), 0 = nationales Event"
+        data_type: bit
+      - name: duration_sec
+        description: "Verbindungsdauer in Sekunden (Anrufe/Datensessions)"
+        data_type: decimal(18,2)
+      - name: bytes_out_mb
+        description: "Übertragenes Datenvolumen in MB (nur DATA-Events; bytes_in immer leer)"
+        data_type: decimal(18,6)
+      - name: price
+        description: "Verbrauchskosten (aus Compax)"
+        data_type: decimal(18,4)
+      - name: ws_price
+        description: "Wholesale-Preis"
+        data_type: decimal(18,4)
+      - name: connection_start
+        description: "Verbindungsbeginn (DATETIME2)"
+        data_type: datetime2
+      - name: hk_link_cdr_event_tl
+        description: "Traceability-Hash-Key zurück zum Transaction Link"
+        data_type: nvarchar(255)
+      - name: dss_load_date
+        data_type: datetime2
+      - name: dss_record_source
+        data_type: nvarchar(255)
+
+  - name: fakt_datenvolumen_v
+    description: |
+      Tages-Aggregat: Datenvolumen pro Vertrag und Tag (record_type='DATA').
+      Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key).
+      Wrapper-View auf fakt_datenvolumen__base (incremental table).
+    columns:
+      - name: vertrag_key
+        description: "FK → dim_mobilvertrag_v.vertrag_key"
+        data_type: bigint
+        tests:
+          - not_null
+      - name: kunde_key
+        description: "FK → dim_mobilkunde_v.kunde_key"
+        data_type: bigint
+      - name: verbindungs_datum_key
+        description: "Datum-Key (INT yyyyMMdd)"
+        data_type: int
+        tests:
+          - not_null
+      - name: session_count
+        description: "Anzahl Datensessions am Tag"
+        data_type: int
+      - name: mb_total
+        description: "Gesamtvolumen in MB (national + roaming)"
+        data_type: decimal(18,4)
+      - name: gb_total
+        description: "Gesamtvolumen in GB"
+        data_type: decimal(18,6)
+      - name: mb_national
+        description: "Nationales Datenvolumen in MB"
+        data_type: decimal(18,4)
+      - name: mb_roaming
+        description: "Roaming-Datenvolumen in MB"
+        data_type: decimal(18,4)
+      - name: dss_load_date
+        data_type: datetime2
+      - name: dss_record_source
+        data_type: nvarchar(255)
+
+  - name: fakt_anrufe_v
+    description: |
+      Tages-Aggregat: Anrufe/SMS pro Vertrag, Tag und Gesprächstyp.
+      Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key, record_type, is_roaming).
+      Wrapper-View auf fakt_anrufe__base (incremental table).
+      record_type: MOC (abgehend), MTC (eingehend), FORW (Weiterleitung), SMS.
+    columns:
+      - name: vertrag_key
+        description: "FK → dim_mobilvertrag_v.vertrag_key"
+        data_type: bigint
+        tests:
+          - not_null
+      - name: kunde_key
+        description: "FK → dim_mobilkunde_v.kunde_key"
+        data_type: bigint
+      - name: verbindungs_datum_key
+        description: "Datum-Key (INT yyyyMMdd)"
+        data_type: int
+        tests:
+          - not_null
+      - name: record_type
+        description: "CDR-Typ: MOC / MTC / FORW / SMS"
+        data_type: nvarchar(20)
+        tests:
+          - not_null
+      - name: is_roaming
+        description: "1 = Roaming, 0 = national"
+        data_type: bit
+      - name: anruf_count
+        description: "Anzahl Verbindungen am Tag"
+        data_type: int
+      - name: duration_sec_total
+        description: "Gesamtdauer in Sekunden"
+        data_type: decimal(18,2)
+      - name: duration_min_total
+        description: "Gesamtdauer in Minuten"
+        data_type: decimal(18,4)
+      - name: dss_load_date
+        data_type: datetime2
+      - name: dss_record_source
+        data_type: nvarchar(255)
+
+  # ---------------------------------------------------------------------------
+  # BASE-TABLES (interne Incremental-Tabellen, nicht direkt für BI)
+  # ---------------------------------------------------------------------------
+
+  - name: fakt_datenvolumen__base
+    description: |
+      Interne Incremental-Tabelle für fakt_datenvolumen_v.
+      Nicht direkt für BI verwenden — öffentliche Schnittstelle ist fakt_datenvolumen_v.
+
+  - name: fakt_anrufe__base
+    description: |
+      Interne Incremental-Tabelle für fakt_anrufe_v.
+      Nicht direkt für BI verwenden — öffentliche Schnittstelle ist fakt_anrufe_v.

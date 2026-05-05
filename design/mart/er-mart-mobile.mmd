@@ -1,0 +1,110 @@
+---
+title: "ER-Diagramm: Mart Mobile (mart_mobile)"
+---
+
+erDiagram
+    %% ===========================================================================
+    %% MART MOBILE — Star Schema für CDR / Mobilfunk-Auswertungen
+    %% Schema: mart_mobile
+    %% Datenstand: Rolling 30 Tage (nach Retention-Purge-Aktivierung)
+    %% ===========================================================================
+
+    %% ---------------------------------------------------------------------------
+    %% DIMENSIONEN
+    %% ---------------------------------------------------------------------------
+
+    dim_mobilvertrag_v {
+        bigint       vertrag_key         PK "Surrogate Key (MD5 vertrag_id)"
+        nvarchar255  vertrag_id              "Compax Vertrags-ID"
+        nvarchar255  vertrag_code            "= vertrag_id"
+        nvarchar255  vertrag_name            "Abo-Name; Fallback: vertrag_id"
+        nvarchar255  abo_name                "Haupt-Abo (ist_option=0)"
+        date         aktivierungs_datum      "Vertragsbeginn"
+        date         kundigungs_datum        "Kündigungsdatum; NULL = aktiv"
+        nvarchar1    is_active               "Y = aktiv, N = gekündigt"
+        datetime2    dss_load_date
+        nvarchar255  dss_record_source
+    }
+
+    dim_mobilkunde_v {
+        bigint       kunde_key           PK "Surrogate Key (MD5 kunde_id)"
+        nvarchar255  kunde_id                "Compax Kunden-ID"
+        nvarchar255  kunde_code              "= kunde_id"
+        nvarchar255  kunde_name              "immer UNKNOWN (kein Name in Quelle)"
+        nvarchar255  external_customer_id    "Abacus Kundennummer"
+        datetime2    dss_load_date
+        nvarchar255  dss_record_source
+    }
+
+    dim_sim_v {
+        bigint       sim_key             PK "Surrogate Key (MD5 icc/ICCID)"
+        nvarchar255  sim_id                  "ICCID"
+        nvarchar255  sim_code                "= ICCID"
+        nvarchar255  sim_name                "= ICCID"
+        datetime2    dss_load_date
+        nvarchar255  dss_record_source
+    }
+
+    %% ---------------------------------------------------------------------------
+    %% FAKTENTABELLEN
+    %% ---------------------------------------------------------------------------
+
+    fakt_cdr_v {
+        bigint       vertrag_key         FK "→ dim_mobilvertrag_v"
+        bigint       kunde_key           FK "→ dim_mobilkunde_v (nullable)"
+        bigint       sim_key             FK "→ dim_sim_v"
+        int          verbindungs_datum_key   "yyyyMMdd (→ zukünftig dim_datum)"
+        nvarchar20   record_type             "DATA / MOC / MTC / FORW / SMS"
+        nvarchar20   service_type
+        nvarchar255  tarif                   "Degenerate Dim"
+        nvarchar255  event_id                "CDR-ID aus Compax"
+        bit          is_roaming              "1 = Roaming"
+        decimal18_2  duration_sec            "Dauer in Sekunden"
+        decimal18_6  bytes_out_mb            "Datenvolumen in MB"
+        decimal18_4  price
+        decimal18_4  ws_price
+        datetime2    connection_start
+        nvarchar255  hk_link_cdr_event_tl    "Traceability"
+        datetime2    dss_load_date
+        nvarchar255  dss_record_source
+    }
+
+    fakt_datenvolumen_v {
+        bigint       vertrag_key         FK "→ dim_mobilvertrag_v"
+        bigint       kunde_key           FK "→ dim_mobilkunde_v"
+        int          verbindungs_datum_key   "yyyyMMdd PK-Teil"
+        int          session_count           "Anzahl Datensessions"
+        decimal18_4  mb_total                "MB gesamt"
+        decimal18_6  gb_total                "GB gesamt"
+        decimal18_4  mb_national             "MB national"
+        decimal18_4  mb_roaming              "MB Roaming"
+        datetime2    dss_load_date
+        nvarchar255  dss_record_source
+    }
+
+    fakt_anrufe_v {
+        bigint       vertrag_key         FK "→ dim_mobilvertrag_v"
+        bigint       kunde_key           FK "→ dim_mobilkunde_v"
+        int          verbindungs_datum_key   "yyyyMMdd PK-Teil"
+        nvarchar20   record_type             "MOC / MTC / FORW / SMS PK-Teil"
+        bit          is_roaming              "PK-Teil"
+        int          anruf_count             "Anzahl Verbindungen"
+        decimal18_2  duration_sec_total      "Gesamtdauer Sekunden"
+        decimal18_4  duration_min_total      "Gesamtdauer Minuten"
+        datetime2    dss_load_date
+        nvarchar255  dss_record_source
+    }
+
+    %% ---------------------------------------------------------------------------
+    %% BEZIEHUNGEN
+    %% ---------------------------------------------------------------------------
+
+    dim_mobilvertrag_v ||--o{ fakt_cdr_v             : "vertrag_key"
+    dim_mobilkunde_v   ||--o{ fakt_cdr_v             : "kunde_key"
+    dim_sim_v          ||--o{ fakt_cdr_v             : "sim_key"
+
+    dim_mobilvertrag_v ||--o{ fakt_datenvolumen_v    : "vertrag_key"
+    dim_mobilkunde_v   ||--o{ fakt_datenvolumen_v    : "kunde_key"
+
+    dim_mobilvertrag_v ||--o{ fakt_anrufe_v          : "vertrag_key"
+    dim_mobilkunde_v   ||--o{ fakt_anrufe_v          : "kunde_key"
