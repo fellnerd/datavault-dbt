@@ -25,6 +25,20 @@ design/
 └── data-flow/         # End-to-End Datenfluss
 ```
 
+## Aktuelle ER-Diagramme
+
+### Raw Vault
+- `design/raw-vault/_common/er-diagram.mmd` — Gesamtübersicht aller `vault`-Objekte im `_common`-Scope
+- `design/raw-vault/_common/er-finance.mmd` — Finance-Detaildiagramm
+- `design/raw-vault/_common/er-project.mmd` — Project-Detaildiagramm
+- `design/raw-vault/_common/er-stammdaten.mmd` — Stammdaten-Detaildiagramm
+- `design/raw-vault/_common/er-cdr.mmd` — CDR-/Telecom-Detaildiagramm für `vault` + `vault_telecom`
+
+### Mart
+- `design/mart/er-mart-finance.mmd`
+- `design/mart/er-mart-project.mmd`
+- `design/mart/er-mart-telecom.mmd`
+
 ## Schema-Konvention
 
 | Schema | Verwendung | Beispiel |

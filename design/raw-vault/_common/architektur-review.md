@@ -330,7 +330,17 @@ Falls Abteilungen historisiert werden müssen (z.B. "Abteilung X wurde in Y umbe
 
 ---
 
-## 7. ZUSAMMENFASSUNG — Offene Aktionen
+## 7. STATUS-UPDATE — CDR / TELECOM (05.05.2026)
+
+Seit dem Review wurden die ursprünglich offenen Design-/Implementierungspunkte für die CDR-/Telecom-Domain umgesetzt und in den Diagrammen nachvollziehbar dokumentiert:
+
+- ✅ `vault`: `hub_vertrag`, `hub_kunde`, `sat_kunde__compax`, `sat_vertrag_eff__compax`, `sat_vertrag_optionen_ma__compax`, `link_vertrag_kunde`
+- ✅ `vault`: `link_kunde_adresse` ergänzt — Verknüpfung `hub_kunde` ↔ `hub_adresse` via `external_customer_id = INR` mit dokumentierter Match-Rate von 61%
+- ✅ `vault_telecom`: `hub_sim`, `link_cdr_event_tl`, `sat_cdr_event__compax`, `link_vertrag_sim`, `ref_abo_option_v`, `ref_tarif_v`
+- ✅ `mart_telecom`: `dim_mobilvertrag_v`, `dim_mobilkunde_v`, `dim_sim_v`, `fakt_cdr_v`, `fakt_datenvolumen_v`, `fakt_anrufe_v`
+- ✅ Design-Artefakte nachgezogen: `design/raw-vault/_common/er-diagram.mmd`, `design/raw-vault/_common/er-cdr.mmd`, `design/mart/er-mart-telecom.mmd`
+
+## 8. ZUSAMMENFASSUNG — Offene Aktionen
 
 ### Muss vor Implementierung geklärt werden (Blocker):
 
@@ -353,7 +363,7 @@ Falls Abteilungen historisiert werden müssen (z.B. "Abteilung X wurde in Y umbe
 
 ---
 
-## 8. POSITIV-BEFUNDE
+## 9. POSITIV-BEFUNDE
 
 ✅ **Composite BKs datenvalidiert:** GL (DKBELEGNUMMER||KTO), KVL (BELEGNR||ZAHLNR), NSA (5-teilig) — alle durch Datenanalyse bestätigt  
 ✅ **Synapse-Fehler erkannt:** NSA.PROJNR = ProjektNr (nicht PersonalNr) — exzellente Datenanalyse  

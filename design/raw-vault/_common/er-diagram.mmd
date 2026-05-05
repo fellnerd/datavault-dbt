@@ -1,10 +1,11 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Sharepoint ('ewb_sharepoint')
-    %% Stand: 2026-04-08 | Hubs: 13 | Sats: 12 | Links: 11 | Refs: 6
+    %% Stand: 2026-05-05 | Hubs: 15 | Sats: 15 | Links: 13 | Refs: 6
     %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle
     %% + Wave 3 Links: link_hauptbuch_konto, link_hauptbuch_kostenstelle (GL→Sharepoint)
-    %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd
+    %% + CDR / Telecom (_common): hub_vertrag, hub_kunde, sat_kunde__compax, sat_vertrag_eff__compax, sat_vertrag_optionen_ma__compax, link_vertrag_kunde, link_kunde_adresse
+    %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd, er-cdr.mmd
 
     %% === FINANCE ===
     HUB_BUCHUNGSKOPF {
@@ -266,6 +267,62 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
+    %% === CDR / TELECOM (_COMMON) ===
+    HUB_VERTRAG {
+        char64      hk_vertrag          PK  "vault | Hash(vertrag_id)"
+        nvarchar    vertrag_id              "Compax vertrags_nummer"
+        nvarchar    dss_business_key
+        datetime2   dss_load_date
+        varchar     dss_record_source
+    }
+    HUB_KUNDE {
+        char64      hk_kunde            PK  "vault | Hash(kunde_id)"
+        nvarchar    kunde_id                "Compax customer_id"
+        nvarchar    dss_business_key
+        datetime2   dss_load_date
+        varchar     dss_record_source
+    }
+    SAT_KUNDE__COMPAX {
+        char64      hk_kunde            FK
+        datetime2   dss_load_date
+        char64      hd_kunde
+        nvarchar    external_customer_id    "Abacus INR → link_kunde_adresse (61% Match)"
+        char1       dss_is_current
+        datetime2   dss_end_date
+    }
+    SAT_VERTRAG_EFF__COMPAX {
+        char64      hk_link_vertrag_kunde FK
+        char64      hk_vertrag           FK
+        char64      hk_kunde             FK
+        nvarchar    aktivierungs_datum
+        nvarchar    kundigungs_datum         "leer=aktiv (Compax-Konvention)"
+        datetime2   dss_load_date
+        varchar     dss_record_source
+    }
+    SAT_VERTRAG_OPTIONEN_MA__COMPAX {
+        char64      hk_vertrag          FK
+        datetime2   dss_load_date
+        nvarchar    abo_option_name          "CDK (Multi-Active Key)"
+        char64      hd_vertrag_optionen_ma
+        nvarchar    ist_option               "0=Haupt-Abo / 1=Zusatzoption"
+        datetime2   dss_create_datetime
+        varchar     dss_record_source
+    }
+    LINK_VERTRAG_KUNDE {
+        char64      hk_link_vertrag_kunde PK
+        char64      hk_vertrag           FK
+        char64      hk_kunde             FK
+        datetime2   dss_load_date
+        varchar     dss_record_source
+    }
+    LINK_KUNDE_ADRESSE {
+        char64      hk_link_kunde_adresse PK  "vault | Hash(kunde_id, adresse_bk)"
+        char64      hk_kunde             FK  "→ vault.hub_kunde"
+        char64      hk_adresse           FK  "→ vault.hub_adresse (INR)"
+        datetime2   dss_load_date
+        varchar     dss_record_source
+    }
+
     %% === STAMMDATEN ===
     HUB_PERSON { char64 hk PK }
     HUB_ADRESSE { char64 hk PK }
@@ -398,6 +455,16 @@ erDiagram
     HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
     HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
     HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : ""
+
+    %% CDR / Telecom (_common)
+    HUB_VERTRAG ||--o{ SAT_VERTRAG_OPTIONEN_MA__COMPAX : "hk_vertrag"
+    HUB_VERTRAG ||--o{ LINK_VERTRAG_KUNDE : "hk_vertrag"
+    HUB_KUNDE ||--o{ LINK_VERTRAG_KUNDE : "hk_kunde"
+    HUB_KUNDE ||--o{ SAT_KUNDE__COMPAX : "hk_kunde"
+    HUB_KUNDE ||--o{ LINK_KUNDE_ADRESSE : "hk_kunde"
+    HUB_ADRESSE ||--o{ LINK_KUNDE_ADRESSE : "hk_adresse (via INR=external_customer_id)"
+    LINK_VERTRAG_KUNDE ||--o{ SAT_VERTRAG_EFF__COMPAX : "hk_link_vertrag_kunde"
+
     HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : ""
     HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : ""
 

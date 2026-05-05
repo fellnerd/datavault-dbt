@@ -1,4 +1,11 @@
 erDiagram
+    HUB_ADRESSE {
+        char64      hk_adresse          PK  "vault | Hash(INR)"
+        nvarchar    inr                     "Abacus Adressnummer (Interne Referenznummer)"
+        datetime2   dss_load_date           "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
     HUB_VERTRAG {
         char64      hk_vertrag          PK  "vault | Hash(vertrag_id)"
         nvarchar    vertrag_id              "services.vertrags_nummer / cdr.contract_id"
@@ -60,14 +67,6 @@ erDiagram
         varchar     dss_record_source           "metadata"
     }
 
-    HUB_ADRESSE {
-        char64      hk_adresse          PK  "vault | Hash(INR)"
-        decimal     inr                     "ext_ewb_publ_adr_main.INR (Abacus Adressnummer)"
-        nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
-        datetime2   dss_load_date           "metadata"
-        datetime2   dss_create_datetime     "metadata"
-        varchar     dss_record_source       "metadata"
-    }
 
     LINK_KUNDE_ADRESSE {
         char64      hk_link_kunde_adresse    PK  "vault | Hash(kunde_id, adresse_bk)"
@@ -172,6 +171,10 @@ erDiagram
     %% vault: Hub → Satellite
     HUB_KUNDE       ||--o{ SAT_KUNDE__COMPAX               : "hk_kunde"
 
+    %% vault: Hub → Link
+    HUB_KUNDE       ||--o{ LINK_KUNDE_ADRESSE              : "hk_kunde"
+    HUB_ADRESSE     ||--o{ LINK_KUNDE_ADRESSE              : "hk_adresse"
+
     %% vault: Link → Effectivity Satellite
     LINK_VERTRAG_KUNDE ||--o{ SAT_VERTRAG_EFF__COMPAX      : "hk_link_vertrag_kunde (automate_dv.eff_sat)"
 
@@ -182,9 +185,6 @@ erDiagram
     HUB_VERTRAG     ||--o{ LINK_VERTRAG_KUNDE             : "hk_vertrag"
     HUB_KUNDE       ||--o{ LINK_VERTRAG_KUNDE             : "hk_kunde"
 
-    %% vault: Cross-Domain Link — Compax-Kunde ↔ Abacus-Adresse
-    HUB_KUNDE       ||--o{ LINK_KUNDE_ADRESSE             : "hk_kunde"
-    HUB_ADRESSE     ||--o{ LINK_KUNDE_ADRESSE             : "hk_adresse (61% Match-Rate)"
 
     %% vault × vault_telecom: Cross-Schema Links
     HUB_VERTRAG     ||--o{ LINK_VERTRAG_SIM               : "vault.hk_vertrag"
