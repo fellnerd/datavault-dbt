@@ -3731,3 +3731,40 @@ models:
     data_type: "varchar(100)"
     tests:
     - not_null
+
+- name: "link_kunde_adresse"
+  description: |
+    Link zwischen hub_kunde (Compax) und hub_adresse (Abacus) via external_customer_id = INR.
+    Match-Rate: 61% (ca. 2.736 / 4.475 Compax-Kunden haben einen Abacus-Adresseintrag).
+    CXL_-Prefix (stornierte Kunden) wird bereinigt — die Zahl dahinter ist die INR.
+    NULL/nicht-castbare external_customer_id erzeugt keinen Link-Record (null_placeholder '-1').
+    Source: rsn_mobile_services_kunde_dedup (rsn_compax).
+    Hash-Normalisierung: adresse_bk = CAST(TRY_CAST(... AS DECIMAL(38,18)) AS NVARCHAR(MAX))
+    für Kompatibilität mit hub_adresse.INR (DECIMAL(38,18)-Format → '13761.000000000000000000').
+  columns:
+  - name: "hk_link_kunde_adresse"
+    description: "Link Hash Key (Primary Key) — Hash(kunde_id, adresse_bk)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_kunde"
+    description: "FK to hub_kunde (vault)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "hk_adresse"
+    description: "FK to hub_adresse (vault) — Hash(adresse_bk = INR als DECIMAL(38,18)-String)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier (rsn_compax)"
+    data_type: "varchar(100)"
+    tests:
+    - not_null

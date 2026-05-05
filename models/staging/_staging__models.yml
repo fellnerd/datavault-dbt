@@ -2676,6 +2676,12 @@ models:
         data_type: char(64)
         tests:
           - not_null
+      - name: hk_adresse
+        description: "Hash Key → hub_adresse (adresse_bk ← external_customer_id normalisiert auf DECIMAL(38,18)-Format)"
+        data_type: char(64)
+      - name: hk_link_kunde_adresse
+        description: "Link Hash Key — kunde ↔ adresse (Hash(kunde_id, adresse_bk))"
+        data_type: char(64)
       - name: hd_kunde
         description: "Hash Diff → sat_kunde__compax (external_customer_id)"
         data_type: char(64)
@@ -2761,6 +2767,9 @@ models:
       - name: dss_business_key_msisdn
         description: "Concatenated business key string — MSISDN"
         data_type: nvarchar(4000)
+      - name: adresse_bk
+        description: "Normalisierter Adress-BK: CAST(TRY_CAST(external_customer_id AS DECIMAL(38,18)) AS NVARCHAR(MAX)) — für Hash-Kompatibilität mit hub_adresse.INR. CXL_-Prefix wird bereinigt. NULL wenn nicht castbar."
+        data_type: nvarchar(max)
 
   - name: rsn_mobile_services_optionen_dedup
     description: >
@@ -2826,6 +2835,12 @@ models:
         tests:
           - not_null
           - unique
+      - name: hk_adresse
+        description: "Hash Key → hub_adresse (adresse_bk = external_customer_id normalisiert, NULL wenn nicht castbar)"
+        data_type: char(64)
+      - name: hk_link_kunde_adresse
+        description: "Link Hash Key → link_kunde_adresse (Hash(kunde_id, adresse_bk), NULL wenn adresse_bk NULL)"
+        data_type: char(64)
       - name: hd_kunde
         description: "Hash Diff für sat_kunde__compax (external_customer_id)"
         data_type: char(64)

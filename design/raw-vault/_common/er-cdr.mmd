@@ -21,7 +21,7 @@ erDiagram
         char64      hk_kunde            FK  "vault | PK Teil 1"
         datetime2   dss_load_date           "PK Teil 2"
         char64      hd_kunde                "Hash Diff"
-        nvarchar    external_customer_id    "Externe ID — potentieller SAL zu hub_person (Abacus)"
+        nvarchar    external_customer_id    "Abacus INR → link_kunde_adresse (61% Match)"
         datetime2   dss_create_datetime     "metadata"
         varchar     dss_record_source       "metadata"
         char1       dss_is_current          "Y/N — via post_hook"
@@ -56,6 +56,23 @@ erDiagram
         char64      hk_link_vertrag_kunde    PK  "vault | Hash(vertrag_id, kunde_id)"
         char64      hk_vertrag              FK  ""
         char64      hk_kunde               FK  ""
+        datetime2   dss_load_date               "metadata"
+        varchar     dss_record_source           "metadata"
+    }
+
+    HUB_ADRESSE {
+        char64      hk_adresse          PK  "vault | Hash(INR)"
+        decimal     inr                     "ext_ewb_publ_adr_main.INR (Abacus Adressnummer)"
+        nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
+        datetime2   dss_load_date           "metadata"
+        datetime2   dss_create_datetime     "metadata"
+        varchar     dss_record_source       "metadata"
+    }
+
+    LINK_KUNDE_ADRESSE {
+        char64      hk_link_kunde_adresse    PK  "vault | Hash(kunde_id, adresse_bk)"
+        char64      hk_kunde                FK  "→ vault.hub_kunde"
+        char64      hk_adresse              FK  "→ vault.hub_adresse"
         datetime2   dss_load_date               "metadata"
         varchar     dss_record_source           "metadata"
     }
@@ -164,6 +181,10 @@ erDiagram
     %% vault: Hub → Link
     HUB_VERTRAG     ||--o{ LINK_VERTRAG_KUNDE             : "hk_vertrag"
     HUB_KUNDE       ||--o{ LINK_VERTRAG_KUNDE             : "hk_kunde"
+
+    %% vault: Cross-Domain Link — Compax-Kunde ↔ Abacus-Adresse
+    HUB_KUNDE       ||--o{ LINK_KUNDE_ADRESSE             : "hk_kunde"
+    HUB_ADRESSE     ||--o{ LINK_KUNDE_ADRESSE             : "hk_adresse (61% Match-Rate)"
 
     %% vault × vault_telecom: Cross-Schema Links
     HUB_VERTRAG     ||--o{ LINK_VERTRAG_SIM               : "vault.hk_vertrag"

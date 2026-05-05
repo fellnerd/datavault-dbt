@@ -19,6 +19,8 @@
 
 SELECT
     hk_kunde,
+    hk_adresse,
+    hk_link_kunde_adresse,
     hd_kunde,
     external_customer_id,
     dss_record_source,
