@@ -633,7 +633,7 @@ FROM mart.fakt_datenvolumen_v
 9. ER-Diagramm aktualisieren (`design/raw-vault/_common/er-cdr.mmd` + `er-diagram.mmd`)
 
 ### Phase E — Mart
-1. Mart-Schema `mart_mobile` in `dbt_project.yml` konfigurieren
+1. Mart-Schema `mart_telecom` in `dbt_project.yml` konfigurieren
 2. Dimensionen: `dim_mobilvertrag_v`, `dim_mobilkunde_v`, `dim_sim_v`, `dim_tarif_v`
 3. Basis-Fakt: `fakt_cdr_v`
 4. Aggregate: `fakt_datenvolumen_v`, `fakt_anrufe_v`
@@ -668,7 +668,7 @@ FROM mart.fakt_datenvolumen_v
 - [x] Current Views liefern korrekt aktive Stammdaten (636.930 aktive Verträge in `sat_vertrag_eff_current_v`)
 - [ ] ADF Delta-Load implementiert (siehe §12)
 - [ ] Mart-Metrik "Datenvolumen pro Vertrag/Monat" funktioniert end-to-end
-- [ ] Power BI kann auf `mart_mobile.fakt_datenvolumen_v` zugreifen
+- [ ] Power BI kann auf `mart_telecom.fakt_datenvolumen_v` zugreifen
 - [x] ER-Diagramme aktualisiert
 
 ---
@@ -847,7 +847,7 @@ END
 
 ---
 
-## 13. Mart-Layer `mart_mobile` (Phase E)
+## 13. Mart-Layer `mart_telecom` (Phase E)
 
 **Status:** 🔲 Geplant — Phase D (Raw Vault) abgeschlossen, Phase E noch nicht begonnen.  
 **Letztes Update:** 5. Mai 2026
@@ -856,7 +856,7 @@ END
 
 | Layer | Schema | Ordner |
 |-------|--------|--------|
-| Mart Mobile | `mart_mobile` | `models/mart/mobile/` |
+| Mart Telecom | `mart_telecom` | `models/mart/telecom/` |
 
 **Star-Schema-Kern:**
 ```
@@ -881,16 +881,16 @@ fakt_cdr_v ──── vertrag_key ──► dim_mobilvertrag_v
 ```yaml
 mart:
   # ... bestehende Einträge ...
-  # ===== MOBILE (Schema: mart_mobile) =====
+  # ===== TELECOM (Schema: mart_telecom) =====
   mobile:
-    +schema: mart_mobile
+    +schema: mart_telecom
 ```
 
 ---
 
 ### 13.3 Dimensionen
 
-#### `dim_mobilvertrag_v` *(Schema: `mart_mobile`)*
+#### `dim_mobilvertrag_v` *(Schema: `mart_telecom`)*
 
 Vertrags-Dimension mit aktuellem Haupt-Abo. Kombiniert `hub_vertrag`, `sat_vertrag_eff_current_v` und aktuellem Haupt-Abo aus `sat_vertrag_optionen_ma__compax`.
 
@@ -913,7 +913,7 @@ Vertrags-Dimension mit aktuellem Haupt-Abo. Kombiniert `hub_vertrag`, `sat_vertr
 
 ---
 
-#### `dim_mobilkunde_v` *(Schema: `mart_mobile`)*
+#### `dim_mobilkunde_v` *(Schema: `mart_telecom`)*
 
 Kunden-Dimension aus Compax. Enthält `external_customer_id` für spätere Abacus-Integration.
 
@@ -931,7 +931,7 @@ Kunden-Dimension aus Compax. Enthält `external_customer_id` für spätere Abacu
 
 ---
 
-#### `dim_sim_v` *(Schema: `mart_mobile`)*
+#### `dim_sim_v` *(Schema: `mart_telecom`)*
 
 SIM-Karten-Dimension. Aktuell nur ICCID — erweiterbar wenn SIM-Attribute verfügbar.
 
@@ -950,7 +950,7 @@ SIM-Karten-Dimension. Aktuell nur ICCID — erweiterbar wenn SIM-Attribute verf�
 
 ### 13.4 Fakten
 
-#### `fakt_cdr_v` — Atomarer CDR-Grain *(Schema: `mart_mobile`)*
+#### `fakt_cdr_v` — Atomarer CDR-Grain *(Schema: `mart_telecom`)*
 
 Grain: **1 Zeile = 1 CDR-Event** (aus `sat_cdr_event__compax`).
 
@@ -981,7 +981,7 @@ Grain: **1 Zeile = 1 CDR-Event** (aus `sat_cdr_event__compax`).
 
 ---
 
-#### `fakt_datenvolumen_v` — Datenvolumen pro Vertrag × Tag *(Schema: `mart_mobile`)*
+#### `fakt_datenvolumen_v` — Datenvolumen pro Vertrag × Tag *(Schema: `mart_telecom`)*
 
 Grain: **Vertrag × Datum** (nur DATA-Events).
 
@@ -1001,14 +1001,14 @@ Grain: **Vertrag × Datum** (nur DATA-Events).
 **Business-Metrik Beispiel (aus §6.3):**
 ```sql
 SELECT vertrag_key, SUM(gb_total) AS total_gb_monat
-FROM mart_mobile.fakt_datenvolumen_v
+FROM mart_telecom.fakt_datenvolumen_v
 WHERE verbindungs_datum_key BETWEEN 20250101 AND 20250131
 GROUP BY vertrag_key
 ```
 
 ---
 
-#### `fakt_anrufe_v` — Anrufe/SMS pro Vertrag × Tag *(Schema: `mart_mobile`)*
+#### `fakt_anrufe_v` — Anrufe/SMS pro Vertrag × Tag *(Schema: `mart_telecom`)*
 
 Grain: **Vertrag × Datum × record_type × is_roaming** (nur Voice/SMS-Events).
 
@@ -1106,7 +1106,7 @@ erDiagram
 
 | Step | Objekt | Vault-Quellen | Bemerkung |
 |------|--------|---------------|-----------|
-| E-0 | `dbt_project.yml` | — | `mart.mobile: +schema: mart_mobile` |
+| E-0 | `dbt_project.yml` | — | `mart.telecom: +schema: mart_telecom` |
 | E-1 | `dim_mobilvertrag_v` | hub_vertrag, sat_vertrag_eff_current_v, sat_vertrag_optionen_ma__compax | CTE ROW_NUMBER für Haupt-Abo |
 | E-2 | `dim_mobilkunde_v` | hub_kunde, sat_kunde_current_v | |
 | E-3 | `dim_sim_v` | hub_sim | Cross-schema: vault_telecom |
