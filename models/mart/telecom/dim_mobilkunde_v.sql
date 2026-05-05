@@ -18,6 +18,19 @@
     tags=['dimension']
 ) }}
 
+-- Dedup: sat_kunde_current_v kann bei gleichem dss_load_date mehrere is_current='Y'
+-- Zeilen liefern → neueste pro hk_kunde nehmen
+WITH sat_dedup AS (
+    SELECT
+        hk_kunde,
+        external_customer_id,
+        ROW_NUMBER() OVER (
+            PARTITION BY hk_kunde
+            ORDER BY dss_load_date DESC
+        ) AS rn
+    FROM {{ ref('sat_kunde_current_v') }}
+)
+
 SELECT
     {{ surrogate_key('hk.kunde_id') }}                      AS kunde_key,
     CAST(hk.kunde_id AS NVARCHAR(255))                      AS kunde_id,
@@ -27,5 +40,5 @@ SELECT
     hk.dss_load_date,
     hk.dss_record_source
 FROM {{ ref('hub_kunde') }} hk
-LEFT JOIN {{ ref('sat_kunde_current_v') }} sk
-    ON hk.hk_kunde = sk.hk_kunde
+LEFT JOIN sat_dedup sk
+    ON hk.hk_kunde = sk.hk_kunde AND sk.rn = 1
