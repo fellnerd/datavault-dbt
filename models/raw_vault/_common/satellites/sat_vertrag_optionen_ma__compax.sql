@@ -26,7 +26,7 @@
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "rsn_mobile_services_main"
+source_model: "rsn_mobile_services_optionen_dedup"
 src_pk: "hk_vertrag"
 src_cdk: "abo_option_name"
 src_hashdiff: "hd_vertrag_optionen_ma"

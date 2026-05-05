@@ -2762,6 +2762,52 @@ models:
         description: "Concatenated business key string — MSISDN"
         data_type: nvarchar(4000)
 
+  - name: rsn_mobile_services_optionen_dedup
+    description: >
+      Dedupliziertes Zwischen-Modell für sat_vertrag_optionen_ma__compax.
+      rsn_mobile_services_main hat N Zeilen pro (vertrags_nummer, abo_option_name).
+      automate_dv.ma_sat() verwendet RANK() — bei gleicher dss_load_date bekommen
+      alle N Zeilen RANK=1 → alle werden inserted → Duplikate (z.B. Xtra-Card Watch 9×).
+      Dieses Modell liefert exakt eine Zeile pro (hk_vertrag, abo_option_name, hd_vertrag_optionen_ma).
+    config:
+      meta:
+        entity_type: dedup
+        source_type: staging_view
+    columns:
+      - name: hk_vertrag
+        description: "Hash Key → hub_vertrag"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: abo_option_name
+        description: "CDK (Composite Dependent Key) — Name der Option"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: hd_vertrag_optionen_ma
+        description: "Hash Diff für sat_vertrag_optionen_ma__compax"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: ist_option
+        data_type: nvarchar(4000)
+      - name: aktivierungs_datum
+        data_type: nvarchar(4000)
+      - name: kundigungs_datum
+        data_type: nvarchar(4000)
+      - name: mlz_datum
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        data_type: datetime2(7)
+
   - name: rsn_mobile_services_kunde_dedup
     description: >
       Dedupliziertes Zwischen-Modell für sat_kunde__compax.
