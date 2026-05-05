@@ -5,7 +5,7 @@
 | **Kunde** | EWB Energie Wasser Bern |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
-| **Stand** | 8. April 2026 |
+| **Stand** | 5. Mai 2026 |
 | **Verfasser** | PPMC AG |
 
 ---
@@ -144,9 +144,9 @@ Der gewählte Ansatz stellt sicher, dass Rohdaten unveränderlich erhalten bleib
 |---|---|---|
 | 1 | Analyse der bestehenden Azure-Umgebung | Abgeschlossen |
 | 2 | Infrastruktur: SQL Server + Datenbankinitialisierung | Abgeschlossen |
-| 3 | Raw Vault: Staging, Hubs, Satellites, Links | Abgeschlossen (Wave 1+2+3 deployed ✅) |
+| 3 | Raw Vault: Staging, Hubs, Satellites, Links | Abgeschlossen (Wave 1+2+3 + CDR/Telecom-Domain deployed ✅, Mai 2026) |
 | 4 | Orchestrierung & Automatisierung (ADF → dbt) | In Bearbeitung (`Master_ewb_load` Pipeline + `vault.load_status` deployed ✅, GitLab Scheduled Trigger ⬜ offen) |
-| 5 | Reporting Layer & Power BI | Abgeschlossen (Projekt-Domain + Finance-Domain deployed ✅) |
+| 5 | Reporting Layer & Power BI | Abgeschlossen (Projekt-Domain + Finance-Domain + Telecom-Domain `mart_telecom` deployed ✅) |
 
 ---
 
@@ -302,18 +302,19 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 ## 5. Phase 3 — Raw Vault
 
-### 5.1 Implementierungsfortschritt (Stand 8. April 2026)
+### 5.1 Implementierungsfortschritt (Stand 5. Mai 2026)
 
 | Schicht | Implementiert | Pilot-Scope | Fortschritt |
 |---|---|---|---|
-| External Tables | 23 | 23 | 100% ✅ (datavault-dev) |
+| External Tables | 27 | 27 | 100% ✅ (datavault-dev) |
 | Staging-Views (Abacus) | 14 | 15 | 93% (NTB out of scope) |
 | Staging-Views (Sharepoint) | 8 | 8 | 100% ✅ |
-| Hubs | 13 (+2 Ghost) | 13 (+2 Ghost) | 100% ✅ |
-| Satellites | 12 (+12 current_v) | 12 | 100% ✅ |
-| Links | 11 | 11 | 100% ✅ |
-| Reference Tables | 6 | 6 | 100% ✅ |
-| **Mart-Views** | **16** | **16** | **100% ✅** |
+| Staging-Views (CDR/Telecom) | 4 | 4 | 100% ✅ |
+| Hubs | 16 (+2 Ghost) | 16 (+2 Ghost) | 100% ✅ |
+| Satellites | 17 (+14 current_v) | 17 | 100% ✅ |
+| Links | 15 | 15 | 100% ✅ |
+| Reference Tables | 8 | 8 | 100% ✅ |
+| **Mart-Views** | **24** | **24** | **100% ✅** |
 
 **Wave 1 (Stammdaten): ✅ DEPLOYED** auf `datavault-dev` (28. März 2026, 27 Modelle, 0 Fehler)
 
@@ -323,9 +324,13 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 
 **Wave 4 (structured-tables Gap Close): ✅ IMPLEMENTIERT** (15. April 2026) — Budget/Forecast/ActualForecast Mart-Views + dim_projekt Sharepoint-Erweiterung + dim_person Fix. 13/13 structured-tables abgedeckt (1 out of scope: Zugangsrechte).
 
+**CDR / Telecom Wave (Mai 2026): ✅ DEPLOYED** auf `datavault-dev` — Compax RSN Mobile Staging + CDR-Raw-Vault + `mart_telecom` deployed; CDR-Tests vollständig PASS; `fakt_datenvolumen__base` + `fakt_anrufe__base` via `--full-refresh` erfolgreich aufgebaut.
+
 **Finance Mart: ✅ DEPLOYED** (31. März 2026) — fakt_buchungen (892.713), fakt_belege (287.784), dim_kreditor.
 
 **Implementierungsplan:** `design/raw-vault/_common/implementierungsplan.md` (erstellt 12. März 2026, basierend auf Synapse-Analyse)
+
+**CDR-Implementierungsplan:** `design/raw-vault/_common/cdr-implementierungsplan.md`
 
 ### 5.2 Staging-Layer (stg.ewb_*)
 
@@ -394,14 +399,34 @@ Der neue Data Vault liest ausschliesslich aus **`landing-zone`** — nicht aus `
 | `ref_konto` | Reference | Sharepoint | ✅ Deployed |
 | `ref_kostenstelle` | Reference | Sharepoint | ✅ Deployed |
 
+#### CDR / Telecom Domain (Mai 2026)
+
+| Objekt | Schema | Typ | Basiert auf | Status |
+|---|---|---|---|---|
+| `hub_vertrag` | `vault` | Hub | `rsn_mobile_services_main` | ✅ Deployed |
+| `hub_kunde` | `vault` | Hub | `rsn_mobile_services_main` | ✅ Deployed |
+| `sat_kunde__compax` | `vault` | Satellite | `rsn_mobile_services_kunde_dedup` | ✅ Deployed |
+| `sat_vertrag_eff__compax` | `vault` | Satellite (Effectivity) | `rsn_mobile_services_main` | ✅ Deployed |
+| `sat_vertrag_optionen_ma__compax` | `vault` | MA Satellite | `rsn_mobile_services_optionen_dedup` | ✅ Deployed |
+| `link_vertrag_kunde` | `vault` | Link | `rsn_mobile_services_main` | ✅ Deployed |
+| `link_kunde_adresse` | `vault` | Link | `rsn_mobile_services_kunde_dedup` | ✅ Deployed (61% Match via `external_customer_id` = INR) |
+| `hub_sim` | `vault_telecom` | Hub | `rsn_mobile_services_main` | ✅ Deployed |
+| `sat_cdr_event__compax` | `vault_telecom` | Transaction Satellite | `rsn_mobile_cdr_main` | ✅ Deployed |
+| `link_cdr_event_tl` | `vault_telecom` | Transaction Link | `rsn_mobile_cdr_main` | ✅ Deployed |
+| `link_vertrag_sim` | `vault_telecom` | Link | `rsn_mobile_services_main` | ✅ Deployed |
+| `ref_abo_option_v` | `vault_telecom` | Reference View | `rsn_mobile_services_main` | ✅ Deployed |
+| `ref_tarif_v` | `vault_telecom` | Reference View | `rsn_mobile_cdr_main` | ✅ Deployed |
+
 ### 5.4 Bereits erstellte dbt-Infrastruktur
 
 | Artefakt | Detail | Status |
 |---|---|---|
 | `models/raw_vault/_common/` | Zielordner für EWB Vault-Modelle (hubs/, satellites/, links/) | Konfiguriert |
+| `models/raw_vault/telecom/` | Zielordner für Telecom-spezifische Vault-Objekte im Schema `vault_telecom` | Konfiguriert (Mai 2026) |
+| `models/mart/telecom/` | Zielordner für `mart_telecom` Star-Schema-Views | Konfiguriert (Mai 2026) |
 | `dbt_project.yml` | EWB-Modelle nutzen `_common` (Schema: `vault`, `as_columnstore: false`) | Erstellt (9. März 2026) |
 | `models/staging/ewb_fibu_fhe_main.sql` | Referenz-Staging-View (automate_dv.stage() Pattern, VARBINARY-Pattern) | Erstellt |
-| `models/staging/sources.yml` | 23 External Tables `ext_ewb_*` konfiguriert (15 Abacus + 8 Sharepoint) | Erstellt (9. März 2026) |
+| `models/staging/sources.yml` | 27 External Tables konfiguriert (`ext_ewb_*` + `ext_rsn_*`) | Aktualisiert (Mai 2026) |
 
 ---
 
@@ -425,7 +450,7 @@ Alle drei Design-Fragen wurden durch Datenanalyse gelöst. Vollständige technis
 | Synapse-Bugs | Zwei Fehler in Synapse Views identifiziert: (1) `PROJNR=LOHNNR` Join, (2) `CODE=RECNUM` statt `CODE=NUMBER` |
 
 
-### 5.7 Artefakt-Sync-Status (Stand 5. April 2026)
+### 5.7 Artefakt-Sync-Status (Stand 5. Mai 2026)
 
 Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer und ER-Diagramm.
 
@@ -458,6 +483,15 @@ Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer un
 
 > **Hinweis:** Sharepoint External Tables nutzen den Suffix `_json` in sources.yml (z. B. `ext_ewb_sp_konten_json`), was dem effektiven DB-Tabellennamen entspricht.
 
+#### CDR / Telecom Staging Layer (Mai 2026)
+| Staging-Modell (SQL) | _staging__models.yml | sources.yml | stg-View DB | Status |
+|---|---|---|---|---|
+| `rsn_mobile_services_main` | ✅ | ✅ `ext_rsn_mobile_services_main` | ✅ | Synchron |
+| `rsn_mobile_services_optionen_dedup` | ✅ | n/a (basiert auf `rsn_mobile_services_main`) | ✅ | Synchron |
+| `rsn_mobile_services_kunde_dedup` | ✅ | n/a (basiert auf `rsn_mobile_services_main`) | ✅ | Synchron |
+| `psa_rsn_mobile_cdr_main` | ✅ | ✅ `ext_rsn_mobile_cdr_main` | ✅ | Synchron |
+| `rsn_mobile_cdr_main` | ✅ | ✅ `ext_rsn_mobile_cdr_main` | ✅ | Synchron |
+
 #### Raw Vault Layer (_common__models.yml vs. SQL-Dateien)
 | Objekt | SQL-Datei | _common__models.yml | DB (datavault-dev) | Status |
 |---|---|---|---|---|
@@ -468,6 +502,17 @@ Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer un
 | **6 References** | ✅ 6 Dateien | ✅ 6 Einträge | ✅ 6 Views | Synchron |
 
 > **Hinweis (Stand 5.4.2026):** `hub_konto`, `hub_kostenstelle`, `link_hauptbuch_konto`, `link_hauptbuch_kostenstelle` sind vollständig in `_common__models.yml` dokumentiert — bekannte Lücke aus vorheriger Session **behoben** ✅.
+
+#### CDR / Telecom Vault Layer (Mai 2026)
+| Bereich | SQL-Dateien | YAML-Doku | DB (datavault-dev) | Status |
+|---|---|---|---|---|
+| `vault` CDR-Hubs (`hub_vertrag`, `hub_kunde`) | ✅ 2 Dateien | ✅ 2 Einträge | ✅ 2 Tabellen | Synchron |
+| `vault` CDR-Satellites (`sat_kunde__compax`, `sat_vertrag_eff__compax`, `sat_vertrag_optionen_ma__compax`) | ✅ 3 Dateien | ✅ 3 Einträge | ✅ 3 Tabellen | Synchron |
+| `vault` CDR current_v (`sat_kunde_current_v`, `sat_vertrag_eff_current_v`) | ✅ 2 Dateien | ✅ 2 Einträge | ✅ 2 Views | Synchron |
+| `vault` CDR-Links (`link_vertrag_kunde`, `link_kunde_adresse`) | ✅ 2 Dateien | ✅ 2 Einträge | ✅ 2 Tabellen | Synchron |
+| `vault_telecom` CDR-Objekte (`hub_sim`, `sat_cdr_event__compax`, `link_vertrag_sim`, `link_cdr_event_tl`) | ✅ 4 Dateien | ✅ 4 Einträge | ✅ 4 Objekte | Synchron |
+
+> **Hinweis (Stand 5.5.2026):** Die publizierten Telecom-Reference-Views `ref_abo_option_v` und `ref_tarif_v` sind auf `datavault-dev` deployed; ihre vollständige Repo-/YAML-Synchronisierung wird mit dem nächsten Artefakt-Sync nachgezogen.
 
 #### ER-Diagramm vs. Vault-Modelle
 | Bereich | ER-Header | Tatsächlich | Status |
@@ -572,7 +617,7 @@ Der dbt-Runner läuft als **Azure Container App Job** (`caj-dbt-runner`, Consump
 
 ## 7. Phase 5 — Reporting Layer & Power BI
 
-Mart-Tabellen im Schema `mart_project` / `mart_finance` werden als **Star Schema** auf dem Vault-Fundament erstellt. Power BI verbindet sich direkt mit `sql-analytics-ewb-001` und liest aus Dimensionen (`dim_*`) und Faktentabellen (`fakt_*`).
+Mart-Tabellen im Schema `mart_project` / `mart_finance` / `mart_telecom` werden als **Star Schema** auf dem Vault-Fundament erstellt. Power BI verbindet sich direkt mit `sql-analytics-ewb-001` und liest aus Dimensionen (`dim_*`) und Faktentabellen (`fakt_*`).
 
 ### 7.0 Mart ER-Diagramm (Star Schema Übersicht)
 
@@ -734,7 +779,7 @@ erDiagram
     dim_date           ||--o{  ref_actual_forecast : "year_month = y_month (Power BI Slicer)"
 ```
 
-> **Legende:** `}o--||` = Many-to-one (Pflicht), `}o--o|` = Many-to-one (optional/nullable). `dim_date` ist shared zwischen beiden Domains (`mart._common`). Alle Surrogate Keys via `MD5(BK) → BIGINT`. Detaillierte Diagramme: `design/mart/er-mart-project.mmd`, `design/mart/er-mart-finance.mmd`.
+> **Legende:** `}o--||` = Many-to-one (Pflicht), `}o--o|` = Many-to-one (optional/nullable). `dim_date` ist shared zwischen den Domains (`mart._common`). Alle Surrogate Keys via `MD5(BK) → BIGINT`. Detaillierte Diagramme: `design/mart/er-mart-project.mmd`, `design/mart/er-mart-finance.mmd`, `design/mart/er-mart-telecom.mmd`. `mart_telecom` ist zusätzlich als separates ER-Diagramm dokumentiert.
 
 ### 7.1 Projekt-Domain — Star Schema (DEPLOYED ✅)
 
@@ -773,12 +818,33 @@ erDiagram
 
 **ER-Diagramm:** `design/mart/er-mart-finance.mmd`
 
+### 7.3 Telecom-Domain — Star Schema (DEPLOYED ✅)
+
+| Mart-Objekt | Typ | Beschreibung | Status |
+|---|---|---|---|
+| `mart_telecom.dim_mobilvertrag_v` | Dimension | Verträge, is_active, abo_name | ✅ Deployed |
+| `mart_telecom.dim_mobilkunde_v` | Dimension | Kundenstamm aus Compax | ✅ Deployed |
+| `mart_telecom.dim_sim_v` | Dimension | SIM-Karten (ICCID) | ✅ Deployed |
+| `mart_telecom.fakt_cdr_v` | Fakt (View) | Atomarer CDR-Grain, rolling 30 Tage | ✅ Deployed |
+| `mart_telecom.fakt_datenvolumen_v` | Fakt (Aggregat) | Datenvolumen pro Vertrag×Tag | ✅ Full-Refresh durchgeführt |
+| `mart_telecom.fakt_anrufe_v` | Fakt (Aggregat) | Anrufe/SMS pro Vertrag×Tag | ✅ Full-Refresh durchgeführt |
+
+ER-Diagramm: `design/mart/er-mart-telecom.mmd`
+Implementierungsplan: `design/raw-vault/_common/cdr-implementierungsplan.md`
+
+Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumulierte Aggregate (`fakt_datenvolumen_v` / `fakt_anrufe_v`). Vor Aktivierung der Purge ist einmalig `--full-refresh` erforderlich (durchgeführt).
+
 ---
 
 ## 8. Entscheidungslogbuch
 
 | Datum | Entscheidung | Begründung |
 |---|---|---|
+| Mai 2026 | `external_customer_id` = Abacus INR, nicht Personalnummer | DB-Analyse: 61% Match zu `hub_adresse.inr`, nur 1.4% zu `hub_person.empl_nr` (Zufallsüberschneidung). `link_kunde_adresse` implementiert |
+| Mai 2026 | Retention: Rolling 30 Tage Rohevents + dauerhaft Aggregate | `fakt_cdr_v` zeigt immer den aktuellen Vault-Stand (nach Purge: 30 Tage). `fakt_datenvolumen_v` / `fakt_anrufe_v` akkumulieren dauerhaft → historische Analyse ohne voluminöse Rohevents |
+| Mai 2026 | `kundigungs_datum = ''` (leerer String) = aktiver Vertrag in Compax | Compax liefert `''` für offene Verträge, nicht `NULL` oder `9999-12-31`. `is_active='Y'` wenn `NULL` oder `''` |
+| Mai 2026 | `CXL_`-Prefix = stornierte Compax-Kunden | `external_customer_id LIKE 'CXL_%'` → Zahl nach Prefix = Abacus INR. Im Link normalisiert via `SUBSTRING` |
+| Mai 2026 | `mart_mobile` → `mart_telecom` umbenannt | Konsistenz mit `vault_telecom` Schema |
 | März 2026 | dim_abteilung (mart_project) deployed | DISTINCT (EMPL_NR, HOME_DEPT_NR, MUTATION_DATE) aus sat_person__abacus LEFT JOIN ref_abteilung. Matching Synapse Projekt.Abteilung (~2.027 Zeilen) |
 | März 2026 | fakt_belege Granularität auf Beleg×Zahlung geändert | KBL LEFT JOIN KVL via link_kreditorenbeleg_zahlung → 287.784 Zeilen matching Synapse Finance.Belege |
 | März 2026 | hub_hauptbuch BK-Korrektur: DKBELEGNUMMER||KTO → RECNUM | DKBELEGNUMMER hat 62% Nullen, bis zu 96 Duplikate pro Kombination. RECNUM ist der einzig unique Zeilenidentifier in FIBU.GL |
@@ -835,6 +901,6 @@ erDiagram
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 20. April 2026 — Wave 1+2+3+4 deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv. `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. 95 Modelle, 460 Tests.*
+*EWB Analytics Platform | PPMC AG | Stand: 5. Mai 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv. `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; Full-Refresh für `fakt_datenvolumen__base` + `fakt_anrufe__base` erfolgreich.*
 
-> Letztes Update: `Master_ewb_load` ADF-Pipeline deployed + `vault.load_status` Audit-Tabelle erstellt + dbt `on-run-end` Hook aktiv (20. April 2026). Nächster Schritt: GitLab Scheduled Job für automatischen dbt-Trigger + Deployment auf `datavault` (Produktion).
+> Letztes Update: CDR/Telecom-Domain (Compax RSN Mobile) auf `datavault-dev` ergänzt — neue Staging-Views, Raw Vault Objekte und `mart_telecom` deployed; CDR-Tests vollständig PASS; `fakt_datenvolumen__base` + `fakt_anrufe__base` via `--full-refresh` erfolgreich aufgebaut (5. Mai 2026). Nächster Schritt: GitLab Scheduled Job für automatischen dbt-Trigger + Deployment auf `datavault` (Produktion).
