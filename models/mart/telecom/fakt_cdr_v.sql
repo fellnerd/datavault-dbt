@@ -46,7 +46,18 @@ SELECT
     TRY_CAST(FORMAT(TRY_CAST(s.connection_start AS DATE), 'yyyyMMdd') AS INT) AS verbindungs_datum_key,
 
     -- Degenerate Dimensionen
-    CAST(s.record_type AS NVARCHAR(20))                                     AS record_type,
+    -- Normalisierung: Compax-interne record_types (GPR/GSM) → Business-Semantik
+    CASE
+        WHEN s.record_type = 'GPR'                                              THEN 'DATA'
+        WHEN s.record_type = 'GSM' AND s.service_type = 'MOC'                  THEN 'MOC'
+        WHEN s.record_type = 'GSM' AND s.service_type = 'MTC'                  THEN 'MTC'
+        WHEN s.record_type = 'GSM' AND s.service_type = 'FORW'                 THEN 'FORW'
+        WHEN s.record_type = 'GSM'
+             AND s.service_type IN ('SMMO','SMMT','PSMMT','RSMMO','PSMMO')     THEN 'SMS'
+        WHEN s.record_type = 'GSM'
+             AND s.service_type IN ('RMOC','ROAM')                             THEN 'ROAM'
+        ELSE s.record_type
+    END                                                                         AS record_type,
     CAST(s.service_type AS NVARCHAR(20))                                    AS service_type,
     CAST(s.tarif AS NVARCHAR(255))                                          AS tarif,
     CAST(s.id AS NVARCHAR(255))                                             AS event_id,
