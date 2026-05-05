@@ -1,7 +1,7 @@
 # CDR-Reporting Mobile — Implementierungsplan
 
 **Erstellt:** 22. April 2026  
-**Status:** 🚧 Phase A–D ✅ — Full Load (9.44M Rows) abgeschlossen, **3 Validierungs-Findings offen** (siehe §11)  
+**Status:** ✅ Phase A–D abgeschlossen — Full Load (9.44M Rows) + alle Vault-Bugs behoben. ADF Delta Load ausstehend (§12).  
 **Letztes Update:** 5. Mai 2026  
 **Scope:** Mobile-Telefonie CDR-Daten von Compax (RSN — Rii Seez Net)  
 **Nicht im Scope:** Lambda Vault (Real-Time), Festnetz-CDR (später)
@@ -664,12 +664,12 @@ FROM mart.fakt_datenvolumen_v
 - [x] `ext_rsn_mobile_services_main` + `ext_rsn_mobile_cdr_main` existieren auf dev + test
 - [x] Staging Views deployt, Tests grün
 - [x] Raw Vault komplett modelliert auf datavault-dev (14 Modelle PASS, Full Load 9.44M Rows)
-- [ ] Validierungs-Findings (siehe §11) behoben: D1 current_v, E2 MA-Hashdiff, F2 Kunde-Hashdiff
-- [ ] Current Views liefern korrekt aktive Stammdaten (blockiert durch D1)
+- [x] Validierungs-Findings (siehe §11) behoben: D1 current_v, E2 MA-Sat, F2 Kunde-Sat
+- [x] Current Views liefern korrekt aktive Stammdaten (636.930 aktive Verträge in `sat_vertrag_eff_current_v`)
 - [ ] ADF Delta-Load implementiert (siehe §12)
 - [ ] Mart-Metrik "Datenvolumen pro Vertrag/Monat" funktioniert end-to-end
 - [ ] Power BI kann auf `mart_mobile.fakt_datenvolumen_v` zugreifen
-- [ ] ER-Diagramme aktualisiert
+- [x] ER-Diagramme aktualisiert
 
 ---
 
@@ -723,57 +723,42 @@ Tests A–G aus `plan.md` (SQL-only gegen datavault-dev). B und C übersprungen 
 | A5 | hk_vertrag → hub_vertrag fehlend | 0 | ✅ PASS |
 | A6 | hk_sim → hub_sim fehlend | 22 | ⚠️ DOKU (0,0002%) |
 | A7 | Hubs duplikatfrei | alle 0 | ✅ PASS |
-| D1 | `sat_vertrag_eff_current_v` aktive Verträge | **0** (erwartet: ~5'000) | ❌ **FAIL** |
+| D1 | `sat_vertrag_eff_current_v` aktive Verträge | **636.930** | ✅ **PASS** (nach Fix) |
 | D2 | Verträge mit > 1 eff-Sat-Records | 804/592/576 max | ✅ Open/Close aktiv |
-| D3 | Gekündigt nicht in current_v | 0 (trivial wegen D1) | ⚠️ blockiert durch D1 |
-| E1 | > 1 aktive Option pro Vertrag | 0 (blockiert durch D1-Sentinel) | ⚠️ blockiert |
-| E2 | MA Sat Hashdiff-Eindeutigkeit | **53 Duplikate** | ❌ **FAIL** |
+| D3 | Gekündigt nicht in current_v | 0 | ✅ PASS (nach Fix) |
+| E1 | > 1 aktive Option pro Vertrag | 1.023 Mehrfach-Optionen | ✅ PASS (nach Fix) |
+| E2 | MA Sat Eindeutigkeit (hk+CDK+ldts) | **0 Duplikate** | ✅ **PASS** (nach Fix) |
 | F1 | sat_kunde_current_v = hub_kunde | 4'475 = 4'475 | ✅ PASS |
-| F2 | sat_kunde Hashdiff-Eindeutigkeit | **52 Duplikate** | ❌ **FAIL** |
+| F2 | sat_kunde Hashdiff-Eindeutigkeit | **0 Duplikate** | ✅ **PASS** (nach Fix) |
 | G1 | Transaction Sat 1:1 mit Link | 0 dups | ✅ PASS |
 | G2 | CDR-Volumen pro Tag | 239 Tage lückenlos (2024-10-15 → 2025-06-10), avg 39'496/Tag | ✅ PASS |
 
 ### 11.3 Findings & Fixes
 
-#### Finding 1 — `sat_vertrag_eff_current_v` filtert leer (CRITICAL)
+#### Finding 1 — `sat_vertrag_eff_current_v` filtert leer → ✅ BEHOBEN (2026-05-05)
 
-**Problem:** View filtert `WHERE CAST(kundigungs_datum AS DATE) = '9999-12-31'`, aber die Quelle nutzt diesen Sentinel **nicht**. `MIN(kundigungs_datum)` liefert leeren String `''`, `MAX = 2026-01-05`. → 0 aktive Verträge angezeigt.
+**Problem:** View filterte `WHERE CAST(kundigungs_datum AS DATE) = '9999-12-31'`, aber die Quelle nutzt diesen Sentinel nicht. Aktive Verträge tragen `kundigungs_datum = ''` (leerer String). → 0 aktive Verträge angezeigt.
 
-**Hypothesen zur Quell-Konvention:**
-- Aktive Verträge tragen `kundigungs_datum = ''` (leerer String) oder `NULL`
-- Oder `eff_sat()` schreibt `dss_end_date` separat, was als Aktiv-Indikator dienen sollte
+**Fix (commit 402841d):** Filter auf `WHERE kundigungs_datum IS NULL OR kundigungs_datum = ''`  
+**Ergebnis:** 636.930 aktive Verträge korrekt angezeigt.
 
-**Action:**
-- [ ] **fix-d1-1** Quell-Konvention für aktive Verträge ermitteln (Compax-Doku oder Sample-Query auf `rsn_mobile_services_main` mit aktiven Abos)
-- [ ] **fix-d1-2** `sat_vertrag_eff_current_v.sql` Filter anpassen — vermutlich `WHERE kundigungs_datum IS NULL OR kundigungs_datum = ''` oder Logik über `dss_end_date`/Effectivity-Status
-- [ ] **fix-d1-3** Test D1 + D3 + E1 nach Fix erneut ausführen
+#### Finding 2 — MA Sat Duplikate → ✅ BEHOBEN (2026-05-05)
 
-#### Finding 2 — MA Sat Hashdiff-Duplikate (53)
+**Problem:** Identische (Vertrag, Option)-Kombinationen aus verschiedenen Tages-Snapshots im Merged-Parquet lieferten N Zeilen mit gleicher oder unterschiedlicher Payload. `automate_dv.ma_sat()` verwendet `RANK()` → bei gleicher `dss_load_date` bekommen alle N Zeilen `RANK=1` → alle werden inserted.
 
-**Problem:** 53 `(hk_vertrag, hd_vertrag_optionen_ma, dss_load_date)`-Kombinationen mit > 1 Record in `sat_vertrag_optionen_ma__compax`.
+**Fix (commit 741bd4b):** Neues Dedup-Modell `rsn_mobile_services_optionen_dedup` mit  
+`ROW_NUMBER() OVER (PARTITION BY hk_vertrag, abo_option_name ORDER BY dss_load_date DESC)` — exakt 1 Zeile pro (Vertrag, Option), aktuellste Version.  
+**Ergebnis:** 0 Duplikate, 6.902 Rows / 5.879 distinct Verträge.
 
-**Hypothesen:**
-- Multi-Active Sub-Key fehlt im Hashdiff-Setup (mehrere Optionen erzeugen denselben hd-Wert)
-- automate_dv MA-Sat erwartet expliziten `multi_active_attributes` — aktuelles Modell verwendet jedoch reguläres `sat()`-Macro? Code prüfen.
+> **Hinweis Delta-Load:** Bei inkrementellem Load (1 Datei pro Tag, max. 1 Zeile pro Option) greift der Dedup als No-Op.
 
-**Action:**
-- [ ] **fix-e2-1** `models/raw_vault/_common/satellites/sat_vertrag_optionen_ma__compax.sql` öffnen — prüfen ob `automate_dv.ma_sat()` (statt `sat()`) verwendet wird und ob `src_cdk` (Child-Dependent-Key, z.B. `abo_option_name`) gesetzt ist
-- [ ] **fix-e2-2** Bei Bedarf auf `ma_sat()` umstellen mit `src_cdk: ['abo_option_name']` (oder vergleichbare Sub-Key-Spalte)
-- [ ] **fix-e2-3** `--full-refresh` und Test E2 erneut ausführen
+#### Finding 3 — `sat_kunde__compax` Hashdiff-Duplikate → ✅ BEHOBEN (2026-05-05)
 
-#### Finding 3 — `sat_kunde__compax` Hashdiff-Duplikate (52)
+**Problem:** `rsn_mobile_services_main` liefert N Zeilen pro Kunde (1 pro Vertrag). `automate_dv.sat()` verwendet `RANK()` → bei gleicher `dss_load_date` bekommen alle N Zeilen `RANK=1` → alle werden inserted → 52 Duplikate.
 
-**Problem:** 52 `(hk_kunde, HASHDIFF, dss_load_date)`-Kombinationen mehrfach. Trotz F1=PASS (current_v stimmt), gibt es im Sat doppelte Records pro Load-Tag.
-
-**Hypothesen:**
-- Stage-View `rsn_mobile_services_main` liefert Duplikate pro Kunde (mehrere `vertrags_nummer` mit gleicher `customer_id` + identischem `external_customer_id` → 1 Kunde, mehrere Stage-Rows)
-- automate_dv `sat()` dedupliziert via `RANK() OVER (PARTITION BY hk, hashdiff ORDER BY ldts)` — bei identischen `dss_load_date` und mehreren Source-Rows können Duplikate entstehen
-- Spalten-Hinweis: Sat verwendet `HASHDIFF` (uppercase) statt `hd_kunde`
-
-**Action:**
-- [ ] **fix-f2-1** Stage-View `rsn_mobile_services_main` auf Kunden-Duplikate prüfen: `SELECT customer_id, COUNT(DISTINCT external_customer_id) FROM stg.rsn_mobile_services_main GROUP BY customer_id HAVING COUNT(*) > 1`
-- [ ] **fix-f2-2** Falls Stage-Duplikate: `DISTINCT` oder `ROW_NUMBER()` in der Stage-Logik einführen (Pattern wie EWB-Stages)
-- [ ] **fix-f2-3** Falls Quelle: `--full-refresh` von `sat_kunde__compax` und Test F2 erneut
+**Fix (commit 402841d):** Neues Dedup-Modell `rsn_mobile_services_kunde_dedup` mit  
+`ROW_NUMBER() OVER (PARTITION BY hk_kunde, hd_kunde ORDER BY dss_load_date)` — exakt 1 Zeile pro (Kunde, Hashdiff).  
+**Ergebnis:** 0 Duplikate, 4.503 Rows / 4.475 distinct Kunden (28 SCD2-History-Rows korrekt).
 
 ### 11.4 Strukturelle Beobachtungen (Nicht-Findings)
 
