@@ -2,16 +2,18 @@
  * Staging Dedup Model: rsn_mobile_services_optionen_dedup
  *
  * Dedupliziert rsn_mobile_services_main auf eine Zeile pro (hk_vertrag, abo_option_name)
- * pro Load-Batch — als Quelle für sat_vertrag_optionen_ma__compax.
+ * als Quelle für sat_vertrag_optionen_ma__compax.
  *
- * Problem: rsn_mobile_services_main hat N Zeilen pro (vertrags_nummer, abo_option_name),
- * z.B. "Xtra-Card Watch" erscheint 9× für denselben Vertrag im selben Load-Batch.
- * automate_dv.ma_sat() verwendet RANK() statt ROW_NUMBER() → bei gleicher dss_load_date
- * bekommen alle N Zeilen RANK=1 → alle N werden inserted → Duplikate.
+ * Problem: Das Merged-Parquet enthält alle historischen Tages-Snapshots. Derselbe
+ * (Vertrag, Option) kann N Mal mit gleicher oder unterschiedlicher Payload erscheinen.
+ * automate_dv.ma_sat() verwendet RANK() statt ROW_NUMBER() → Ties bekommen alle RANK=1
+ * → alle werden inserted → Duplikate in der Vault-Tabelle.
  *
- * Fix: ROW_NUMBER() OVER (PARTITION BY hk_vertrag, abo_option_name, hd_vertrag_optionen_ma
- *                         ORDER BY dss_load_date)
- * liefert exakt eine Zeile pro (hk_vertrag, abo_option_name, hd) Kombination.
+ * Fix: ROW_NUMBER() OVER (PARTITION BY hk_vertrag, abo_option_name ORDER BY dss_load_date DESC)
+ * → exakt 1 Zeile pro (hk_vertrag, abo_option_name): die aktuellste Version.
+ *
+ * Delta-Load Hinweis: Bei inkrementellem Load (1 Datei pro Tag, 1 Zeile pro Option)
+ * greift diese Dedup-Logik nicht ein (ist dann ein No-Op).
  *
  * Quelle: rsn_mobile_services_main
  * Konsument: sat_vertrag_optionen_ma__compax
@@ -34,8 +36,8 @@ FROM (
     SELECT
         *,
         ROW_NUMBER() OVER (
-            PARTITION BY hk_vertrag, abo_option_name, hd_vertrag_optionen_ma
-            ORDER BY dss_load_date
+            PARTITION BY hk_vertrag, abo_option_name
+            ORDER BY dss_load_date DESC
         ) AS _rn
     FROM {{ ref('rsn_mobile_services_main') }}
 ) t
