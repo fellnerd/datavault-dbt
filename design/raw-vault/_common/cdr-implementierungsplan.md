@@ -844,3 +844,281 @@ END
 
 - ADF → dbt Trigger (load_status Tabelle) — separater Plan in `plan.md`
 - 2-stufige CSV→Parquet Architektur — nicht mehr nötig (MergeFiles für Initial OK; Delta liefert direkt Parquet pro SFTP-File)
+
+---
+
+## 13. Mart-Layer `mart_mobile` (Phase E)
+
+**Status:** 🔲 Geplant — Phase D (Raw Vault) abgeschlossen, Phase E noch nicht begonnen.  
+**Letztes Update:** 5. Mai 2026
+
+### 13.1 Übersicht
+
+| Layer | Schema | Ordner |
+|-------|--------|--------|
+| Mart Mobile | `mart_mobile` | `models/mart/mobile/` |
+
+**Star-Schema-Kern:**
+```
+dim_datum_v (existing)
+       │
+       │ date_key
+       ▼
+fakt_cdr_v ──── vertrag_key ──► dim_mobilvertrag_v
+      │
+      ├────── kunde_key ───────► dim_mobilkunde_v
+      │
+      └────── sim_key ──────────► dim_sim_v
+```
+
+`fakt_datenvolumen_v` und `fakt_anrufe_v` aggregieren über `fakt_cdr_v`.
+
+---
+
+### 13.2 Konfiguration
+
+**`dbt_project.yml` — Ergänzung:**
+```yaml
+mart:
+  # ... bestehende Einträge ...
+  # ===== MOBILE (Schema: mart_mobile) =====
+  mobile:
+    +schema: mart_mobile
+```
+
+---
+
+### 13.3 Dimensionen
+
+#### `dim_mobilvertrag_v` *(Schema: `mart_mobile`)*
+
+Vertrags-Dimension mit aktuellem Haupt-Abo. Kombiniert `hub_vertrag`, `sat_vertrag_eff_current_v` und aktuellem Haupt-Abo aus `sat_vertrag_optionen_ma__compax`.
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `vertrag_key` | BIGINT | `surrogate_key(vertrag_id)` |
+| `vertrag_id` | NVARCHAR(255) | Business Key (vertrags_nummer) |
+| `vertrag_code` | NVARCHAR(255) | = vertrag_id |
+| `vertrag_name` | NVARCHAR(255) | abo_name (Haupt-Abo, fallback = vertrag_id) |
+| `abo_name` | NVARCHAR(255) | Haupt-Abo-Name (`ist_option='0'`, neueste Version) |
+| `aktivierungs_datum` | DATE | `TRY_CAST(aktivierungs_datum AS DATE)` |
+| `kundigungs_datum` | DATE | `NULL` wenn `''` oder `9999-12-31`, sonst `TRY_CAST` |
+| `is_active` | CHAR(1) | `'Y'`/`'N'` aus `sat_vertrag_eff_current_v` |
+| `dss_load_date` | DATETIME2 | Ladezeitpunkt |
+| `dss_record_source` | NVARCHAR(255) | Quelle |
+
+**Vault-Lineage:**  
+`hub_vertrag` → `sat_vertrag_eff_current_v` (is_active)  
+`hub_vertrag` → `sat_vertrag_optionen_ma__compax` WHERE `ist_option='0'` (ROW_NUMBER DESC für neueste)
+
+---
+
+#### `dim_mobilkunde_v` *(Schema: `mart_mobile`)*
+
+Kunden-Dimension aus Compax. Enthält `external_customer_id` für spätere Abacus-Integration.
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `kunde_key` | BIGINT | `surrogate_key(kunde_id)` |
+| `kunde_id` | NVARCHAR(255) | Business Key (customer_id, 6-stellig) |
+| `kunde_code` | NVARCHAR(255) | = kunde_id |
+| `kunde_name` | NVARCHAR(255) | `'UNKNOWN'` (keine Namen in Compax-Daten) |
+| `external_customer_id` | NVARCHAR(255) | Compax-externe ID (mgl. Abacus-Kundennr.) |
+| `dss_load_date` | DATETIME2 | |
+| `dss_record_source` | NVARCHAR(255) | |
+
+**Vault-Lineage:** `hub_kunde` + `sat_kunde_current_v`
+
+---
+
+#### `dim_sim_v` *(Schema: `mart_mobile`)*
+
+SIM-Karten-Dimension. Aktuell nur ICCID — erweiterbar wenn SIM-Attribute verfügbar.
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `sim_key` | BIGINT | `surrogate_key(icc)` |
+| `sim_id` | NVARCHAR(255) | ICCID (Business Key) |
+| `sim_code` | NVARCHAR(255) | = icc |
+| `sim_name` | NVARCHAR(255) | = icc |
+| `dss_load_date` | DATETIME2 | |
+| `dss_record_source` | NVARCHAR(255) | |
+
+**Vault-Lineage:** `hub_sim` (Schema: `vault_telecom`)
+
+---
+
+### 13.4 Fakten
+
+#### `fakt_cdr_v` — Atomarer CDR-Grain *(Schema: `mart_mobile`)*
+
+Grain: **1 Zeile = 1 CDR-Event** (aus `sat_cdr_event__compax`).
+
+| Spalte | Typ | Rolle | Beschreibung |
+|--------|-----|-------|--------------|
+| `vertrag_key` | BIGINT | FK | → `dim_mobilvertrag_v` |
+| `kunde_key` | BIGINT | FK | → `dim_mobilkunde_v` (via `link_vertrag_kunde`) |
+| `sim_key` | BIGINT | FK | → `dim_sim_v` |
+| `verbindungs_datum_key` | INT | FK | → `dim_datum_v` (Format: yyyyMMdd) |
+| `record_type` | NVARCHAR(10) | Deg. Dim | MOC / MTC / FORW / DATA / SMS |
+| `tarif` | NVARCHAR(255) | Deg. Dim | Freitext-Tarif (z.B. "Voice MO in National (CH+FL)") |
+| `is_roaming` | BIT | Deg. Dim | `1` wenn `r_mcc_mnc` gesetzt, sonst `0` |
+| `event_id` | NVARCHAR(255) | Deg. Dim | CDR-Event-ID (`id`, Compax-intern) |
+| `duration_sec` | DECIMAL(18,2) | Messgrösse | Gesprächsdauer Sekunden |
+| `bytes_out_mb` | DECIMAL(18,4) | Messgrösse | Datenvolumen MB (`bytes_out / 1024 / 1024`) |
+| `price` | DECIMAL(18,4) | Messgrösse | Endkundenpreis |
+| `ws_price` | DECIMAL(18,4) | Messgrösse | Wholesale-Preis |
+| `dss_load_date` | DATETIME2 | Metadata | |
+| `dss_record_source` | NVARCHAR(255) | Metadata | |
+
+**Vault-Lineage:**  
+`link_cdr_event_tl` → `sat_cdr_event__compax` (alle Metriken)  
+`link_cdr_event_tl.hk_vertrag` → `hub_vertrag.vertrag_id` → `surrogate_key`  
+`hub_vertrag` → `link_vertrag_kunde` → `hub_kunde.kunde_id` → `surrogate_key`  
+`link_cdr_event_tl.hk_sim` → `hub_sim.icc` → `surrogate_key`
+
+> ⚠️ `bytes_in` wird **nicht** in den Mart übernommen (immer leer, §4.4).
+
+---
+
+#### `fakt_datenvolumen_v` — Datenvolumen pro Vertrag × Tag *(Schema: `mart_mobile`)*
+
+Grain: **Vertrag × Datum** (nur DATA-Events).
+
+| Spalte | Typ | Rolle | Beschreibung |
+|--------|-----|-------|--------------|
+| `vertrag_key` | BIGINT | FK | → `dim_mobilvertrag_v` |
+| `kunde_key` | BIGINT | FK | → `dim_mobilkunde_v` |
+| `verbindungs_datum_key` | INT | FK | → `dim_datum_v` |
+| `session_count` | INT | Messgrösse | Anzahl DATA-Sessions |
+| `mb_total` | DECIMAL(18,4) | Messgrösse | Gesamtvolumen MB |
+| `gb_total` | DECIMAL(18,4) | Messgrösse | Gesamtvolumen GB |
+| `mb_national` | DECIMAL(18,4) | Messgrösse | MB ohne Roaming |
+| `mb_roaming` | DECIMAL(18,4) | Messgrösse | MB im Roaming |
+
+**Quelle:** `fakt_cdr_v WHERE record_type = 'DATA'`
+
+**Business-Metrik Beispiel (aus §6.3):**
+```sql
+SELECT vertrag_key, SUM(gb_total) AS total_gb_monat
+FROM mart_mobile.fakt_datenvolumen_v
+WHERE verbindungs_datum_key BETWEEN 20250101 AND 20250131
+GROUP BY vertrag_key
+```
+
+---
+
+#### `fakt_anrufe_v` — Anrufe/SMS pro Vertrag × Tag *(Schema: `mart_mobile`)*
+
+Grain: **Vertrag × Datum × record_type × is_roaming** (nur Voice/SMS-Events).
+
+| Spalte | Typ | Rolle | Beschreibung |
+|--------|-----|-------|--------------|
+| `vertrag_key` | BIGINT | FK | → `dim_mobilvertrag_v` |
+| `kunde_key` | BIGINT | FK | → `dim_mobilkunde_v` |
+| `verbindungs_datum_key` | INT | FK | → `dim_datum_v` |
+| `record_type` | NVARCHAR(10) | Deg. Dim | MOC / MTC / FORW / SMS |
+| `is_roaming` | BIT | Deg. Dim | 1/0 |
+| `anruf_count` | INT | Messgrösse | Anzahl Ereignisse |
+| `duration_sec_total` | DECIMAL(18,2) | Messgrösse | Gesamtdauer Sekunden |
+| `duration_min_total` | DECIMAL(18,4) | Messgrösse | Gesamtdauer Minuten |
+
+**Quelle:** `fakt_cdr_v WHERE record_type IN ('MOC','MTC','FORW','SMS')`
+
+---
+
+### 13.5 ER-Diagramm
+
+Datei: `design/mart/er-mart-mobile.mmd`
+
+```mermaid
+erDiagram
+    dim_mobilvertrag_v {
+        bigint vertrag_key PK
+        nvarchar vertrag_id
+        nvarchar abo_name
+        date aktivierungs_datum
+        date kundigungs_datum
+        char is_active
+    }
+    dim_mobilkunde_v {
+        bigint kunde_key PK
+        nvarchar kunde_id
+        nvarchar external_customer_id
+    }
+    dim_sim_v {
+        bigint sim_key PK
+        nvarchar sim_id
+    }
+    dim_datum_v {
+        int date_key PK
+        date full_date
+        int year
+        int month
+    }
+    fakt_cdr_v {
+        bigint vertrag_key FK
+        bigint kunde_key FK
+        bigint sim_key FK
+        int verbindungs_datum_key FK
+        nvarchar record_type
+        nvarchar tarif
+        bit is_roaming
+        decimal duration_sec
+        decimal bytes_out_mb
+        decimal price
+        decimal ws_price
+    }
+    fakt_datenvolumen_v {
+        bigint vertrag_key FK
+        bigint kunde_key FK
+        int verbindungs_datum_key FK
+        decimal gb_total
+        decimal mb_national
+        decimal mb_roaming
+        int session_count
+    }
+    fakt_anrufe_v {
+        bigint vertrag_key FK
+        bigint kunde_key FK
+        int verbindungs_datum_key FK
+        nvarchar record_type
+        bit is_roaming
+        int anruf_count
+        decimal duration_min_total
+    }
+
+    fakt_cdr_v }o--|| dim_mobilvertrag_v : "vertrag_key"
+    fakt_cdr_v }o--|| dim_mobilkunde_v : "kunde_key"
+    fakt_cdr_v }o--|| dim_sim_v : "sim_key"
+    fakt_cdr_v }o--|| dim_datum_v : "verbindungs_datum_key"
+    fakt_datenvolumen_v }o--|| dim_mobilvertrag_v : "vertrag_key"
+    fakt_datenvolumen_v }o--|| dim_mobilkunde_v : "kunde_key"
+    fakt_datenvolumen_v }o--|| dim_datum_v : "verbindungs_datum_key"
+    fakt_anrufe_v }o--|| dim_mobilvertrag_v : "vertrag_key"
+    fakt_anrufe_v }o--|| dim_mobilkunde_v : "kunde_key"
+    fakt_anrufe_v }o--|| dim_datum_v : "verbindungs_datum_key"
+```
+
+---
+
+### 13.6 Umsetzungsschritte (Phase E)
+
+| Step | Objekt | Vault-Quellen | Bemerkung |
+|------|--------|---------------|-----------|
+| E-0 | `dbt_project.yml` | — | `mart.mobile: +schema: mart_mobile` |
+| E-1 | `dim_mobilvertrag_v` | hub_vertrag, sat_vertrag_eff_current_v, sat_vertrag_optionen_ma__compax | CTE ROW_NUMBER für Haupt-Abo |
+| E-2 | `dim_mobilkunde_v` | hub_kunde, sat_kunde_current_v | |
+| E-3 | `dim_sim_v` | hub_sim | Cross-schema: vault_telecom |
+| E-4 | `fakt_cdr_v` | link_cdr_event_tl, sat_cdr_event__compax, hub_vertrag, hub_kunde, link_vertrag_kunde, hub_sim | 9.4M Rows → View auf TL+Sat |
+| E-5 | `fakt_datenvolumen_v` | fakt_cdr_v | Aggregation WHERE record_type='DATA' |
+| E-6 | `fakt_anrufe_v` | fakt_cdr_v | Aggregation WHERE record_type IN (...) |
+| E-7 | `_mobile__models.yml` | — | YAML-Doku für alle 6 Modelle |
+| E-8 | `er-mart-mobile.mmd` | — | ER-Diagramm (s. §13.5) |
+
+### 13.7 Offene Fragen (Mart)
+
+- [ ] `dim_tarif_v` — separate Dimension oder bleibt `tarif` als degenerate dim in `fakt_cdr_v`? (ref_tarif_v noch nicht implementiert)
+- [ ] Performance `fakt_cdr_v` — 9.4M Rows als View: akzeptable Query-Dauer für Power BI? Ggf. `__base`-Pattern (materialized Table) nötig.
+- [ ] `dim_mobilvertrag_v` — Soll sie NUR aktive Verträge enthalten (WHERE is_active='Y') oder alle (historisch)? Empfehlung: alle, `is_active` als Attribut.
+- [ ] Mart-Schema Deployment: `datavault-dev` → `datavault-test` → `datavault` Prod-Reihenfolge.
