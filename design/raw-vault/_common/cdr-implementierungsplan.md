@@ -578,18 +578,18 @@ FROM mart.fakt_datenvolumen_v
 ## 7. Offene Fragen
 
 ### Fachlich
-- [ ] **customer_id ↔ Abacus:** Ist `external_customer_id` identisch mit Abacus-Kundennummer (PUBL.ADR.ADRESSNR)? → ermöglicht Integration mit `hub_person`
-- [ ] **Tarif-Schwellwerte:** Ab welchem GB-Wert welche Empfehlung? (für Mart-Logik)
-- [ ] **Auswertungszeitraum:** Monat / Abrechnungsperiode / rollierend 30 Tage?
+- [x] **customer_id ↔ Abacus:** → **Entscheid (2026-05-05):** `external_customer_id` = Abacus-Kundennummer. **Link herstellen** via `link_person_kunde` (Same-As-Link `hub_person.hk_person ↔ hub_kunde.hk_kunde`, WHERE `sat_kunde.external_customer_id = hub_person.ADRESSNR`). Ermöglicht Navigation CDR → Compax-Kunde → Abacus-Person → FIBU/Projekt. Geplant als Phase F-1 (nach Mart).
+- [x] **Tarif-Schwellwerte:** → **Entscheid (2026-05-05):** Werden in **Power BI** definiert — keine dbt-Logik nötig. `tarif` bleibt degenerate dimension in `fakt_cdr_v`.
+- [x] **Auswertungszeitraum:** → **Entscheid (2026-05-05):** **Rollierend 30 Tage** für Rohdaten (atomarer Grain). Ältere Daten aggregiert. Retention-Architektur siehe §13.8.
 - [x] **bytes_in / bytes_out Richtung:** ~~Aus Kundensicht oder Netzwerksicht?~~ → **Beantwortet (2026-05-03):** `bytes_in` ist immer leer. `bytes_out` = Datenvolumen aus Kundensicht (gesendet + empfangen). Nur `bytes_out` als Mart-Metrik verwenden.
 - [x] **Rufnummer-Portabilität / M:N:** ~~Wird MSISDN-Wechsel in services abgebildet?~~ → **Beantwortet (2026-05-03):** 1 Vertrag = 1 Rufnummer (Geschäftsregel). M:N-Befund in Daten sind Legacy-Altdaten. hub_msisdn bleibt dennoch (ICCID ändert sich, Rufnummer bleibt = stabiler Anker; Navigationspfad Rufnummer → Vertrag → Kunde). Siehe Abschnitt 4.1.
 - [x] **Delete-Erkennung:** → **Beantwortet (2026-05-03):** Effectivity Satellite `sat_vertrag_eff__compax` erforderlich. Kunden verschwinden nach Kündigung aus dem Export. Siehe Abschnitt 4.5.
 
 ### Technisch
-- [ ] **ADLS-Folder umbenennen** (`ewb/cdr/*` → `rsn/mobile/*`)? Jetzt oder später?
-- [ ] **dss_record_source Wert** final festlegen: `rsn_compax` oder `compax_mobile`?
-- [ ] **Vollständigkeit UDRs:** Gibt es Sequenznummer/Gaps-Erkennung für verpasste Dateien?
-- [ ] **Retention:** Wie lange UDRs in PSA halten? (Volumen: ~49M Events/Jahr bei 135k/Tag)
+- [x] **ADLS-Folder umbenennen** (`ewb/cdr/*` → `rsn/mobile/*`)? → **Entscheid (2026-05-05):** Vorerst **so lassen**. Lake-Layout-Migration später.
+- [x] **dss_record_source Wert** → **Entscheid (2026-05-05):** Vorerst **so lassen** (`rsn_compax`). Kein Breaking Change jetzt.
+- [x] **Vollständigkeit UDRs:** Gibt es Sequenznummer/Gaps-Erkennung für verpasste Dateien? → **Entscheid (2026-05-05):** Fürs erste **ignorieren**. Möglicher Ansatz später: Timestamp-Lücken im PSA erkennen (`GROUP BY DATE(dss_load_date)` → fehlende Tage). Kein Blocker.
+- [x] **Retention:** → **Entscheid (2026-05-05):** **Hybride Retention-Strategie** (Rolling 30 days Raw + aggregierte History). Detailplan siehe §13.8.
 
 ### Projekt
 - [ ] **Schulungsprojekt Marco:** Separate Branches / Pair-Programming?
@@ -1118,7 +1118,117 @@ erDiagram
 
 ### 13.7 Offene Fragen (Mart)
 
-- [ ] `dim_tarif_v` — separate Dimension oder bleibt `tarif` als degenerate dim in `fakt_cdr_v`? (ref_tarif_v noch nicht implementiert)
-- [ ] Performance `fakt_cdr_v` — 9.4M Rows als View: akzeptable Query-Dauer für Power BI? Ggf. `__base`-Pattern (materialized Table) nötig.
-- [ ] `dim_mobilvertrag_v` — Soll sie NUR aktive Verträge enthalten (WHERE is_active='Y') oder alle (historisch)? Empfehlung: alle, `is_active` als Attribut.
+- [x] `dim_tarif_v` — **Entscheid (2026-05-05):** `tarif` bleibt **degenerate dimension** in `fakt_cdr_v`. Schwellwerte werden in Power BI definiert — kein dbt-Modell nötig.
+- [ ] Performance `fakt_cdr_v` — 9.4M Rows als View: akzeptable Query-Dauer für Power BI? Ggf. `__base`-Pattern (materialized Table) nötig. → Nach Retention (§13.8) nur noch ~4M Rows (30 Tage).
+- [x] `dim_mobilvertrag_v` — **Entscheid (2026-05-05):** Alle Verträge (aktiv + historisch), `is_active` als Attribut.
 - [ ] Mart-Schema Deployment: `datavault-dev` → `datavault-test` → `datavault` Prod-Reihenfolge.
+
+---
+
+### 13.8 Retention-Strategie — Rolling 30 Tage + aggregierte History
+
+**Entscheid (2026-05-05):** Letzte 30 Tage Rohdaten auf Eventgrain, ältere Daten nur noch aggregiert (Vertrag × Tag). Ziel: Speicherreduktion PSA + Vault bei vollständiger historischer Auswertbarkeit auf Tages-Granularität.
+
+#### Prinzip
+
+```
+        Raw Events (atomarer Grain)          Aggregierte History (Tages-Grain)
+┌──────────────────────────────────────┐ ┌─────────────────────────────────────┐
+│ PSA + Vault (letzte 30 Tage)         │ │ fakt_datenvolumen_v (incremental)   │
+│ sat_cdr_event__compax                │ │ fakt_anrufe_v (incremental)         │
+│ link_cdr_event_tl                    │ │ Vertrag × Tag × record_type         │
+│ → fakt_cdr_v (Drill-Down möglich)   │ │ → immer vollständig, nie gelöscht   │
+└──────────────────────────────────────┘ └─────────────────────────────────────┘
+          täglich +1 Tag / -1 Tag                  täglich +1 Tag, kein Delete
+```
+
+#### Layerweise Umsetzung
+
+| Layer | Objekt | Strategie | Detail |
+|-------|--------|-----------|--------|
+| PSA | `psa_rsn_mobile_cdr_main` | Rolling Delete | `DELETE WHERE dss_load_date < DATEADD(day, -30, GETDATE())` — täglich als dbt `post-hook` oder SQL Agent Job |
+| Vault | `sat_cdr_event__compax` | Rolling Delete | Identische Bedingung — `dss_load_date < -30 Tage` |
+| Vault | `link_cdr_event_tl` | Rolling Delete | Identische Bedingung — Referenzintegrität zu Sat bleibt gewahrt (beide gemeinsam löschen) |
+| Vault | Hubs, Stammdaten-Sat | **Kein Delete** | hub_vertrag, sat_vertrag_optionen_ma etc. sind Stammdaten — keine Retention |
+| Mart | `fakt_cdr_v` | View (auto) | Zeigt automatisch nur noch 30 Tage, da Vault-Quellen 30 Tage halten |
+| Mart | `fakt_datenvolumen_v` | **Incremental Table** | `materialized='incremental'`, täglich Vortag aggregieren → kein Delete, History bleibt |
+| Mart | `fakt_anrufe_v` | **Incremental Table** | Identisches Pattern |
+
+#### Kritischer Pfad (Reihenfolge)
+
+```
+1. fakt_datenvolumen_v (incremental Table) deployen → historische Aggregation
+2. fakt_anrufe_v (incremental Table) deployen
+3. Initial-Befüllung: alle historischen Events aggregieren (einmalig full-refresh)
+4. Vault Purge aktivieren: Rolling Delete ab T+30 Tage
+5. PSA Purge aktivieren: Rolling Delete ab T+30 Tage
+   ⚠️ Purge ERST nach Schritt 3 aktivieren — sonst gehen Aggregationen verloren!
+```
+
+#### Incremental-Pattern für fakt_datenvolumen_v
+
+```sql
+{{ config(
+    materialized='incremental',
+    unique_key=['vertrag_key', 'verbindungs_datum_key'],
+    incremental_strategy='merge',
+    as_columnstore=false
+) }}
+
+SELECT
+    vertrag_key, kunde_key,
+    verbindungs_datum_key,
+    COUNT(*)                              AS session_count,
+    SUM(bytes_out_mb) / 1024.0           AS gb_total,
+    ...
+FROM {{ ref('fakt_cdr_v') }}
+WHERE record_type = 'DATA'
+{% if is_incremental() %}
+  -- Nur neue Tage verarbeiten (gestern)
+  AND verbindungs_datum_key >= {{ run_started_at.strftime('%Y%m%d') | int - 1 }}
+{% endif %}
+GROUP BY vertrag_key, kunde_key, verbindungs_datum_key
+```
+
+> **Merge-Key:** `(vertrag_key, verbindungs_datum_key)` — idempotent, Re-Runs sicher.
+
+#### Purge-Implementierung (dbt post-hook)
+
+Möglichkeit A — dbt `post-hook` auf `psa_rsn_mobile_cdr_main`:
+```sql
+DELETE FROM {{ this }}
+WHERE CAST(dss_load_date AS DATE) < CAST(DATEADD(day, -30, GETDATE()) AS DATE)
+```
+
+Möglichkeit B — SQL Agent Job (ausserhalb dbt): 
+```sql
+-- Job: täglich nach dbt-Run
+DELETE FROM stg.psa_rsn_mobile_cdr_main   WHERE CAST(dss_load_date AS DATE) < CAST(DATEADD(day, -30, GETDATE()) AS DATE)
+DELETE FROM vault_telecom.sat_cdr_event__compax WHERE CAST(dss_load_date AS DATE) < CAST(DATEADD(day, -30, GETDATE()) AS DATE)
+DELETE FROM vault_telecom.link_cdr_event_tl    WHERE CAST(dss_load_date AS DATE) < CAST(DATEADD(day, -30, GETDATE()) AS DATE)
+```
+
+**Empfehlung:** Möglichkeit B (SQL Agent) — sauberer, unabhängig von dbt-Run-Dauer.
+
+#### Speicherabschätzung
+
+| Objekt | Vor Retention | Nach Retention (30 Tage) |
+|--------|--------------|--------------------------|
+| `psa_rsn_mobile_cdr_main` | 9.4M rows (8 Monate) | ~4M rows (30 Tage × 135k/Tag) |
+| `sat_cdr_event__compax` | 9.4M rows | ~4M rows |
+| `link_cdr_event_tl` | 9.4M rows | ~4M rows |
+| `fakt_datenvolumen_v` (table) | — | ~176k rows (5.9k Verträge × 30+ Tage, stetig wachsend) |
+| `fakt_anrufe_v` (table) | — | ~350k rows (inkl. record_type Split) |
+
+> **Wachstum fakt_datenvolumen_v:** +5.9k Zeilen/Tag → ~2.1M Zeilen/Jahr. Langfristig vertretbar.
+
+#### Umsetzungsschritte Retention
+
+| Step | Beschreibung |
+|------|--------------|
+| R-1 | `fakt_datenvolumen_v` als `materialized='incremental'` (statt view) implementieren |
+| R-2 | `fakt_anrufe_v` als `materialized='incremental'` implementieren |
+| R-3 | Initial Full-Refresh ausführen: alle 9.4M Events in Aggregate überführen |
+| R-4 | SQL Agent Job / dbt post-hook für Rolling Delete (PSA + Vault) einrichten |
+| R-5 | Delete-Logik auf dev testen, danach prod |
+| R-6 | `fakt_cdr_v` bleibt View — liefert automatisch nur noch letzte 30 Tage |
