@@ -138,6 +138,48 @@ deploy:dev:full-refresh:
     name: ewb-dev
 
 # =============================================================================
+# CDR TELECOM LOAD DEV — inkrementell (→ datavault-dev)
+# Manuell starten: lädt neue CDR-Files aus ADF incoming/ in PSA → Vault → Mart.
+# Nur für Files der letzten 2 Tage (Late-Arrival-Fenster der Faktentabellen).
+# =============================================================================
+deploy:dev:cdr-load:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+  timeout: 60 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-dev
+    - dbt run --select staging.psa_rsn_mobile_cdr_main --target ewb-dev
+    - dbt run --select raw_vault.telecom --target ewb-dev
+    - dbt run --select mart_telecom.fakt_datenvolumen__base mart_telecom.fakt_anrufe__base --target ewb-dev
+    - dbt test --select mart.telecom --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
+# CDR TELECOM FULL REFRESH DEV — historischer Backfill (→ datavault-dev)
+# Manuell starten: Faktentabellen vollständig neu aufbauen.
+# Verwenden wenn historische Files (> 2 Tage alt) via ADF nachgeladen wurden.
+# =============================================================================
+deploy:dev:cdr-full-refresh:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+  timeout: 90 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-dev
+    - dbt run --select staging.psa_rsn_mobile_cdr_main --target ewb-dev
+    - dbt run --select raw_vault.telecom --target ewb-dev
+    - dbt run --select mart_telecom.fakt_datenvolumen__base mart_telecom.fakt_anrufe__base --full-refresh --target ewb-dev
+    - dbt test --select mart.telecom --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
 # DEPLOY TEST — push auf test Branch (→ datavault-test)
 # =============================================================================
 deploy:test:
