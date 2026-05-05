@@ -2,7 +2,7 @@ version: 2
 
 models:
   # ===========================================================================
-  # MART: MOBILE-DOMAIN — Star Schema (mart_mobile)
+  # MART: TELECOM-DOMAIN — Star Schema (mart_telecom)
   # CDR / Mobilfunk-Auswertungen aus RSN Mobile / Compax
   # Dimensionen (dim_*_v) + Faktentabellen (fakt_*_v) + Base-Tables (fakt_*__base)
   # ===========================================================================

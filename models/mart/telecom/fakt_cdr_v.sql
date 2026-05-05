@@ -1,6 +1,6 @@
 /*
  * Faktentabelle: fakt_cdr
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * Atomarer CDR-Grain: 1 Zeile = 1 Call Detail Record (Anruf / Daten-Session / SMS).
  * Zeigt alle im Vault verfügbaren CDR-Events. Nach Aktivierung der Retention-Purge

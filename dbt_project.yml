@@ -140,8 +140,8 @@ models:
         +schema: mart_jira
         +materialized: table
         +as_columnstore: false
-      # ===== MOBILE (Schema: mart_mobile) =====
-      mobile:
-        +schema: mart_mobile
+      # ===== MOBILE (Schema: mart_telecom) =====
+      telecom:
+        +schema: mart_telecom
         +materialized: table
         +as_columnstore: false

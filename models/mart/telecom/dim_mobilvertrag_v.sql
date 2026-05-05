@@ -1,6 +1,6 @@
 /*
  * Dimension: dim_mobilvertrag
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * Mobilfunk-Vertraege mit Abo-Bezeichnung und Aktivierungsstatus.
  * Grain: 1 Zeile pro eindeutigem Mobilfunk-Vertrag (hub_vertrag).

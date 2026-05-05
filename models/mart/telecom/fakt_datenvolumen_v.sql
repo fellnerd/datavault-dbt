@@ -1,6 +1,6 @@
 /*
  * Faktentabelle (öffentliche Schnittstelle): fakt_datenvolumen_v
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * Tages-Aggregat: Datenvolumen pro Vertrag und Tag.
  * Wrapper-View auf fakt_datenvolumen__base (incremental table).

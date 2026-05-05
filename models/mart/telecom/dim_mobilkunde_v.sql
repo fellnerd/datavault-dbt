@@ -1,6 +1,6 @@
 /*
  * Dimension: dim_mobilkunde
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * Mobile Kundenstammdaten aus Compax RSN.
  * Grain: 1 Zeile pro eindeutigem Kunden (hub_kunde).

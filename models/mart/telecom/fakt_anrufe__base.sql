@@ -1,6 +1,6 @@
 /*
  * Faktentabelle (intern): fakt_anrufe__base
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * Tages-Aggregat: Anrufe/SMS pro Vertrag, Tag und Gesprächstyp.
  * Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key, record_type, is_roaming).

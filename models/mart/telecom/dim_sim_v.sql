@@ -1,6 +1,6 @@
 /*
  * Dimension: dim_sim
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * SIM-Karten Stammdaten (ICCID = Business Key).
  * Grain: 1 Zeile pro eindeutiger SIM-Karte (hub_sim).

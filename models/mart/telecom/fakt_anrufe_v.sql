@@ -1,6 +1,6 @@
 /*
  * Faktentabelle (öffentliche Schnittstelle): fakt_anrufe_v
- * Schema: mart_mobile
+ * Schema: mart_telecom
  *
  * Tages-Aggregat: Anrufe/SMS pro Vertrag, Tag und Gesprächstyp.
  * Wrapper-View auf fakt_anrufe__base (incremental table).

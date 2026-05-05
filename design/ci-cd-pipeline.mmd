@@ -2,9 +2,21 @@ flowchart TD
     %% ─── Trigger Sources ───────────────────────────────────────────
     GIT_PUSH["⬆️ git push"]
     WEB_UI["🖥️ GitLab Web UI"]
-    ADF["☁️ ADF Pipeline"]
     TAG["🏷️ git tag v*"]
     MR["🔀 Merge Request"]
+
+    %% ─── ADF Layer ──────────────────────────────────────────────────
+    subgraph ADF_LAYER["☁️ Azure Data Factory"]
+        ADF_CDR["Copy_CDR_Data_Delta\n(SFTP → ADLS incoming/)"]
+        ADF_SERVICES["Copy_RSN_Mobile_Services\n(SFTP → ADLS services/)"]
+        ADF_SQL["SQL Script Activity\nINSERT dv.load_status\n(status='completed')"]
+    end
+
+    %% ─── Load Status (SQL) ──────────────────────────────────────────
+    LOAD_STATUS[("📋 dv.load_status\nAzure SQL")]
+
+    %% ─── GitLab Trigger ─────────────────────────────────────────────
+    GL_SCHEDULE["⏰ GitLab Schedule\n*/30 Min\nsqlcmd: ADF fertig + dbt pending?"]
 
     %% ─── Branches ──────────────────────────────────────────────────
     BRANCH_DEV["Branch: dev"]
@@ -13,18 +25,18 @@ flowchart TD
 
     %% ─── Stage: validate ───────────────────────────────────────────
     subgraph VALIDATE["Stage: validate"]
-        CI_VALIDATE["ci:validate"]
+        CI_VALIDATE["ci:validate\n(dbt compile)"]
     end
 
     %% ─── Stage: deploy ─────────────────────────────────────────────
     subgraph DEPLOY["Stage: deploy"]
-        DEV["deploy:dev 🔄"]
+        DEV["deploy:dev 🔄\nstage_ext + dbt run"]
         DEV_FR["deploy:dev:full-refresh ▶️"]
 
-        TEST["deploy:test 🔄"]
+        TEST["deploy:test 🔄\nstage_ext + dbt run + test"]
         TEST_FR["deploy:test:full-refresh ▶️"]
 
-        PROD["deploy:prod 🔄"]
+        PROD["deploy:prod 🔄\nstage_ext + dbt run + test"]
         PROD_FR["deploy:prod:full-refresh ▶️"]
     end
 
@@ -33,28 +45,30 @@ flowchart TD
     DB_TEST[("🗄️ datavault-test")]
     DB_PROD[("🗄️ datavault Prod")]
 
-    %% ─── Trigger → Branch ──────────────────────────────────────────
-    MR --> CI_VALIDATE
+    %% ─── ADF → load_status → GitLab (automatischer Trigger) ────────
+    ADF_CDR --> ADF_SQL
+    ADF_SERVICES --> ADF_SQL
+    ADF_SQL -->|INSERT completed| LOAD_STATUS
+    LOAD_STATUS -->|sqlcmd Poll| GL_SCHEDULE
+    GL_SCHEDULE -->|ADF fertig, dbt pending| BRANCH_DEV
+
+    %% ─── Manueller Trigger ──────────────────────────────────────────
     GIT_PUSH --> BRANCH_DEV
     GIT_PUSH --> BRANCH_TEST
     TAG --> BRANCH_MAIN
-
+    MR --> CI_VALIDATE
     WEB_UI -->|Branch wählen| BRANCH_DEV
     WEB_UI -->|Branch wählen| BRANCH_TEST
     WEB_UI -->|Branch wählen| BRANCH_MAIN
 
-    ADF -->|ref=dev| BRANCH_DEV
-    ADF -->|ref=test| BRANCH_TEST
-    ADF -->|ref=main| BRANCH_MAIN
-
     %% ─── Branch → Job ──────────────────────────────────────────────
-    BRANCH_DEV -->|auto bei push| DEV
+    BRANCH_DEV -->|auto bei push / ADF-Trigger| DEV
     BRANCH_DEV -->|manuell| DEV_FR
 
     BRANCH_TEST -->|auto| TEST
     BRANCH_TEST -->|manuell| TEST_FR
 
-    BRANCH_MAIN -->|auto via Tag / ADF| PROD
+    BRANCH_MAIN -->|auto via Tag| PROD
     BRANCH_MAIN -->|manuell| PROD_FR
 
     %% ─── Job → DB ──────────────────────────────────────────────────
@@ -65,14 +79,23 @@ flowchart TD
     PROD --> DB_PROD
     PROD_FR --> DB_PROD
 
+    %% ─── dbt on-run-end → load_status ──────────────────────────────
+    DEV -->|on-run-end: INSERT dbt_run completed| LOAD_STATUS
+    TEST -->|on-run-end: INSERT dbt_run completed| LOAD_STATUS
+    PROD -->|on-run-end: INSERT dbt_run completed| LOAD_STATUS
+
     %% ─── Styles ────────────────────────────────────────────────────
     classDef trigger fill:#e8f4fd,stroke:#2196F3,color:#000
+    classDef adf fill:#e3f2fd,stroke:#1565C0,color:#000
+    classDef status fill:#fff8e1,stroke:#F9A825,color:#000
     classDef branch fill:#fff3e0,stroke:#FF9800,color:#000
     classDef job fill:#e8f5e9,stroke:#4CAF50,color:#000
     classDef job_fr fill:#fce4ec,stroke:#E91E63,color:#000
     classDef db fill:#f3e5f5,stroke:#9C27B0,color:#000
 
-    class GIT_PUSH,WEB_UI,ADF,TAG,MR trigger
+    class GIT_PUSH,WEB_UI,TAG,MR trigger
+    class ADF_CDR,ADF_SERVICES,ADF_SQL adf
+    class LOAD_STATUS,GL_SCHEDULE status
     class BRANCH_DEV,BRANCH_TEST,BRANCH_MAIN branch
     class CI_VALIDATE,DEV,TEST,PROD job
     class DEV_FR,TEST_FR,PROD_FR job_fr
