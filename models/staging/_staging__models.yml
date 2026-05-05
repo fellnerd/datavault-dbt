@@ -2762,9 +2762,48 @@ models:
         description: "Concatenated business key string — MSISDN"
         data_type: nvarchar(4000)
 
+  - name: rsn_mobile_services_kunde_dedup
+    description: >
+      Dedupliziertes Zwischen-Modell für sat_kunde__compax.
+      rsn_mobile_services_main hat eine Zeile pro Vertrag (N Verträge pro Kunde).
+      automate_dv.sat() verwendet RANK() statt ROW_NUMBER() — bei gleicher dss_load_date
+      bekommen alle N Zeilen RANK=1 → alle N werden inserted → Duplikate.
+      Dieses Modell liefert exakt eine Zeile pro (hk_kunde, hd_kunde) an den Satelliten.
+    config:
+      meta:
+        entity_type: dedup
+        source_type: staging_view
+    columns:
+      - name: hk_kunde
+        description: "Hash Key → hub_kunde"
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_kunde
+        description: "Hash Diff für sat_kunde__compax (external_customer_id)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: external_customer_id
+        description: "Externe Kunden-ID (Payload sat_kunde)"
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        data_type: datetime2(7)
+      - name: dss_business_key_kunde
+        data_type: nvarchar(4000)
+
   - name: psa_rsn_mobile_cdr_main
     description: >
-      PSA (Persistent Staging Area) für RSN Mobile CDR Events — gecachte Verbindungsdaten
+      PSA (Persistent Staging Area) für RSN Mobile CDR Events— gecachte Verbindungsdaten
       (Call, Data, SMS) aus ADLS in einer lokalen SQL-Tabelle. Folder-Scan über ewb/cdr/udrs/.
       Inkrementell per dss_source_file_name: bereits geladene Dateien werden übersprungen.
       Vermeidet wiederholte teure PolyBase-Scans über alle UDR-Files.

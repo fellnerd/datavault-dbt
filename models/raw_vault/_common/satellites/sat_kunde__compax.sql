@@ -26,7 +26,7 @@
 ) }}
 
 {%- set yaml_metadata -%}
-source_model: "rsn_mobile_services_main"
+source_model: "rsn_mobile_services_kunde_dedup"
 src_pk: "hk_kunde"
 src_hashdiff:
   source_column: "hd_kunde"
