@@ -131,15 +131,80 @@ models:
         data_type: nvarchar(255)
 
   # ---------------------------------------------------------------------------
-  # FAKTENTABELLEN (öffentliche Schnittstellen = Views)
+  # FAKTENTABELLEN (interne Base-Tables + öffentliche Wrapper-Views)
   # ---------------------------------------------------------------------------
+
+  - name: fakt_cdr__base
+    description: |
+      Interne Incremental-Table: Atomarer CDR-Grain, 1 Zeile = 1 CDR-Event.
+      Persistiert die Vault-JOINs aus fakt_cdr_v mit gespeicherten Surrogate Keys
+      und verbindungs_datum_key für performante Abfragen (Index Seek statt Full Scan).
+      Inkrementell: 2-Tage-Puffer auf dss_load_date (Late-Arrival + Backfill).
+      Indexes: verbindungs_datum_key, vertrag_key, kunde_key.
+      Öffentliche Schnittstelle: fakt_cdr_v (SELECT * FROM fakt_cdr__base).
+    columns:
+      - name: hk_link_cdr_event_tl
+        description: "Unique Key (Traceability zurück zum Transaction Link)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+          - unique
+      - name: vertrag_key
+        description: "FK → dim_mobilvertrag_v.vertrag_key (gespeichert, indiziert)"
+        data_type: bigint
+        tests:
+          - not_null
+      - name: kunde_key
+        description: "FK → dim_mobilkunde_v.kunde_key; NULL für Verträge ohne Kunden-Zuordnung"
+        data_type: bigint
+      - name: sim_key
+        description: "FK → dim_sim_v.sim_key"
+        data_type: bigint
+        tests:
+          - not_null
+      - name: verbindungs_datum_key
+        description: "Datum-Key (INT yyyyMMdd) des Verbindungsbeginns; gespeichert, indiziert"
+        data_type: int
+      - name: record_type
+        description: "CDR-Typ: DATA / MOC / MTC / FORW / SMS"
+        data_type: nvarchar(20)
+      - name: service_type
+        description: "Service-Klassifizierung aus Compax"
+        data_type: nvarchar(20)
+      - name: tarif
+        description: "Tarifkennung (Degenerate Dimension)"
+        data_type: nvarchar(255)
+      - name: event_id
+        description: "Originale CDR-ID aus Compax (Degenerate Dimension)"
+        data_type: nvarchar(255)
+      - name: is_roaming
+        description: "1 = Roaming-Event (r_mcc_mnc gesetzt), 0 = nationales Event"
+        data_type: bit
+      - name: duration_sec
+        description: "Verbindungsdauer in Sekunden (Anrufe/Datensessions)"
+        data_type: decimal(18,2)
+      - name: bytes_out_mb
+        description: "Übertragenes Datenvolumen in MB (nur DATA-Events)"
+        data_type: decimal(18,6)
+      - name: price
+        description: "Verbrauchskosten (aus Compax)"
+        data_type: decimal(18,4)
+      - name: ws_price
+        description: "Wholesale-Preis"
+        data_type: decimal(18,4)
+      - name: connection_start
+        description: "Verbindungsbeginn (DATETIME2)"
+        data_type: datetime2
+      - name: dss_load_date
+        data_type: datetime2
+      - name: dss_record_source
+        data_type: nvarchar(255)
 
   - name: fakt_cdr_v
     description: |
       Atomarer CDR-Grain: 1 Zeile = 1 Call Detail Record.
-      Zeigt alle im Vault verfügbaren CDR-Events (kein Zeitfilter in der View).
-      Nach Aktivierung der 30-Tage-Retention-Purge (§13.8 Implementierungsplan)
-      enthält der Vault nur noch die letzten 30 Tage.
+      Wrapper-View auf fakt_cdr__base (incremental table).
+      Öffentliche Schnittstelle für Power BI und nachgelagerte Modelle.
       record_type: DATA, MOC, MTC, FORW, SMS.
     columns:
       - name: vertrag_key
