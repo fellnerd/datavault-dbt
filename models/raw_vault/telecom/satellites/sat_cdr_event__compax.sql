@@ -31,7 +31,8 @@
 
 {{ config(
     materialized='incremental',
-    as_columnstore=false
+    as_columnstore=false,
+    post_hook=["{{ create_hash_index('hk_link_cdr_event_tl') }}"]
 ) }}
 
 {%- set yaml_metadata -%}
