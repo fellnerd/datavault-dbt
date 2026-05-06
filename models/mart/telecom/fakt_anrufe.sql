@@ -1,13 +1,15 @@
 /*
- * Faktentabelle (intern): fakt_anrufe__base
+ * Faktentabelle (intern): fakt_anrufe
  * Schema: mart_telecom
  *
  * Tages-Aggregat: Anrufe/SMS pro Vertrag, Tag und Gesprächstyp.
  * Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key, record_type, is_roaming).
  *
+ * Öffentliche Schnittstelle: fakt_anrufe_v (Wrapper-View)
+ *
  * record_type: MOC (abgehend), MTC (eingehend), FORW (Weiterleitung), SMS
  *
- * Retention-Strategie: identisch mit fakt_datenvolumen__base.
+ * Retention-Strategie: identisch mit fakt_datenvolumen.
  *
  * Quellen:
  *   fakt_cdr_v — atomare CDR-Events (record_type IN ('MOC','MTC','FORW','SMS'))

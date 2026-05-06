@@ -1,9 +1,11 @@
 /*
- * Faktentabelle (intern): fakt_datenvolumen__base
+ * Faktentabelle (intern): fakt_datenvolumen
  * Schema: mart_telecom
  *
  * Tages-Aggregat: Datenvolumen pro Vertrag und Tag.
  * Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key).
+ *
+ * Öffentliche Schnittstelle: fakt_datenvolumen_v (Wrapper-View)
  *
  * Retention-Strategie:
  *   - Incremental Table akkumuliert Tages-Aggregate dauerhaft (keine Purge)

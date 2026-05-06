@@ -131,17 +131,17 @@ models:
         data_type: nvarchar(255)
 
   # ---------------------------------------------------------------------------
-  # FAKTENTABELLEN (interne Base-Tables + öffentliche Wrapper-Views)
+  # FAKTENTABELLEN (interne Tabellen + öffentliche Wrapper-Views)
   # ---------------------------------------------------------------------------
 
-  - name: fakt_cdr__base
+  - name: fakt_cdr
     description: |
       Interne Incremental-Table: Atomarer CDR-Grain, 1 Zeile = 1 CDR-Event.
-      Persistiert die Vault-JOINs aus fakt_cdr_v mit gespeicherten Surrogate Keys
+      Persistiert die Vault-JOINs mit gespeicherten Surrogate Keys
       und verbindungs_datum_key für performante Abfragen (Index Seek statt Full Scan).
       Inkrementell: 2-Tage-Puffer auf dss_load_date (Late-Arrival + Backfill).
       Indexes: verbindungs_datum_key, vertrag_key, kunde_key.
-      Öffentliche Schnittstelle: fakt_cdr_v (SELECT * FROM fakt_cdr__base).
+      Öffentliche Schnittstelle: fakt_cdr_v (SELECT * FROM fakt_cdr).
     columns:
       - name: hk_link_cdr_event_tl
         description: "Unique Key (Traceability zurück zum Transaction Link)"
@@ -203,7 +203,7 @@ models:
   - name: fakt_cdr_v
     description: |
       Atomarer CDR-Grain: 1 Zeile = 1 Call Detail Record.
-      Wrapper-View auf fakt_cdr__base (incremental table).
+      Wrapper-View auf fakt_cdr (incremental table).
       Öffentliche Schnittstelle für Power BI und nachgelagerte Modelle.
       record_type: DATA, MOC, MTC, FORW, SMS.
     columns:
@@ -265,7 +265,7 @@ models:
     description: |
       Tages-Aggregat: Datenvolumen pro Vertrag und Tag (record_type='DATA').
       Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key).
-      Wrapper-View auf fakt_datenvolumen__base (incremental table).
+      Wrapper-View auf fakt_datenvolumen (incremental table).
     columns:
       - name: vertrag_key
         description: "FK → dim_mobilvertrag_v.vertrag_key"
@@ -304,7 +304,7 @@ models:
     description: |
       Tages-Aggregat: Anrufe/SMS pro Vertrag, Tag und Gesprächstyp.
       Grain: 1 Zeile pro (vertrag_key, verbindungs_datum_key, record_type, is_roaming).
-      Wrapper-View auf fakt_anrufe__base (incremental table).
+      Wrapper-View auf fakt_anrufe (incremental table).
       record_type: MOC (abgehend), MTC (eingehend), FORW (Weiterleitung), SMS.
     columns:
       - name: vertrag_key
@@ -346,12 +346,12 @@ models:
   # BASE-TABLES (interne Incremental-Tabellen, nicht direkt für BI)
   # ---------------------------------------------------------------------------
 
-  - name: fakt_datenvolumen__base
+  - name: fakt_datenvolumen
     description: |
       Interne Incremental-Tabelle für fakt_datenvolumen_v.
       Nicht direkt für BI verwenden — öffentliche Schnittstelle ist fakt_datenvolumen_v.
 
-  - name: fakt_anrufe__base
+  - name: fakt_anrufe
     description: |
       Interne Incremental-Tabelle für fakt_anrufe_v.
       Nicht direkt für BI verwenden — öffentliche Schnittstelle ist fakt_anrufe_v.

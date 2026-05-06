@@ -15,4 +15,4 @@
     tags=['fact']
 ) }}
 
-SELECT * FROM {{ ref('fakt_cdr__base') }}
+SELECT * FROM {{ ref('fakt_cdr') }}

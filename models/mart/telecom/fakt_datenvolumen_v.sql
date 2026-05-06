@@ -14,4 +14,4 @@
     tags=['fact']
 ) }}
 
-SELECT * FROM {{ ref('fakt_datenvolumen__base') }}
+SELECT * FROM {{ ref('fakt_datenvolumen') }}

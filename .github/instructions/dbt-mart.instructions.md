@@ -105,25 +105,28 @@ columns:
 
 ### Pflicht-Regel: Table → immer zusätzliche 1:1 View
 
-Wenn ein Mart-Objekt als `table` materialisiert wird, **muss** eine 1:1 Wrapper-View erstellt werden, damit alle veröffentlichten Mart-Objekte eine einheitliche View-Schnittstelle haben. BI-Tools und Konsumenten referenzieren immer die View, nie die Table direkt.
+Wenn ein Mart-Objekt als `table` oder `incremental` materialisiert wird, **muss** eine 1:1 Wrapper-View erstellt werden. BI-Tools und Konsumenten referenzieren immer die `_v`-View, nie die interne Tabelle direkt.
 
-**Pattern `__base` + View:**
+**Pattern: interne Tabelle + `_v` View:**
 ```
-dim_<entity>__base.sql    →  materialized='table'   (Performance-Cache, intern)
-dim_<entity>_v.sql        →  materialized='view'    (öffentliche Schnittstelle)
+fakt_<entity>.sql   →  materialized='incremental'  (interne Persistence-Schicht)
+fakt_<entity>_v.sql →  materialized='view'          (öffentliche Schnittstelle)
+
+dim_<entity>.sql    →  materialized='table'         (Performance-Cache, intern)
+dim_<entity>_v.sql  →  materialized='view'          (öffentliche Schnittstelle)
 ```
 
-**Implementierung `dim_<entity>_v.sql` bei table-Backing:**
+**Implementierung `fakt_<entity>_v.sql` / `dim_<entity>_v.sql`:**
 ```sql
-{{ config(materialized='view', tags=['dimension']) }}
+{{ config(materialized='view', tags=['fact']) }}
 
-SELECT * FROM {{ ref('dim_<entity>__base') }}
+SELECT * FROM {{ ref('fakt_<entity>') }}
 ```
 
-**Konsequenz:** Im Schema sind IMMER nur Views sichtbar (`dim_*_v`, `fakt_*_v`). Die `__base`-Tables sind interne Artefakte.
+**Konsequenz:** Im Schema sind IMMER nur Views sichtbar (`dim_*_v`, `fakt_*_v`). Die internen Tabellen haben kein `_v` Suffix.
 
-> ❌ FALSCH: `dim_projekt` = TABLE, `dim_person` = VIEW → Mischung im Schema
-> ✅ KORREKT: `dim_projekt__base` = TABLE, `dim_projekt_v` = VIEW über `__base`
+> ❌ FALSCH: `fakt_cdr` = TABLE direkt in Power BI verwenden
+> ✅ KORREKT: `fakt_cdr` = INCREMENTAL TABLE (intern), `fakt_cdr_v` = VIEW (Power BI)
 
 ## ER-Diagramm
 Jede Mart-Domain hat ein eigenes ER-Diagramm: `design/mart/er-mart-<concept>.mmd`

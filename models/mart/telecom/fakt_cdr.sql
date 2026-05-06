@@ -1,21 +1,21 @@
 /*
- * Faktentabelle (intern): fakt_cdr__base
+ * Faktentabelle (intern): fakt_cdr
  * Schema: mart_telecom
  *
  * Atomarer CDR-Grain: 1 Zeile = 1 Call Detail Record (Anruf / Daten-Session / SMS).
- * Persistiert fakt_cdr_v als incremental table mit indizierten Surrogate Keys.
+ * Persistiert die Vault-JOINs mit gespeicherten Surrogate Keys für performante Abfragen.
  *
  * Öffentliche Schnittstelle: fakt_cdr_v (Wrapper-View auf diese Tabelle)
  * Power BI und alle Konsumenten greifen ausschliesslich auf fakt_cdr_v zu.
  *
  * Nach Aktivierung der Retention-Purge (§13.8 Implementierungsplan):
  *   - Vault hält nur noch 30 Tage → einmalig --full-refresh ausführen
- *   - Danach entscheiden: alte Rows behalten (Mart als Archiv) oder ebenfalls purgen
+ *   - Nach Purge: tägliche inkrementelle Runs
  *
  * Performance-Indexes:
- *   - IX_fakt_cdr__base_verbindungs_datum_key  (Datumsfilter)
- *   - IX_fakt_cdr__base_vertrag_key            (JOIN mit dim_mobilvertrag_v)
- *   - IX_fakt_cdr__base_kunde_key              (JOIN mit dim_mobilkunde_v)
+ *   - IX_fakt_cdr_verbindungs_datum_key  (Datumsfilter)
+ *   - IX_fakt_cdr_vertrag_key            (JOIN mit dim_mobilvertrag_v)
+ *   - IX_fakt_cdr_kunde_key              (JOIN mit dim_mobilkunde_v)
  *
  * Quellen:
  *   link_cdr_event_tl      — Transaction Link (hk_vertrag, hk_sim)
@@ -107,7 +107,6 @@ INNER JOIN {{ ref('hub_sim') }} hs
     ON tl.hk_sim = hs.hk_sim
 {% if is_incremental() %}
 -- Inkrementell: Records der letzten 2 Tage neu verarbeiten (Late-Arrival-Puffer)
--- Basiert auf dss_load_date (Ladezeitpunkt), nicht auf connection_start (Event-Datum)
--- Dadurch werden auch historische Backfill-Dateien korrekt aufgenommen
+-- Basiert auf dss_load_date (Ladezeitpunkt) — fängt auch historische Backfills korrekt auf
 WHERE s.dss_load_date >= DATEADD(day, -2, GETDATE())
 {% endif %}

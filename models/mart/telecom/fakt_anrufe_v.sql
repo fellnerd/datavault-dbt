@@ -14,4 +14,4 @@
     tags=['fact']
 ) }}
 
-SELECT * FROM {{ ref('fakt_anrufe__base') }}
+SELECT * FROM {{ ref('fakt_anrufe') }}

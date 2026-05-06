@@ -153,7 +153,7 @@ deploy:dev:cdr-load:
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --select staging.psa_rsn_mobile_cdr_main --target ewb-dev
     - dbt run --select raw_vault.telecom --target ewb-dev
-    - dbt run --select mart_telecom.fakt_cdr__base mart_telecom.fakt_datenvolumen__base mart_telecom.fakt_anrufe__base --target ewb-dev
+    - dbt run --select mart_telecom.fakt_cdr mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --target ewb-dev
     - dbt test --select mart.telecom --target ewb-dev
   environment:
     name: ewb-dev
@@ -174,7 +174,7 @@ deploy:dev:cdr-full-refresh:
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --select staging.psa_rsn_mobile_cdr_main --target ewb-dev
     - dbt run --select raw_vault.telecom --target ewb-dev
-    - dbt run --select mart_telecom.fakt_cdr__base mart_telecom.fakt_datenvolumen__base mart_telecom.fakt_anrufe__base --full-refresh --target ewb-dev
+    - dbt run --select mart_telecom.fakt_cdr mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --full-refresh --target ewb-dev
     - dbt test --select mart.telecom --target ewb-dev
   environment:
     name: ewb-dev
