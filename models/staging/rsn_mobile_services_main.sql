@@ -36,6 +36,7 @@ source_model:
 derived_columns:
   dss_record_source: "!rsn_compax"
   dss_load_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
+  dss_eff_date: "COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())"
   dss_create_datetime: "GETDATE()"
   vertrag_id: "vertrags_nummer"
   kunde_id: "customer_id"

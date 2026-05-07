@@ -154,9 +154,9 @@ deploy:dev:cdr-load:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     # 1. Services (Stammdaten) — muss vor CDR-Events laufen
-    - dbt run --select staging.rsn_mobile_services_main raw_vault._common.hub_vertrag raw_vault._common.hub_kunde raw_vault._common.sat_vertrag_optionen_ma__compax raw_vault._common.sat_vertrag_eff__compax raw_vault._common.link_vertrag_kunde --target ewb-dev
-    # 2. CDR Events — Vault (hub_sim, hub_msisdn, link_cdr_event_tl, sat_cdr_event__compax)
-    - dbt run --select staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-dev
+    - dbt run --select staging.rsn_mobile_services_main staging.rsn_mobile_services_optionen_dedup staging.rsn_mobile_services_kunde_dedup hub_vertrag hub_kunde sat_vertrag_optionen_ma__compax sat_vertrag_eff__compax sat_kunde__compax link_vertrag_kunde --target ewb-dev
+    # 2. CDR Events — Staging View + PSA + Vault (hub_sim, hub_msisdn, link_cdr_event_tl, sat_cdr_event__compax)
+    - dbt run --select staging.rsn_mobile_cdr_main staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-dev
     # 3. Mart Aggregation
     - dbt run --select mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --target ewb-dev
     - dbt test --select mart.telecom --target ewb-dev
@@ -178,9 +178,9 @@ deploy:dev:cdr-full-refresh:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     # 1. Services (Stammdaten)
-    - dbt run --select staging.rsn_mobile_services_main raw_vault._common.hub_vertrag raw_vault._common.hub_kunde raw_vault._common.sat_vertrag_optionen_ma__compax raw_vault._common.sat_vertrag_eff__compax raw_vault._common.link_vertrag_kunde --target ewb-dev
-    # 2. CDR Events
-    - dbt run --select staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-dev
+    - dbt run --select staging.rsn_mobile_services_main staging.rsn_mobile_services_optionen_dedup staging.rsn_mobile_services_kunde_dedup hub_vertrag hub_kunde sat_vertrag_optionen_ma__compax sat_vertrag_eff__compax sat_kunde__compax link_vertrag_kunde --target ewb-dev
+    # 2. CDR Events — Staging View + PSA + Vault
+    - dbt run --select staging.rsn_mobile_cdr_main staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-dev
     # 3. Mart Aggregation (full-refresh)
     - dbt run --select mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --full-refresh --target ewb-dev
     - dbt test --select mart.telecom --target ewb-dev
@@ -259,8 +259,54 @@ deploy:test:full-refresh:
     name: ewb-test
 
 # =============================================================================
-# DEPLOY PROD — Tag v* oder manuell oder ADF-Trigger (→ datavault)
+# CDR TELECOM LOAD TEST — inkrementell (→ datavault-test)
+# Manuell starten: lädt Services (Stammdaten) + neue CDR-Files aus ADF
+# incoming/ in PSA → Vault → Mart.
+# Reihenfolge: Services (hub_vertrag/kunde/sim) → CDR Events → Mart
 # =============================================================================
+deploy:test:cdr-load:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "test"'
+      when: manual
+  timeout: 60 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-test
+    # 1. Services (Stammdaten) — muss vor CDR-Events laufen
+    - dbt run --select staging.rsn_mobile_services_main staging.rsn_mobile_services_optionen_dedup staging.rsn_mobile_services_kunde_dedup hub_vertrag hub_kunde sat_vertrag_optionen_ma__compax sat_vertrag_eff__compax sat_kunde__compax link_vertrag_kunde --target ewb-test
+    # 2. CDR Events — Staging View + PSA + Vault (hub_sim, hub_msisdn, link_cdr_event_tl, sat_cdr_event__compax)
+    - dbt run --select staging.rsn_mobile_cdr_main staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-test
+    # 3. Mart Aggregation
+    - dbt run --select mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --target ewb-test
+    - dbt test --select mart.telecom --target ewb-test
+  environment:
+    name: ewb-test
+
+# =============================================================================
+# CDR TELECOM FULL REFRESH TEST — historischer Backfill (→ datavault-test)
+# Manuell starten: Faktentabellen vollständig neu aufbauen.
+# =============================================================================
+deploy:test:cdr-full-refresh:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "test"'
+      when: manual
+  timeout: 90 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-test
+    # 1. Services (Stammdaten)
+    - dbt run --select staging.rsn_mobile_services_main staging.rsn_mobile_services_optionen_dedup staging.rsn_mobile_services_kunde_dedup hub_vertrag hub_kunde sat_vertrag_optionen_ma__compax sat_vertrag_eff__compax sat_kunde__compax link_vertrag_kunde --target ewb-test
+    # 2. CDR Events — Staging View + PSA + Vault
+    - dbt run --select staging.rsn_mobile_cdr_main staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-test
+    # 3. Mart Aggregation (full-refresh)
+    - dbt run --select mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --full-refresh --target ewb-test
+    - dbt test --select mart.telecom --target ewb-test
+  environment:
+    name: ewb-test
+
+
 deploy:prod:
   stage: deploy
   rules:

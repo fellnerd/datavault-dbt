@@ -33,7 +33,7 @@ src_dfk: "hk_vertrag"
 src_sfk: "hk_kunde"
 src_start_date: "aktivierungs_datum"
 src_end_date: "kundigungs_datum"
-src_eff: "dss_load_date"
+src_eff: "dss_eff_date"
 src_ldts: "dss_load_date"
 src_source: "dss_record_source"
 {%- endset -%}
