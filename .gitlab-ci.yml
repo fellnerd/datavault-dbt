@@ -139,7 +139,9 @@ deploy:dev:full-refresh:
 
 # =============================================================================
 # CDR TELECOM LOAD DEV — inkrementell (→ datavault-dev)
-# Manuell starten: lädt neue CDR-Files aus ADF incoming/ in PSA → Vault → Mart.
+# Manuell starten: lädt Services (Stammdaten) + neue CDR-Files aus ADF
+# incoming/ in PSA → Vault → Mart.
+# Reihenfolge: Services (hub_vertrag/kunde/sim) → CDR Events → Mart
 # Nur für Files der letzten 2 Tage (Late-Arrival-Fenster der Faktentabellen).
 # =============================================================================
 deploy:dev:cdr-load:
@@ -151,8 +153,11 @@ deploy:dev:cdr-load:
   script:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
-    - dbt run --select staging.psa_rsn_mobile_cdr_main --target ewb-dev
-    - dbt run --select raw_vault.telecom --target ewb-dev
+    # 1. Services (Stammdaten) — muss vor CDR-Events laufen
+    - dbt run --select staging.rsn_mobile_services_main raw_vault._common.hub_vertrag raw_vault._common.hub_kunde raw_vault._common.sat_vertrag_optionen_ma__compax raw_vault._common.sat_vertrag_eff__compax raw_vault._common.link_vertrag_kunde --target ewb-dev
+    # 2. CDR Events — Vault (hub_sim, hub_msisdn, link_cdr_event_tl, sat_cdr_event__compax)
+    - dbt run --select staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-dev
+    # 3. Mart Aggregation
     - dbt run --select mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --target ewb-dev
     - dbt test --select mart.telecom --target ewb-dev
   environment:
@@ -172,8 +177,11 @@ deploy:dev:cdr-full-refresh:
   script:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
-    - dbt run --select staging.psa_rsn_mobile_cdr_main --target ewb-dev
-    - dbt run --select raw_vault.telecom --target ewb-dev
+    # 1. Services (Stammdaten)
+    - dbt run --select staging.rsn_mobile_services_main raw_vault._common.hub_vertrag raw_vault._common.hub_kunde raw_vault._common.sat_vertrag_optionen_ma__compax raw_vault._common.sat_vertrag_eff__compax raw_vault._common.link_vertrag_kunde --target ewb-dev
+    # 2. CDR Events
+    - dbt run --select staging.psa_rsn_mobile_cdr_main raw_vault.telecom --target ewb-dev
+    # 3. Mart Aggregation (full-refresh)
     - dbt run --select mart_telecom.fakt_datenvolumen mart_telecom.fakt_anrufe --full-refresh --target ewb-dev
     - dbt test --select mart.telecom --target ewb-dev
   environment:
