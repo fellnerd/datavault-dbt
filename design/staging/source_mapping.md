@@ -1,6 +1,6 @@
 # Source System Mapping — EWB Analytics Platform
 
-**Stand:** 31. März 2026 | **Quellsystem:** Abacus ERP (EWB Energie Wasser Bern)
+**Stand:** 31. März 2026 | **Quellsystem:** Abacus ERP (EWB Energie Wasser Buchs)
 
 ---
 

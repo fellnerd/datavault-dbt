@@ -2,7 +2,7 @@
 # =============================================================================
 # ACA dbt-Runner Setup — EWB Azure Tenant
 # =============================================================================
-# Repliziert exakt die PPMC/Dimetrics ACA-Konfiguration in den EWB-Tenant.
+# Repliziert exakt die PPMC/EWB ACA-Konfiguration in den EWB-Tenant.
 #
 # VORAUSSETZUNGEN (Luzia muss vorher erledigen):
 #   1. Microsoft.App Provider registrieren:

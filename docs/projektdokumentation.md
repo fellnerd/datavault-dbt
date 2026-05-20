@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Kunde** | EWB Energie Wasser Bern |
+| **Kunde** | EWB Energie Wasser Buchs |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
 | **Stand** | 5. Mai 2026 |
