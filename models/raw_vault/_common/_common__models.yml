@@ -3654,27 +3654,33 @@ models:
 
 - name: "sat_vertrag_eff__compax"
   description: |
-    Effectivity Satellite für Verträge aus dem Compax/RSN Mobile-System.
-    Minimale Payload: is_active (CHAR(1)) — verfolgt den Aktivitätsstatus über Zeit.
-    SCD2-historisiert via dss_is_current / dss_end_date.
-    Wird in Mart-Modellen für Filterung aktiver Verträge verwendet.
+    Effectivity Satellite für die Vertrag↔Kunde-Beziehung (parent: link_vertrag_kunde).
+    Implementiert via automate_dv.eff_sat() mit Driving FK = hk_vertrag, Secondary FK = hk_kunde.
+    Verfolgt die fachliche Gültigkeit über aktivierungs_datum (Start) und kundigungs_datum (Ende).
+    kundigungs_datum = '9999-12-31' (bzw. NULL/'') ⇒ Periode offen / aktiv.
+    Aktive Verträge werden in sat_vertrag_eff_current_v gefiltert und in Mart-Modellen konsumiert.
   columns:
+  - name: "hk_link_vertrag_kunde"
+    description: "Primary Hash Key (FK to link_vertrag_kunde) — Identität der Effectivity-Periode"
+    data_type: "char(64)"
+    tests:
+    - not_null
   - name: "hk_vertrag"
-    description: "Hash Key (FK to hub_vertrag)"
+    description: "Driving FK Hash Key → hub_vertrag"
     data_type: "char(64)"
     tests:
     - not_null
-  - name: "hashdiff"
-    description: "Hash Diff für Change Detection (aliased from hd_vertrag_eff)"
+  - name: "hk_kunde"
+    description: "Secondary FK Hash Key → hub_kunde"
     data_type: "char(64)"
     tests:
     - not_null
-  - name: "is_active"
-    description: "Aktivitätsstatus des Vertrags (Y = aktiv, N = inaktiv)"
-    data_type: "char(1)"
-    tests:
-    - accepted_values:
-        values: ['Y', 'N']
+  - name: "aktivierungs_datum"
+    description: "Start-Datum der Vertrag-Kunde-Periode (eff_sat START_DATE)"
+    data_type: "datetime2(7)"
+  - name: "kundigungs_datum"
+    description: "End-Datum der Vertrag-Kunde-Periode (eff_sat END_DATE; '9999-12-31' / NULL / '' = offen/aktiv)"
+    data_type: "datetime2(7)"
   - name: "dss_load_date"
     description: "Load timestamp"
     data_type: "datetime2(7)"
@@ -3685,18 +3691,6 @@ models:
     data_type: "varchar(100)"
     tests:
     - not_null
-  - name: "dss_create_datetime"
-    description: "Record creation timestamp im Quellsystem"
-    data_type: "datetime2(7)"
-  - name: "dss_is_current"
-    description: "Aktueller Datensatz-Flag (Y/N)"
-    data_type: "char(1)"
-    tests:
-    - accepted_values:
-        values: ['Y', 'N']
-  - name: "dss_end_date"
-    description: "Ablaufdatum des Datensatzes (NULL = aktuell)"
-    data_type: "datetime2(7)"
 
 - name: "link_vertrag_kunde"
   description: |

@@ -2652,15 +2652,17 @@ models:
         tests:
           - not_null
       - name: hk_sim
-        description: "Hash Key → hub_sim (icc)"
+        description: "Hash Key → hub_sim (icc). NULL erlaubt: Compax liefert legitim Verträge ohne SIM-Hardware (z.B. virtuelle Verträge); hub_sim filtert NULL-BKs automatisch."
         data_type: char(64)
         tests:
-          - not_null
+          - not_null:
+              severity: warn
       - name: hk_msisdn
-        description: "Hash Key → hub_msisdn (rufnummer)"
+        description: "Hash Key → hub_msisdn (rufnummer). NULL erlaubt: Compax liefert legitim Verträge ohne Rufnummer; hub_msisdn filtert NULL-BKs automatisch."
         data_type: char(64)
         tests:
-          - not_null
+          - not_null:
+              severity: warn
       - name: hk_link_vertrag_kunde
         description: "Link Hash Key — vertrag ↔ kunde"
         data_type: char(64)
