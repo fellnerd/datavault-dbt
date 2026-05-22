@@ -80,7 +80,7 @@ SELECT
     {{ surrogate_key('b.kto') }}                                      AS konto_key,
     {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     -1 * CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -121,7 +121,7 @@ SELECT
     {{ surrogate_key('b.gkto') }}                                     AS konto_key,
     {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -162,7 +162,7 @@ SELECT
     {{ surrogate_key('b.kto') }}                                      AS konto_key,
     {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -203,7 +203,7 @@ SELECT
     {{ surrogate_key('b.gkto') }}                                     AS konto_key,
     {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     -1 * CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)

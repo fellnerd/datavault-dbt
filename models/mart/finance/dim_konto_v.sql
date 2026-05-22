@@ -19,11 +19,11 @@
 
 SELECT
     {{ surrogate_key('hk.kto') }}                                                        AS konto_key,
-    CAST(hk.kto AS NVARCHAR(255))                                                        AS konto_id,
-    ISNULL(CAST(rk.Konto AS NVARCHAR(255)), CAST(hk.kto AS NVARCHAR(255)))               AS konto_code,
+    CAST(TRY_CAST(hk.kto AS INT) AS NVARCHAR(255))                                       AS konto_id,
+    ISNULL(CAST(rk.Konto AS NVARCHAR(255)), CAST(TRY_CAST(hk.kto AS INT) AS NVARCHAR(255))) AS konto_code,
     ISNULL(CAST(rk.KontoName AS NVARCHAR(255)),
            ISNULL(CAST(rk.Konto AS NVARCHAR(255)),
-                  ISNULL(CAST(hk.kto AS NVARCHAR(255)), 'UNKNOWN')))                     AS konto_name,
+                  ISNULL(CAST(TRY_CAST(hk.kto AS INT) AS NVARCHAR(255)), 'UNKNOWN')))    AS konto_name,
     CAST(rk.Konto_L1 AS NVARCHAR(255))                                                   AS konto_gruppe,
     CAST(rk.KontoName_L1 AS NVARCHAR(255))                                               AS konto_gruppe_name,
     CAST(rk.Konto_L2 AS NVARCHAR(255))                                                   AS konto_subgruppe,
@@ -32,4 +32,4 @@ SELECT
     hk.dss_record_source
 FROM {{ ref('hub_konto') }} hk
 LEFT JOIN {{ ref('ref_konto_v') }} rk
-    ON CAST(hk.kto AS NVARCHAR(MAX)) = CAST(rk.KontoNr AS NVARCHAR(MAX))
+    ON TRY_CAST(hk.kto AS INT) = rk.KontoNr

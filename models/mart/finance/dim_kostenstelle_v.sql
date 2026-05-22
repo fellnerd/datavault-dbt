@@ -19,11 +19,11 @@
 
 SELECT
     {{ surrogate_key('hk.kst') }}                                                        AS kostenstelle_key,
-    CAST(hk.kst AS NVARCHAR(255))                                                        AS kostenstelle_id,
-    ISNULL(CAST(rk.Kostenstelle AS NVARCHAR(255)), CAST(hk.kst AS NVARCHAR(255)))        AS kostenstelle_code,
+    CAST(TRY_CAST(hk.kst AS INT) AS NVARCHAR(255))                                       AS kostenstelle_id,
+    ISNULL(CAST(rk.Kostenstelle AS NVARCHAR(255)), CAST(TRY_CAST(hk.kst AS INT) AS NVARCHAR(255))) AS kostenstelle_code,
     ISNULL(CAST(rk.KostenstelleName AS NVARCHAR(255)),
            ISNULL(CAST(rk.Kostenstelle AS NVARCHAR(255)),
-                  ISNULL(CAST(hk.kst AS NVARCHAR(255)), 'UNKNOWN')))                     AS kostenstelle_name,
+                  ISNULL(CAST(TRY_CAST(hk.kst AS INT) AS NVARCHAR(255)), 'UNKNOWN')))    AS kostenstelle_name,
     CAST(rk.Bereich_L1 AS NVARCHAR(255))                                                 AS bereich,
     CAST(rk.Bereichsname_L1 AS NVARCHAR(255))                                            AS bereich_name,
     CAST(rk.Bereich_L2 AS NVARCHAR(255))                                                 AS bereich_detail,
@@ -37,4 +37,4 @@ SELECT
     hk.dss_record_source
 FROM {{ ref('hub_kostenstelle') }} hk
 LEFT JOIN {{ ref('ref_kostenstelle_v') }} rk
-    ON CAST(hk.kst AS NVARCHAR(MAX)) = CAST(rk.KostenstelleNr AS NVARCHAR(MAX))
+    ON TRY_CAST(hk.kst AS INT) = rk.KostenstelleNr
