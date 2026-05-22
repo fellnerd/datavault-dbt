@@ -28,19 +28,19 @@ SELECT
     la.leistungsart_key                 AS leistungsart_key,
     -- Degenerate Dimension: immer befüllt (alle 383 Sachkonto-Codes)
     CAST(hpsk.code AS INT)              AS sachkonto_code,
-    TRY_CAST(FORMAT(
-        DATEFROMPARTS(
-            CASE WHEN COALESCE(TRY_CAST(hpsk.periyear AS INT), 1900) = 0
-                 THEN 1900
-                 ELSE COALESCE(TRY_CAST(hpsk.periyear AS INT), 1900)
-            END,
-            CASE WHEN COALESCE(TRY_CAST(hpsk.perimonth AS INT), 1) = 0
-                 THEN 1
-                 ELSE COALESCE(TRY_CAST(hpsk.perimonth AS INT), 1)
-            END,
-            1
-        ), 'yyyyMMdd'
-    ) AS INT)                             AS perioden_date_key,
+    -- NULL wenn PERIYEAR/PERIMONTH fehlen (verhindert 1900-Artefakte)
+    CASE
+        WHEN TRY_CAST(hpsk.periyear AS INT) IS NULL OR TRY_CAST(hpsk.periyear AS INT) = 0
+          OR TRY_CAST(hpsk.perimonth AS INT) IS NULL OR TRY_CAST(hpsk.perimonth AS INT) = 0
+        THEN NULL
+        ELSE TRY_CAST(FORMAT(
+            DATEFROMPARTS(
+                TRY_CAST(hpsk.periyear AS INT),
+                TRY_CAST(hpsk.perimonth AS INT),
+                1
+            ), 'yyyyMMdd'
+        ) AS INT)
+    END                                   AS perioden_date_key,
     -- Measures
     spsk.azbetint                         AS betrag,
     -- Degenerate Dimensions

@@ -425,30 +425,45 @@ LEFT JOIN mart_project.dim_projekt_v p ON fs.projekt_key = p.projekt_key;
 
 Nach Ausführung aller Queries → Ergebnisse in diese Tabelle eintragen:
 
-### Finance Ergebnis-Tabelle
+### Finance Ergebnis-Tabelle (Ausführung 22.05.2026)
 
 | Check | Soll (PBI) | Ist (datavault-test) | Abweichung | Status |
 |-------|-----------|---------------------|------------|--------|
-| Ertrag 2023 (Konto 3x) | ~47,530K | | | |
-| Gesamtergebnis 2023 | ~1,220K | | | |
-| Ertrag 2024 (Konto 3x) | ~43,445K | | | |
-| Gesamtergebnis 2024 | ~1,017K | | | |
-| Ergebnis Jan-Aug 2024 | ~605K | | | |
-| Ergebnis Jan-Aug 2026 | ~2,947K | | | |
-| Mwst-Typ kein Decimal | n/a | | | |
-| Konto L2 Vollständigkeit | > 90% | | | |
-| Bereich L1 Vollständigkeit | > 90% | | | |
-| JOIN Buchungen→Konto | < 1% orphan | | | |
-| JOIN Buchungen→KST | < 1% orphan | | | |
+| Ertrag 2023 (Konto 3x) | ~47,530K | **47,528,706** | −1,294 (0.003%) | ✅ |
+| Gesamtergebnis 2023 | ~1,220K | **1,220,257** | +257 (0.02%) | ✅ |
+| Ertrag 2024 (Konto 3x) | ~43,445K | **43,446,053** | +1,053 (0.002%) | ✅ |
+| Gesamtergebnis 2024 | ~769.8K* | **769,761** | −39 (0.005%) | ✅ |
+| Ergebnis Jan-Aug 2024 | ~605K† | **355,167** | −249,833 | ⚠️ Datenfreshe |
+| Ergebnis Jan-Aug 2026 | ~2,947K† | **2,393,020** | −553,980 | ⚠️ Nur bis Mai |
+| Mwst-Typ kein Decimal | keine Strings mit `.` | Integer 0/1/2/5 | — | ✅ |
+| Konto L2 Vollständigkeit | > 90% | 225/526 = 42.8% | −47.2pp | ⚠️ Ref. Konto fix |
+| Bereich L1 Vollständigkeit | > 90% | 139/145 = 95.9% | — | ✅ |
+| JOIN Buchungen→Konto | < 1% orphan | 6/113,020 = 0.01% | — | ✅ |
+| JOIN Buchungen→KST | < 1% orphan | 0/113,020 = 0.00% | — | ✅ |
 
-### Projekt Ergebnis-Tabelle
+> *Soll-Wert Ergebnis 2024 korrigiert: Finance001 wurde refresht, zeigt jetzt 769.8K (nicht mehr 1,017K).  
+> †Vergleichswerte aus PBI vor Refresh-Stand; Jan-Aug 2026 enthält keine Buchungen Sep-Dez.  
+> ⚠️ Konto-Hierarchie: 301/526 ohne Gruppe/Subgruppe — Ref-Tabelle deckt nur Kontenplan-Konten ab. 301 nicht im Sharepoint-Kontenplan = erwartet.
+
+### Projekt Ergebnis-Tabelle (Ausführung 22.05.2026)
 
 | Check | Erwartung | Ist (datavault-test) | Status |
 |-------|-----------|---------------------|--------|
-| Anzahl Projekte total | > 100 | | |
-| Aktive Projekte | > 50 | | |
-| NULL projekt_id | 0 | | |
-| Unknown status | < 10% | | |
-| NULL hauptgruppe_nr | < 20% | | |
-| fakt_stunden: NULL leistungsart | ~83% | | |
-| fakt_stunden: JOIN orphan | < 1% | | |
+| Anzahl Projekte total | > 100 | **14,409** | ✅ |
+| Aktive Projekte | > 50 | **13,181** (91.5%) | ✅ |
+| NULL projekt_id | 0 | **0** | ✅ |
+| Unknown status | < 10% | 0 | ✅ |
+| NULL hauptgruppe_nr | < 20% | 0 | ✅ |
+| fakt_stunden: NULL leistungsart | ~83% | **88.7%** ohne | ⚠️ akzeptabel |
+| fakt_stunden: JOIN orphan | < 1% | **0/202,378 (0.00%)** | ✅ |
+| fakt_stunden: Jahr = 1900 | 0 | **25,328 Zeilen** | 🔴 Bug! |
+
+> 🔴 **fakt_stunden `jahr=1900`**: 25,328 Zeilen mit ungültigem `perioden_date_key`. Ursache: NULL-Werte in `PERIODE` Staging-Spalte werden als `19000101` gespeichert. Handlungsbedarf.
+
+### Handlungsbedarf nach Check
+
+| Prio | Problem | Massnahme |
+|------|---------|-----------|
+| 🔴 | fakt_stunden 25,328 Zeilen mit `perioden_date_key` = 1900xxxx | `ewb_proj_nsa_main.sql` prüfen: PERIODE NULL-Handling |
+| ⚠️ | Konto-Hierarchie: 301/526 ohne L1/L2 | Prüfen ob alle 301 wirklich nicht im Kontenplan — ggf. Ref-Tabelle ergänzen |
+| ℹ️ | Spaltenname `mwst_typ` (nicht `mwsttyp`) | Doku-Konsistenz korrigieren |

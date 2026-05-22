@@ -20,7 +20,13 @@
 ) }}
 
 SELECT
-    TRY_CAST(FORMAT(TRY_CAST(b.Datum AS DATE), 'yyyyMMdd') AS INT) AS datum_date_key,
+    TRY_CAST(FORMAT(
+        COALESCE(
+            TRY_CAST(b.Datum AS DATE),
+            CASE WHEN TRY_CAST(b.Datum AS INT) BETWEEN 40000 AND 60000
+                 THEN DATEADD(day, TRY_CAST(b.Datum AS INT) - 2, '1900-01-01')
+            END
+        ), 'yyyyMMdd') AS INT)                   AS datum_date_key,
     {{ surrogate_key('b.Konto') }}           AS konto_key,
     {{ surrogate_key('b.Kostenstelle') }}     AS kostenstelle_key,
     CAST(b.Szenario AS NVARCHAR(255))        AS szenario,

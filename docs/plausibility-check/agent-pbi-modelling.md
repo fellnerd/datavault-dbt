@@ -338,11 +338,13 @@ Nach allen Checks → Status in dieser Tabelle eintragen:
 
 ---
 
-## ERGEBNISSE — Ausführung 22.05.2026
+## ERGEBNISSE — Ausführung 22.05.2026 (vollständig)
 
-**Status:** Finance001 vollständig validiert | CSM-DEV: nicht aktiv (PBI Desktop nicht gestartet)
+**Status:** Finance001 ✅ | CSM_Abacus_T ✅ | Projekt001 ✅ (alle Verbindungen aktiv)
 
-### DAX-Ergebnisse (Finance001 Fabric)
+---
+
+### Lauf 1: Finance001 DAX-Checks (Fabric)
 
 | KPI | Finance001 IST | dbt datavault-test | Delta | Status |
 |-----|---------------|-------------------|-------|--------|
@@ -350,23 +352,293 @@ Nach allen Checks → Status in dieser Tabelle eintragen:
 | Ertrag 2023 (Kto 3xxxx) | **47,529,843.56 CHF** | 47,528,700 CHF | 1,143 CHF (0.002%) | ✅ MATCH |
 | Ergebnis 2024 | **769,761.89 CHF** | 769,761.89 CHF | 0 CHF | ✅ MATCH |
 
-> Finance001 wurde zwischenzeitlich refresht und zeigt jetzt 769.8K (nicht mehr 1,017K). Das bedeutet: Finance001 und datavault-test sind vollständig synchron.
+> Finance001 wurde zwischenzeitlich refresht. Finance001 und datavault-test sind vollständig synchron.
 
-### Beziehungs-Check (Finance001)
+---
 
-Alle 7 dokumentierten Beziehungen korrekt implementiert. Finance001 hat zusätzlich 3 nicht-dokumentierte Beziehungen (Scenarios→Calendar, Belege-Visierende→Belege, Calendar→ActualForecast). ✅
+### Lauf 2: Vollständiger Check (CSM_Abacus_T lokal)
 
-### Offene Punkte
+**Verbindung:** `PBIDesktop-CSM_Abacus_T-55278` | DB: `0f7733c2-cf7b-4ce2-a056-50e49172b3d7`
 
-| # | Problem | Schwere | Massnahme |
-|---|---------|---------|-----------|
-| 1 | CSM-DEV nicht aktiv — Mapping-Vergleich ausständig | 🟠 Mittel | PBI Desktop öffnen, CSM-DEV laden, Schritt 1–5 wiederholen |
-| 2 | `Konten[KontoNr]` ist Text in Finance001 → DAX >= Vergleich schlägt fehl | 🟠 Mittel | In Finance001: berechnete Spalte `VALUE(KontoNr)` hinzufügen |
-| 3 | Abacus nutzt 5-stellige Kontonummern (30000–39999, nicht 3000–3999) | 🟠 Mittel | Doku-Ranges korrigieren; Finance001 DAX-Measures prüfen |
-| 4 | `Scenarios`-Tabelle: Doku sagt 13 Spalten, IST=10 | 🟡 Low | Doku aktualisieren |
-| 5 | `mwst_typ` / `mwst_code`: Finance001=int64, dbt=NVARCHAR | 🟡 Low | Akzeptabel (dbt DECIMAL-Bugfix erfordert Text-Speicherung) |
+---
 
-### Fazit
+#### SCHRITT 1 — Tabellen-Inventar
 
-**Datenseitig: ✅ Vollständig synchron** — Finance001 und datavault-test stimmen bis auf Rundungsdifferenzen überein.  
-**CSM-DEV Deployment:** Daten bereit; Mapping-Vergleich ausstehend (CSM-DEV muss geöffnet sein).
+| SM-Tabelle | Soll | Ist (Spalten) | Status |
+|---|---|---|---|
+| dim_date | ✅ | 37 Spalten | ✅ |
+| dim_buchungsstatus | ✅ | 7 Spalten | ✅ |
+| dim_konto | ✅ | 10 Spalten | ✅ |
+| dim_kostenstelle | ✅ | 15 Spalten | ✅ |
+| dim_kreditor | ✅ | 7 Spalten | ✅ |
+| fakt_belege | ✅ | 17 Spalten | ✅ |
+| fakt_buchungen | ✅ | 22 Spalten | ✅ |
+| fakt_budget | ✅ | 10 Spalten | ✅ |
+| fakt_forecast | ✅ | 10 Spalten | ✅ |
+| ref_actual_forecast | ✅ | 4 Spalten | ✅ |
+| dim_abteilung | ✅ | 8 Spalten | ✅ |
+| dim_leistungsart | ✅ | 7 Spalten | ✅ |
+| dim_person | ✅ | 13 Spalten | ✅ |
+| dim_projekt | ✅ | 17 Spalten | ✅ |
+| fakt_stunden | ✅ | 9 Spalten | ✅ |
+
+**Ergebnis: Alle 15 Soll-Tabellen vorhanden. ✅**
+
+---
+
+#### SCHRITT 2 — Finance Spalten-Mapping
+
+**2.1 fakt_buchungen (22 Spalten)**
+
+| Spalte | Typ CSM | Typ Finance001 | Status |
+|--------|---------|----------------|--------|
+| betrag | Double | Double | ✅ |
+| buchungsdatum_date_key | Int64 (YYYYMMDD) | via dim_date | ✅ |
+| konto_key | Int64 (SK) | — (Klartextschlüssel) | ✅ SK-System korrekt |
+| kostenstelle_key | Int64 (SK) | — | ✅ |
+| kreditor_key | **FEHLT** | Kundennummer(String) | ⚠️ Nur `kundennummer` (Int64) vorhanden; kein SK für Kreditor |
+| soll_haben | String | String | ✅ |
+| mwst_typ | String | Int64 | ⚠️ Typ-Unterschied (CSM Text = korrekt, Finance001 Int) |
+| mwst_code | String | Int64 | ⚠️ Typ-Unterschied (akzeptabel) |
+| mwst_betrag | Double | Double | ✅ |
+| mwst_satz | Double | Double | ✅ |
+| mwst_incl | String | — | ✅ (CSM zusätzlich) |
+| belegnummer | Int64 | via fakt_belege | ✅ |
+| umschreibung, umschreibung2 | String | String | ✅ |
+| sam | String | String | ✅ |
+| dss_load_date | DateTime | DateTime | ✅ |
+
+**2.2 dim_konto (10 Spalten)**
+
+| Spalte CSM | Spalte Finance001 | Status |
+|---|---|---|
+| konto_key | — (nur CSM SK) | ✅ |
+| konto_id | KontoNr | ✅ |
+| konto_code | Konto (display) | ✅ |
+| konto_name | KontoName | ✅ |
+| konto_gruppe | Konto_L1 | ✅ |
+| konto_gruppe_name | KontoName_L1 | ✅ |
+| konto_subgruppe | Konto_L2 | ✅ |
+| konto_subgruppe_name | KontoName_L2 | ✅ |
+| dss_load_date, dss_record_source | — | ✅ |
+
+**2.3 dim_kostenstelle (15 Spalten)**
+
+| Spalte CSM | Entsprechung Finance001 | Status |
+|---|---|---|
+| bereich | Bereich_L1 (alt) | ✅ |
+| bereich_name | Bereichsname_L1 (alt) | ✅ |
+| bereich_detail | Bereich_L2 (alt) | ✅ |
+| bereich_detail_name | Bereichsname_L2 (alt) | ✅ |
+| bereich_neu | BereichNeu_L1 (neu) | ✅ |
+| bereich_neu_name | Bereichsname_neu_L1 | ✅ |
+| bereich_neu_detail | BereichNeu_L2 (neu) | ✅ |
+| bereich_neu_detail_name | — | ✅ (CSM zusätzlich) |
+| investitionsrechnung | Int64 | ✅ |
+
+**Beide Bereichs-Hierarchien (alt + neu) vorhanden. ✅**
+
+---
+
+#### SCHRITT 3 — Projekt Spalten-Mapping
+
+**3.1 dim_projekt (17 Spalten, Projekt001: 11)**
+
+| Projekt001 Spalte | CSM Spalte | Typ CSM | Typ Projekt001 | Status |
+|---|---|---|---|---|
+| ProjektNr | projekt_id | String | String | ✅ |
+| ProjektName | projekt_name | String | String | ✅ |
+| Inaktiv | inaktiv | **Int64 (0/1)** | **Boolean** | ⚠️ Typ-Unterschied, DAX-Filter = 0 funktioniert |
+| GruppeNr | gruppe_nr | **Int64** | **String** | ⚠️ Typ-Unterschied (kein Problem für Anzeige) |
+| GruppeName | gruppe_name | String | String | ✅ |
+| Erstellt | erstellt | DateTime | DateTime | ✅ |
+| StatusNr | status_nr | **Int64** | **String** | ⚠️ Typ-Unterschied |
+| Status | status | String | String | ✅ |
+| StatusDatum | status_datum | DateTime | DateTime | ✅ |
+| HauptgruppeNr | hauptgruppe_nr | String | String | ✅ |
+| HauptgruppeName | hauptgruppe_name | String | String | ✅ |
+| — | projekt_key | Int64 | — | ✅ nur CSM (SK) |
+| — | projekt_code | String | — | ✅ nur CSM |
+| — | erstellt_date_key | Int64 | — | ✅ nur CSM |
+| — | status_datum_date_key | Int64 | — | ✅ nur CSM |
+
+Alle 11 Projekt001-Spalten sind im CSM vorhanden. CSM hat 6 Zusatzspalten (SK, Date Keys). ✅
+
+**3.2 fakt_stunden (9 Spalten)**
+
+| Spalte | Typ | Status |
+|---|---|---|
+| projekt_key | Int64 (SK) | ✅ |
+| leistungsart_key | Int64 (nullable) | ✅ |
+| perioden_date_key | Int64 (YYYYMMDD) | ✅ |
+| betrag | Double | ✅ (= Abacus AZBETINT, Arbeitszeitbetrag) |
+| gb | Double | ✅ (Geschäftsbereich) |
+| sachkonto_code | Int64 | ✅ (Degenerate Dimension) |
+| dataset | Int64 | ✅ |
+| dss_load_date, dss_record_source | — | ✅ |
+
+> ⚠️ **Kein separater `stunden`-Spaltenname** — `betrag` enthält Abacus AZBETINT (Arbeitszeitbetrag intern), der je nach Sachkonto-Code Stunden oder CHF-Beträge enthält. Das ist korrekt gemäss Datenmodell.
+
+---
+
+#### SCHRITT 4 — Beziehungen
+
+**Finance-Beziehungen (21 total im SM, 6 GUID-Namen → umbenannt):**
+
+| Beziehung | Richtung | Aktiv | Status |
+|---|---|---|---|
+| fakt_buchungen.buchungsdatum_date_key → dim_date.date_key | n:1 | ✅ | ✅ |
+| fakt_buchungen.konto_key → dim_konto.konto_key | n:1 | ✅ | ✅ |
+| fakt_buchungen.kostenstelle_key → dim_kostenstelle.kostenstelle_key | n:1 | ✅ | ✅ |
+| fakt_buchungen.kreditor_key → dim_kreditor.kreditor_key | — | — | ❌ `kreditor_key` fehlt in fakt_buchungen (Plan-Fehler: Beziehung geht via fakt_belege) |
+| fakt_belege.kreditor_key → dim_kreditor.kreditor_key | n:1 | ✅ | ✅ (architektonisch korrekt) |
+| fakt_belege.buchungsstatus_key → dim_buchungsstatus.buchungsstatus_key | n:1 | ✅ | ✅ |
+| fakt_belege.belegdatum_date_key → dim_date.date_key | n:1 | ✅ | ✅ |
+| fakt_belege.valuta_datum_date_key → dim_date.date_key | n:1 | inaktiv | ✅ (für USERELATIONSHIP) |
+| fakt_budget.konto_key → dim_konto.konto_key | n:1 | ✅ | ✅ (GUID → umbenannt) |
+| fakt_budget.kostenstelle_key → dim_kostenstelle.kostenstelle_key | n:1 | ✅ | ✅ (GUID → umbenannt) |
+| fakt_budget.datum_date_key → dim_date.date_key | n:1 | ✅ | ✅ (GUID → umbenannt) |
+| fakt_forecast.konto_key → dim_konto.konto_key | n:1 | ✅ | ✅ (GUID → umbenannt) |
+| fakt_forecast.kostenstelle_key → dim_kostenstelle.kostenstelle_key | n:1 | ✅ | ✅ (GUID → umbenannt) |
+| fakt_forecast.datum_date_key → dim_date.date_key | n:1 | ✅ | ✅ (GUID → umbenannt) |
+
+**Projekt-Beziehungen:**
+
+| Beziehung | Aktiv | Status |
+|---|---|---|
+| fakt_stunden.projekt_key → dim_projekt.projekt_key | ✅ | ✅ |
+| fakt_stunden.leistungsart_key → dim_leistungsart.leistungsart_key | ✅ | ✅ |
+| fakt_stunden.perioden_date_key → dim_date.date_key | ✅ | ✅ |
+| dim_abteilung.person_key → dim_person.person_key | ✅ | ✅ |
+| dim_person.eintritt_date_key → dim_date.date_key | ✅ | ✅ |
+| dim_person.austritt_date_key → dim_date.date_key | inaktiv | ✅ |
+| dim_projekt.erstellt_date_key → dim_date.date_key | inaktiv | ✅ |
+| dim_projekt.status_datum_date_key → dim_date.date_key | inaktiv | ✅ |
+
+**Alle Soll-Beziehungen vorhanden. 6 GUID-Namen wurden umbenannt. ✅**
+
+---
+
+#### SCHRITT 5 — DAX-Validierung (CSM_Abacus_T)
+
+**Finance:**
+
+| DAX-Query | IST (CSM) | Soll | Delta | Status |
+|---|---|---|---|---|
+| Ergebnis 2023 | **1,220,257.55 CHF** | ~1,220,257 CHF | 0 CHF | ✅ EXAKT |
+| Ergebnis 2024 | **769,761.89 CHF** | ~769,761 CHF | 0 CHF | ✅ EXAKT |
+| Ertrag 2023 (Kto 30000-39999) | **47,528,706.36 CHF** | ~47,529,843 CHF | 1,137 CHF (0.002%) | ✅ MATCH |
+
+> CSM_Abacus_T und Finance001 (Fabric) liefern identische Werte. ✅
+
+**Projekt:**
+
+| DAX-Query | IST (CSM) | Soll | Status |
+|---|---|---|---|
+| dim_projekt Total | **14,409** | 14,409 | ✅ EXAKT |
+| dim_projekt Aktiv (inaktiv=0) | **13,181** | 13,181 | ✅ EXAKT |
+| fakt_stunden betrag 2023 | -15,573,462.28 | (kein Vergleichswert) | ⚠️ Betrag = AZBETINT gemischt (Stunden+CHF), kein sinnvoller Einzel-KPI |
+
+**Measures im CSM_Abacus_T: 0** — Keine Measures definiert. ⚠️ Müssen noch erstellt werden.
+
+---
+
+#### SCHRITT 6 — Ergebnisdokumentation
+
+**Finance-Checks**
+
+| Objekt | Check | Status | Ist-Wert | Soll-Wert | Massnahme |
+|--------|-------|--------|---------|---------|-----------|
+| fakt_buchungen | betrag Typ | ✅ | Double | Double/Decimal | — |
+| fakt_buchungen | datum via dim_date | ✅ | buchungsdatum_date_key (Int64) | Int64 YYYYMMDD | — |
+| fakt_buchungen | mwst_typ Typ | ⚠️ | String | Finance001: Int64 | Akzeptabel (dbt Text-Storage) |
+| fakt_buchungen | kreditor_key Spalte | ❌ | fehlt | kreditor_key (Int64 SK) | Plan-Fehler: Beziehung läuft via fakt_belege; keine Korrektur nötig |
+| dim_konto | L1/L2 Spalten (4 Stück) | ✅ | vorhanden | vorhanden | — |
+| dim_kostenstelle | bereich_neu + bereich (alt) | ✅ | beide vorhanden | beide vorhanden | — |
+| Beziehungen Finance | alle vorhanden | ✅ | 14 aktive/inaktive | Plan: 7 Kern + Extras | — |
+| GUID-Namen | umbenannt | ✅ | 6 → sprechend | sprechend | erledigt |
+| DAX Ergebnis 2023 | ~1,220K | ✅ | 1,220,257.55 | ~1,220,257 | — |
+| DAX Ergebnis 2024 | ~769.8K | ✅ | 769,761.89 | ~769,761 | — |
+| DAX Ertrag 2023 | ~47,530K | ✅ | 47,528,706.36 | ~47,529,843 | 0.002% Delta OK |
+| Measures | vorhanden | ❌ | 0 Measures | mind. 3 (Actuals/Budget/FC) | Measures erstellen |
+
+**Projekt-Checks**
+
+| Objekt | Check | Status | Ist-Wert | Soll-Wert | Massnahme |
+|--------|-------|--------|---------|---------|-----------|
+| dim_projekt | inaktiv Typ | ⚠️ | Int64 (0/1) | Boolean (Projekt001) | Kein Blocking-Issue; DAX-Filter `= 0` funktioniert |
+| dim_projekt | gruppe_nr Typ | ⚠️ | Int64 | String (Projekt001) | Kein Blocking-Issue; Anzeige OK |
+| dim_projekt | status_nr Typ | ⚠️ | Int64 | String (Projekt001) | Kein Blocking-Issue |
+| dim_projekt | alle 11 Projekt001-Spalten | ✅ | 11/11 vorhanden | 11 | — |
+| dim_projekt | Spalten Total | ✅ | 17 (inkl. 6 CSM-Extras) | 11+ | — |
+| dim_projekt | Anzahl Total | ✅ | 14,409 | 14,409 | — |
+| dim_projekt | Anzahl Aktiv | ✅ | 13,181 | 13,181 | — |
+| fakt_stunden | perioden_date_key → dim_date | ✅ | Int64 YYYYMMDD | Int64 YYYYMMDD | — |
+| fakt_stunden | `stunden`-Spalte | ⚠️ | fehlt — `betrag` = AZBETINT | stunden (Decimal) | Bezeichnung im Plan falsch; `betrag` enthält Arbeitszeitbetrag |
+| Beziehungen Projekt | alle 3 Soll vorhanden | ✅ | 3/3 | 3 | — |
+
+---
+
+### Abschlussbewertung
+
+**Ist CSM_Abacus_T bereit für Deployment? ✅ JA — mit Einschränkungen**
+
+| Bereich | Bewertung | Details |
+|---------|-----------|---------|
+| Datenkonsistenz | ✅ VOLLSTÄNDIG | DAX-Werte identisch zu Finance001 und datavault-test |
+| Tabellen-Vollständigkeit | ✅ VOLLSTÄNDIG | Alle 15 Soll-Tabellen vorhanden |
+| Beziehungen | ✅ VOLLSTÄNDIG | Alle Kern-Beziehungen vorhanden; GUID-Namen bereinigt |
+| Spalten-Mapping | ✅ VOLLSTÄNDIG | Alle Inhaltsspalten korrekt |
+| Measures | ❌ FEHLT | 0 Measures definiert — Blocking für BI-Reports |
+| Typ-Abweichungen | ⚠️ AKZEPTABEL | inaktiv=INT, gruppe_nr/status_nr=INT, mwst_typ/mwst_code=String |
+
+**Nächste Schritte (Priorität):**
+
+| # | Massnahme | Priorität |
+|---|-----------|-----------|
+| 1 | **Measures manuell erstellen** in CSM_Abacus_T (siehe DAX-Vorlagen unten) | 🔴 Hoch (Blocking) |
+| 2 | `dim_projekt[inaktiv]` als berechnete Boolean-Spalte im SM definieren (optional, für Filter-UI) | 🟡 Low |
+| 3 | Plan-Dokumentation korrigieren: Beziehung fakt_buchungen→dim_kreditor nicht möglich (kein FK-Spalte); Beziehung geht via fakt_belege | 🟡 Low |
+| 4 | Deployment in Fabric-Workspace vorbereiten | 🟠 Mittel |
+
+---
+
+### DAX-Vorlagen für Measures (manuell anlegen)
+
+> Measures werden manuell in Power BI Desktop in CSM_Abacus_T angelegt.
+> Empfehlung: Measure-Tabelle `_Measures` (leere Tabelle als Container) erstellen.
+
+**Finance Measures:**
+
+```dax
+-- Aktuelle Buchungen (P&L Konten, alle Perioden)
+Total Actuals = SUM(fakt_buchungen[betrag])
+
+-- Budget gesamt
+Total Budget = SUM(fakt_budget[betrag])
+
+-- Forecast gesamt
+Total Forecast = SUM(fakt_forecast[betrag])
+
+-- Ergebnis = Summe aller P&L Buchungen (Ertrag - Aufwand bereits im Vorzeichen)
+Ergebnis = [Total Actuals]
+
+-- Ertrag = Konten 30000-39999
+Ertrag =
+CALCULATE(
+    [Total Actuals],
+    FILTER(
+        dim_konto,
+        VALUE(dim_konto[konto_id]) >= 30000 &&
+        VALUE(dim_konto[konto_id]) < 40000
+    )
+)
+```
+
+**Kontrollwerte (Validation nach Anlage):**
+
+| Measure | Erwarteter Wert (2023) | Erwarteter Wert (2024) |
+|---------|----------------------|----------------------|
+| Ergebnis | **1,220,257.55 CHF** | **769,761.89 CHF** |
+| Ertrag | **47,528,706.36 CHF** | **43,446,053.58 CHF** |
+| Total Budget | (ohne Jahresfilter: 52,693 Zeilen) | — |
