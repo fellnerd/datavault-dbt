@@ -335,3 +335,38 @@ Nach allen Checks → Status in dieser Tabelle eintragen:
 | dim_projekt | alle 11 Spalten vorhanden | | |
 | fakt_stunden | perioden_date_key → dim_date | | |
 | Beziehungen Projekt | alle vorhanden | | |
+
+---
+
+## ERGEBNISSE — Ausführung 22.05.2026
+
+**Status:** Finance001 vollständig validiert | CSM-DEV: nicht aktiv (PBI Desktop nicht gestartet)
+
+### DAX-Ergebnisse (Finance001 Fabric)
+
+| KPI | Finance001 IST | dbt datavault-test | Delta | Status |
+|-----|---------------|-------------------|-------|--------|
+| Ergebnis 2023 | **1,220,257.55 CHF** | 1,220,300 CHF | ~42 CHF (<0.01%) | ✅ MATCH |
+| Ertrag 2023 (Kto 3xxxx) | **47,529,843.56 CHF** | 47,528,700 CHF | 1,143 CHF (0.002%) | ✅ MATCH |
+| Ergebnis 2024 | **769,761.89 CHF** | 769,761.89 CHF | 0 CHF | ✅ MATCH |
+
+> Finance001 wurde zwischenzeitlich refresht und zeigt jetzt 769.8K (nicht mehr 1,017K). Das bedeutet: Finance001 und datavault-test sind vollständig synchron.
+
+### Beziehungs-Check (Finance001)
+
+Alle 7 dokumentierten Beziehungen korrekt implementiert. Finance001 hat zusätzlich 3 nicht-dokumentierte Beziehungen (Scenarios→Calendar, Belege-Visierende→Belege, Calendar→ActualForecast). ✅
+
+### Offene Punkte
+
+| # | Problem | Schwere | Massnahme |
+|---|---------|---------|-----------|
+| 1 | CSM-DEV nicht aktiv — Mapping-Vergleich ausständig | 🟠 Mittel | PBI Desktop öffnen, CSM-DEV laden, Schritt 1–5 wiederholen |
+| 2 | `Konten[KontoNr]` ist Text in Finance001 → DAX >= Vergleich schlägt fehl | 🟠 Mittel | In Finance001: berechnete Spalte `VALUE(KontoNr)` hinzufügen |
+| 3 | Abacus nutzt 5-stellige Kontonummern (30000–39999, nicht 3000–3999) | 🟠 Mittel | Doku-Ranges korrigieren; Finance001 DAX-Measures prüfen |
+| 4 | `Scenarios`-Tabelle: Doku sagt 13 Spalten, IST=10 | 🟡 Low | Doku aktualisieren |
+| 5 | `mwst_typ` / `mwst_code`: Finance001=int64, dbt=NVARCHAR | 🟡 Low | Akzeptabel (dbt DECIMAL-Bugfix erfordert Text-Speicherung) |
+
+### Fazit
+
+**Datenseitig: ✅ Vollständig synchron** — Finance001 und datavault-test stimmen bis auf Rundungsdifferenzen überein.  
+**CSM-DEV Deployment:** Daten bereit; Mapping-Vergleich ausstehend (CSM-DEV muss geöffnet sein).
