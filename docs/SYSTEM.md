@@ -4,7 +4,7 @@
 > **Version:** 2.0.0  
 > **Stand:** 2025-12-27  
 > **DV 2.1 Compliance:** ~85%  
-> **Maintainer:** Dimetrics Team
+> **Maintainer:** EWB Team
 
 ---
 

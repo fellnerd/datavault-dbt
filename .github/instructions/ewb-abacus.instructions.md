@@ -4,7 +4,7 @@ applyTo: 'models/**/ewb_*'
 # EWB / Abacus — Quellsystem-spezifische Regeln
 
 ## Quellsystem
-Abacus ERP der EWB (Energie Wasser Bern). Daten werden als Parquet-Dateien via ADF in den ADLS `stage-fs` Container geliefert.
+Abacus ERP der EWB (Energie Wasser Buchs). Daten werden als Parquet-Dateien via ADF in den ADLS `stage-fs` Container geliefert.
 
 ## Parquet-Dateipfad
 ```

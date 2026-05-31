@@ -1,7 +1,7 @@
 # Copilot Instructions — EWB Data Vault 2.1
 
 ## Projekt
-Data Vault 2.1 auf Azure SQL für EWB (Energie Wasser Bern). Quellsystem: Abacus ERP als Parquet-Dateien via ADF → ADLS → External Tables → dbt.
+Data Vault 2.1 auf Azure SQL für EWB (Energie Wasser Buchs). Quellsystem: Abacus ERP als Parquet-Dateien via ADF → ADLS → External Tables → dbt.
 
 **Datenfluss:**
 ```

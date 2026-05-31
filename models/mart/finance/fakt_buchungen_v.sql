@@ -80,7 +80,7 @@ SELECT
     {{ surrogate_key('b.kto') }}                                      AS konto_key,
     {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     -1 * CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -94,7 +94,7 @@ SELECT
     TRY_CAST(b.dkbelegnummer AS INT)                                  AS belegnummer,
     TRY_CAST(b.dkkundennummer AS INT)                                 AS kundennummer,
     TRY_CAST(b.mwstbetr AS DECIMAL(18,4))                             AS mwst_betrag,
-    CAST(b.mwsttyp AS NVARCHAR(10))                                   AS mwst_typ,
+    CAST(TRY_CAST(b.mwsttyp AS INT) AS NVARCHAR(10))                                   AS mwst_typ,
     CAST(b.mwstcode AS NVARCHAR(50))                                  AS mwst_code,
     CAST(b.mwstincl AS NVARCHAR(10))                                  AS mwst_incl,
     TRY_CAST(b.mwstsatz AS DECIMAL(18,4))                             AS mwst_satz,
@@ -121,7 +121,7 @@ SELECT
     {{ surrogate_key('b.gkto') }}                                     AS konto_key,
     {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -135,7 +135,7 @@ SELECT
     TRY_CAST(b.dkbelegnummer AS INT)                                  AS belegnummer,
     TRY_CAST(b.dkkundennummer AS INT)                                 AS kundennummer,
     TRY_CAST(b.mwstbetr AS DECIMAL(18,4))                             AS mwst_betrag,
-    CAST(b.mwsttyp AS NVARCHAR(10))                                   AS mwst_typ,
+    CAST(TRY_CAST(b.mwsttyp AS INT) AS NVARCHAR(10))                                   AS mwst_typ,
     CAST(b.mwstcode AS NVARCHAR(50))                                  AS mwst_code,
     CAST(b.mwstincl AS NVARCHAR(10))                                  AS mwst_incl,
     TRY_CAST(b.mwstsatz AS DECIMAL(18,4))                             AS mwst_satz,
@@ -162,7 +162,7 @@ SELECT
     {{ surrogate_key('b.kto') }}                                      AS konto_key,
     {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
     CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -176,7 +176,7 @@ SELECT
     TRY_CAST(b.dkbelegnummer AS INT)                                  AS belegnummer,
     TRY_CAST(b.dkkundennummer AS INT)                                 AS kundennummer,
     TRY_CAST(b.mwstbetr AS DECIMAL(18,4))                             AS mwst_betrag,
-    CAST(b.mwsttyp AS NVARCHAR(10))                                   AS mwst_typ,
+    CAST(TRY_CAST(b.mwsttyp AS INT) AS NVARCHAR(10))                                   AS mwst_typ,
     CAST(b.mwstcode AS NVARCHAR(50))                                  AS mwst_code,
     CAST(b.mwstincl AS NVARCHAR(10))                                  AS mwst_incl,
     TRY_CAST(b.mwstsatz AS DECIMAL(18,4))                             AS mwst_satz,
@@ -203,7 +203,7 @@ SELECT
     {{ surrogate_key('b.gkto') }}                                     AS konto_key,
     {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
     -1 * CASE
-        WHEN b.mwsttyp = '5' OR b.mwstincl = 'E'
+        WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
             ELSE TRY_CAST(b.betrag AS DECIMAL(18,4))
                  + ISNULL(TRY_CAST(b.mwstbetr AS DECIMAL(18,4)), 0)
@@ -217,7 +217,7 @@ SELECT
     TRY_CAST(b.dkbelegnummer AS INT)                                  AS belegnummer,
     TRY_CAST(b.dkkundennummer AS INT)                                 AS kundennummer,
     TRY_CAST(b.mwstbetr AS DECIMAL(18,4))                             AS mwst_betrag,
-    CAST(b.mwsttyp AS NVARCHAR(10))                                   AS mwst_typ,
+    CAST(TRY_CAST(b.mwsttyp AS INT) AS NVARCHAR(10))                                   AS mwst_typ,
     CAST(b.mwstcode AS NVARCHAR(50))                                  AS mwst_code,
     CAST(b.mwstincl AS NVARCHAR(10))                                  AS mwst_incl,
     TRY_CAST(b.mwstsatz AS DECIMAL(18,4))                             AS mwst_satz,

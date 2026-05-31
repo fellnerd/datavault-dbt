@@ -320,7 +320,7 @@ Workflows werden **nur** bei Änderungen an folgenden Pfaden getriggert:
 
 ### VM Zugang
 ```bash
-ssh dimetrics-local-dev  # Alias in ~/.ssh/config
+ssh EWB-local-dev  # Alias in ~/.ssh/config
 cd ~/projects/datavault-dbt
 source .venv/bin/activate
 ```

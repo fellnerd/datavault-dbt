@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Kunde** | EWB Energie Wasser Bern |
+| **Kunde** | EWB Energie Wasser Buchs |
 | **Projekt** | EWB Analytics Platform (Data Vault 2.1) |
 | **Erstellt** | 27. Februar 2026 |
 | **Stand** | 5. Mai 2026 |
@@ -603,6 +603,17 @@ Der dbt-Runner läuft als **Azure Container App Job** (`caj-dbt-runner`, Consump
 
 **Workflows:** `deploy-dev.yml`, `deploy-test.yml`, `deploy-prod.yml` (branch-triggered + manual dispatch)
 
+**GitLab CI/CD (on-prem, `.gitlab-ci.yml`):** Zusätzlich 4 CDR-spezifische Jobs — integriert in die bestehende Pipeline (kein separater Scheduler):
+
+| Job | Trigger | Beschreibung |
+|---|---|---|
+| `deploy:dev:cdr-load` | manuell / API | Inkrementeller CDR-Lauf auf `datavault-dev` |
+| `deploy:dev:cdr-full-refresh` | manuell | Full-Refresh CDR auf `datavault-dev` |
+| `deploy:test:cdr-load` | manuell / API | Inkrementeller CDR-Lauf auf `datavault-test` |
+| `deploy:test:cdr-full-refresh` | manuell | Full-Refresh CDR auf `datavault-test` |
+
+Reihenfolge: 1. Services-Stammdaten (hub_vertrag, hub_kunde, Satellites, Effectivity) → 2. CDR-Events (PSA + vault_telecom + mart)
+
 **Performance-Fix GL:** `psa_ewb_fibu_gl` (PSA incremental TABLE) → `ewb_fibu_gl` (Staging TABLE) eliminiert 3× PolyBase-Scan. sat_hauptbuch 869s → 102s.
 
 ### 6.4 Ausstehend
@@ -832,7 +843,7 @@ erDiagram
 ER-Diagramm: `design/mart/er-mart-telecom.mmd`
 Implementierungsplan: `design/raw-vault/_common/cdr-implementierungsplan.md`
 
-Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumulierte Aggregate (`fakt_datenvolumen_v` / `fakt_anrufe_v`). Vor Aktivierung der Purge ist einmalig `--full-refresh` erforderlich (durchgeführt).
+Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumulierte Aggregate (`fakt_datenvolumen_v` / `fakt_anrufe_v`). `fakt_datenvolumen` + `fakt_anrufe` sind incremental Tables (kein `__base`-Suffix), `_v` Wrapper-Views publizieren den Inhalt. Full-Refresh auf `datavault-dev` durchgeführt (5.5.2026).
 
 ---
 
@@ -840,6 +851,9 @@ Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumul
 
 | Datum | Entscheidung | Begründung |
 |---|---|---|
+| Mai 2026 | CDR CI/CD in bestehende Pipeline integriert (kein separater Scheduled Job) | Deploy:dev/test:cdr-load/full-refresh Jobs in `.gitlab-ci.yml` ergänzt — Reihenfolge: Services → Events. Kein separater Scheduler nötig; manuelle/API-Auslösung reicht bis ADF-Trigger automatisiert ist |
+| Mai 2026 | `fakt_cdr` als plain View (kein incremental Table) | fakt_cdr hat zu wenig stabile Aggregate für Table-Materialisierung — rolling 30 Tage direkt im View. `fakt_datenvolumen` + `fakt_anrufe` bleiben incremental Tables (kein `__base`-Suffix) mit `_v` Wrapper-View |
+| Mai 2026 | `dss_eff_date` als Alias für `src_eff` in sat_vertrag_eff__compax | `automate_dv.eff_sat()` generiert separate SELECT-Einträge für `src_eff` und `src_ldts` — bei gleichem Spaltenname (`dss_load_date`) entsteht im Incremental-Modus ein SQL Server Fehler (8156: Spalte mehrfach angegeben). Fix: Derived Column `dss_eff_date` in rsn_mobile_services_main mit identischem Wert aber anderem Namen |
 | Mai 2026 | `external_customer_id` = Abacus INR, nicht Personalnummer | DB-Analyse: 61% Match zu `hub_adresse.inr`, nur 1.4% zu `hub_person.empl_nr` (Zufallsüberschneidung). `link_kunde_adresse` implementiert |
 | Mai 2026 | Retention: Rolling 30 Tage Rohevents + dauerhaft Aggregate | `fakt_cdr_v` zeigt immer den aktuellen Vault-Stand (nach Purge: 30 Tage). `fakt_datenvolumen_v` / `fakt_anrufe_v` akkumulieren dauerhaft → historische Analyse ohne voluminöse Rohevents |
 | Mai 2026 | `kundigungs_datum = ''` (leerer String) = aktiver Vertrag in Compax | Compax liefert `''` für offene Verträge, nicht `NULL` oder `9999-12-31`. `is_active='Y'` wenn `NULL` oder `''` |
@@ -901,6 +915,6 @@ Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumul
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 5. Mai 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv. `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; Full-Refresh für `fakt_datenvolumen__base` + `fakt_anrufe__base` erfolgreich.*
+*EWB Analytics Platform | PPMC AG | Stand: 19. Mai 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv (inkl. 4 CDR-Jobs). `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; `fakt_datenvolumen` + `fakt_anrufe` (incremental Tables, kein `__base`-Suffix) + `_v` Wrapper-Views auf `datavault-dev` deployed.*
 
-> Letztes Update: CDR/Telecom-Domain (Compax RSN Mobile) auf `datavault-dev` ergänzt — neue Staging-Views, Raw Vault Objekte und `mart_telecom` deployed; CDR-Tests vollständig PASS; `fakt_datenvolumen__base` + `fakt_anrufe__base` via `--full-refresh` erfolgreich aufgebaut (5. Mai 2026). Nächster Schritt: GitLab Scheduled Job für automatischen dbt-Trigger + Deployment auf `datavault` (Produktion).
+> Letztes Update (19. Mai 2026): CDR CI/CD-Jobs in GitLab integriert; `fakt_cdr` als plain View reverted; `__base`-Suffix aus Mart-Tabellen entfernt; `dss_eff_date`-Fix für `sat_vertrag_eff__compax` (automate_dv eff_sat Incremental-Bug); `deploy:test:cdr-*` Jobs ergänzt — `datavault-test` CDR Full-Refresh (mit `dss_eff_date`) noch ausstehend. Nächste Schritte: Power BI Zugang (Roger), ADF→dbt Trigger automatisieren, CDR Delta Load, Produktion deployen.
