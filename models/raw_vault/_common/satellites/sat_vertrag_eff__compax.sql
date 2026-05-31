@@ -23,6 +23,7 @@
 {{ config(
     materialized='incremental',
     as_columnstore=false,
+    on_schema_change='append_new_columns',
     post_hook=["{{ create_hash_index('hk_link_vertrag_kunde') }}"]
 ) }}
 
