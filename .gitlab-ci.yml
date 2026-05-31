@@ -91,7 +91,27 @@ ci:validate:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt compile --target ewb-dev
-    - dbt test --target ewb-dev
+    # Slow RSN/CDR tests (tag:nightly) werden separat im ci:nightly-tests Job ausgeführt.
+    # Sie scannen 9.4M+ Rows via External Tables und dauern je 50–150s.
+    - dbt test --target ewb-dev --exclude tag:nightly
+  environment:
+    name: ewb-dev
+
+# =============================================================================
+# CI — Nightly Slow Tests (tag:nightly) auf ewb-dev
+# RSN/CDR-Tests scannen 9.4M+ Rows via External Tables (50–150s pro Test).
+# Läuft täglich via GitLab Schedule mit Variable NIGHTLY_TESTS=true.
+# GitLab → Build → Schedules: Cron "0 2 * * *" (02:00 UTC), Branch: dev,
+# Custom variable: NIGHTLY_TESTS = true
+# =============================================================================
+ci:nightly-tests:
+  stage: validate
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_TESTS == "true"'
+  timeout: 60 minutes
+  script:
+    - *setup_profiles
+    - dbt test --target ewb-dev --select tag:nightly
   environment:
     name: ewb-dev
 
