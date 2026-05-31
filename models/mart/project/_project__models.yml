@@ -246,10 +246,12 @@ models:
         tests:
           - not_null
       - name: perioden_date_key
-        description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH, immer 1. des Monats)"
+        description: "FK → dim_date.date_key (YYYYMMDD aus PERIYEAR/PERIMONTH, immer 1. des Monats). NULL wenn PERIYEAR/PERIMONTH in Quelle fehlt."
         data_type: int
         tests:
-          - not_null
+          - not_null:
+              config:
+                severity: warn
           - relationships:
               to: ref('dim_date')
               field: date_key

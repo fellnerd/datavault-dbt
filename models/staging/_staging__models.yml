@@ -2631,6 +2631,7 @@ models:
       Erzeugt Hash Keys für 4 Hubs (vertrag, kunde, sim, msisdn), 3 Link-Keys und 3 Hashdiffs.
       Record Source override: rsn_compax (ADF-Lieferung aktuell fehlerhaft).
     config:
+      tags: [nightly]
       meta:
         entity_type: standard
         source_type: external_table
@@ -2781,6 +2782,7 @@ models:
       alle N Zeilen RANK=1 → alle werden inserted → Duplikate (z.B. Xtra-Card Watch 9×).
       Dieses Modell liefert exakt eine Zeile pro (hk_vertrag, abo_option_name, hd_vertrag_optionen_ma).
     config:
+      tags: [nightly]
       meta:
         entity_type: dedup
         source_type: staging_view
@@ -2827,6 +2829,7 @@ models:
       bekommen alle N Zeilen RANK=1 → alle N werden inserted → Duplikate.
       Dieses Modell liefert exakt eine Zeile pro (hk_kunde, hd_kunde) an den Satelliten.
     config:
+      tags: [nightly]
       meta:
         entity_type: dedup
         source_type: staging_view
@@ -2871,6 +2874,7 @@ models:
       Inkrementell per dss_source_file_name: bereits geladene Dateien werden übersprungen.
       Vermeidet wiederholte teure PolyBase-Scans über alle UDR-Files.
     config:
+      tags: [nightly]
       meta:
         entity_type: psa
         source_type: external_table
@@ -2914,6 +2918,7 @@ models:
       Hash Keys: hk_vertrag (contract_id), hk_sim (iccid), hk_link_cdr_event_tl (id, vertrag_id, icc).
       Transaction Link Pattern — jede CDR-Zeile ist ein Event.
     config:
+      tags: [nightly]
       meta:
         entity_type: standard
         source_type: psa_table
