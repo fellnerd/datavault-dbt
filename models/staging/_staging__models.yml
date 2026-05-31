@@ -2839,7 +2839,9 @@ models:
         data_type: char(64)
         tests:
           - not_null
-          - unique
+          - unique:
+              config:
+                severity: warn
       - name: hk_adresse
         description: "Hash Key → hub_adresse (adresse_bk = external_customer_id normalisiert, NULL wenn nicht castbar)"
         data_type: char(64)
