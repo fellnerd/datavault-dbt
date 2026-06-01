@@ -176,6 +176,18 @@ models:
         tests:
           - not_null
 
+  - name: psa_ewb_fibu_gl_rolling
+    description: >
+      Rolling-Filter View auf psa_ewb_fibu_gl — liefert nur GL-Einträge ab 01.01. des letzten Kalenderjahrs.
+      WHERE DATE >= CAST(DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1) AS DATETIME2)
+      Beispiel: am 01.06.2026 → ab 01.01.2025; am 01.01.2027 → ab 01.01.2026.
+      Zweck: ewb_fibu_gl TABLE-Rebuild von ~673s auf ~100-150s reduzieren (nur ~2 statt 12 Jahresscheiben).
+      Risiko: GL-Korrekturen vor letztem Jahr nicht im normalen Run. Jährlich full-refresh ausführen.
+    config:
+      meta:
+        entity_type: filter_view
+        source: psa_ewb_fibu_gl
+
   - name: ewb_fibu_gl
     description: >
       Staging view for FIBU.GL (Hauptbuch) — Folder-Scan aller Jahresscheiben E22-E26+.

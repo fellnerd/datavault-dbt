@@ -616,6 +616,10 @@ Reihenfolge: 1. Services-Stammdaten (hub_vertrag, hub_kunde, Satellites, Effecti
 
 **Performance-Fix GL:** `psa_ewb_fibu_gl` (PSA incremental TABLE) → `ewb_fibu_gl` (Staging TABLE) eliminiert 3× PolyBase-Scan. sat_hauptbuch 869s → 102s.
 
+**Performance-Fix GL Rolling-Filter (Jun 2026):** `psa_ewb_fibu_gl_rolling` (VIEW) filtert PSA auf `DATE >= 01.01.(YEAR-1)`. `ewb_fibu_gl` TABLE-Rebuild sinkt von ~673s auf ~100-150s. Rollend: 01.06.2026 → ab 01.01.2025. Jährlich `--full-refresh` für vollständige Neubeladung. GL-Korrekturen älter als 2 Jahre werden im normalen Run nicht verarbeitet.
+
+**Performance-Fix CDR HWM-Filter (Jun 2026):** `rsn_mobile_cdr_delta` (VIEW) filtert PSA auf `dss_load_date > MAX(sat_cdr_event__compax.dss_load_date)`. CDR-Staging wird bei keinen neuen Daten in Sekunden statt Minuten abgeschlossen (9.4M Rows umgangen). OBJECT_ID() Safety-Check für `--full-refresh` (Fallback auf `1900-01-01` → alle Rows). `rsn_mobile_cdr_main` nutzt `rsn_mobile_cdr_delta` als source_model.
+
 ### 6.4 Ausstehend
 
 | Aufgabe | Detail |
@@ -915,6 +919,6 @@ Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumul
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 19. Mai 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv (inkl. 4 CDR-Jobs). `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; `fakt_datenvolumen` + `fakt_anrufe` (incremental Tables, kein `__base`-Suffix) + `_v` Wrapper-Views auf `datavault-dev` deployed.*
+*EWB Analytics Platform | PPMC AG | Stand: Juni 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv (inkl. 4 CDR-Jobs). `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; `fakt_datenvolumen` + `fakt_anrufe` (incremental Tables, kein `__base`-Suffix) + `_v` Wrapper-Views auf `datavault-dev` deployed. CDR HWM-Filter + GL Rolling-Filter implementiert.*
 
-> Letztes Update (19. Mai 2026): CDR CI/CD-Jobs in GitLab integriert; `fakt_cdr` als plain View reverted; `__base`-Suffix aus Mart-Tabellen entfernt; `dss_eff_date`-Fix für `sat_vertrag_eff__compax` (automate_dv eff_sat Incremental-Bug); `deploy:test:cdr-*` Jobs ergänzt — `datavault-test` CDR Full-Refresh (mit `dss_eff_date`) noch ausstehend. Nächste Schritte: Power BI Zugang (Roger), ADF→dbt Trigger automatisieren, CDR Delta Load, Produktion deployen.
+> Letztes Update (Juni 2026): CDR HWM-Filter (`rsn_mobile_cdr_delta`) — kein 9.4M-Row-Scan wenn keine neuen Daten. GL Rolling-Filter (`psa_ewb_fibu_gl_rolling`) — TABLE-Rebuild ~673s → ~100-150s, rollendes 2-Jahres-Fenster. `dss_eff_date`-Fix für `sat_vertrag_eff__compax` deployed. Nächste Schritte: Power BI Zugang (Roger), ADF→dbt Trigger automatisieren, CDR Delta Load, Produktion deployen.
