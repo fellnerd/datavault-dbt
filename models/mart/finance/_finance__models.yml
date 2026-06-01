@@ -225,8 +225,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kreditor_v')
-              field: kreditor_key
+              arguments:
+                to: ref('dim_kreditor_v')
+                field: kreditor_key
               config:
                 severity: warn
       - name: buchungsstatus_key
@@ -234,8 +235,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_buchungsstatus_v')
-              field: buchungsstatus_key
+              arguments:
+                to: ref('dim_buchungsstatus_v')
+                field: buchungsstatus_key
               config:
                 severity: warn
       - name: belegdatum_date_key
@@ -243,8 +245,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: belegnummer
@@ -279,8 +282,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: positionnr
@@ -314,8 +318,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: konto_key
@@ -323,8 +328,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto_v')
-              field: konto_key
+              arguments:
+                to: ref('dim_konto_v')
+                field: konto_key
               config:
                 severity: warn
       - name: kostenstelle_key
@@ -332,8 +338,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle_v')
-              field: kostenstelle_key
+              arguments:
+                to: ref('dim_kostenstelle_v')
+                field: kostenstelle_key
               config:
                 severity: warn
       - name: betrag
@@ -411,8 +418,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: konto_key
@@ -420,8 +428,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto_v')
-              field: konto_key
+              arguments:
+                to: ref('dim_konto_v')
+                field: konto_key
               config:
                 severity: warn
       - name: kostenstelle_key
@@ -429,8 +438,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle_v')
-              field: kostenstelle_key
+              arguments:
+                to: ref('dim_kostenstelle_v')
+                field: kostenstelle_key
               config:
                 severity: warn
       - name: szenario
@@ -473,8 +483,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: konto_key
@@ -482,8 +493,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto_v')
-              field: konto_key
+              arguments:
+                to: ref('dim_konto_v')
+                field: konto_key
               config:
                 severity: warn
       - name: kostenstelle_key
@@ -491,8 +503,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle_v')
-              field: kostenstelle_key
+              arguments:
+                to: ref('dim_kostenstelle_v')
+                field: kostenstelle_key
               config:
                 severity: warn
       - name: szenario

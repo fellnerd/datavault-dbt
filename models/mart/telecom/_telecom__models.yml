@@ -54,7 +54,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: ['Y', 'N']
+              arguments:
+                values: ['Y', 'N']
       - name: dss_load_date
         description: "Ladezeitpunkt des Hub-Records"
         data_type: datetime2

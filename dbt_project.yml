@@ -23,9 +23,7 @@ clean-targets:
   - "target"
   - "dbt_packages"
 
-seeds:
-  datavault:
-    +schema: seed
+# seeds: (keine CSV-Seed-Dateien mehr im Projekt)
 
 vars:
   # Hash-Algorithmus: MD5 (16 Byte) oder SHA (32 Byte)
@@ -110,17 +108,12 @@ models:
           +materialized: incremental
           +incremental_strategy: append
           +on_schema_change: append_new_columns
-        refs:
-          +schema: vault_telecom
-          +materialized: view
+        # refs: (noch keine Telecom Reference Tables)
       # ===== JIRA (Schema: vault_jira) =====
 
-    utils:
-      +schema: vault
-      +materialized: view
-    business_vault:
-      +schema: vault
-      +materialized: table
+    # utils: (models/utils/ leer — zukünftige Business-Vault Utilities)
+    # business_vault: (models/business_vault/ leer — PITs, Bridges ausstehend)
+
     mart:
       # ===== COMMON (Schema: mart) =====
       _common:
@@ -137,11 +130,11 @@ models:
         +schema: mart_project
         +materialized: table
         +as_columnstore: false
-      # ===== JIRA (Schema: mart_jira) =====
-      jira:
-        +schema: mart_jira
-        +materialized: table
-        +as_columnstore: false
+      # ===== JIRA (Schema: mart_jira) — noch keine Modelle =====
+      # jira:
+      #   +schema: mart_jira
+      #   +materialized: table
+      #   +as_columnstore: false
       # ===== MOBILE (Schema: mart_telecom) =====
       # Tag: cdr — nur via deploy:cdr-load Job laden, nicht im regulären dbt run.
       telecom:

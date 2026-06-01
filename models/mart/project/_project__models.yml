@@ -59,8 +59,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: austritt
@@ -71,8 +72,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: dss_load_date
@@ -132,8 +134,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: status_nr
@@ -152,8 +155,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: dss_load_date
@@ -222,8 +226,9 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_projekt_v')
-              field: projekt_key
+              arguments:
+                to: ref('dim_projekt_v')
+                field: projekt_key
       - name: leistungsart_key
         description: |
           Nullable FK → dim_leistungsart.leistungsart_key.
@@ -233,8 +238,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_leistungsart_v')
-              field: leistungsart_key
+              arguments:
+                to: ref('dim_leistungsart_v')
+                field: leistungsart_key
               config:
                 severity: warn
       - name: sachkonto_code
@@ -253,8 +259,9 @@ models:
               config:
                 severity: warn
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: betrag
