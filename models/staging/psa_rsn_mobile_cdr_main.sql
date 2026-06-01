@@ -17,7 +17,8 @@
     materialized='incremental',
     incremental_strategy='delete+insert',
     unique_key=['id', 'dss_source_file_name'],
-    as_columnstore=false
+    as_columnstore=false,
+    tags=['cdr']
 ) }}
 
 SELECT

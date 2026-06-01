@@ -2913,14 +2913,24 @@ models:
       - name: dss_create_datetime
         description: "dbt processing timestamp"
 
+  - name: rsn_mobile_cdr_delta
+    description: >
+      Hochwassermarke (High-Water Mark) Filter-View auf psa_rsn_mobile_cdr_main.
+      Liefert nur PSA-Rows die NEUER sind als der letzte Stand in vault_telecom.sat_cdr_event__compax.
+      Wenn keine neuen CDR-Files vorliegen → 0 Rows → Vault-Modelle in Sekunden fertig.
+      OBJECT_ID()-Check sichert Full-Refresh-Kompatibilität (fällt auf 1900-01-01 zurück).
+      Zwischenstufe für rsn_mobile_cdr_main (source_model).
+    config:
+      tags: [cdr, nightly]
+
   - name: rsn_mobile_cdr_main
     description: >
       Staging view für RSN Mobile CDR Events (Call Detail Records).
-      Quelle: psa_rsn_mobile_cdr_main (PSA-Tabelle, kein External Table direkt).
+      Quelle: rsn_mobile_cdr_delta (HWM-gefilterter View auf PSA — nur neue Rows seit letztem Vault-Load).
       Hash Keys: hk_vertrag (contract_id), hk_sim (iccid), hk_link_cdr_event_tl (id, vertrag_id, icc).
       Transaction Link Pattern — jede CDR-Zeile ist ein Event.
     config:
-      tags: [nightly]
+      tags: [nightly, cdr]
       meta:
         entity_type: standard
         source_type: psa_table

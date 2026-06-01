@@ -136,7 +136,7 @@ deploy:dev:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --target ewb-dev
-    - dbt test --target ewb-dev
+    - dbt test --target ewb-dev --exclude tag:nightly
   environment:
     name: ewb-dev
 
@@ -153,7 +153,7 @@ deploy:dev:full-refresh:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --full-refresh --target ewb-dev
-    - dbt test --target ewb-dev
+    - dbt test --target ewb-dev --exclude tag:nightly
   environment:
     name: ewb-dev
 

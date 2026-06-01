@@ -92,7 +92,9 @@ models:
           +materialized: view
       # ===== TELECOM (Schema: vault_telecom) =====
       # Telekommunikations-spezifische Objekte (RSN/Compax Mobile + später Festnetz)
+      # Tag: cdr — nur via deploy:cdr-load Job laden, nicht im regulären dbt run.
       telecom:
+        +tags: [cdr]
         hubs:
           +schema: vault_telecom
           +materialized: incremental
@@ -141,7 +143,9 @@ models:
         +materialized: table
         +as_columnstore: false
       # ===== MOBILE (Schema: mart_telecom) =====
+      # Tag: cdr — nur via deploy:cdr-load Job laden, nicht im regulären dbt run.
       telecom:
+        +tags: [cdr]
         +schema: mart_telecom
         +materialized: table
         +as_columnstore: false
