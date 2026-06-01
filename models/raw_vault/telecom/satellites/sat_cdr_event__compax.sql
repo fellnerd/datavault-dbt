@@ -32,7 +32,10 @@
 {{ config(
     materialized='incremental',
     as_columnstore=false,
-    post_hook=["{{ create_hash_index('hk_link_cdr_event_tl') }}"]
+    post_hook=[
+        "{{ create_hash_index('hk_link_cdr_event_tl') }}",
+        "{{ create_hash_index('dss_load_date') }}"
+    ]
 ) }}
 
 {%- set yaml_metadata -%}

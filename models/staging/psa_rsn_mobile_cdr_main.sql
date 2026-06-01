@@ -18,7 +18,8 @@
     incremental_strategy='delete+insert',
     unique_key=['id', 'dss_source_file_name'],
     as_columnstore=false,
-    tags=['cdr']
+    tags=['cdr'],
+    post_hook=["{{ create_hash_index('dss_load_date') }}"]
 ) }}
 
 SELECT
