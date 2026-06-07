@@ -44,23 +44,22 @@
  *
  * Problem mit automate_dv.sat():
  *   Das generierte SQL macht einen JOIN gegen die gesamte Sat-Tabelle (9.4M Rows)
- *   um Duplikate zu erkennen. SQL Server wählt einen schlechten Query-Plan wenn
- *   die Source 0 Rows liefert (View, kein statischer Empty-Set) → Full Scan 45+ min.
+ *   um Duplikate zu erkennen — auch wenn source_data = 0 Rows ist.
+ *   SQL Server wählt Hash Match Plan → scannt alle 9.4M Zeilen → 45+ Minuten.
  *
- * Lösung: Custom incremental mit Early-Exit Guard.
- *   - Wenn rsn_mobile_cdr_delta 0 Rows liefert (kein neues CDR-Material):
- *     SELECT mit WHERE 1=0 → sofort 0 Rows, kein Join gegen Sat-Tabelle
- *   - Wenn neue Rows vorhanden: nur neue hk_link_cdr_event_tl einfügen (ANTI-JOIN)
- *   - Transaction Sat: jeder Record ist unique per hk_link_cdr_event_tl → kein hashdiff
+ * Warum kein Anti-Join nötig ist:
+ *   rsn_mobile_cdr_main nutzt rsn_mobile_cdr_delta als Source.
+ *   rsn_mobile_cdr_delta filtert: WHERE dss_load_date > MAX(sat_cdr_event.dss_load_date)
+ *   → Alle Rows in rsn_mobile_cdr_main sind GARANTIERT neu (noch nicht im Sat).
+ *   Transaction Sat ist append-only (kein SCD2, kein Update) → kein Dedup nötig.
  *
- * Erwartete Performance wenn kein neues CDR-Material:
- *   < 5 Sekunden (statt 45+ Minuten)
+ * Performance-Garantie:
+ *   - Kein neues CDR-Material: rsn_mobile_cdr_main = 0 Rows → INSERT 0 Rows → < 2 Sekunden
+ *   - Neues CDR-Material: direkt einfügen ohne Sat-Scan → normaler Durchsatz
+ *
+ * Full-Refresh: rsn_mobile_cdr_delta fällt auf '1900-01-01' zurück → alle Rows
  */
 
-{% if is_incremental() %}
-
--- Early-Exit: Wenn rsn_mobile_cdr_delta leer ist, sofort 0 Rows zurückgeben
--- ohne den bestehenden Sat zu scannen
 SELECT
     hk_link_cdr_event_tl,
     id, signaling_start, connection_start, duration,
@@ -72,34 +71,3 @@ SELECT
     dss_load_date, dss_record_source
 FROM {{ ref('rsn_mobile_cdr_main') }}
 WHERE hk_link_cdr_event_tl IS NOT NULL
-  -- Nur neue Keys einfügen (ANTI-JOIN gegen bestehenden Sat)
-  AND hk_link_cdr_event_tl NOT IN (
-      SELECT hk_link_cdr_event_tl
-      FROM {{ this }}
-      WHERE dss_load_date >= (
-          -- Nur den relevanten Zeitraum im Sat scannen: ab HWM
-          SELECT ISNULL(
-              CASE WHEN OBJECT_ID('{{ this }}') IS NOT NULL
-              THEN (SELECT MAX(dss_load_date) FROM {{ this }})
-              ELSE NULL END,
-              CAST('1900-01-01' AS DATETIME2)
-          )
-      )
-  )
-
-{% else %}
-
--- Full Load (--full-refresh): alle Rows aus rsn_mobile_cdr_main
-SELECT
-    hk_link_cdr_event_tl,
-    id, signaling_start, connection_start, duration,
-    a, b, pai, imsi, iccid,
-    record_type, service_type, call_type,
-    bytes_in, bytes_out, price, ws_price, tarif,
-    r_mcc_mnc, result_code, result_status,
-    privacy, tap3, data_packet,
-    dss_load_date, dss_record_source
-FROM {{ ref('rsn_mobile_cdr_main') }}
-WHERE hk_link_cdr_event_tl IS NOT NULL
-
-{% endif %}
