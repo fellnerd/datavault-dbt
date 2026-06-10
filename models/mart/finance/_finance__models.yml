@@ -87,47 +87,55 @@ models:
       Kontenplan (Chart of Accounts) mit Sharepoint-Hierarchie.
       Ghost Hub: Konto-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
       Stammdaten aus Sharepoint ref_konto (254 Konten).
-      Hierarchie: L1 (Kontogruppe) → L2 (Unterkategorie) → Konto (Detail).
-      Quelle: hub_konto LEFT JOIN ref_konto (Sharepoint Kontenplan).
+      Hierarchie (Power BI / Finance001-Format):
+        konto_l2    = Top-Klasse (z.B. "3 Ertrag", inkl. 6a/6b/6c)
+        konto_l1    = Subklasse (z.B. "30 Ertrag Netz")
+        konto_label = Detail   (z.B. "30100 Ertrag Strom-Energie")
+      Plus 8 Plug-Zeilen (konto_key < 0) je Top-Klasse (3,4,5,6a,6b,6c,7,8)
+      damit Zebra BI Plug-Zero-Logic auch leere Kategorien anzeigt.
+      Quelle: hub_konto LEFT JOIN ref_konto_v (Sharepoint Kontenplan).
     columns:
       - name: konto_key
-        description: "Surrogate Key = ABS(HASHBYTES('MD5', KTO))"
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KTO)). Plug-Zeilen: -3..-8, -61..-63."
         data_type: bigint
         tests:
           - not_null
           - unique
       - name: konto_id
-        description: "Technische ID (KTO-Nummer als String)"
+        description: "Technische ID (KTO-Nummer als String). NULL bei Plug-Zeilen."
         data_type: nvarchar(255)
-        tests:
-          - not_null
       - name: konto_code
-        description: "Sprechender Konto-Code (Sharepoint 'Konto'), Fallback = KTO"
+        description: "Sprechender Konto-Code (= KTO-Nummer als String). NULL bei Plug-Zeilen."
         data_type: nvarchar(255)
-        tests:
-          - not_null
       - name: konto_name
-        description: "Kontoname (Sharepoint 'KontoName'), Fallback = Code → KTO → 'UNKNOWN'"
+        description: "Kontoname (Sharepoint 'KontoName'), Fallback = KTO → 'UNKNOWN'. NULL bei Plug-Zeilen."
         data_type: nvarchar(255)
-        tests:
-          - not_null
       - name: konto_gruppe
-        description: "Kontogruppe L1 (Sharepoint-Hierarchie, z.B. '3 Personalaufw.')"
+        description: "Top-Klasse (Sharepoint Konto_L2, z.B. '3 Ertrag'). Identisch zu konto_l2."
         data_type: nvarchar(255)
       - name: konto_gruppe_name
-        description: "Kontogruppenname L1 (Sharepoint-Hierarchie)"
+        description: "Name der Top-Klasse (Sharepoint KontoName_L2, z.B. 'Ertrag')."
         data_type: nvarchar(255)
       - name: konto_subgruppe
-        description: "Konto-Subgruppe L2 (Sharepoint-Hierarchie)"
+        description: "Sub-Klasse (Sharepoint Konto_L1, z.B. '30 Ertrag Netz'). Identisch zu konto_l1."
         data_type: nvarchar(255)
       - name: konto_subgruppe_name
-        description: "Konto-Subgruppenname L2 (Sharepoint-Hierarchie)"
+        description: "Name der Sub-Klasse (Sharepoint KontoName_L1, z.B. 'Ertrag Netz')."
         data_type: nvarchar(255)
+      - name: konto_l2
+        description: "Power-BI Hierarchie Ebene 1 (Top): 'Code Name' (z.B. '3 Ertrag', '6a Uebriger Betriebsaufwand'). Format analog Finance001."
+        data_type: nvarchar(255)
+      - name: konto_l1
+        description: "Power-BI Hierarchie Ebene 2 (Sub): 'Code Name' (z.B. '30 Ertrag Netz'). NULL bei Plug-Zeilen."
+        data_type: nvarchar(255)
+      - name: konto_label
+        description: "Power-BI Hierarchie Ebene 3 (Detail): 'Code Name' (z.B. '30100 Ertrag Strom-Energie'). NULL bei Plug-Zeilen."
+        data_type: nvarchar(500)
       - name: dss_load_date
-        description: "Ladezeitpunkt aus Vault"
+        description: "Ladezeitpunkt aus Vault. GETDATE() bei Plug-Zeilen."
         data_type: datetime2(7)
       - name: dss_record_source
-        description: "Quellenidentifikation"
+        description: "Quellenidentifikation. 'plug' bei Plug-Zeilen."
         data_type: nvarchar(255)
 
   - name: dim_kostenstelle_v
@@ -217,8 +225,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kreditor_v')
-              field: kreditor_key
+              arguments:
+                to: ref('dim_kreditor_v')
+                field: kreditor_key
               config:
                 severity: warn
       - name: buchungsstatus_key
@@ -226,8 +235,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_buchungsstatus_v')
-              field: buchungsstatus_key
+              arguments:
+                to: ref('dim_buchungsstatus_v')
+                field: buchungsstatus_key
               config:
                 severity: warn
       - name: belegdatum_date_key
@@ -235,8 +245,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: belegnummer
@@ -271,8 +282,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: positionnr
@@ -306,8 +318,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: konto_key
@@ -315,8 +328,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto_v')
-              field: konto_key
+              arguments:
+                to: ref('dim_konto_v')
+                field: konto_key
               config:
                 severity: warn
       - name: kostenstelle_key
@@ -324,8 +338,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle_v')
-              field: kostenstelle_key
+              arguments:
+                to: ref('dim_kostenstelle_v')
+                field: kostenstelle_key
               config:
                 severity: warn
       - name: betrag
@@ -403,8 +418,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: konto_key
@@ -412,8 +428,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto_v')
-              field: konto_key
+              arguments:
+                to: ref('dim_konto_v')
+                field: konto_key
               config:
                 severity: warn
       - name: kostenstelle_key
@@ -421,8 +438,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle_v')
-              field: kostenstelle_key
+              arguments:
+                to: ref('dim_kostenstelle_v')
+                field: kostenstelle_key
               config:
                 severity: warn
       - name: szenario
@@ -465,8 +483,9 @@ models:
         data_type: int
         tests:
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
               config:
                 severity: warn
       - name: konto_key
@@ -474,8 +493,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_konto_v')
-              field: konto_key
+              arguments:
+                to: ref('dim_konto_v')
+                field: konto_key
               config:
                 severity: warn
       - name: kostenstelle_key
@@ -483,8 +503,9 @@ models:
         data_type: bigint
         tests:
           - relationships:
-              to: ref('dim_kostenstelle_v')
-              field: kostenstelle_key
+              arguments:
+                to: ref('dim_kostenstelle_v')
+                field: kostenstelle_key
               config:
                 severity: warn
       - name: szenario

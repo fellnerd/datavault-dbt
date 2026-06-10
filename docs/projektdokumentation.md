@@ -490,7 +490,30 @@ Konsistenzprüfung zwischen dbt-Modellen, YAML-Dokumentation, Entity-Designer un
 | `rsn_mobile_services_optionen_dedup` | ✅ | n/a (basiert auf `rsn_mobile_services_main`) | ✅ | Synchron |
 | `rsn_mobile_services_kunde_dedup` | ✅ | n/a (basiert auf `rsn_mobile_services_main`) | ✅ | Synchron |
 | `psa_rsn_mobile_cdr_main` | ✅ | ✅ `ext_rsn_mobile_cdr_main` | ✅ | Synchron |
-| `rsn_mobile_cdr_main` | ✅ | ✅ `ext_rsn_mobile_cdr_main` | ✅ | Synchron |
+| `rsn_mobile_cdr_delta` | ✅ | n/a (HWM-Filter auf PSA) | ✅ VIEW | Synchron |
+| `rsn_mobile_cdr_main` | ✅ | n/a (basiert auf `rsn_mobile_cdr_delta`) | ✅ | Synchron |
+
+**CDR Beladungs-Architektur (Jun 2026):**
+
+```
+ext_rsn_mobile_cdr_main (External Table, ADLS Parquet)
+    ↓ inkrementell (neue Dateien per dss_source_file_name)
+psa_rsn_mobile_cdr_main (PSA TABLE, 9.4M Rows, vollständige History)
+    ↓ HWM-Filter VIEW
+rsn_mobile_cdr_delta (VIEW: WHERE dss_load_date > MAX(sat_cdr_event.dss_load_date))
+    ↓ automate_dv.stage()
+rsn_mobile_cdr_main (Staging VIEW mit Hash-Keys)
+    ↓ append-only
+sat_cdr_event__compax + link_cdr_event_tl (vault_telecom)
+```
+
+**Schlüsselkonzept — High-Water Mark (HWM) Delta-Filter:**
+- `rsn_mobile_cdr_delta` prüft via `OBJECT_ID()`-Check ob der Sat existiert (Full-Refresh-Sicherheit)
+- Bei **keinem neuen CDR-Material**: `rsn_mobile_cdr_delta` = 0 Rows → gesamte CDR-Pipeline in **< 2 Sekunden**
+- Bei **neuen Daten**: nur neue Rows (seit letztem Vault-Load) fliessen durch
+
+**Warum `sat_cdr_event__compax` kein `automate_dv.sat()` verwendet:**
+`automate_dv.sat()` generiert intern einen JOIN gegen die bestehende Sat-Tabelle (9.4M Rows) für den Dedup-Check — auch bei 0-Row-Source. SQL Server wählt einen Hash Match Query-Plan und scannt alle 9.4M Zeilen unabhängig von der Source-Größe (45+ Minuten → CI Timeout). Da `rsn_mobile_cdr_delta` die Uniqueness bereits garantiert (nur `dss_load_date > MAX` Rows), ist der Dedup-Join redundant. Custom `incremental_strategy='append'` ohne Sat-Scan: **1.7s** statt 45+ Minuten (verifiziert Jun 2026).
 
 #### Raw Vault Layer (_common__models.yml vs. SQL-Dateien)
 | Objekt | SQL-Datei | _common__models.yml | DB (datavault-dev) | Status |
@@ -615,6 +638,20 @@ Der dbt-Runner läuft als **Azure Container App Job** (`caj-dbt-runner`, Consump
 Reihenfolge: 1. Services-Stammdaten (hub_vertrag, hub_kunde, Satellites, Effectivity) → 2. CDR-Events (PSA + vault_telecom + mart)
 
 **Performance-Fix GL:** `psa_ewb_fibu_gl` (PSA incremental TABLE) → `ewb_fibu_gl` (Staging TABLE) eliminiert 3× PolyBase-Scan. sat_hauptbuch 869s → 102s.
+
+**Performance-Fix GL Rolling-Filter (Jun 2026):** `psa_ewb_fibu_gl_rolling` (VIEW) filtert PSA auf `DATE >= 01.01.(YEAR-1)`. `ewb_fibu_gl` TABLE-Rebuild sinkt von ~673s auf ~100-150s. Rollend: 01.06.2026 → ab 01.01.2025. Jährlich `--full-refresh` für vollständige Neubeladung. GL-Korrekturen älter als 2 Jahre werden im normalen Run nicht verarbeitet.
+
+**Performance-Fix CDR HWM-Filter + Custom Sat (Jun 2026):**
+
+| Optimierung | Modell | Vorher | Nachher | Technik |
+|---|---|---|---|---|
+| HWM Delta-Filter | `rsn_mobile_cdr_delta` | 9.4M Rows PSA-Scan | 0 Rows bei keinem Delta | `WHERE dss_load_date > MAX(sat.dss_load_date)` |
+| Custom Incremental Sat | `sat_cdr_event__compax` | 45+ min (Timeout) | **1.7s** | Kein automate_dv.sat(), append-only |
+| PSA Index | `psa_rsn_mobile_cdr_main` | Full Scan bei HWM-Abfrage | Index Seek | `IX_..._dss_load_date` |
+
+**Warum automate_dv.sat() bei Transaction Sats mit großen Tabellen versagt:** Das Macro generiert einen JOIN gegen den bestehenden Sat (für SCD2-Dedup). SQL Server evaluiert diesen JOIN per Hash Match — unabhängig davon ob die Source 0 Rows hat. Bei 9.4M Rows im Sat = 45+ Minuten. Transaction Sats sind per Definition append-only (kein Update, kein SCD2), daher ist der Dedup-JOIN vollständig redundant und wurde entfernt.
+
+**Full-Refresh CDR:** `rsn_mobile_cdr_delta` erkennt via `OBJECT_ID()`-Check ob der Sat noch nicht existiert → fällt auf `1900-01-01` zurück → alle PSA-Rows fliessen durch → korrektes Verhalten.
 
 ### 6.4 Ausstehend
 
@@ -915,6 +952,6 @@ Retention-Strategie: Rolling 30 Tage Rohevents (`fakt_cdr_v`), dauerhaft akkumul
 
 ---
 
-*EWB Analytics Platform | PPMC AG | Stand: 19. Mai 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv (inkl. 4 CDR-Jobs). `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; `fakt_datenvolumen` + `fakt_anrufe` (incremental Tables, kein `__base`-Suffix) + `_v` Wrapper-Views auf `datavault-dev` deployed.*
+*EWB Analytics Platform | PPMC AG | Stand: Juni 2026 — Wave 1+2+3+4 + CDR/Telecom-Domain deployed. 13/13 structured-tables abgedeckt. GitLab CI/CD aktiv (inkl. 4 CDR-Jobs). `Master_ewb_load` ADF-Pipeline + `vault.load_status` deployed. `mart_telecom` auf `datavault-dev` aktiv; CDR-Tests PASS; `fakt_datenvolumen` + `fakt_anrufe` (incremental Tables, kein `__base`-Suffix) + `_v` Wrapper-Views auf `datavault-dev` deployed. CDR HWM-Filter + GL Rolling-Filter implementiert.*
 
-> Letztes Update (19. Mai 2026): CDR CI/CD-Jobs in GitLab integriert; `fakt_cdr` als plain View reverted; `__base`-Suffix aus Mart-Tabellen entfernt; `dss_eff_date`-Fix für `sat_vertrag_eff__compax` (automate_dv eff_sat Incremental-Bug); `deploy:test:cdr-*` Jobs ergänzt — `datavault-test` CDR Full-Refresh (mit `dss_eff_date`) noch ausstehend. Nächste Schritte: Power BI Zugang (Roger), ADF→dbt Trigger automatisieren, CDR Delta Load, Produktion deployen.
+> Letztes Update (8. Jun 2026): CDR Beladungs-Architektur dokumentiert. `sat_cdr_event__compax` von `automate_dv.sat()` auf Custom Incremental (`append`) umgestellt — 1.7s statt 45+ min (CI Timeout behoben). Ursache: automate_dv.sat() macht Hash Match JOIN gegen 9.4M-Row-Sat unabhängig von Source-Größe. HWM-Filter (`rsn_mobile_cdr_delta`) garantiert Uniqueness → kein Dedup-JOIN nötig. CI `deploy:dev` Timeout 90min → 3h. `sat_cdr_event__compax__dbt_tmp` Artefakt auf dev bereinigt.

@@ -13,10 +13,13 @@
  *          einfacher String ohne staging-Prefix.
  *
  * Uses automate_dv.stage() macro for standardized staging.
+ * Source: rsn_mobile_cdr_delta (HWM-gefilterter View auf PSA — nur neue Rows seit letztem Vault-Load)
  */
 
+{{ config(tags=['cdr']) }}
+
 {%- set yaml_metadata -%}
-source_model: "psa_rsn_mobile_cdr_main"
+source_model: "rsn_mobile_cdr_delta"
 
 derived_columns:
   dss_record_source: "!rsn_compax"

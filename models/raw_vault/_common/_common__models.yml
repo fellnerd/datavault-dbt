@@ -562,9 +562,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -643,9 +644,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -695,9 +697,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -874,9 +877,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -1032,9 +1036,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -1163,9 +1168,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -1359,7 +1365,8 @@ models:
     tests:
     - not_null
     - accepted_values:
-        values: ['Actual', 'Forecast']
+        arguments:
+          values: ['Actual', 'Forecast']
   - name: "dss_load_date"
     description: "Ladezeitpunkt"
     data_type: "datetime2(7)"
@@ -1620,7 +1627,8 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: ["Y", "N"]
+        arguments:
+          values: ["Y", "N"]
   - name: "dss_end_date"
     description: "Record end date (SCD2)"
     data_type: "datetime2(7)"
@@ -2043,7 +2051,8 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: ["Y", "N"]
+        arguments:
+          values: ["Y", "N"]
   - name: "dss_end_date"
     description: "Record end date (SCD2)"
     data_type: "datetime2(7)"
@@ -2118,7 +2127,8 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: ["Y", "N"]
+        arguments:
+          values: ["Y", "N"]
   - name: "dss_end_date"
     description: "Record end date (SCD2)"
     data_type: "datetime2(7)"
@@ -2727,7 +2737,8 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: ["Y", "N"]
+        arguments:
+          values: ["Y", "N"]
   - name: "dss_end_date"
     description: "Record end date (SCD2)"
     data_type: "datetime2(7)"
@@ -2928,7 +2939,8 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: ["Y", "N"]
+        arguments:
+          values: ["Y", "N"]
   - name: "dss_end_date"
     description: "Record end date (SCD2)"
     data_type: "datetime2(7)"
@@ -3184,9 +3196,10 @@ models:
     tests: 
     - not_null
     - accepted_values:
-        values: 
-        - "Y"
-        - "N"
+        arguments:
+          values: 
+          - "Y"
+          - "N"
   - name: "dss_end_date"
     description: "End date when record was superseded"
     data_type: "datetime2(7)"
@@ -3602,7 +3615,8 @@ models:
     data_type: "char(1)"
     tests:
     - accepted_values:
-        values: ['Y', 'N']
+        arguments:
+          values: ['Y', 'N']
   - name: "dss_end_date"
     description: "Ablaufdatum des Datensatzes (NULL = aktuell)"
     data_type: "datetime2(7)"

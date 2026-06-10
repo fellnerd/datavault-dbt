@@ -31,51 +31,43 @@
 
 {{ config(
     materialized='incremental',
+    incremental_strategy='append',
     as_columnstore=false,
-    post_hook=["{{ create_hash_index('hk_link_cdr_event_tl') }}"]
+    post_hook=[
+        "{{ create_hash_index('hk_link_cdr_event_tl') }}",
+        "{{ create_hash_index('dss_load_date') }}"
+    ]
 ) }}
 
-{%- set yaml_metadata -%}
-source_model: "rsn_mobile_cdr_main"
-src_pk: "hk_link_cdr_event_tl"
-src_hashdiff: "hk_link_cdr_event_tl"
-src_payload:
-    - "id"
-    - "signaling_start"
-    - "connection_start"
-    - "duration"
-    - "a"
-    - "b"
-    - "pai"
-    - "imsi"
-    - "iccid"
-    - "record_type"
-    - "service_type"
-    - "call_type"
-    - "bytes_in"
-    - "bytes_out"
-    - "price"
-    - "ws_price"
-    - "tarif"
-    - "r_mcc_mnc"
-    - "result_code"
-    - "result_status"
-    - "privacy"
-    - "tap3"
-    - "data_packet"
-src_eff: "dss_load_date"
-src_ldts: "dss_load_date"
-src_source: "dss_record_source"
-{%- endset -%}
+/*
+ * Custom Transaction Satellite — Performance-optimiert für 9.4M+ Rows
+ *
+ * Problem mit automate_dv.sat():
+ *   Das generierte SQL macht einen JOIN gegen die gesamte Sat-Tabelle (9.4M Rows)
+ *   um Duplikate zu erkennen — auch wenn source_data = 0 Rows ist.
+ *   SQL Server wählt Hash Match Plan → scannt alle 9.4M Zeilen → 45+ Minuten.
+ *
+ * Warum kein Anti-Join nötig ist:
+ *   rsn_mobile_cdr_main nutzt rsn_mobile_cdr_delta als Source.
+ *   rsn_mobile_cdr_delta filtert: WHERE dss_load_date > MAX(sat_cdr_event.dss_load_date)
+ *   → Alle Rows in rsn_mobile_cdr_main sind GARANTIERT neu (noch nicht im Sat).
+ *   Transaction Sat ist append-only (kein SCD2, kein Update) → kein Dedup nötig.
+ *
+ * Performance-Garantie:
+ *   - Kein neues CDR-Material: rsn_mobile_cdr_main = 0 Rows → INSERT 0 Rows → < 2 Sekunden
+ *   - Neues CDR-Material: direkt einfügen ohne Sat-Scan → normaler Durchsatz
+ *
+ * Full-Refresh: rsn_mobile_cdr_delta fällt auf '1900-01-01' zurück → alle Rows
+ */
 
-{% set metadata_dict = fromyaml(yaml_metadata) %}
-
-{{ automate_dv.sat(
-    src_pk=metadata_dict["src_pk"],
-    src_hashdiff=metadata_dict["src_hashdiff"],
-    src_payload=metadata_dict["src_payload"],
-    src_eff=metadata_dict["src_eff"],
-    src_ldts=metadata_dict["src_ldts"],
-    src_source=metadata_dict["src_source"],
-    source_model=metadata_dict["source_model"]
-) }}
+SELECT
+    hk_link_cdr_event_tl,
+    id, signaling_start, connection_start, duration,
+    a, b, pai, imsi, iccid,
+    record_type, service_type, call_type,
+    bytes_in, bytes_out, price, ws_price, tarif,
+    r_mcc_mnc, result_code, result_status,
+    privacy, tap3, data_packet,
+    dss_load_date, dss_record_source
+FROM {{ ref('rsn_mobile_cdr_main') }}
+WHERE hk_link_cdr_event_tl IS NOT NULL

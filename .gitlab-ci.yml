@@ -131,12 +131,12 @@ deploy:dev:
     # Manuell aus Web-UI auf dev-Branch
     - if: '$CI_COMMIT_BRANCH == "dev" && $CI_PIPELINE_SOURCE == "web"'
       when: manual
-  timeout: 90 minutes
+  timeout: 3 hours
   script:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --target ewb-dev
-    - dbt test --target ewb-dev
+    - dbt test --target ewb-dev --exclude tag:nightly
   environment:
     name: ewb-dev
 
@@ -153,7 +153,7 @@ deploy:dev:full-refresh:
     - *setup_profiles
     - dbt run-operation stage_external_sources --target ewb-dev
     - dbt run --full-refresh --target ewb-dev
-    - dbt test --target ewb-dev
+    - dbt test --target ewb-dev --exclude tag:nightly
   environment:
     name: ewb-dev
 

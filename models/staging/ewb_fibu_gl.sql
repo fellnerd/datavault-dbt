@@ -1,6 +1,7 @@
 {{ config(
     materialized='table',
-    as_columnstore=false
+    as_columnstore=false,
+    pre_hook="-- Rolling 2-Jahres-Filter: nur letztes Kalenderjahr + aktuelles Jahr"
 ) }}
 
 /*
@@ -16,6 +17,13 @@
  * BK-Entscheidung (5.4.2026): RECNUM allein ist NICHT global unique — 12 Jahresscheiben
  * (E15-E26) vergeben RECNUM je neu ab 1. dss_source_file_name (z.B. "E22.parquet") ist
  * als Metadataspalte verfügbar und macht RECNUM+dss_source_file_name 100% unique (944534/944534).
+ *
+ * Performance (Rolling 2-Jahres-Filter, Jun 2026):
+ *   TABLE wird bei jedem Run komplett neu gebaut aus der PSA (alle 12 Jahresscheiben).
+ *   Filter auf DATE >= 01.01.(aktuelles Jahr - 1) reduziert auf ~2 Jahresscheiben.
+ *   Beispiel: am 01.06.2026 → WHERE DATE >= 01.01.2025
+ *   Vault hat bereits History — incremental lädt nur neue/geänderte Rows.
+ *   GL-Korrekturen vor letztem Jahr: via dbt run --full-refresh einmal jährlich.
  *
  * Link Hash Keys:
  *   - hk_buchungskopf:  DKBELEGNUMMER → hub_buchungskopf (FHE.RECNUM = GL.DKBELEGNUMMER)
@@ -33,7 +41,7 @@
  */
 
 {%- set yaml_metadata -%}
-source_model: "psa_ewb_fibu_gl"
+source_model: "psa_ewb_fibu_gl_rolling"
 
 derived_columns:
   dss_record_source: "!ewb_abacus"
