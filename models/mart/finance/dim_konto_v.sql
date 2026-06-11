@@ -54,7 +54,14 @@ enriched AS (
         CAST(rk.Konto_L1 AS NVARCHAR(255))                                         AS konto_subgruppe,
         CAST(rk.KontoName_L1 AS NVARCHAR(255))                                     AS konto_subgruppe_name,
         -- Power-BI Hierarchie-Spalten (Format: "Code Name", analog Finance001)
-        CAST(rk.Konto_L2 AS NVARCHAR(255))                                         AS konto_l2,
+        -- Normalize konto_l2: Konto_L2 from ref_konto may have encoding issues (e.g. Ü → garbled)
+        -- Use LIKE-based normalization to ensure consistent labels matching CalculationGroup items
+        CASE
+            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6a%' THEN '6a Uebriger Betriebsaufwand'
+            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6b%' THEN '6b Abschreibungen'
+            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6c%' THEN '6c Finanzierung'
+            ELSE CAST(rk.Konto_L2 AS NVARCHAR(255))
+        END                                                                         AS konto_l2,
         CAST(rk.Konto_L1 AS NVARCHAR(255))                                         AS konto_l1,
         ISNULL(CAST(rk.Konto AS NVARCHAR(500)),
                CONCAT_WS(' ', CAST(b.konto_nr AS NVARCHAR(255)), rk.KontoName))    AS konto_label,
