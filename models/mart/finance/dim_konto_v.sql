@@ -32,13 +32,31 @@
 ) }}
 
 WITH base AS (
+    -- Konten-Universum: hub_konto (KTO aus Buchungen) UNION ref_konto (Sharepoint Stammdaten)
+    -- Notwendig, weil einige Konten (z.B. 59090, 65050, 68000) NUR als GKTO in den Buchungen
+    -- erscheinen und nicht in hub_konto sind, aber im Sharepoint-Kontenplan vorhanden sind.
     SELECT
-        hk.hk_konto,
-        hk.kto,
-        TRY_CAST(TRY_CAST(hk.kto AS DECIMAL(18,0)) AS INT) AS konto_nr,
-        hk.dss_load_date,
-        hk.dss_record_source
-    FROM {{ ref('hub_konto') }} hk
+        konto_nr,
+        MIN(dss_load_date)                              AS dss_load_date,
+        MIN(dss_record_source)                          AS dss_record_source
+    FROM (
+        SELECT
+            TRY_CAST(TRY_CAST(hk.kto AS DECIMAL(18,0)) AS INT) AS konto_nr,
+            hk.dss_load_date,
+            hk.dss_record_source
+        FROM {{ ref('hub_konto') }} hk
+        WHERE TRY_CAST(TRY_CAST(hk.kto AS DECIMAL(18,0)) AS INT) IS NOT NULL
+
+        UNION
+
+        SELECT
+            rk.KontoNr                                  AS konto_nr,
+            CAST(GETDATE() AS DATETIME2(7))             AS dss_load_date,
+            CAST('ewb_sharepoint' AS NVARCHAR(255))     AS dss_record_source
+        FROM {{ ref('ref_konto_v') }} rk
+        WHERE rk.KontoNr IS NOT NULL
+    ) u
+    GROUP BY konto_nr
 ),
 enriched AS (
     SELECT
