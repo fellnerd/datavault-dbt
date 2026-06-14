@@ -170,6 +170,9 @@ BIGINT, deterministisch, view-kompatibel. Fakt-FKs verwenden denselben Aufruf.
 
 ### Materialisierung
 - `materialized='view'` — Standard; alle veröffentlichten `dim_*` / `fakt_*` Objekte sind Views
-- `materialized='table'` — Nur bei Performance-Bedarf; **Pflicht**: `__base`-Pattern verwenden:
-  - `dim_<entity>__base.sql` → `materialized='table'` (intern)
-  - `dim_<entity>.sql` → `materialized='view'` als `SELECT * FROM {{ ref('dim_<entity>__base') }}`
+- `materialized='table'` — Nur bei Performance-Bedarf; **Pflicht**: Table + Wrapper-View Pattern:
+  - `fakt_<entity>.sql` → `materialized='table'`, `as_columnstore=false` (Performance-Cache, intern)
+  - `fakt_<entity>_v.sql` → `materialized='view'` als `SELECT * FROM {{ ref('fakt_<entity>') }}` (publiziertes Objekt)
+  - Gleiches Muster für `dim_<entity>.sql` + `dim_<entity>_v.sql`
+  - Konsumenten (Power BI, nachgelagerte Modelle) nutzen immer `_v`-Views
+  - Kein `__base`-Suffix — Tabellen-Name ohne Suffix, View-Name mit `_v`
