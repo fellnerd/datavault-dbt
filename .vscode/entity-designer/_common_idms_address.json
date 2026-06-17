@@ -1,0 +1,299 @@
+{
+  "concept": "_common",
+  "entityName": "idms_address",
+  "sourceTable": "ext_idms_address_main",
+  "generatedObjects": ["hub", "satellite"],
+  "columns": [
+    {
+      "name": "id",
+      "sourceName": "id",
+      "dataType": "INT",
+      "columnType": "hub",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "cust_id",
+      "sourceName": "cust_id",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "ref",
+      "sourceName": "ref",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "flags",
+      "sourceName": "flags",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "mandate_id",
+      "sourceName": "mandate_id",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "free_field",
+      "sourceName": "free_field",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "firma",
+      "sourceName": "firma",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "anrede",
+      "sourceName": "anrede",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "nachname",
+      "sourceName": "nachname",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "vorname",
+      "sourceName": "vorname",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "zusatz",
+      "sourceName": "zusatz",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "strasse",
+      "sourceName": "strasse",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "strasse_nr",
+      "sourceName": "strasse_nr",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "postfach",
+      "sourceName": "postfach",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "plzort",
+      "sourceName": "plzort",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "tel",
+      "sourceName": "tel",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "fax",
+      "sourceName": "fax",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "telg",
+      "sourceName": "telg",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "telm",
+      "sourceName": "telm",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "emailaddr",
+      "sourceName": "emailaddr",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "status",
+      "sourceName": "status",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "egid",
+      "sourceName": "egid",
+      "dataType": "INT",
+      "columnType": "satellite",
+      "includeInHashDiff": true,
+      "includeInPayload": true,
+      "satelliteGroup": "sat-idms-main",
+      "nullable": true
+    },
+    {
+      "name": "ts",
+      "sourceName": "ts",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "timestamp_landing-zone",
+      "sourceName": "timestamp_landing-zone",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "satellite",
+      "includeInHashDiff": false,
+      "includeInPayload": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_record_source",
+      "sourceName": "dss_record_source",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_load_date",
+      "sourceName": "dss_load_date",
+      "dataType": "NVARCHAR(4000)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_create_datetime",
+      "sourceName": "dss_create_datetime",
+      "dataType": "DATETIME2(7)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "dss_business_key",
+      "sourceName": "dss_business_key",
+      "dataType": "NVARCHAR(MAX)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": true
+    },
+    {
+      "name": "hk_idms_address",
+      "sourceName": "hk_idms_address",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    },
+    {
+      "name": "hd_idms_address",
+      "sourceName": "hd_idms_address",
+      "dataType": "CHAR(64)",
+      "columnType": "metadata",
+      "includeInHashDiff": false,
+      "nullable": false
+    }
+  ],
+  "savedAt": "2026-06-17T11:43:07.000Z",
+  "satellites": [
+    {
+      "id": "sat-idms-main",
+      "name": "idms_address__idms"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
     %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Sharepoint ('ewb_sharepoint')
-    %% Stand: 2026-05-05 | Hubs: 15 | Sats: 15 | Links: 13 | Refs: 6
+    %% Stand: 2026-06-17 | Hubs: 16 | Sats: 16 | Links: 13 | Refs: 6
     %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle
     %% + Wave 3 Links: link_hauptbuch_konto, link_hauptbuch_kostenstelle (GL→Sharepoint)
     %% + CDR / Telecom (_common): hub_vertrag, hub_kunde, sat_kunde__compax, sat_vertrag_eff__compax, sat_vertrag_optionen_ma__compax, link_vertrag_kunde, link_kunde_adresse
@@ -330,6 +330,43 @@ erDiagram
     SAT_PERSON_ADRESSE__ABACUS { char64 hk FK }
     SAT_ADRESSE_KONTAKT__ABACUS { char64 hk FK }
 
+    %% === IDMS ===
+    HUB_IDMS_ADDRESS {
+        char64 hk_idms_address PK "computed — SHA2_256(id)"
+        int    id                   "ext_idms_address_main.id (BK)"
+        datetime2 dss_load_date     "metadata"
+        varchar   dss_record_source "metadata"
+    }
+    SAT_IDMS_ADDRESS__IDMS {
+        char64    hk_idms_address FK "computed"
+        char64    hd_idms_address    "computed"
+        int       anrede             "Anrede-Code"
+        int       cust_id            "FK Kundenstamm (Phase-1-Attribut)"
+        int       egid               "Eidg. Gebäude-ID"
+        nvarchar  emailaddr          "E-Mail"
+        nvarchar  fax                "Fax"
+        nvarchar  firma              "Firma/Organisation"
+        int       flags              "Bitmasken-Flags"
+        nvarchar  free_field         "Freies Textfeld"
+        int       mandate_id         "FK Mandat (Phase-1-Attribut)"
+        nvarchar  nachname           "Nachname"
+        int       plzort             "PLZ/Ort-Code"
+        nvarchar  postfach           "Postfach"
+        nvarchar  ref                "Referenz-/Kennzeichen"
+        int       status             "Datensatz-Status"
+        nvarchar  strasse            "Strassenname"
+        nvarchar  strasse_nr         "Hausnummer"
+        nvarchar  tel                "Tel Privat"
+        nvarchar  telg               "Tel Geschäft"
+        nvarchar  telm               "Tel Mobil"
+        nvarchar  vorname            "Vorname"
+        nvarchar  zusatz             "Adresszusatz"
+        datetime2 dss_load_date      "metadata"
+        varchar   dss_record_source  "metadata"
+        char1     dss_is_current     "computed"
+        datetime2 dss_end_date       "computed"
+    }
+
     %% === REFERENCE ===
     REF_LEISTUNGSART {
         int number PK "ext_ewb_proj_ntr_main — 29 Eintraege"
@@ -467,6 +504,9 @@ erDiagram
 
     HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : ""
     HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : ""
+
+    %% IDMS
+    HUB_IDMS_ADDRESS ||--o{ SAT_IDMS_ADDRESS__IDMS : "has"
 
     %% Reference Tables
     SAT_PROJEKTSACHKONTO__ABACUS }o--|| REF_LEISTUNGSART : "CODE"
