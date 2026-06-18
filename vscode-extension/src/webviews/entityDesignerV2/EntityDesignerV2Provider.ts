@@ -298,6 +298,7 @@ export class EntityDesignerV2Provider {
   }
 
   private detectSourceSystem(): string {
+    if (this._sourceTable.includes('idms_')) return 'idms';
     if (this._sourceTable.includes('ewb_')) return 'ewb_abacus';
     if (this._sourceTable.includes('jira_')) return 'jira';
     if (this._sourceTable.includes('adworks_')) return 'adworks';
@@ -342,7 +343,7 @@ export class EntityDesignerV2Provider {
         return;
       }
 
-      const result = genModule.generateAll(config, { projectPath: this._projectPath });
+      const result = genModule.generateAll(config, { projectPath: this._projectPath, writeToDisk: false });
 
       // Write generated files
       const writtenFiles: string[] = [];
@@ -419,7 +420,8 @@ export class EntityDesignerV2Provider {
       const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
       const config = isV1Config(parsed) ? migrateV1toV2(parsed) : parsed;
 
-      const result = genModule.generateAll(config, { projectPath: this._projectPath });
+      // Preview only — never write to disk (selecting a node triggers this)
+      const result = genModule.generateAll(config, { projectPath: this._projectPath, writeToDisk: false });
 
       this._panel.webview.postMessage({
         type: 'codePreview',

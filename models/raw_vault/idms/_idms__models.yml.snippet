@@ -1,0 +1,12 @@
+  - name: hub_internet_service
+    description: "Hub: internet_service (BK: id)"
+    columns:
+      - name: hk_internet_service
+        description: "Hash Key (PK)"
+        tests:
+          - not_null
+          - unique
+      - name: id
+        description: "Business Key"
+        tests:
+          - not_null

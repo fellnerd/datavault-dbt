@@ -115,6 +115,10 @@ export function useEntityDesigner() {
   }, [updateConfig]);
 
   const updateObject = useCallback((name: string, object: DvObject) => {
+    // Keep the config map KEY stable (it is the React Flow node id and the
+    // relationship reference target). The editable display name lives in
+    // object.name and is what the canvas shows + generation uses, so renaming
+    // never churns the node id (which would deselect it).
     updateConfig(config => ({
       ...config,
       objects: { ...config.objects, [name]: object },
@@ -310,7 +314,7 @@ function deriveNodesAndEdges(
       id: name,
       type: nodeType,
       position: pos,
-      data: { objectName: name, object: obj },
+      data: { objectName: obj.name || name, object: obj },
     });
 
     // Derive edges from relationships

@@ -77,7 +77,79 @@ Die Werte werden am besten in `.vscode/settings.json` im Projektordner gespeiche
 }
 ```
 
-> **Voraussetzung:** `az login` muss aktiv sein, damit `az storage blob list` auf den Storage Account zugreifen kann.
+#### Funktionsweise
+
+Der Discover-Prozess läuft in **zwei Phasen**, die jeweils eine andere Quelle nutzen:
+
+```
+                    ┌─────────────────────────────────────────────┐
+                    │  Phase 1: Datei-Listing (Azure Blob Storage) │
+  Ordner-Pfad  ───► │  az storage blob list                        │
+  z.B.              │    --account-name <storage.accountName>      │
+  IDMS/address/     │    --container-name <storage.containerName>  │ ───► Liste .parquet-Dateien
+                    │    --prefix <pfad>/  --auth-mode login       │
+                    └─────────────────────────────────────────────┘
+                                          │
+                                          ▼
+                    ┌─────────────────────────────────────────────┐
+                    │  Phase 2: Schema-Ermittlung (Azure SQL)      │
+  ausgewählte  ───► │  dbt run-operation get_parquet_schema        │
+  Datei             │    --args '{ data_source: <storage.dataSource>,│ ───► sources.yml
+                    │              file_format: <storage.fileFormat>}'│      (External Table)
+                    └─────────────────────────────────────────────┘
+```
+
+1. **Phase 1 – Datei-Listing über die Azure CLI:**
+   Die Extension ruft `az storage blob list` auf, um alle `*.parquet`-Dateien unter dem angegebenen Ordner-Pfad zu finden.
+   - Quelle: **Azure Blob Storage / ADLS Gen2** (`storage.accountName` + `storage.containerName`)
+   - Authentifizierung: `--auth-mode login` → nutzt deine `az login`-Sitzung (siehe unten)
+   - Verzeichnis-Enumeration wird bewusst über die Azure CLI gemacht, da Azure SQL Database (anders als Synapse Serverless) keine `OPENROWSET`-Wildcards unterstützt.
+
+2. **Phase 2 – Schema-Ermittlung über dbt:**
+   Für jede ausgewählte Datei ruft die Extension das dbt-Macro `get_parquet_schema` auf, das per External Data Source das Parquet-Schema ausliest.
+   - Quelle: **Azure SQL External Data Source** (`storage.dataSource` + `storage.fileFormat`)
+   - Das Ergebnis wird als External-Table-Definition in `models/staging/sources.yml` eingetragen.
+
+> **Hinweis:** Die beiden Quellen sind unabhängig. `storage.dataSource` (z.B. `StageFileSystem` oder `LandingZoneFS`) muss in der Azure SQL DB als External Data Source existieren und auf denselben Container zeigen wie `storage.containerName`.
+
+#### Azure Login (Voraussetzung)
+
+Phase 1 nutzt die **Azure CLI** mit deiner interaktiven Anmeldung. Ohne gültige Sitzung schlägt der Discover fehl.
+
+```powershell
+# 1. Azure CLI installieren (falls nicht vorhanden): https://aka.ms/azure-cli
+
+# 2. Anmelden (öffnet Browser-Login)
+az login
+
+# 3. Richtiges Abo wählen (falls mehrere)
+az account set --subscription "<subscription-id-oder-name>"
+
+# 4. Zugriff testen — muss eine JSON-Liste der Parquet-Dateien liefern
+az storage blob list `
+  --account-name <storage.accountName> `
+  --container-name <storage.containerName> `
+  --prefix "IDMS/address/" `
+  --auth-mode login `
+  --query "[].name" -o json
+```
+
+Wenn Schritt 4 eine Dateiliste zurückgibt, funktioniert auch der Discover in der Extension.
+
+> **Berechtigung:** Dein Azure-Konto braucht auf dem Storage Account mindestens die Rolle **Storage Blob Data Reader** (RBAC). `--auth-mode login` nutzt RBAC statt Account-Keys.
+
+#### Troubleshooting
+
+| Symptom | Ursache | Lösung |
+|---------|---------|--------|
+| `Failed to run az CLI: spawn az ENOENT` | Azure CLI nicht installiert oder nicht im PATH | `az` installieren, danach VS Code **komplett neu starten** (nicht nur Fenster neu laden), damit der aktualisierte PATH übernommen wird |
+| `Azure CLI (az) not found` | wie oben | siehe oben |
+| `No Parquet files found in "<pfad>/"` | Pfad falsch, leerer Ordner oder fehlende Anmeldung | Pfad ohne führenden Slash angeben (z.B. `IDMS/address/`); `az login` prüfen; Test-Befehl oben ausführen |
+| `az storage blob list failed (... AuthorizationPermissionMismatch)` | Konto hat keine Blob-Leserechte | Rolle **Storage Blob Data Reader** auf dem Storage Account zuweisen lassen |
+| Schema leer / Phase 2 schlägt fehl | `storage.dataSource` existiert nicht in Azure SQL | External Data Source via `CREATE EXTERNAL DATA SOURCE` anlegen und Namen im Setting eintragen |
+
+> **Windows-Hinweis:** Die Azure CLI ist auf Windows ein Batch-Skript (`az.cmd`). Die Extension startet sie deshalb über die Shell — ein manueller Workaround ist nicht nötig.
+
 
 ## Verwendung
 

@@ -50,17 +50,30 @@ export function App() {
   const [localNodes, setLocalNodes] = useState<Node[]>([]);
   const [localEdges, setLocalEdges] = useState<Edge[]>([]);
 
-  // Track which config objects we've synced to avoid re-sync loops
+  // Track the full object data we've synced to avoid re-sync loops.
+  // Keyed on the serialized objects (names AND properties) so that property
+  // edits (Business Keys, renames, etc.) — not just add/remove — refresh the
+  // canvas. Node positions live in config.layout and are preserved below.
   const syncedObjectsRef = useRef('');
 
-  // Sync designer nodes → local state when objects actually change
+  // Sync designer nodes → local state when object data actually changes
   React.useEffect(() => {
-    const objectsKey = Object.keys(designer.config?.objects || {}).sort().join(',');
-    if (objectsKey !== syncedObjectsRef.current) {
-      syncedObjectsRef.current = objectsKey;
-      setLocalNodes(designer.nodes);
-      setLocalEdges(designer.edges);
-    }
+    const objectsKey = JSON.stringify(designer.config?.objects || {});
+    if (objectsKey === syncedObjectsRef.current) return;
+    syncedObjectsRef.current = objectsKey;
+
+    // Merge: refresh node data from the designer while preserving the local
+    // position and selection of nodes the user may be dragging/editing.
+    setLocalNodes(prev => {
+      const prevById = new Map(prev.map(n => [n.id, n]));
+      return designer.nodes.map(n => {
+        const existing = prevById.get(n.id);
+        return existing
+          ? { ...n, position: existing.position, selected: existing.selected }
+          : n;
+      });
+    });
+    setLocalEdges(designer.edges);
   }, [designer.nodes, designer.edges, designer.config]);
 
   // Handle React Flow node changes (drag, select, remove)

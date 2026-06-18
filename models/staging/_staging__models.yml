@@ -3107,3 +3107,75 @@ models:
       - name: dss_business_key
         description: "Concatenated business key string - id"
         data_type: nvarchar(4000)
+
+  - name: idms_internet_service_main
+    description: "Staging view for IDMS Internet Service Main (IDMS/internet_service/Main.parquet). BK: id."
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_idms_internet_service_main
+        business_keys:
+          - id
+    columns:
+      - name: hk_internet_service
+        description: "Hash Key (SHA2_256) — hub_internet_service"
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: id
+        description: "Business Key (IDMS Internet-Service-ID)"
+        data_type: int
+        tests:
+          - not_null
+      - name: service_subscription_id
+        description: "Service Subscription ID (FK)"
+        data_type: int
+      - name: start
+        description: "Startdatum/-zeitpunkt"
+        data_type: nvarchar(4000)
+      - name: end
+        description: "Enddatum/-zeitpunkt"
+        data_type: nvarchar(4000)
+      - name: subscription_id
+        description: "Subscription ID (FK)"
+        data_type: int
+      - name: invoice_type
+        description: "Rechnungstyp"
+        data_type: int
+      - name: price_override
+        description: "Preis-Override"
+        data_type: real
+      - name: charge_add_mb
+        description: "Zusatzkosten pro MB"
+        data_type: int
+      - name: plusemail
+        description: "Plus E-Mail Option"
+        data_type: int
+      - name: plusip
+        description: "Plus IP Option"
+        data_type: int
+      - name: custom_attr
+        description: "Benutzerdefinierte Attribute"
+        data_type: nvarchar(4000)
+      - name: managed_wlan
+        description: "Managed WLAN"
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: "Data source identifier (ewb_idms)"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp (aus timestamp_landing-zone)"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+        data_type: datetime2(7)
+      - name: dss_business_key
+        description: "Concatenated business key string - id"
+        data_type: nvarchar(4000)
+

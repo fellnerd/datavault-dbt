@@ -1,0 +1,34 @@
+version: 2
+models:
+- name: "hub_internet_service"
+  description: |
+    Hub für IDMS Internet-Service-Entitäten.
+    Quelle: idms_internet_service_main (IDMS internet_service, BK: id)
+  columns:
+  - name: "hk_internet_service"
+    description: "Hash Key (Primary Key)"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "id"
+    description: "Business Key (IDMS Internet-Service-ID)"
+    data_type: "nvarchar(max)"
+    tests:
+    - not_null
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier (ewb_idms)"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+  - name: "dss_business_key"
+    description: "Concatenated business key string — id"
+    data_type: "nvarchar(max)"
+  - name: "dss_create_datetime"
+    description: "Record creation timestamp"
+    data_type: "datetime2(7)"

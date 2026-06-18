@@ -1,0 +1,24 @@
+  - name: idms_internet_service_main
+    description: "Staging: idms.internet.service.main"
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_idms_internet_service_main
+        business_keys:
+          - id
+    columns:
+      - name: hk_internet_service
+        description: "Hash Key (SHA2_256)"
+        tests:
+          - not_null
+          - unique
+      - name: id
+        tests:
+          - not_null
+      - name: dss_record_source
+        tests:
+          - not_null
+      - name: dss_load_date
+        tests:
+          - not_null

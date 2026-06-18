@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "concept": "idms",
+  "sourceSystem": "idms",
+  "sourceTable": "ext_idms_internet_service_main",
+  "stagingModel": "idms_internet_service_main",
+  "objects": {
+    "hub_internet_service": {
+      "name": "hub_internet_service",
+      "sourceModel": "idms_internet_service_main",
+      "srcLdts": "dss_load_date",
+      "srcSource": "dss_record_source",
+      "type": "hub",
+      "srcPk": "hk_internet_service",
+      "srcNk": "id"
+    }
+  },
+  "columns": {
+    "id": {
+      "dataType": "INT"
+    },
+    "service_subscription_id": {
+      "dataType": "INT"
+    },
+    "start": {
+      "dataType": "NVARCHAR(4000)"
+    },
+    "end": {
+      "dataType": "NVARCHAR(4000)"
+    },
+    "subscription_id": {
+      "dataType": "INT"
+    },
+    "invoice_type": {
+      "dataType": "INT"
+    },
+    "price_override": {
+      "dataType": "REAL"
+    },
+    "charge_add_mb": {
+      "dataType": "INT"
+    },
+    "plusemail": {
+      "dataType": "INT"
+    },
+    "plusip": {
+      "dataType": "INT"
+    },
+    "custom_attr": {
+      "dataType": "NVARCHAR(4000)"
+    },
+    "managed_wlan": {
+      "dataType": "NVARCHAR(4000)"
+    },
+    "timestamp_landing-zone": {
+      "dataType": "NVARCHAR(4000)"
+    }
+  },
+  "reservedKeywords": [
+    "start",
+    "end"
+  ],
+  "savedAt": "2026-06-18T11:20:50.446Z"
+}

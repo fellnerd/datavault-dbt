@@ -143,6 +143,29 @@ function parseDbtOutput(output: string, log?: (msg: string) => void): string[] {
 // ============================================================================
 
 /**
+ * Quote an argument for safe use with a shell (shell:true on Windows).
+ * Leaves simple flag/value tokens untouched, wraps anything with shell-special
+ * characters in double quotes to prevent word-splitting and injection.
+ */
+function quoteShellArg(arg: string): string {
+  if (/^[A-Za-z0-9_\-./]+$/.test(arg)) {
+    return arg;
+  }
+  return `"${arg.replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * Consistent, actionable error message when the Azure CLI cannot be found.
+ */
+function azNotFoundMessage(): string {
+  return (
+    'Azure CLI (az) not found. Install it from https://aka.ms/azure-cli, ' +
+    'run "az login", then fully restart VS Code so the extension picks up the ' +
+    'updated PATH.'
+  );
+}
+
+/**
  * List all Parquet files in a folder using Azure CLI (az storage blob list).
  * 
  * Replaces the dbt macro approach (OPENROWSET wildcard) which is not supported
@@ -179,8 +202,14 @@ export async function listParquetFiles(
       '--auth-mode', 'login'
     ];
 
+    // On Windows the Azure CLI is a batch script (az.cmd). Since Node 18.20/20.12
+    // (CVE-2024-27980) spawn() refuses to run .cmd/.bat files unless shell:true,
+    // otherwise it fails with ENOENT. Quote args to stay injection-safe in a shell.
+    const isWindows = process.platform === 'win32';
+    const spawnArgs = isWindows ? args.map(quoteShellArg) : args;
+
     log?.(`Running: az ${args.join(' ')}`);
-    const child = spawn('az', args, { cwd: projectPath });
+    const child = spawn('az', spawnArgs, { cwd: projectPath, shell: isWindows });
 
     let stdout = '';
     let stderr = '';
@@ -189,13 +218,22 @@ export async function listParquetFiles(
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`az storage blob list failed (exit ${code}): ${stderr}`));
+        // Windows cmd reports a missing command as exit code 1/9009 instead of ENOENT
+        if (/is not recognized as an internal or external command|command not found/i.test(stderr)) {
+          reject(new Error(azNotFoundMessage()));
+        } else {
+          reject(new Error(`az storage blob list failed (exit ${code}): ${stderr}`));
+        }
       } else {
         resolve(stdout);
       }
     });
-    child.on('error', (error) => {
-      reject(new Error(`Failed to run az CLI: ${error.message}`));
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') {
+        reject(new Error(azNotFoundMessage()));
+      } else {
+        reject(new Error(`Failed to run az CLI: ${error.message}`));
+      }
     });
   });
 
