@@ -252,13 +252,16 @@ function createDefaultObject(
   const baseSourceModel = config.stagingModel;
   const base = { name, sourceModel: baseSourceModel, srcLdts: 'dss_load_date', srcSource: 'dss_record_source' };
 
+  // Clean entity name for hashdiff: sat_internet_service__idms[_ma|_dc] → internet_service
+  const satEntity = name.replace(/^sat_/, '').replace(/__.*$/, '');
+
   switch (type) {
     case 'hub':
       return { ...base, type: 'hub', srcPk: `hk_${name.replace('hub_', '')}`, srcNk: [], srcExtraColumns: ['dss_business_key', 'dss_create_datetime'] };
     case 'satellite':
       return {
         ...base, type: 'satellite',
-        srcPk: '', srcHashdiff: { sourceColumn: `hd_${name.replace('sat_', '').replace('__abacus', '')}`, alias: 'HASHDIFF' },
+        srcPk: '', srcHashdiff: { sourceColumn: `hd_${satEntity}`, alias: 'HASHDIFF' },
         srcPayload: [], parentHub: '', generateCurrentView: true,
         srcExtraColumns: ['dss_create_datetime'],
       };
@@ -267,13 +270,13 @@ function createDefaultObject(
     case 'ma_satellite':
       return {
         ...base, type: 'ma_satellite',
-        srcPk: '', srcCdk: [], srcHashdiff: { sourceColumn: `hd_${name.replace('sat_', '').replace('__abacus', '')}`, alias: 'HASHDIFF' },
+        srcPk: '', srcCdk: [], srcHashdiff: { sourceColumn: `hd_${satEntity}_ma`, alias: 'HASHDIFF' },
         srcPayload: [], parentHub: '',
       };
     case 'dc_satellite':
       return {
         ...base, type: 'dc_satellite',
-        srcPk: '', srcHashdiff: { sourceColumn: `hd_${name.replace('sat_', '').replace('__abacus', '')}`, alias: 'HASHDIFF' },
+        srcPk: '', srcHashdiff: { sourceColumn: `hd_${satEntity}_dc`, alias: 'HASHDIFF' },
         srcPayload: [], parentLink: '',
       };
     case 'reference':

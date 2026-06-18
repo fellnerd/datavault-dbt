@@ -1,41 +1,45 @@
-
-
 erDiagram
 
     dim_kreditor_v {
         bigint kreditor_key PK "SK = MD5(KNR)"
         nvarchar kreditor_id "Technische ID (KNR)"
         nvarchar kreditor_code "Business Code (= KNR)"
-        nvarchar kreditor_name "Kundenname (ADRID), Fallback UNKNOWN"
-        nvarchar fadrinr "Adress-Referenz (100pct befuellt)"
+        nvarchar kreditor_name "ADRID / Fallback KNR oder UNKNOWN"
+        nvarchar fadrinr "Adress-Referenz"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }
 
     dim_konto_v {
-        bigint konto_key PK "SK = MD5(KTO)"
-        nvarchar konto_id "Technische ID (KTO)"
-        nvarchar konto_code "Konto-Code (Sharepoint), Fallback KTO"
-        nvarchar konto_name "Kontoname (Sharepoint), Fallback UNKNOWN"
-        nvarchar konto_gruppe "L1 Kontogruppe"
-        nvarchar konto_gruppe_name "L1 Kontogruppenname"
-        nvarchar konto_subgruppe "L2 Konto-Subgruppe"
-        nvarchar konto_subgruppe_name "L2 Konto-Subgruppenname"
+        bigint konto_key PK "SK = MD5(konto_nr)"
+        nvarchar konto_id "Technische ID"
+        nvarchar konto_code "Konto-Code"
+        nvarchar konto_name "Kontoname"
+        nvarchar konto_gruppe "Top-Klasse"
+        nvarchar konto_gruppe_name "Top-Klassenname"
+        nvarchar konto_subgruppe "Subklasse"
+        nvarchar konto_subgruppe_name "Subklassenname"
+        nvarchar konto_l2 "Power BI L2"
+        nvarchar konto_l1 "Power BI L1"
+        nvarchar konto_label "Power BI Detaillabel"
+        int konto_sort "Sortierung inkl. Plug-Zeilen"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }
 
     dim_kostenstelle_v {
         bigint kostenstelle_key PK "SK = MD5(KST)"
-        nvarchar kostenstelle_id "Technische ID (KST)"
-        nvarchar kostenstelle_code "Kostenstellen-Code (Sharepoint), Fallback KST"
-        nvarchar kostenstelle_name "Kostenstellenname, Fallback UNKNOWN"
+        nvarchar kostenstelle_id "Technische ID"
+        nvarchar kostenstelle_code "Kostenstellen-Code"
+        nvarchar kostenstelle_name "Kostenstellenname"
         nvarchar bereich "Bereich L1 alt"
         nvarchar bereich_name "Bereichsname L1 alt"
         nvarchar bereich_detail "Bereich L2 alt"
         nvarchar bereich_detail_name "Bereichsname L2 alt"
-        nvarchar bereich_neu "Bereich L1 NEU"
-        nvarchar bereich_neu_name "Bereichsname L1 NEU"
+        nvarchar bereich_neu "Bereich L1 neu"
+        nvarchar bereich_neu_name "Bereichsname L1 neu"
+        nvarchar bereich_neu_detail "Bereich L2 neu"
+        nvarchar bereich_neu_detail_name "Bereichsname L2 neu"
         int investitionsrechnung "Investitionsrechnung Flag"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
@@ -43,119 +47,174 @@ erDiagram
 
     dim_buchungsstatus_v {
         bigint buchungsstatus_key PK "SK = MD5(STATID)"
-        nvarchar buchungsstatus_id "Technische ID (STATID)"
-        nvarchar buchungsstatus_code "Status-Code (= STATID)"
-        nvarchar buchungsstatus_name "Status-Name, Fallback UNKNOWN"
-        int sort_order "Sortierung (STATDEF als INT)"
+        nvarchar buchungsstatus_id "Technische ID"
+        nvarchar buchungsstatus_code "Status-Code"
+        nvarchar buchungsstatus_name "Statusname / Fallback UNKNOWN"
+        int sort_order "Sortierung aus STATDEF"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
     }
 
     dim_date {
-        int date_key PK "YYYYMMDD (shared, mart._common)"
+        int date_key PK "YYYYMMDD (interne Table, mart._common)"
         date full_date "Natuerlicher Schluessel"
         int year "Kalenderjahr"
-        int iso_year "ISO-Wochenjahr (ggf. abweichend)"
+        char year_name "Jahr als Text"
+        int iso_year "ISO-Wochenjahr"
         int quarter "Quartal 1-4"
-        nvarchar month_name "Monatsname (de-DE)"
+        nvarchar quarter_name "Q1-Q4"
+        nvarchar year_quarter "YYYY-Qn"
+        int month "Monat 1-12"
+        nvarchar month_name "Monatsname de-DE"
+        nvarchar month_name_short "Kurzname Monat"
         nvarchar year_month "YYYY-MM"
         int iso_week "ISO Kalenderwoche"
-        char is_weekend "Y/N DATEFIRST-unabh."
+        nvarchar year_week "ISO Jahr-Woche"
+        int day_of_month "Tag im Monat"
+        int day_of_year "Tag im Jahr"
+        int day_of_week "ISO Wochentag 1-7"
+        nvarchar day_name "Wochentag de-DE"
+        nvarchar day_name_short "Kurzname Wochentag"
+        char is_weekend "Y/N"
+        char is_weekday "Y/N"
+        char is_first_day_of_month "Y/N"
+        char is_last_day_of_month "Y/N"
         char is_first_day_of_quarter "Y/N"
         char is_last_day_of_quarter "Y/N"
-        date first_day_of_quarter "Erster Tag des Quartals"
-        date last_day_of_quarter "Letzter Tag des Quartals"
+        char is_first_day_of_year "Y/N"
+        char is_last_day_of_year "Y/N"
+        date last_day_of_month
+        date first_day_of_month
+        date first_day_of_quarter
+        date last_day_of_quarter
+        date first_day_of_year
+        date last_day_of_year
+        date same_day_last_year
+        datetime2 dss_load_date "Ladezeitpunkt"
+    }
+
+    dim_date_v {
+        int date_key PK "Publizierte View auf dim_date"
+        date full_date "Natuerlicher Schluessel"
+        nvarchar year_month "YYYY-MM"
+        int iso_week "ISO Kalenderwoche"
+        char is_today "Dynamisch Y/N"
+        char is_yesterday "Dynamisch Y/N"
     }
 
     fakt_belege_v {
-        bigint kreditor_key FK "dim_kreditor_v (surrogate_key KNR)"
-        bigint buchungsstatus_key FK "dim_buchungsstatus_v (surrogate_key STATID)"
-        int belegdatum_date_key FK "dim_date (YYYYMMDD aus KBELDAT)"
-        nvarchar belegnummer "BELNR (degenerate dim)"
-        decimal betrag "BWBTR Buchungswaehrung brutto"
-        decimal nettobetrag "BWBTR minus MWSBWBTR"
-        nvarchar waehrung "BWWRC Waehrungscode"
-        nvarchar umschreibung "BELREF Belegtext"
-        nvarchar visierende_id "ERFUSER Erfassungsbenutzer"
-        nvarchar visierende "USER_F Freigabebenutzer"
-        decimal zahlbetrag "KVL.FREIGABEBETRAG NULL=kein KVL"
-        date valuta_datum "KVL.DATUM_ZEIT NULL=kein KVL"
-        int valuta_datum_date_key FK "dim_date (YYYYMMDD aus KVL.DATUM_ZEIT)"
-        nvarchar positionnr "hub_zahlung.POSITIONNR NULL=kein KVL"
-        nvarchar elementtyp "hub_zahlung.ELEMENTTYP NULL=kein KVL"
+        bigint kreditor_key FK "dim_kreditor_v"
+        bigint buchungsstatus_key FK "dim_buchungsstatus_v"
+        int belegdatum_date_key FK "dim_date"
+        nvarchar belegnummer "Degenerate Dimension"
+        decimal betrag "Bruttobetrag"
+        decimal nettobetrag "Ohne MWST"
+        nvarchar waehrung "BWWRC"
+        nvarchar umschreibung "BELREF"
+        nvarchar visierende_id "ERFUSER"
+        nvarchar visierende "USER_F"
+        decimal zahlbetrag "Freigabebetrag"
+        date valuta_datum "Datum Zahlungsposition"
+        int valuta_datum_date_key FK "dim_date"
+        nvarchar positionnr "Zahlungsposition"
+        nvarchar elementtyp "Elementtyp"
         datetime2 dss_load_date "Ladezeitpunkt"
         nvarchar dss_record_source "Quelle"
+    }
+
+    fakt_buchungen {
+        int buchungsdatum_date_key FK "dim_date"
+        bigint konto_key FK "dim_konto_v"
+        bigint kostenstelle_key FK "dim_kostenstelle_v"
+        decimal betrag "Vorzeichen- und MWST-bereinigt"
+        nvarchar soll_haben "S/H"
+        int konto_nr
+        int konto_nr_gegen
+        int kostenstelle_nr
+        int kostenstelle_nr_gegen
+        int projekt_nr
+        int belegnummer
+        int kundennummer
+        decimal mwst_betrag
+        nvarchar mwst_typ
+        nvarchar mwst_code
+        nvarchar mwst_incl
+        decimal mwst_satz
+        nvarchar umschreibung
+        nvarchar umschreibung2
+        nvarchar sam
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
     fakt_buchungen_v {
-        int buchungsdatum_date_key FK "dim_date (YYYYMMDD aus GL.DATE)"
-        bigint konto_key FK "dim_konto_v (Direct KTO via Link, Counter GKTO)"
-        bigint kostenstelle_key FK "dim_kostenstelle_v (Direct KST, Counter KST2)"
-        decimal betrag "Vorzeichenbereinigt mit MWST-Adj"
-        nvarchar soll_haben "SH S=Soll H=Haben"
-        int konto_nr "KTO oder GKTO"
-        int konto_nr_gegen "GKTO oder KTO"
-        int kostenstelle_nr "KST oder KST2"
-        int kostenstelle_nr_gegen "KST2 oder KST"
-        int projekt_nr "PROJEBENE (degenerate dim)"
-        int belegnummer "DKBELEGNUMMER via hub_buchungskopf"
-        int kundennummer "DKKUNDENNUMMER"
-        decimal mwst_betrag "MWSTBETR"
-        nvarchar mwst_typ "MWSTTYP"
-        nvarchar mwst_code "MWSTCODE"
-        nvarchar mwst_incl "MWSTINCL"
-        decimal mwst_satz "MWSTSATZ"
-        nvarchar umschreibung "GL.TEXT Buchungstext"
-        nvarchar umschreibung2 "GL.TEXT2"
-        nvarchar sam "SAM Sammelbuchungsflag"
-        datetime2 dss_load_date "Ladezeitpunkt"
-        nvarchar dss_record_source "Quelle"
+        int buchungsdatum_date_key FK "Publizierte View auf fakt_buchungen"
+        bigint konto_key FK "dim_konto_v"
+        bigint kostenstelle_key FK "dim_kostenstelle_v"
+        decimal betrag "Vorzeichen- und MWST-bereinigt"
+        nvarchar soll_haben "S/H"
+        int konto_nr
+        int konto_nr_gegen
+        int kostenstelle_nr
+        int kostenstelle_nr_gegen
+        int projekt_nr
+        int belegnummer
+        int kundennummer
+        decimal mwst_betrag
+        nvarchar mwst_typ
+        nvarchar mwst_code
+        nvarchar mwst_incl
+        decimal mwst_satz
+        nvarchar umschreibung
+        nvarchar umschreibung2
+        nvarchar sam
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
-    fakt_belege_v }o--|| dim_kreditor_v : "kreditor_key"
-    fakt_belege_v }o--|| dim_buchungsstatus_v : "buchungsstatus_key"
-    fakt_belege_v }o--|| dim_date : "belegdatum_date_key"
-    fakt_belege_v }o--o| dim_date : "valuta_datum_date_key"
-    fakt_buchungen_v }o--|| dim_date : "buchungsdatum_date_key"
-    fakt_buchungen_v }o--|| dim_konto_v : "konto_key"
-    fakt_buchungen_v }o--|| dim_kostenstelle_v : "kostenstelle_key"
-
     fakt_budget_v {
-        int datum_date_key FK "dim_date (YYYYMMDD aus Datum)"
-        bigint konto_key FK "dim_konto_v (surrogate_key Konto)"
-        bigint kostenstelle_key FK "dim_kostenstelle_v (surrogate_key KST)"
+        int datum_date_key FK "dim_date"
+        bigint konto_key FK "dim_konto_v"
+        bigint kostenstelle_key FK "dim_kostenstelle_v"
         nvarchar szenario "Budget-Szenario"
-        int konto_nr "Kontonummer"
-        int kostenstelle_nr "Kostenstellennummer"
-        nvarchar kst_koa "Composite Key KST-KOA"
+        int konto_nr
+        int kostenstelle_nr
+        nvarchar kst_koa "Composite Key"
         decimal betrag "Budgetbetrag"
-        datetime2 dss_load_date "Ladezeitpunkt"
-        nvarchar dss_record_source "Quelle (ewb_sharepoint)"
+        datetime2 dss_load_date
+        nvarchar dss_record_source "ewb_sharepoint"
     }
 
     fakt_forecast_v {
-        int datum_date_key FK "dim_date (YYYYMMDD aus Datum)"
-        bigint konto_key FK "dim_konto_v (surrogate_key Konto)"
-        bigint kostenstelle_key FK "dim_kostenstelle_v (surrogate_key KST)"
+        int datum_date_key FK "dim_date"
+        bigint konto_key FK "dim_konto_v"
+        bigint kostenstelle_key FK "dim_kostenstelle_v"
         nvarchar szenario "Forecast-Szenario"
-        int konto_nr "Kontonummer"
-        int kostenstelle_nr "Kostenstellennummer"
-        nvarchar kst_koa "Composite Key KST-KOA"
+        int konto_nr
+        int kostenstelle_nr
+        nvarchar kst_koa "Composite Key"
         decimal betrag "Forecast-Betrag"
-        datetime2 dss_load_date "Ladezeitpunkt"
-        nvarchar dss_record_source "Quelle (ewb_sharepoint)"
+        datetime2 dss_load_date
+        nvarchar dss_record_source "ewb_sharepoint"
     }
 
-    ref_actual_forecast_v {
-        nvarchar y_month PK "Jahr-Monat (z.B. 2022M01)"
-        nvarchar actual_forecast "Actual oder Forecast"
-        datetime2 dss_load_date "Ladezeitpunkt"
-        nvarchar dss_record_source "Quelle (ewb_sharepoint)"
-    }
+    dim_date ||--|| dim_date_v : "SELECT * + is_today/is_yesterday"
+    fakt_buchungen ||--|| fakt_buchungen_v : "publizierte Wrapper-View"
 
-    fakt_budget_v }o--|| dim_date : "datum_date_key"
-    fakt_budget_v }o--|| dim_konto_v : "konto_key"
-    fakt_budget_v }o--|| dim_kostenstelle_v : "kostenstelle_key"
-    fakt_forecast_v }o--|| dim_date : "datum_date_key"
-    fakt_forecast_v }o--|| dim_konto_v : "konto_key"
-    fakt_forecast_v }o--|| dim_kostenstelle_v : "kostenstelle_key"
+    dim_kreditor_v ||--o{ fakt_belege_v : "kreditor_key"
+    dim_buchungsstatus_v ||--o{ fakt_belege_v : "buchungsstatus_key"
+    dim_date ||--o{ fakt_belege_v : "belegdatum_date_key"
+    dim_date o|--o{ fakt_belege_v : "valuta_datum_date_key"
+
+    dim_date ||--o{ fakt_buchungen : "buchungsdatum_date_key"
+    dim_konto_v ||--o{ fakt_buchungen : "konto_key"
+    dim_kostenstelle_v ||--o{ fakt_buchungen : "kostenstelle_key"
+
+    dim_date ||--o{ fakt_budget_v : "datum_date_key"
+    dim_konto_v ||--o{ fakt_budget_v : "konto_key"
+    dim_kostenstelle_v ||--o{ fakt_budget_v : "kostenstelle_key"
+
+    dim_date ||--o{ fakt_forecast_v : "datum_date_key"
+    dim_konto_v ||--o{ fakt_forecast_v : "konto_key"
+    dim_kostenstelle_v ||--o{ fakt_forecast_v : "kostenstelle_key"
+

@@ -13,6 +13,39 @@
       "type": "hub",
       "srcPk": "hk_internet_service",
       "srcNk": "id"
+    },
+    "sat_idms_internet_service__abacus": {
+      "name": "sat_internet_service__idms",
+      "sourceModel": "idms_internet_service_main",
+      "srcLdts": "dss_load_date",
+      "srcSource": "dss_record_source",
+      "type": "satellite",
+      "srcPk": "",
+      "srcHashdiff": {
+        "sourceColumn": "hd_idms_internet_service",
+        "alias": "HASHDIFF"
+      },
+      "srcPayload": [
+        "timestamp_landing-zone",
+        "service_subscription_id",
+        "start",
+        "subscription_id",
+        "price_override",
+        "plusip",
+        "plusemail",
+        "managed_wlan",
+        "invoice_type",
+        "end",
+        "custom_attr",
+        "charge_add_mb",
+        "plusemail",
+        "id"
+      ],
+      "parentHub": "hub_internet_service",
+      "generateCurrentView": true,
+      "srcExtraColumns": [
+        "dss_create_datetime"
+      ]
     }
   },
   "columns": {
@@ -60,5 +93,20 @@
     "start",
     "end"
   ],
-  "savedAt": "2026-06-18T11:20:50.446Z"
+  "savedAt": "2026-06-18T11:33:27.381Z",
+  "layout": {
+    "nodes": {
+      "sat_idms_internet_service__abacus": {
+        "x": 124.61097906494686,
+        "y": 250.64560827365335
+      },
+      "hub_internet_service": {
+        "x": 571.4424405039501,
+        "y": 82.38110151079516
+      }
+    },
+    "zoom": 1,
+    "panX": 0,
+    "panY": 0
+  }
 }

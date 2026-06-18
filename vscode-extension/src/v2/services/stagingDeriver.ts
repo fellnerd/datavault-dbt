@@ -234,15 +234,28 @@ function buildHashedColumns(
     if (obj.type === 'satellite' || obj.type === 'ma_satellite' || obj.type === 'dc_satellite') {
       const sat = obj as SatelliteObject | MaSatelliteObject | DcSatelliteObject;
       const hdName = sat.srcHashdiff.sourceColumn;
-      const payloadCols = sat.srcPayload
-        .map(c => c.toUpperCase())
-        .sort(); // automate_dv sorts hashdiff columns alphabetically
-      
-      lines.push(`  ${hdName}:`);
-      lines.push(`    is_hashdiff: true`);
-      lines.push(`    columns:`);
-      for (const col of payloadCols) {
-        lines.push(`      - "${col}"`);
+      const excluded: string[] = (sat.excludeFromHashdiff ?? []).map(c => c.toUpperCase());
+
+      if (excluded.length > 0) {
+        // automate_dv exclude_columns: true — list the EXCLUDED columns
+        lines.push(`  ${hdName}:`);
+        lines.push(`    is_hashdiff: true`);
+        lines.push(`    exclude_columns: true`);
+        lines.push(`    columns:`);
+        for (const col of excluded.sort()) {
+          lines.push(`      - "${col}"`);
+        }
+      } else {
+        // Default: include all payload columns (sorted, uppercase)
+        const payloadCols = sat.srcPayload
+          .map(c => c.toUpperCase())
+          .sort();
+        lines.push(`  ${hdName}:`);
+        lines.push(`    is_hashdiff: true`);
+        lines.push(`    columns:`);
+        for (const col of payloadCols) {
+          lines.push(`      - "${col}"`);
+        }
       }
     }
   }

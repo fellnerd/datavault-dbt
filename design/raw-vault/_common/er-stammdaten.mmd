@@ -1,8 +1,8 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault — STAMMDATEN DOMAIN
-    %% Schema: vault | Quelle: Abacus ERP
-    %% Hubs: Person, Adresse, Zeiterfassung
-    %% Bereits implementiert: hub_person, hub_adresse, sat_person__abacus, sat_person_adresse__abacus, sat_adresse_kontakt__abacus
+    %% Schema: vault | Quellen: Abacus ERP + IDMS
+    %% Hubs: 3 | Sats: 5 | Links: 2 | Refs: 1
+    %% Bereits implementiert: hub_person, hub_adresse (Multi-Source: Abacus INR + IDMS id→inr), hub_zeiterfassung, sat_person__abacus, sat_person_adresse__abacus, sat_adresse_kontakt__abacus, sat_adresse__idms, sat_zeiterfassung__abacus, link_adresse_person, link_zeiterfassung_person, ref_abteilung_v
 
     %% ========================================
     %% HUBS
@@ -17,7 +17,7 @@ erDiagram
 
     HUB_ADRESSE {
         char64 hk_adresse PK "SHA2_256(INR)"
-        nvarchar inr "ext_ewb_publ_adr_main.INR"
+        nvarchar inr "ewb_publ_adr_main.INR / idms_address_main.id→inr"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
@@ -86,6 +86,36 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
+    SAT_ADRESSE__IDMS {
+        char64 hk_adresse FK "hub_adresse"
+        char64 hd_adresse__idms "hash diff"
+        int anrede "Anrede-Code"
+        int cust_id "Kunden-ID"
+        int egid "Eidg. Gebäude-ID"
+        nvarchar emailaddr "E-Mail"
+        nvarchar fax "Fax"
+        nvarchar firma "Firma"
+        int flags "Bitmasken-Flags"
+        nvarchar free_field "Freifeld"
+        int mandate_id "Mandats-ID"
+        nvarchar nachname "Nachname"
+        int plzort "PLZ/Ort-Code"
+        nvarchar postfach "Postfach"
+        nvarchar ref "Referenz"
+        int status "Status"
+        nvarchar strasse "Strasse"
+        nvarchar strasse_nr "Hausnummer"
+        nvarchar tel "Telefon privat"
+        nvarchar telg "Telefon geschäftlich"
+        nvarchar telm "Telefon mobil"
+        nvarchar vorname "Vorname"
+        nvarchar zusatz "Adresszusatz"
+        datetime2 dss_load_date "PK Teil 2"
+        varchar dss_record_source "metadata"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL=aktuell"
+    }
+
     SAT_ZEITERFASSUNG {
         char64 hk_zeiterfassung FK "hub_zeiterfassung"
         char64 hd_zeiterfassung "hash diff"
@@ -135,6 +165,7 @@ erDiagram
     HUB_PERSON ||--o{ SAT_PERSON : has
     HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
     HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE__IDMS : has
     HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
 
     %% ========================================

@@ -2,7 +2,7 @@
  * Staging Model: idms_internet_service_main
  *
  * Source: ext_idms_internet_service_main (idms)
- * Objects: hub_internet_service
+ * Objects: hub_internet_service, sat_idms_internet_service__abacus
  *
  * Uses automate_dv.stage() macro for standardized staging.
  */
@@ -25,6 +25,23 @@ derived_columns:
 
 hashed_columns:
   hk_internet_service: "id"
+  hd_idms_internet_service:
+    is_hashdiff: true
+    columns:
+      - "CHARGE_ADD_MB"
+      - "CUSTOM_ATTR"
+      - "END"
+      - "ID"
+      - "INVOICE_TYPE"
+      - "MANAGED_WLAN"
+      - "PLUSEMAIL"
+      - "PLUSEMAIL"
+      - "PLUSIP"
+      - "PRICE_OVERRIDE"
+      - "SERVICE_SUBSCRIPTION_ID"
+      - "START"
+      - "SUBSCRIPTION_ID"
+      - "TIMESTAMP_LANDING-ZONE"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}

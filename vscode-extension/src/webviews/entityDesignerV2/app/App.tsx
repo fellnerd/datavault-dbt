@@ -10,6 +10,7 @@ import {
   Edge,
   NodeChange,
   EdgeChange,
+  Connection,
   OnSelectionChangeFunc,
   OnNodesDelete,
   applyNodeChanges,
@@ -25,7 +26,14 @@ import { SourceBrowser } from './components/SourceBrowser';
 import { PropertyEditor } from './components/PropertyEditor';
 import { CodePreview } from './components/CodePreview';
 import { useEntityDesigner } from './hooks/useEntityDesigner';
-import type { DvObjectType } from './types';
+import type {
+  DvObjectType,
+  HubObject,
+  LinkObject,
+  SatelliteObject,
+  MaSatelliteObject,
+  DcSatelliteObject,
+} from './types';
 
 const nodeTypes: NodeTypes = {
   hub: HubNode,
@@ -85,6 +93,50 @@ export function App() {
     setLocalEdges(eds => applyEdgeChanges(changes, eds));
   }, []);
 
+  // Drag-and-drop connections between nodes. Sets the underlying relationship
+  // (parentHub / parentLink / link FK) so the edge is derived from config.
+  const onConnect = useCallback((connection: Connection) => {
+    const { source, target } = connection;
+    const config = designer.config;
+    if (!source || !target || source === target || !config) return;
+
+    const sourceObj = config.objects[source];
+    const targetObj = config.objects[target];
+    if (!sourceObj || !targetObj) return;
+
+    // Satellite / MA-Sat → Hub : set parentHub + inherit the hub's hash key
+    if ((sourceObj.type === 'satellite' || sourceObj.type === 'ma_satellite') && targetObj.type === 'hub') {
+      const hub = targetObj as HubObject;
+      designer.updateObject(source, {
+        ...(sourceObj as SatelliteObject | MaSatelliteObject),
+        parentHub: target,
+        srcPk: hub.srcPk,
+      });
+      return;
+    }
+
+    // DC-Sat → Link : set parentLink + inherit the link's hash key
+    if (sourceObj.type === 'dc_satellite' && targetObj.type === 'link') {
+      const link = targetObj as LinkObject;
+      designer.updateObject(source, {
+        ...(sourceObj as DcSatelliteObject),
+        parentLink: target,
+        srcPk: link.srcPk,
+      });
+      return;
+    }
+
+    // Link → Hub : add the hub's hash key as a foreign key
+    if (sourceObj.type === 'link' && targetObj.type === 'hub') {
+      const link = sourceObj as LinkObject;
+      const hubPk = (targetObj as HubObject).srcPk;
+      if (hubPk && !link.srcFk.includes(hubPk)) {
+        designer.updateObject(source, { ...link, srcFk: [...link.srcFk, hubPk] });
+      }
+      return;
+    }
+  }, [designer]);
+
   // Selection handling — only updates property editor, does NOT re-derive nodes
   const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: selectedNodes }) => {
     if (selectedNodes.length === 1) {
@@ -123,7 +175,7 @@ export function App() {
     const config = designer.config;
     if (!config) return;
 
-    const baseName = getDefaultName(type, config.stagingModel);
+    const baseName = getDefaultName(type, config.stagingModel, config.concept, config.sourceSystem);
     let name = baseName;
     let counter = 2;
     while (config.objects[name]) {
@@ -238,6 +290,7 @@ export function App() {
             edges={localEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
             onSelectionChange={onSelectionChange}
             onNodesDelete={onNodesDelete}
             onNodeDragStop={onNodeDragStop}
@@ -285,15 +338,25 @@ export function App() {
   );
 }
 
-function getDefaultName(type: DvObjectType, stagingModel: string): string {
-  // Derive entity name from staging model: ewb_proj_npo_main → proj_npo
-  const parts = stagingModel.replace(/^ewb_/, '').replace(/_main$/, '');
+function sourceSuffix(sourceSystem: string): string {
+  // ewb_abacus → abacus, ewb_idms/idms → idms, jira → jira, adworks → adworks
+  const s = (sourceSystem || '').replace(/^ewb_/, '');
+  return s && s !== 'unknown' ? s : 'src';
+}
+
+function getDefaultName(type: DvObjectType, stagingModel: string, concept = '_common', sourceSystem = ''): string {
+  // Derive entity name: strip legacy ewb_ prefix, the concept prefix, and _main suffix
+  let parts = stagingModel.replace(/_main$/, '').replace(/^ewb_/, '');
+  if (concept && concept !== '_common' && parts.startsWith(`${concept}_`)) {
+    parts = parts.substring(concept.length + 1);
+  }
+  const sfx = sourceSuffix(sourceSystem);
   switch (type) {
     case 'hub': return `hub_${parts}`;
-    case 'satellite': return `sat_${parts}__abacus`;
+    case 'satellite': return `sat_${parts}__${sfx}`;
     case 'link': return `link_${parts}`;
-    case 'ma_satellite': return `sat_${parts}__abacus_ma`;
-    case 'dc_satellite': return `sat_${parts}__abacus_dc`;
+    case 'ma_satellite': return `sat_${parts}__${sfx}_ma`;
+    case 'dc_satellite': return `sat_${parts}__${sfx}_dc`;
     case 'reference': return `ref_${parts}`;
     default: return `${type}_${parts}`;
   }

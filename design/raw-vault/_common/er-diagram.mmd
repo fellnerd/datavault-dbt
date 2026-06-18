@@ -1,10 +1,11 @@
 erDiagram
     %% Data Vault 2.1 — EWB Raw Vault (_common) — GESAMTÜBERSICHT
-    %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Sharepoint ('ewb_sharepoint')
-    %% Stand: 2026-06-17 | Hubs: 16 | Sats: 16 | Links: 13 | Refs: 6
-    %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle
+    %% Schema: vault | Quellen: Abacus ERP ('ewb_abacus') + Compax ('ewb_compax') + IDMS ('ewb_idms') + Sharepoint ('ewb_sharepoint')
+    %% Stand: 2026-06-18 | Hubs: 15 | Sats: 16 | Links: 13 | Refs: 9
+    %% + Wave 3 Sharepoint: hub_konto, hub_kostenstelle (Ghost Hubs), ref_konto, ref_kostenstelle, ref_actual_forecast, ref_projektkategorie, ref_projektkategorisierung
     %% + Wave 3 Links: link_hauptbuch_konto, link_hauptbuch_kostenstelle (GL→Sharepoint)
     %% + CDR / Telecom (_common): hub_vertrag, hub_kunde, sat_kunde__compax, sat_vertrag_eff__compax, sat_vertrag_optionen_ma__compax, link_vertrag_kunde, link_kunde_adresse
+    %% + Multi-Source Adresse: hub_adresse (Abacus INR + IDMS id→inr), sat_adresse__idms
     %% Detail-Diagramme: er-finance.mmd, er-project.mmd, er-stammdaten.mmd, er-cdr.mmd
 
     %% === FINANCE ===
@@ -325,46 +326,53 @@ erDiagram
 
     %% === STAMMDATEN ===
     HUB_PERSON { char64 hk PK }
-    HUB_ADRESSE { char64 hk PK }
+    HUB_ADRESSE {
+        char64 hk_adresse PK "computed"
+        nvarchar inr "ewb_publ_adr_main.INR / idms_address_main.id→inr"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+    }
     SAT_PERSON__ABACUS { char64 hk FK }
     SAT_PERSON_ADRESSE__ABACUS { char64 hk FK }
-    SAT_ADRESSE_KONTAKT__ABACUS { char64 hk FK }
-
-    %% === IDMS ===
-    HUB_IDMS_ADDRESS {
-        char64 hk_idms_address PK "computed — SHA2_256(id)"
-        int    id                   "ext_idms_address_main.id (BK)"
-        datetime2 dss_load_date     "metadata"
-        varchar   dss_record_source "metadata"
+    SAT_ADRESSE_KONTAKT__ABACUS {
+        char64 hk_adresse FK "computed"
+        char64 hd_adresse_kontakt "computed"
+        nvarchar plz "PLZ"
+        nvarchar ort "Ort"
+        nvarchar street "Strasse"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
     }
-    SAT_IDMS_ADDRESS__IDMS {
-        char64    hk_idms_address FK "computed"
-        char64    hd_idms_address    "computed"
-        int       anrede             "Anrede-Code"
-        int       cust_id            "FK Kundenstamm (Phase-1-Attribut)"
-        int       egid               "Eidg. Gebäude-ID"
-        nvarchar  emailaddr          "E-Mail"
-        nvarchar  fax                "Fax"
-        nvarchar  firma              "Firma/Organisation"
-        int       flags              "Bitmasken-Flags"
-        nvarchar  free_field         "Freies Textfeld"
-        int       mandate_id         "FK Mandat (Phase-1-Attribut)"
-        nvarchar  nachname           "Nachname"
-        int       plzort             "PLZ/Ort-Code"
-        nvarchar  postfach           "Postfach"
-        nvarchar  ref                "Referenz-/Kennzeichen"
-        int       status             "Datensatz-Status"
-        nvarchar  strasse            "Strassenname"
-        nvarchar  strasse_nr         "Hausnummer"
-        nvarchar  tel                "Tel Privat"
-        nvarchar  telg               "Tel Geschäft"
-        nvarchar  telm               "Tel Mobil"
-        nvarchar  vorname            "Vorname"
-        nvarchar  zusatz             "Adresszusatz"
-        datetime2 dss_load_date      "metadata"
-        varchar   dss_record_source  "metadata"
-        char1     dss_is_current     "computed"
-        datetime2 dss_end_date       "computed"
+    SAT_ADRESSE__IDMS {
+        char64 hk_adresse FK "computed"
+        char64 hd_adresse__idms "computed"
+        int anrede "Anrede-Code"
+        int cust_id "FK Kundenstamm (Phase-1-Attribut)"
+        int egid "Eidg. Gebäude-ID"
+        nvarchar emailaddr "E-Mail"
+        nvarchar fax "Fax"
+        nvarchar firma "Firma/Organisation"
+        int flags "Bitmasken-Flags"
+        nvarchar free_field "Freies Textfeld"
+        int mandate_id "FK Mandat (Phase-1-Attribut)"
+        nvarchar nachname "Nachname"
+        int plzort "PLZ/Ort-Code"
+        nvarchar postfach "Postfach"
+        nvarchar ref "Referenz-/Kennzeichen"
+        int status "Datensatz-Status"
+        nvarchar strasse "Strassenname"
+        nvarchar strasse_nr "Hausnummer"
+        nvarchar tel "Tel Privat"
+        nvarchar telg "Tel Geschäft"
+        nvarchar telm "Tel Mobil"
+        nvarchar vorname "Vorname"
+        nvarchar zusatz "Adresszusatz"
+        datetime2 dss_load_date "metadata"
+        varchar dss_record_source "metadata"
+        char1 dss_is_current "computed"
+        datetime2 dss_end_date "computed"
     }
 
     %% === REFERENCE ===
@@ -378,6 +386,10 @@ erDiagram
         int status PK "ext_ewb_proj_pst_main — 7 Eintraege"
         nvarchar bezeichn "Bezeichnung"
         nvarchar langcode "Sprachcode"
+    }
+    REF_ACTUAL_FORECAST {
+        nvarchar y_month PK "ewb_sp_actualforecast — YYYY-MM"
+        nvarchar actual_forecast "Actual / Forecast"
     }
     REF_ABTEILUNG { int nr PK }
     REF_KONTO {
@@ -401,6 +413,15 @@ erDiagram
     REF_KRED_BUCHUNGSSTATUS {
         int statusid PK "ext_ewb_kred_kbl_main.STATID — Buchungsstatus"
         nvarchar bezeichnung "Statusbezeichnung"
+    }
+    REF_PROJEKTKATEGORIE {
+        int KategorieNr PK "ewb_sp_projektekategorien"
+        nvarchar KategorieName "Hauptgruppen-Bezeichnung"
+    }
+    REF_PROJEKTKATEGORISIERUNG {
+        nvarchar Projektnummer PK "ewb_sp_kategorisierungprojekte"
+        int KategorieNr "FK ref_projektkategorie"
+        nvarchar KostenstelleName "Sharepoint Mapping"
     }
 
     %% === LINKS ===
@@ -467,6 +488,7 @@ erDiagram
     HUB_PERSON ||--o{ SAT_PERSON__ABACUS : has
     HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE__ABACUS : has
     HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT__ABACUS : has
+    HUB_ADRESSE ||--o{ SAT_ADRESSE__IDMS : has
 
     %% Finance Links
     HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
@@ -505,12 +527,11 @@ erDiagram
     HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : ""
     HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : ""
 
-    %% IDMS
-    HUB_IDMS_ADDRESS ||--o{ SAT_IDMS_ADDRESS__IDMS : "has"
-
     %% Reference Tables
     SAT_PROJEKTSACHKONTO__ABACUS }o--|| REF_LEISTUNGSART : "CODE"
     SAT_PROJEKT__ABACUS }o--|| REF_PROJEKTSTATUS : "STATUSNR"
+    HUB_PROJEKT }o--|| REF_PROJEKTKATEGORISIERUNG : "PROJNR = Projektnummer"
+    REF_PROJEKTKATEGORISIERUNG }o--|| REF_PROJEKTKATEGORIE : "KategorieNr"
     SAT_PERSON__ABACUS }o--|| REF_ABTEILUNG : "HOME_DEPT_NR"
     HUB_KONTO }o--|| REF_KONTO : "KTO = KontoNr"
     HUB_KOSTENSTELLE }o--|| REF_KOSTENSTELLE : "KST = KostenstelleNr"
