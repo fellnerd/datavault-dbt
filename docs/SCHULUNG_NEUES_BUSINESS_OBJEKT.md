@@ -21,9 +21,8 @@
 11. [Schritt 7 — Raw Vault: Hub & Satellite erstellen](#schritt-7--raw-vault-hub--satellite-erstellen)
 12. [Schritt 7.5 — Link nachrüsten (Option B Upgrade)](#schritt-75--link-nachrüsten-option-b-upgrade)
 13. [Schritt 7.6 — Multi-Source Hub (Cross-Source Integration)](#schritt-76--multi-source-hub-cross-source-integration)
-14. [Schritt 8 — Mart: Dimension erstellen](#schritt-8--mart-dimension-erstellen)
-11. [Schritt 8 — Mart: Dimension erstellen](#schritt-8--mart-dimension-erstellen)
-12. [Gesamtcheckliste](#gesamtcheckliste)
+14. [Schritt 8 — Mart: Dimension & Fakt erstellen](#schritt-8--mart-dimension--fakt-erstellen)
+15. [Gesamtcheckliste](#gesamtcheckliste)
 
 ---
 
@@ -1253,43 +1252,265 @@ dbt run-operation run_sql --args '{"sql": "DROP TABLE IF EXISTS [vault].[hub_idm
 
 > ⚠️ **Reihenfolge:** View vor Tabellen droppen. Falls die View die Tabelle referenziert, schlägt der Table-Drop sonst fehl.
 
+---
 
+## Schritt 8 — Mart: Dimension & Fakt erstellen
 
-### Was entsteht hier?
-- `mart.dim_idms_address_v` — Fertige Dimension für Power BI
+Der **Mart Layer** ist die letzte Schicht — die "lesbare" Sicht für Business-User und Power BI.  
+Während der Raw Vault auf Auditierbarkeit und Historisierung optimiert ist (Hash Keys, viele Tabellen), ist der Mart auf **Verständlichkeit und Abfrage-Performance** optimiert.
 
-### Warum eine Dimension?
-Der Raw Vault hat eine sehr technische Struktur (Hash Keys, Historisierung).  
-Die **Dimension** ist die "lesbare" Sicht für Business-User und BI-Tools:
-- Verständliche Spaltennamen
-- Nur der aktuelle Stand (via `_current_v` View)
-- Surrogate Key als Integer für Power BI
+### 8.1 — Was ist dimensionale Modellierung? (Star Schema)
 
-### Befehl
-Erstelle `models/mart/_common/dim_idms_address_v.sql` (siehe Schritt 8 Template unten).
+Der Mart folgt dem **Kimball Star Schema**. Es gibt nur zwei Arten von Objekten:
 
-### Struktur der Dimension
 ```
-mart.dim_idms_address_v
-├── address_key        ← Surrogate Key (BIGINT, für Power BI Joins)
-├── address_id         ← Business Key (id aus Quelle)
-├── address_code       ← Sprechender Schlüssel (Fallback = id)
-├── address_name       ← Bezeichnung (nachname + vorname oder firma)
-├── firma
-├── nachname
-├── vorname
-├── strasse
-├── strasse_nr
-├── plzort
-├── emailaddr
-├── dss_load_date
-└── dss_record_source
+                    ┌──────────────────┐
+                    │  dim_person_v    │   ← WER? (beschreibende Stammdaten)
+                    └────────┬─────────┘
+                             │ person_key
+                             │
+        ┌──────────────────┐ │ ┌──────────────────┐
+        │  dim_projekt_v   │─┼─│  dim_date_v      │
+        └──────────────────┘ │ └──────────────────┘
+                  projekt_key │ date_key
+                             ▼
+                    ┌──────────────────┐
+                    │  fakt_stunden_v  │   ← WAS/WIEVIEL? (messbare Fakten)
+                    │  • projekt_key   │
+                    │  • person_key    │
+                    │  • date_key      │
+                    │  • betrag (Measure)
+                    └──────────────────┘
 ```
 
-### Deploy
+| Objekttyp | Frage | Inhalt | Beispiel |
+|---|---|---|---|
+| **Dimension** (`dim_*_v`) | WER / WAS / WO / WANN? | Beschreibende Attribute | Person, Projekt, Konto, Datum |
+| **Faktentabelle** (`fakt_*_v`) | WIEVIEL / WIE OFT? | Messbare Kennzahlen + FKs zu Dimensionen | Stunden, Buchungen, Anrufe |
+
+**Die zentrale Frage beim Modellieren:** Was will der Fachbereich **messen** (→ Fakt) und nach welchen **Kriterien** will er es aufschlüsseln (→ Dimensionen)?
+
+> 💡 **Beispiel Finanz-Reporting:** Der Fachbereich will den **Betrag** (Measure) sehen, aufgeschlüsselt nach **Konto**, **Kostenstelle** und **Periode** (3 Dimensionen). → 1 Faktentabelle `fakt_buchungen_v` + 3 Dimensionen.
+
+### 8.2 — Was vor dem Bauen zu klären ist
+
+Bevor man eine Mart-View schreibt, klärt man **4 Designfragen**:
+
+```
+1. Dimension oder Fakt?       → Beschreibung = dim, Messung = fakt
+2. Welche Granularität?       → Was ist 1 Zeile? (1 Buchung? 1 Person? 1 Tag?)
+3. SCD1 oder SCD2?            → Aktueller Stand oder Historie? (siehe 8.3)
+4. Welche Vault-Objekte?     → Welche Hubs/Sats/Links liefern die Daten?
+```
+
+#### Granularität (das Wichtigste bei Fakten!)
+
+Die **Granularität** legt fest, was **eine Zeile** in der Faktentabelle bedeutet:
+
+| Faktentabelle | 1 Zeile = | Granularität |
+|---|---|---|
+| `fakt_stunden_v` | 1 Projektsachkonto-Buchung | fein (atomar) |
+| `fakt_cdr_v` | 1 Anruf / 1 Daten-Session | sehr fein (atomar) |
+| `fakt_aktive_abos_v` | 1 Vertrag zu einem Stichtag | aggregiert |
+
+> ⚠️ **Regel:** Alle Measures in einer Faktentabelle müssen **dieselbe Granularität** haben. Niemals Tages- und Monatssummen in derselben Tabelle mischen.
+
+### 8.3 — SCD1 vs SCD2 (Slowly Changing Dimensions)
+
+Eine der wichtigsten Designentscheidungen: Wie geht die Dimension mit **Änderungen über Zeit** um?
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  SCD Typ 1 — "Nur der aktuelle Stand"                            │
+│                                                                  │
+│  Person 42 zieht um: Bern → Zürich                              │
+│  → dim zeigt nur: Zürich (alte Adresse überschrieben)           │
+│  → 1 Zeile pro Person                                            │
+│  → Quelle: sat_*_current_v  (WHERE dss_is_current = 'Y')        │
+│  → STANDARD für die meisten Dimensionen                         │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│  SCD Typ 2 — "Komplette Historie"                               │
+│                                                                  │
+│  Person 42 zieht um: Bern → Zürich                              │
+│  → dim zeigt BEIDE Zeilen:                                       │
+│      42 | Bern   | gültig 2020–2024 | is_current = N            │
+│      42 | Zürich | gültig 2024–heute| is_current = Y            │
+│  → mehrere Zeilen pro Person (je Gültigkeitszeitraum)           │
+│  → Quelle: Satellite direkt (alle Records, mit dss_end_date)    │
+│  → Nur wenn der Fachbereich Historie BRAUCHT                    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Wie wählt man?**
+
+| Frage | SCD1 | SCD2 |
+|---|---|---|
+| "Wie ist die Adresse **jetzt**?" | ✅ | |
+| "Wo wohnte die Person **2022**?" | | ✅ |
+| Reporting auf aktuellem Stand | ✅ | |
+| Historische Auswertungen / Trends | | ✅ |
+
+> 💡 **Faustregel:** Starte mit **SCD1** (`sat_*_current_v`). Das deckt 90% der Reporting-Anforderungen ab. SCD2 nur wenn der Fachbereich explizit Historie verlangt.
+
+Der Mechanismus ist einfach: Der Raw Vault speichert **immer** die volle Historie (SCD2) im Satellite. Die `_current_v` View filtert auf `dss_is_current = 'Y'` → daraus wird SCD1. Du entscheidest also pro Dimension, ob du die `_current_v` View (SCD1) oder den Satellite direkt (SCD2) verwendest.
+
+### 8.4 — Surrogate Keys
+
+Power BI verknüpft Dimensionen und Fakten über **Surrogate Keys** — schmale BIGINT-Schlüssel statt der langen Hash Keys aus dem Vault.
+
+```sql
+{{ surrogate_key('lohnnr') }} AS person_key
+-- generiert: ABS(CONVERT(BIGINT, HASHBYTES('MD5', CAST(lohnnr AS NVARCHAR(MAX)))))
+```
+
+**Die wichtigste Regel:** Dimension und Faktentabelle müssen **denselben** `surrogate_key()`-Aufruf auf **denselben** Business Key anwenden — sonst matchen die Joins nicht:
+
+```sql
+-- In dim_person_v.sql:
+{{ surrogate_key('lohnnr') }} AS person_key       -- ← Dimension PK
+
+-- In fakt_stunden_v.sql:
+{{ surrogate_key('hp.projnr') }} AS projekt_key   -- ← Fakt FK (gleiche Logik!)
+```
+
+> 💡 Deterministisch: `surrogate_key('42')` ergibt **immer denselben** BIGINT — egal in welchem Modell. Deshalb funktioniert der Join.
+
+### 8.5 — Dimension Pflicht-Spalten
+
+Jede Dimension hat ein standardisiertes Spalten-Gerüst:
+
+| Spalte | Typ | Beschreibung | Fallback |
+|---|---|---|---|
+| `{dim}_key` | BIGINT | Surrogate Key (PK) via `surrogate_key()` | — |
+| `{dim}_id` | NVARCHAR(255) | Technische ID | — |
+| `{dim}_code` | NVARCHAR(255) | Sprechender Schlüssel | = ID |
+| `{dim}_name` | NVARCHAR(255) | Bezeichnung | = CODE oder `'UNKNOWN'` |
+| `dss_load_date` | DATETIME2 | Ladezeitpunkt aus Vault | — |
+| `dss_record_source` | NVARCHAR(255) | Quelle | — |
+
+Die **NULL-Behandlung** mit Fallbacks ist Pflicht (verhindert leere Felder im Report):
+```sql
+ISNULL(NULLIF(code_col, ''), CAST(id_col AS NVARCHAR(255)))   AS {dim}_code
+ISNULL(NULLIF(name_col, ''), ISNULL(code_col, 'UNKNOWN'))     AS {dim}_name
+```
+
+### 8.6 — Dimension Template (Beispiel `dim_adresse_v`)
+
+Eine Dimension joint Hub + Current-View des Satellites. Für unsere IDMS-Adresse:
+
+```sql
+/*
+ * Dimension: dim_adresse
+ * Schema: mart (mart/_common/)
+ * SCD1 — aktueller Stand via sat_adresse__idms_current_v
+ */
+
+{{ config(materialized='view', tags=['dimension']) }}   -- ← ✅ IMMER GLEICH
+
+SELECT
+    {{ surrogate_key('h.inr') }}                          AS adresse_key,   -- ← 🔧 BK
+    CAST(h.inr AS NVARCHAR(255))                          AS adresse_id,
+    ISNULL(NULLIF(s.firma, ''),
+           CAST(h.inr AS NVARCHAR(255)))                  AS adresse_code,
+    ISNULL(NULLIF(CONCAT_WS(', ', s.nachname, s.vorname), ''),
+           ISNULL(s.firma, 'UNKNOWN'))                    AS adresse_name,
+    -- Weitere beschreibende Attribute
+    s.firma,
+    s.strasse,
+    s.strasse_nr,
+    s.emailaddr,
+    -- Metadaten
+    s.dss_load_date,
+    s.dss_record_source
+FROM {{ ref('hub_adresse') }} h                            -- ← 🔧 Hub
+INNER JOIN {{ ref('sat_adresse__idms_current_v') }} s     -- ← 🔧 Current View (SCD1!)
+    ON h.hk_adresse = s.hk_adresse
+```
+
+| Stelle | Anpassen? |
+|---|---|
+| `config(materialized='view', tags=['dimension'])` | ✅ immer gleich |
+| `surrogate_key('h.inr')` | 🔧 Business Key der Dimension |
+| `{dim}_key/_id/_code/_name` | 🔧 Pflichtspalten benennen |
+| `ref('hub_*')` + `ref('sat_*_current_v')` | 🔧 Vault-Quellen |
+| `WHERE` / `current_v` | 🔧 SCD1 (current_v) vs SCD2 (Satellite direkt) |
+
+### 8.7 — Faktentabelle Template
+
+Eine Faktentabelle verbindet über **Links** mehrere Hubs und sammelt die **Measures** aus den Satellites:
+
+```sql
+/*
+ * Faktentabelle: fakt_<content>
+ * Granularität: 1 Zeile pro <event>
+ */
+
+{{ config(materialized='view', tags=['fact']) }}          -- ← ✅ IMMER GLEICH
+
+SELECT
+    -- Foreign Keys: GLEICHER surrogate_key()-Aufruf wie in den Dimensionen!
+    {{ surrogate_key('h_proj.projnr') }}     AS projekt_key,    -- ← 🔧 FK zu dim_projekt
+    {{ surrogate_key('h_pers.lohnnr') }}     AS person_key,     -- ← 🔧 FK zu dim_person
+    -- Measures (die Kennzahlen)
+    s.azbetint                                AS betrag,         -- ← 🔧 Measure
+    -- Metadaten
+    s.dss_load_date,
+    s.dss_record_source
+FROM {{ ref('hub_projektsachkonto') }} h                        -- ← 🔧 zentraler Hub
+INNER JOIN {{ ref('sat_projektsachkonto__abacus_current_v') }} s
+    ON h.hk_projektsachkonto = s.hk_projektsachkonto
+INNER JOIN {{ ref('link_projektsachkonto_projekt') }} lnk       -- ← 🔧 Link für FKs
+    ON h.hk_projektsachkonto = lnk.hk_projektsachkonto
+INNER JOIN {{ ref('hub_projekt') }} h_proj
+    ON lnk.hk_projekt = h_proj.hk_projekt
+WHERE s.azbetint <> 0                                            -- ← 🔧 fachlicher Filter
+```
+
+### 8.8 — Materialisierung: View vs. Table
+
+| Materialisierung | Wann? |
+|---|---|
+| `materialized='view'` | **Standard** — Virtualisierung, immer aktuell, keine Speicherung |
+| `materialized='table'` | Nur bei Performance-Problemen (grosse Joins, viele Zeilen) |
+
+> ⚠️ **Pflicht-Regel bei `table`:** Wenn ein Mart-Objekt als `table` materialisiert wird, MUSS eine 1:1 Wrapper-View `_v` existieren. Power BI nutzt immer die `_v` View, nie die interne Tabelle.
+
+```
+fakt_cdr.sql      → materialized='table'   (interner Performance-Cache)
+fakt_cdr_v.sql    → materialized='view'    → SELECT * FROM {{ ref('fakt_cdr') }}
+                                              ↑ Power BI nutzt diese
+```
+
+### 8.9 — Schema-YAML & Tests
+
+Jede Mart-View wird in `models/mart/<concept>/_<concept>__models.yml` dokumentiert. Pflicht-Tests:
+
+```yaml
+models:
+  - name: dim_adresse_v
+    description: "Adress-Dimension (SCD1) aus hub_adresse + sat_adresse__idms"
+    columns:
+      - name: adresse_key
+        tests: [not_null, unique]      # ← Surrogate Key muss eindeutig sein!
+      - name: adresse_code
+        tests: [not_null]
+      - name: adresse_name
+        tests: [not_null]
+```
+
+### 8.10 — Deploy
+
 ```bash
-dbt run --select mart.dim_idms_address_v --target ewb-dev
+# Dimension deployen (mit allen Upstream-Vault-Objekten)
+dbt run --select +mart._common.dim_adresse_v --target ewb-dev
+
+# Tests
+dbt test --select mart._common.dim_adresse_v --target ewb-dev
 ```
+
+> 💡 **Schema-Konvention:** Geteilte Dimensionen liegen in `mart/_common/` (Schema `mart`).  
+> Domain-spezifische Objekte liegen in `mart/<concept>/` (Schema `mart_<concept>`, z.B. `mart_finance`, `mart_telecom`).
 
 ---
 
@@ -1319,8 +1540,13 @@ Nutze diese Checkliste für jedes neue Business-Objekt:
 - [ ] Alle Vault-Objekte deployed, Tests grün ✅
 
 ### Mart (Schritt 8)
-- [ ] `dim_<entity>_v.sql` erstellt
-- [ ] Dimension deployed ✅
+- [ ] Designfragen geklärt: Dimension oder Fakt? Granularität? SCD1/SCD2?
+- [ ] `dim_<entity>_v.sql` erstellt (Pflicht-Spalten: key/id/code/name + Metadaten)
+- [ ] `surrogate_key()` für PK (Dimension) und FKs (Fakt) konsistent verwendet
+- [ ] `fakt_<content>_v.sql` erstellt (bei messbaren Daten)
+- [ ] `_<concept>__models.yml` mit Tests (`not_null`, `unique` auf `{dim}_key`)
+- [ ] Bei `table`-Materialisierung: zusätzliche `_v` Wrapper-View
+- [ ] Mart-Views deployed, Tests grün ✅
 
 ---
 
