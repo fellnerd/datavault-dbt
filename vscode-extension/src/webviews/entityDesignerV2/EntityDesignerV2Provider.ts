@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { getWebviewContent } from './getWebviewContent';
+import { migrateV1toV2 } from '../../v2/services/configStoreV2';
+import { isV1Config, isV2Config } from '../../v2/types';
 
 /**
  * Extension-side types mirroring the webview types.
@@ -176,20 +178,30 @@ export class EntityDesignerV2Provider {
 
   private async loadAndSendConfig(): Promise<void> {
     try {
+      let config: EntityConfigV2 | null = null;
+
+      // 1. Try the exact config path (concept_entityName.json)
       const configPath = this.getConfigPath();
-      let config: EntityConfigV2;
-
       if (fs.existsSync(configPath)) {
-        const raw = fs.readFileSync(configPath, 'utf-8');
-        const parsed = JSON.parse(raw);
+        config = this.readConfigFile(configPath);
+      }
 
-        if (parsed.version === 2) {
-          config = parsed;
-        } else {
-          // v1 config detected — send empty v2 config, migration can happen in extension
-          config = this.createEmptyConfig();
+      // 2. Fallback: search by sourceTable. Handles the case where the
+      //    config was saved under a different entity name (e.g. v1 stored
+      //    "idms_address" while the source table is "ext_idms_address_main").
+      if (!config && this._sourceTable) {
+        const found = this.findConfigBySourceTable(this._sourceTable);
+        if (found) {
+          config = found.config;
+          // Sync identity to the found file so future saves target it
+          this._concept = found.concept;
+          this._entityName = found.entityName;
+          this.updateTitle();
         }
-      } else {
+      }
+
+      // 3. Nothing found → start with an empty config
+      if (!config) {
         config = this.createEmptyConfig();
       }
 
@@ -211,6 +223,63 @@ export class EntityDesignerV2Provider {
         message: `Failed to load config: ${err}`,
       });
     }
+  }
+
+  /**
+   * Read a config file, migrating v1 → v2 when needed.
+   * Returns null for unrecognized formats.
+   */
+  private readConfigFile(filePath: string): EntityConfigV2 | null {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    if (isV2Config(raw)) {
+      return raw as unknown as EntityConfigV2;
+    }
+    if (isV1Config(raw)) {
+      return migrateV1toV2(raw) as unknown as EntityConfigV2;
+    }
+    return null;
+  }
+
+  /**
+   * Search the entity-designer directory for a config whose sourceTable
+   * matches the given table. Used as a fallback when the derived entity
+   * name does not match the saved file name.
+   */
+  private findConfigBySourceTable(
+    sourceTable: string
+  ): { config: EntityConfigV2; concept: string; entityName: string } | null {
+    const dir = path.join(this._projectPath, '.vscode', 'entity-designer');
+    if (!fs.existsSync(dir)) return null;
+
+    for (const file of fs.readdirSync(dir)) {
+      if (!file.endsWith('.json')) continue;
+      try {
+        const filePath = path.join(dir, file);
+        const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        if (raw?.sourceTable !== sourceTable) continue;
+
+        const config = isV2Config(raw)
+          ? (raw as unknown as EntityConfigV2)
+          : isV1Config(raw)
+            ? (migrateV1toV2(raw) as unknown as EntityConfigV2)
+            : null;
+        if (!config) continue;
+
+        // Derive concept + entity name from the file name using the config's
+        // own concept (which may itself contain underscores, e.g. "_common").
+        const concept: string = raw.concept || '_common';
+        const baseName = file.replace(/\.json$/, '');
+        const prefix = `${concept}_`;
+        const entityName = baseName.startsWith(prefix)
+          ? baseName.substring(prefix.length)
+          : baseName;
+
+        return { config, concept, entityName };
+      } catch {
+        /* skip malformed config files */
+      }
+    }
+    return null;
   }
 
   private createEmptyConfig(): EntityConfigV2 {
@@ -257,8 +326,8 @@ export class EntityDesignerV2Provider {
       const genModule = await import('../../v2/services/entityGeneratorV2');
 
       const configPath = this.getConfigPath();
-      const raw = fs.readFileSync(configPath, 'utf-8');
-      const config = JSON.parse(raw);
+      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const config = isV1Config(parsed) ? migrateV1toV2(parsed) : parsed;
 
       const validation = genModule.validateConfig(config);
       const validationErrors = validation.messages.filter((m: { severity: string }) => m.severity === 'error');
@@ -313,8 +382,8 @@ export class EntityDesignerV2Provider {
       const genModule = await import('../../v2/services/entityGeneratorV2');
 
       const configPath = this.getConfigPath();
-      const raw = fs.readFileSync(configPath, 'utf-8');
-      const config = JSON.parse(raw);
+      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const config = isV1Config(parsed) ? migrateV1toV2(parsed) : parsed;
 
       const result = genModule.validateConfig(config);
 
@@ -347,8 +416,8 @@ export class EntityDesignerV2Provider {
       const configPath = this.getConfigPath();
       if (!fs.existsSync(configPath)) return;
 
-      const raw = fs.readFileSync(configPath, 'utf-8');
-      const config = JSON.parse(raw);
+      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const config = isV1Config(parsed) ? migrateV1toV2(parsed) : parsed;
 
       const result = genModule.generateAll(config, { projectPath: this._projectPath });
 
@@ -376,13 +445,17 @@ export class EntityDesignerV2Provider {
       for (const file of fs.readdirSync(designerDir)) {
         if (!file.endsWith('.json')) continue;
         try {
-          const raw = fs.readFileSync(path.join(designerDir, file), 'utf-8');
-          const config = JSON.parse(raw);
-          if (config.version === 2 && config.objects) {
-            for (const [name, obj] of Object.entries(config.objects)) {
-              if ((obj as { type: string }).type === 'hub') {
-                hubs.push(name);
-              }
+          const raw = JSON.parse(fs.readFileSync(path.join(designerDir, file), 'utf-8'));
+          // Normalize v1 → v2 so hubs from legacy configs are also listed
+          const config = isV2Config(raw)
+            ? (raw as unknown as EntityConfigV2)
+            : isV1Config(raw)
+              ? (migrateV1toV2(raw) as unknown as EntityConfigV2)
+              : null;
+          if (!config?.objects) continue;
+          for (const [name, obj] of Object.entries(config.objects)) {
+            if ((obj as { type: string }).type === 'hub') {
+              hubs.push(name);
             }
           }
         } catch { /* skip malformed */ }

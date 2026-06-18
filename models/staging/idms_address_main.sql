@@ -3,7 +3,7 @@
  *
  * Source: ext_idms_address_main (IDMS Address Main.parquet)
  * Business Key: id (aliased as inr für Cross-Source Integration mit hub_adresse)
- * Hash Key: hk_adresse  ← gemeinsamer Hub mit ewb_publ_adr_main (Abacus)
+ * Hash Key: hk_adresse - gemeinsamer Hub mit ewb_publ_adr_main (Abacus)
  * Payload: 21 Spalten — Adress- und Personendaten (firma, nachname, vorname, strasse, etc.)
  *
  * Hinweis: ts und timestamp_landing-zone werden nicht in den Hashdiff aufgenommen
