@@ -2,7 +2,7 @@
 title: IDMS Raw Vault ER-Diagramm
 ---
 erDiagram
-    HUB_INTERNET_SERVICE {
+    hub_internet_service {
         char64 hk_internet_service PK "computed"
         int id BK "idms_internet_service_main.id"
         nvarchar dss_business_key "computed"
@@ -11,7 +11,7 @@ erDiagram
         varchar dss_record_source "ewb_idms"
     }
 
-    SAT_INTERNET_SERVICE__IDMS {
+    sat_internet_service__idms {
         char64 hk_internet_service FK "hub_internet_service"
         datetime2 dss_load_date PK "metadata"
         char64 hd_idms_internet_service "computed"
@@ -33,4 +33,4 @@ erDiagram
         datetime2 dss_end_date "NULL = aktuell"
     }
 
-    HUB_INTERNET_SERVICE ||--o{ SAT_INTERNET_SERVICE__IDMS : has
+    hub_internet_service ||--o{ sat_internet_service__idms : has

@@ -8,21 +8,21 @@ erDiagram
     %% HUBS
     %% ========================================
 
-    HUB_PERSON {
+    hub_person {
         char64 hk_person PK "SHA2_256(EMPL_NR)"
         nvarchar empl_nr "ext_ewb_lohn_len_main.EMPL_NR"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_ADRESSE {
+    hub_adresse {
         char64 hk_adresse PK "SHA2_256(INR)"
         nvarchar inr "ewb_publ_adr_main.INR / idms_address_main.id→inr"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_ZEITERFASSUNG {
+    hub_zeiterfassung {
         char64 hk_zeiterfassung PK "SHA2_256(EMPLNR^^PROJDAT)"
         nvarchar emplnr "ext_ewb_proj_ntc_main.EMPLNR"
         date projdat "ext_ewb_proj_ntc_main.PROJDAT"
@@ -34,7 +34,7 @@ erDiagram
     %% SATELLITES
     %% ========================================
 
-    SAT_PERSON {
+    sat_person__abacus {
         char64 hk_person FK "hub_person"
         char64 hd_person "hash diff"
         nvarchar empl_id "Mitarbeiter-ID (518 distinct)"
@@ -63,7 +63,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_PERSON_ADRESSE {
+    sat_person_adresse__abacus {
         char64 hk_adresse FK "hub_adresse"
         char64 hd_person_adresse "hash diff"
         nvarchar name "Name"
@@ -74,7 +74,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_ADRESSE_KONTAKT {
+    sat_adresse_kontakt__abacus {
         char64 hk_adresse FK "hub_adresse"
         char64 hd_adresse_kontakt "hash diff"
         nvarchar plz "Postleitzahl"
@@ -86,7 +86,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_ADRESSE__IDMS {
+    sat_adresse__idms {
         char64 hk_adresse FK "hub_adresse"
         char64 hd_adresse__idms "hash diff"
         int anrede "Anrede-Code"
@@ -116,7 +116,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_ZEITERFASSUNG {
+    sat_zeiterfassung__abacus {
         char64 hk_zeiterfassung FK "hub_zeiterfassung"
         char64 hd_zeiterfassung "hash diff"
         nvarchar from1_to10 "10 Zeitintervalle"
@@ -132,7 +132,7 @@ erDiagram
     %% REFERENCE TABLE
     %% ========================================
 
-    REF_ABTEILUNG {
+    ref_abteilung_v {
         int nr PK "ext_ewb_lohn_ltc_main — 109 Gruppen"
         nvarchar description "Beschreibung"
         int group_nr "GROUP (=1 fuer Abteilungen)"
@@ -142,7 +142,7 @@ erDiagram
     %% LINK
     %% ========================================
 
-    LINK_ADRESSE_PERSON {
+    link_adresse_person {
         char64 hk_link PK "SHA2_256(hk_person^^hk_adresse)"
         char64 hk_person FK "hub_person"
         char64 hk_adresse FK "hub_adresse"
@@ -150,7 +150,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_ZEITERFASSUNG_PERSON {
+    link_zeiterfassung_person {
         char64 hk_link PK "SHA2_256(hk_zeiterfassung^^hk_person)"
         char64 hk_zeiterfassung FK "hub_zeiterfassung"
         char64 hk_person FK "hub_person"
@@ -162,23 +162,23 @@ erDiagram
     %% RELATIONSHIPS — Hub → Satellite
     %% ========================================
 
-    HUB_PERSON ||--o{ SAT_PERSON : has
-    HUB_ADRESSE ||--o{ SAT_PERSON_ADRESSE : has
-    HUB_ADRESSE ||--o{ SAT_ADRESSE_KONTAKT : has
-    HUB_ADRESSE ||--o{ SAT_ADRESSE__IDMS : has
-    HUB_ZEITERFASSUNG ||--o{ SAT_ZEITERFASSUNG : has
+    hub_person ||--o{ sat_person__abacus : has
+    hub_adresse ||--o{ sat_person_adresse__abacus : has
+    hub_adresse ||--o{ sat_adresse_kontakt__abacus : has
+    hub_adresse ||--o{ sat_adresse__idms : has
+    hub_zeiterfassung ||--o{ sat_zeiterfassung__abacus : has
 
     %% ========================================
     %% RELATIONSHIPS — Hub → Link
     %% ========================================
 
-    HUB_PERSON ||--o{ LINK_ADRESSE_PERSON : "ADR.LOHNNR = LEN.EMPL_NR"
-    HUB_ADRESSE ||--o{ LINK_ADRESSE_PERSON : "ADR.INR"
-    HUB_ZEITERFASSUNG ||--o{ LINK_ZEITERFASSUNG_PERSON : "NTC.EMPLNR"
-    HUB_PERSON ||--o{ LINK_ZEITERFASSUNG_PERSON : "LEN.EMPL_NR"
+    hub_person ||--o{ link_adresse_person : "ADR.LOHNNR = LEN.EMPL_NR"
+    hub_adresse ||--o{ link_adresse_person : "ADR.INR"
+    hub_zeiterfassung ||--o{ link_zeiterfassung_person : "NTC.EMPLNR"
+    hub_person ||--o{ link_zeiterfassung_person : "LEN.EMPL_NR"
 
     %% ========================================
     %% RELATIONSHIPS — Reference
     %% ========================================
 
-    SAT_PERSON }o--|| REF_ABTEILUNG : "HOME_DEPT_NR zu NR"
+    sat_person__abacus }o--|| ref_abteilung_v : "HOME_DEPT_NR zu NR"

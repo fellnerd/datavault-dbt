@@ -6,14 +6,14 @@
  * Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
  *
  * Quell-Vault-Objekte:
- *   hub_adresse + sat_person_adresse, hub_person + sat_person,
- *   link_adresse_person, ref_abteilung, ewb_publ_adr_main
+ *   sat_person_adresse__abacus_current_v, sat_person__abacus_current_v,
+ *   link_adresse_person, ref_abteilung_v, ewb_publ_adr_main
  *
  * Business-Logik:
  *   1. Nur aktive Mitarbeiter: LOHNJN='1', GESPERRT=0, LOHNNR<>0
- *   2. Initialen via current_v (nur aktuelle Records)
+ *   2. Alle Satelliten-Daten via *_current_v (SCD1 — nur aktueller Stand je hk_*)
  *   3. Abteilung: Nur GROUP=1
- *   4. Dedup: ROW_NUMBER nach MutationDate DESC
+ *   4. Dedup: ROW_NUMBER nach MutationDate DESC, Name ASC
  *
  */
 

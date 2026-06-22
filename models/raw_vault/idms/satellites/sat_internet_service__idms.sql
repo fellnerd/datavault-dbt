@@ -8,14 +8,14 @@
     materialized='incremental',
     as_columnstore=false,
     post_hook=[
-        "{{ create_hash_index('') }}",
-        "{{ update_satellite_current_flag(this, '') }}"
+        "{{ create_hash_index('hk_internet_service') }}",
+        "{{ update_satellite_current_flag(this, 'hk_internet_service') }}"
     ]
 ) }}
 
 {%- set yaml_metadata -%}
 source_model: "idms_internet_service_main"
-src_pk: ""
+src_pk: "hk_internet_service"
 src_hashdiff:
     source_column: "hd_idms_internet_service"
     alias: "HASHDIFF"
