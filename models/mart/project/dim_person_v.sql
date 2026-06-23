@@ -41,6 +41,7 @@ person_details AS (
     SELECT
         hk_person,
         abrv,
+        code_2,
         CAST(home_dept_nr AS INT) AS home_dept_nr,
         TRY_CAST(mutation_date AS DATE) AS mutation_date,
         TRY_CAST(date_in AS DATE) AS date_in,
@@ -56,6 +57,7 @@ joined AS (
         pd.abrv,
         pd.home_dept_nr,
         ref_abt.description                  AS abteilung,
+        ref_funktion.description             AS funktion,
         pd.mutation_date,
         pd.date_in,
         pd.date_out,
@@ -75,6 +77,8 @@ joined AS (
     LEFT JOIN {{ ref('ref_abteilung_v') }} ref_abt
         ON pd.home_dept_nr = TRY_CAST(ref_abt.nr AS INT)
         AND TRY_CAST(ref_abt.group_nr AS INT) = 1
+    LEFT JOIN {{ ref('ref_funktion_v') }} ref_funktion
+        ON pd.code_2 = ref_funktion.id
 )
 
 SELECT
@@ -87,6 +91,7 @@ SELECT
     )                                                                        AS person_name,
     CAST(home_dept_nr AS INT)                                                AS abteilung_nr,
     ISNULL(abteilung, 'UNKNOWN')                                             AS abteilung,
+    ISNULL(funktion, 'UNKNOWN')                                              AS funktion,
     mutation_date,
     date_in                                                                  AS eintritt,
     TRY_CAST(FORMAT(date_in, 'yyyyMMdd') AS INT)                             AS eintritt_date_key,

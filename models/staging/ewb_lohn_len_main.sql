@@ -51,6 +51,7 @@ hashed_columns:
       - "SOC_INSURANCE_NR"
       - "TYPE"
       - "ZEMIS_NR"
+      - "CODE_2"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
