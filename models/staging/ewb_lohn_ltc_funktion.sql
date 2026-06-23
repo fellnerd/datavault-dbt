@@ -4,9 +4,9 @@
  * Pattern: Reference Table Source (keine Hash-Berechnung)
  * Target: ref_funktion_v
  *
- * Ergänzung zu ewb_lohn_ltc_main (Abteilungen).
- * Diese View liefert alle LTC-Einträge ungefiltert — Business Key ist ID
- * (Funktionscode aus CODE_2 in LOHN.LEN).
+ * Ergänzung zu ewb_lohn_ltc_main (Abteilungen, GROUP=1).
+ * Diese View liefert LTC-Einträge für GROUP=41 (Funktionscodes) — Business Key ist ID
+ * (Funktionscode aus CODE_2 in LOHN.LEN). GROUP=41 enthält alle 207 Funktionsbezeichnungen.
  *
  * Columns:
  *   ID       — Primary Key (Funktionscode, z.B. CODE_2 aus LEN)
@@ -24,10 +24,14 @@ staged AS (
         TEXT                                                        AS description,
         [GROUP]                                                     AS group_nr,
         COALESCE(dss_record_source, 'ewb_abacus')                  AS dss_record_source,
-        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())  AS dss_load_date
+        COALESCE(TRY_CAST(dss_load_date AS DATETIME2), GETDATE())  AS dss_load_date,
+        ROW_NUMBER() OVER (PARTITION BY ID ORDER BY NR)            AS rn
 
     FROM source
-    WHERE ID IS NOT NULL
+    WHERE [GROUP] = 41
+      AND ID IS NOT NULL
 )
 
-SELECT * FROM staged
+SELECT id, description, group_nr, dss_record_source, dss_load_date
+FROM staged
+WHERE rn = 1
