@@ -949,31 +949,6 @@ models:
     data_type: "varchar(100)"
     tests: 
     - not_null
-- name: "ref_funktion_v"
-  description: "Reference Table: Funktionen (LOHN.LTC.Main, ungefiltert) — Funktionscode-Lookup via CODE_2 aus LOHN.LEN"
-  columns:
-  - name: "id"
-    description: "Funktionscode (Primary Key, entspricht CODE_2 in LOHN.LEN)"
-    data_type: "nvarchar(4000)"
-    tests:
-    - not_null
-    - unique
-  - name: "description"
-    description: "Funktionsbezeichnung"
-    data_type: "nvarchar(4000)"
-  - name: "group_nr"
-    description: "Gruppierungsebene (aus [GROUP])"
-    data_type: "decimal(38,18)"
-  - name: "dss_load_date"
-    description: "Ladezeitpunkt"
-    data_type: "datetime2(7)"
-    tests:
-    - not_null
-  - name: "dss_record_source"
-    description: "Datenquelle"
-    data_type: "varchar(100)"
-    tests:
-    - not_null
 - name: "hub_projekt"
   description: |
     Hub for projekt entity.
