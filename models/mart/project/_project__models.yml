@@ -84,6 +84,76 @@ models:
         description: "Quellenidentifikation (ghost_record fuer Ghost)"
         data_type: nvarchar(255)
 
+  - name: dim_person_funktion_v
+    description: |
+      Mitarbeiterliste mit Funktion und Abteilung (aktive Mitarbeiter).
+      Entspricht Original-Abfrage: LOHN.LEN JOIN LTC(Funktion) JOIN LTC(Abteilung).
+      Filter: date_out IS NULL, code_2 nicht leer.
+      Hinweis: CODE_2 (Funktionscode) wird aus Staging bezogen (nicht im Satellite-Payload).
+      Quelle: sat_person__abacus_current_v + ewb_lohn_len_main + ref_funktion_v + ref_abteilung_v.
+    columns:
+      - name: person_key
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', badge_id))"
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
+      - name: person_id
+        description: "Technische ID (badge_id als String)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: person_code
+        description: "Sprechender Schluessel (badge_id)"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: person_name
+        description: "Nachname, Vorname. NULL → 'UNKNOWN'"
+        data_type: nvarchar(255)
+        tests:
+          - not_null
+      - name: last_name
+        description: "Nachname (sat_person__abacus.last_name)"
+        data_type: nvarchar(4000)
+      - name: first_name
+        description: "Vorname (sat_person__abacus.first_name)"
+        data_type: nvarchar(4000)
+      - name: badge_id
+        description: "Mitarbeiter-Ausweis-ID (sat_person__abacus.badge_id)"
+        data_type: nvarchar(255)
+      - name: abteilung_nr
+        description: "Abteilungsnummer (sat_person__abacus.home_dept_nr)"
+        data_type: int
+      - name: abteilung
+        description: "Abteilungsbezeichnung (ref_abteilung_v.description, GROUP=1). NULL → 'UNKNOWN'"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: funktion_code
+        description: "Funktionscode (CODE_2 aus LOHN.LEN, via Staging)"
+        data_type: nvarchar(4000)
+      - name: funktion
+        description: "Funktionsbezeichnung (ref_funktion_v.description). NULL → 'UNKNOWN'"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: eintritt
+        description: "Eintrittsdatum (sat_person__abacus.date_in)"
+        data_type: date
+      - name: eintritt_date_key
+        description: "FK → dim_date.date_key (YYYYMMDD aus date_in)"
+        data_type: int
+      - name: mutation_date
+        description: "Letzte Mutation (sat_person__abacus.mutation_date)"
+        data_type: date
+      - name: dss_load_date
+        description: "Ladezeitpunkt aus Vault"
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "Quellenidentifikation"
+        data_type: nvarchar(255)
+
   - name: dim_projekt_v
     description: |
       Projektstammdaten mit Status-Aufloesung.
