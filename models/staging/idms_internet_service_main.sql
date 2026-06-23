@@ -41,7 +41,7 @@ hashed_columns:
       - "SERVICE_SUBSCRIPTION_ID"
       - "START"
       - "SUBSCRIPTION_ID"
-      - "TIMESTAMP_LANDING-ZONE"
+      - "[TIMESTAMP_LANDING-ZONE]"
 {%- endset -%}
 
 {% set metadata_dict = fromyaml(yaml_metadata) %}
