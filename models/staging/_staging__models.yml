@@ -1180,6 +1180,32 @@ models:
         data_type: datetime2(7)
         tests:
           - not_null
+  - name: ewb_lohn_ltc_funktion
+    description: "Staging: LOHN.LTC.Main (Funktionen, ungefiltert) — Quelle für ref_funktion_v"
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_lohn_ltc_main
+    columns:
+      - name: id
+        description: Funktionscode (Primary Key, entspricht CODE_2 in LOHN.LEN)
+        tests:
+          - not_null
+      - name: description
+        description: Funktionsbezeichnung
+      - name: group_nr
+        description: Gruppierungsebene — aus [GROUP]
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
   - name: ewb_proj_npo_main
     description: Staging view for projekt from _common
     config:
