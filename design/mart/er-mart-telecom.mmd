@@ -3,108 +3,147 @@ title: "ER-Diagramm: Mart Telecom (mart_telecom)"
 ---
 
 erDiagram
-    %% ===========================================================================
-    %% MART TELECOM — Star Schema für CDR / Mobilfunk-Auswertungen
-    %% Schema: mart_telecom
-    %% Datenstand: Rolling 30 Tage (nach Retention-Purge-Aktivierung)
-    %% ===========================================================================
-
-    %% ---------------------------------------------------------------------------
-    %% DIMENSIONEN
-    %% ---------------------------------------------------------------------------
-
     dim_mobilvertrag_v {
-        bigint       vertrag_key         PK "Surrogate Key (MD5 vertrag_id)"
-        nvarchar255  vertrag_id              "Compax Vertrags-ID"
-        nvarchar255  vertrag_code            "= vertrag_id"
-        nvarchar255  vertrag_name            "Abo-Name; Fallback: vertrag_id"
-        nvarchar255  abo_name                "Haupt-Abo (ist_option=0)"
-        date         aktivierungs_datum      "Vertragsbeginn"
-        date         kundigungs_datum        "Kündigungsdatum; NULL = aktiv"
-        nvarchar1    is_active               "Y = aktiv, N = gekündigt"
-        datetime2    dss_load_date
-        nvarchar255  dss_record_source
+        bigint vertrag_key PK "SK = MD5(vertrag_id)"
+        nvarchar vertrag_id "Compax Vertrags-ID"
+        nvarchar vertrag_code "= vertrag_id"
+        nvarchar vertrag_name "Abo-Name / Fallback vertrag_id"
+        nvarchar abo_name "Haupt-Abo"
+        date aktivierungs_datum "Vertragsbeginn"
+        date kundigungs_datum "NULL = aktiv"
+        nvarchar is_active "Y/N"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
     dim_mobilkunde_v {
-        bigint       kunde_key           PK "Surrogate Key (MD5 kunde_id)"
-        nvarchar255  kunde_id                "Compax Kunden-ID"
-        nvarchar255  kunde_code              "= kunde_id"
-        nvarchar255  kunde_name              "immer UNKNOWN (kein Name in Quelle)"
-        nvarchar255  external_customer_id    "Abacus Kundennummer"
-        datetime2    dss_load_date
-        nvarchar255  dss_record_source
+        bigint kunde_key PK "SK = MD5(kunde_id)"
+        nvarchar kunde_id "Compax Kunden-ID"
+        nvarchar kunde_code "= kunde_id"
+        nvarchar kunde_name "immer UNKNOWN"
+        nvarchar external_customer_id "Abacus Kundennummer"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
     dim_sim_v {
-        bigint       sim_key             PK "Surrogate Key (MD5 icc/ICCID)"
-        nvarchar255  sim_id                  "ICCID"
-        nvarchar255  sim_code                "= ICCID"
-        nvarchar255  sim_name                "= ICCID"
-        datetime2    dss_load_date
-        nvarchar255  dss_record_source
+        bigint sim_key PK "SK = MD5(ICCID)"
+        nvarchar sim_id "ICCID"
+        nvarchar sim_code "= ICCID"
+        nvarchar sim_name "= ICCID"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
-    %% ---------------------------------------------------------------------------
-    %% FAKTENTABELLEN
-    %% ---------------------------------------------------------------------------
+    dim_date {
+        int date_key PK "YYYYMMDD (interne Table, mart._common)"
+        date full_date "Natuerlicher Schluessel"
+        int year
+        int quarter
+        int month
+        nvarchar month_name
+        nvarchar year_month
+        int iso_week
+        nvarchar day_name
+        char is_weekend
+        datetime2 dss_load_date
+    }
+
+    dim_date_v {
+        int date_key PK "Publizierte View auf dim_date"
+        date full_date
+        nvarchar year_month
+        int iso_week
+        char is_today
+        char is_yesterday
+    }
 
     fakt_cdr_v {
-        bigint       vertrag_key         FK "→ dim_mobilvertrag_v"
-        bigint       kunde_key           FK "→ dim_mobilkunde_v (nullable)"
-        bigint       sim_key             FK "→ dim_sim_v"
-        int          verbindungs_datum_key   "yyyyMMdd (→ zukünftig dim_datum)"
-        nvarchar20   record_type             "DATA / MOC / MTC / FORW / SMS"
-        nvarchar20   service_type
-        nvarchar255  tarif                   "Degenerate Dim"
-        nvarchar255  event_id                "CDR-ID aus Compax"
-        bit          is_roaming              "1 = Roaming"
-        decimal18_2  duration_sec            "Dauer in Sekunden"
-        decimal18_6  bytes_out_mb            "Datenvolumen in MB"
-        decimal18_4  price
-        decimal18_4  ws_price
-        datetime2    connection_start
-        nvarchar255  hk_link_cdr_event_tl    "Traceability"
-        datetime2    dss_load_date
-        nvarchar255  dss_record_source
+        bigint vertrag_key FK "dim_mobilvertrag_v"
+        bigint kunde_key FK "dim_mobilkunde_v nullable"
+        bigint sim_key FK "dim_sim_v"
+        int verbindungs_datum_key FK "dim_date"
+        nvarchar record_type "DATA / MOC / MTC / FORW / SMS / ROAM"
+        nvarchar service_type
+        nvarchar tarif "Degenerate Dimension"
+        nvarchar event_id "Compax CDR-ID"
+        bit is_roaming "1 = Roaming"
+        decimal duration_sec "Sekunden"
+        decimal bytes_out_mb "Datenvolumen in MB"
+        decimal price
+        decimal ws_price
+        datetime2 connection_start
+        nvarchar hk_link_cdr_event_tl "Traceability"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
+    }
+
+    fakt_datenvolumen {
+        bigint vertrag_key FK "dim_mobilvertrag_v"
+        bigint kunde_key FK "dim_mobilkunde_v nullable"
+        int verbindungs_datum_key FK "dim_date"
+        int session_count "Anzahl Datensessions"
+        decimal mb_total "MB gesamt"
+        decimal gb_total "GB gesamt"
+        decimal mb_national "MB national"
+        decimal mb_roaming "MB Roaming"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
     fakt_datenvolumen_v {
-        bigint       vertrag_key         FK "→ dim_mobilvertrag_v"
-        bigint       kunde_key           FK "→ dim_mobilkunde_v"
-        int          verbindungs_datum_key   "yyyyMMdd PK-Teil"
-        int          session_count           "Anzahl Datensessions"
-        decimal18_4  mb_total                "MB gesamt"
-        decimal18_6  gb_total                "GB gesamt"
-        decimal18_4  mb_national             "MB national"
-        decimal18_4  mb_roaming              "MB Roaming"
-        datetime2    dss_load_date
-        nvarchar255  dss_record_source
+        bigint vertrag_key FK "Publizierte View auf fakt_datenvolumen"
+        bigint kunde_key FK "dim_mobilkunde_v nullable"
+        int verbindungs_datum_key FK "dim_date"
+        int session_count
+        decimal mb_total
+        decimal gb_total
+        decimal mb_national
+        decimal mb_roaming
+        datetime2 dss_load_date
+        nvarchar dss_record_source
+    }
+
+    fakt_anrufe {
+        bigint vertrag_key FK "dim_mobilvertrag_v"
+        bigint kunde_key FK "dim_mobilkunde_v nullable"
+        int verbindungs_datum_key FK "dim_date"
+        nvarchar record_type "MOC / MTC / FORW / SMS"
+        bit is_roaming
+        int anruf_count
+        decimal duration_sec_total
+        decimal duration_min_total
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
     fakt_anrufe_v {
-        bigint       vertrag_key         FK "→ dim_mobilvertrag_v"
-        bigint       kunde_key           FK "→ dim_mobilkunde_v"
-        int          verbindungs_datum_key   "yyyyMMdd PK-Teil"
-        nvarchar20   record_type             "MOC / MTC / FORW / SMS PK-Teil"
-        bit          is_roaming              "PK-Teil"
-        int          anruf_count             "Anzahl Verbindungen"
-        decimal18_2  duration_sec_total      "Gesamtdauer Sekunden"
-        decimal18_4  duration_min_total      "Gesamtdauer Minuten"
-        datetime2    dss_load_date
-        nvarchar255  dss_record_source
+        bigint vertrag_key FK "Publizierte View auf fakt_anrufe"
+        bigint kunde_key FK "dim_mobilkunde_v nullable"
+        int verbindungs_datum_key FK "dim_date"
+        nvarchar record_type "MOC / MTC / FORW / SMS"
+        bit is_roaming
+        int anruf_count
+        decimal duration_sec_total
+        decimal duration_min_total
+        datetime2 dss_load_date
+        nvarchar dss_record_source
     }
 
-    %% ---------------------------------------------------------------------------
-    %% BEZIEHUNGEN
-    %% ---------------------------------------------------------------------------
+    dim_date ||--|| dim_date_v : "SELECT * + is_today/is_yesterday"
+    fakt_datenvolumen ||--|| fakt_datenvolumen_v : "publizierte Wrapper-View"
+    fakt_anrufe ||--|| fakt_anrufe_v : "publizierte Wrapper-View"
 
-    dim_mobilvertrag_v ||--o{ fakt_cdr_v             : "vertrag_key"
-    dim_mobilkunde_v   ||--o{ fakt_cdr_v             : "kunde_key"
-    dim_sim_v          ||--o{ fakt_cdr_v             : "sim_key"
+    dim_mobilvertrag_v ||--o{ fakt_cdr_v : "vertrag_key"
+    dim_mobilkunde_v o|--o{ fakt_cdr_v : "kunde_key"
+    dim_sim_v ||--o{ fakt_cdr_v : "sim_key"
+    dim_date ||--o{ fakt_cdr_v : "verbindungs_datum_key"
 
-    dim_mobilvertrag_v ||--o{ fakt_datenvolumen_v    : "vertrag_key"
-    dim_mobilkunde_v   ||--o{ fakt_datenvolumen_v    : "kunde_key"
+    dim_mobilvertrag_v ||--o{ fakt_datenvolumen : "vertrag_key"
+    dim_mobilkunde_v o|--o{ fakt_datenvolumen : "kunde_key"
+    dim_date ||--o{ fakt_datenvolumen : "verbindungs_datum_key"
 
-    dim_mobilvertrag_v ||--o{ fakt_anrufe_v          : "vertrag_key"
-    dim_mobilkunde_v   ||--o{ fakt_anrufe_v          : "kunde_key"
+    dim_mobilvertrag_v ||--o{ fakt_anrufe : "vertrag_key"
+    dim_mobilkunde_v o|--o{ fakt_anrufe : "kunde_key"
+    dim_date ||--o{ fakt_anrufe : "verbindungs_datum_key"
+

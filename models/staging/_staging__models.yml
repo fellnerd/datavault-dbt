@@ -1180,6 +1180,32 @@ models:
         data_type: datetime2(7)
         tests:
           - not_null
+  - name: ewb_lohn_ltc_funktion
+    description: "Staging: LOHN.LTC.Main (Funktionen, ungefiltert) — Quelle für ref_funktion_v"
+    config:
+      meta:
+        entity_type: reference
+        source_type: external_table
+        external_table: ext_ewb_lohn_ltc_main
+    columns:
+      - name: id
+        description: Funktionscode (Primary Key, entspricht CODE_2 in LOHN.LEN)
+        tests:
+          - not_null
+      - name: description
+        description: Funktionsbezeichnung
+      - name: group_nr
+        description: Gruppierungsebene — aus [GROUP]
+      - name: dss_record_source
+        description: Datenquelle
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: Ladezeitpunkt
+        data_type: datetime2(7)
+        tests:
+          - not_null
   - name: ewb_proj_npo_main
     description: Staging view for projekt from _common
     config:
@@ -2995,3 +3021,187 @@ models:
       - name: dss_load_date
         tests:
           - not_null
+
+  - name: idms_address_main
+    description: "Staging view for IDMS Address Main (IDMS/address/Main.parquet). Cross-Source Integration: id aliasiert als inr für hub_adresse."
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_idms_address_main
+        business_keys:
+          - id
+    columns:
+      - name: hk_adresse
+        description: "Hash Key (Primary Key) — gemeinsamer Hub mit Abacus PUBL.ADR"
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hd_adresse__idms
+        description: "Hash Diff for change detection"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: inr
+        description: "Business Key alias (CAST(id AS NVARCHAR) — gemeinsamer BK-Name für hub_adresse)"
+        data_type: nvarchar(max)
+        tests:
+          - not_null
+      - name: id
+        description: "Original Business Key (IDMS Adress-ID)"
+        data_type: int
+      - name: cust_id
+        description: "Kunden-ID (FK)"
+        data_type: int
+      - name: ref
+        description: "Referenz"
+        data_type: nvarchar(4000)
+      - name: flags
+        description: "Flags"
+        data_type: int
+      - name: mandate_id
+        description: "Mandanten-ID"
+        data_type: int
+      - name: free_field
+        description: "Freies Feld"
+        data_type: nvarchar(4000)
+      - name: firma
+        description: "Firmenname"
+        data_type: nvarchar(4000)
+      - name: anrede
+        description: "Anrede (kodiert)"
+        data_type: int
+      - name: nachname
+        description: "Nachname"
+        data_type: nvarchar(4000)
+      - name: vorname
+        description: "Vorname"
+        data_type: nvarchar(4000)
+      - name: zusatz
+        description: "Adresszusatz"
+        data_type: nvarchar(4000)
+      - name: strasse
+        description: "Strasse"
+        data_type: nvarchar(4000)
+      - name: strasse_nr
+        description: "Strassennummer"
+        data_type: nvarchar(4000)
+      - name: postfach
+        description: "Postfach"
+        data_type: nvarchar(4000)
+      - name: plzort
+        description: "PLZ/Ort-Referenz (kodiert)"
+        data_type: int
+      - name: tel
+        description: "Telefon"
+        data_type: nvarchar(4000)
+      - name: fax
+        description: "Fax"
+        data_type: nvarchar(4000)
+      - name: telg
+        description: "Telefon Geschaeft"
+        data_type: nvarchar(4000)
+      - name: telm
+        description: "Telefon Mobil"
+        data_type: nvarchar(4000)
+      - name: emailaddr
+        description: "E-Mail Adresse"
+        data_type: nvarchar(4000)
+      - name: status
+        description: "Status"
+        data_type: int
+      - name: ts
+        description: "Systemzeitstempel"
+        data_type: nvarchar(4000)
+      - name: egid
+        description: "Eidgenoessischer Gebaeudeidentifikator"
+        data_type: int
+      - name: dss_record_source
+        description: "Data source identifier (ewb_idms)"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp (aus timestamp_landing-zone)"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+        data_type: datetime2(7)
+      - name: dss_business_key
+        description: "Concatenated business key string - id"
+        data_type: nvarchar(4000)
+
+  - name: idms_internet_service_main
+    description: "Staging view for IDMS Internet Service Main (IDMS/internet_service/Main.parquet). BK: id."
+    config:
+      meta:
+        entity_type: standard
+        source_type: external_table
+        external_table: ext_idms_internet_service_main
+        business_keys:
+          - id
+    columns:
+      - name: hk_internet_service
+        description: "Hash Key (SHA2_256) — hub_internet_service"
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: id
+        description: "Business Key (IDMS Internet-Service-ID)"
+        data_type: int
+        tests:
+          - not_null
+      - name: service_subscription_id
+        description: "Service Subscription ID (FK)"
+        data_type: int
+      - name: start
+        description: "Startdatum/-zeitpunkt"
+        data_type: nvarchar(4000)
+      - name: end
+        description: "Enddatum/-zeitpunkt"
+        data_type: nvarchar(4000)
+      - name: subscription_id
+        description: "Subscription ID (FK)"
+        data_type: int
+      - name: invoice_type
+        description: "Rechnungstyp"
+        data_type: int
+      - name: price_override
+        description: "Preis-Override"
+        data_type: real
+      - name: charge_add_mb
+        description: "Zusatzkosten pro MB"
+        data_type: int
+      - name: plusemail
+        description: "Plus E-Mail Option"
+        data_type: int
+      - name: plusip
+        description: "Plus IP Option"
+        data_type: int
+      - name: custom_attr
+        description: "Benutzerdefinierte Attribute"
+        data_type: nvarchar(4000)
+      - name: managed_wlan
+        description: "Managed WLAN"
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: "Data source identifier (ewb_idms)"
+        data_type: varchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp (aus timestamp_landing-zone)"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+      - name: dss_create_datetime
+        description: "dbt processing timestamp"
+        data_type: datetime2(7)
+      - name: dss_business_key
+        description: "Concatenated business key string - id"
+        data_type: nvarchar(4000)
+

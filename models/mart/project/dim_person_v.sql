@@ -6,14 +6,14 @@
  * Repliziert Synapse [Projekt].[Personal] + [Projekt].[Abteilung].
  *
  * Quell-Vault-Objekte:
- *   hub_adresse + sat_person_adresse, hub_person + sat_person,
- *   link_adresse_person, ref_abteilung, ewb_publ_adr_main
+ *   sat_person_adresse__abacus_current_v, sat_person__abacus_current_v,
+ *   link_adresse_person, ref_abteilung_v, ewb_publ_adr_main
  *
  * Business-Logik:
  *   1. Nur aktive Mitarbeiter: LOHNJN='1', GESPERRT=0, LOHNNR<>0
- *   2. Initialen via current_v (nur aktuelle Records)
+ *   2. Alle Satelliten-Daten via *_current_v (SCD1 — nur aktueller Stand je hk_*)
  *   3. Abteilung: Nur GROUP=1
- *   4. Dedup: ROW_NUMBER nach MutationDate DESC
+ *   4. Dedup: ROW_NUMBER nach MutationDate DESC, Name ASC
  *
  */
 
@@ -41,6 +41,7 @@ person_details AS (
     SELECT
         hk_person,
         abrv,
+        code_2,
         CAST(home_dept_nr AS INT) AS home_dept_nr,
         TRY_CAST(mutation_date AS DATE) AS mutation_date,
         TRY_CAST(date_in AS DATE) AS date_in,
@@ -56,6 +57,7 @@ joined AS (
         pd.abrv,
         pd.home_dept_nr,
         ref_abt.description                  AS abteilung,
+        ref_funktion.description             AS funktion,
         pd.mutation_date,
         pd.date_in,
         pd.date_out,
@@ -75,6 +77,8 @@ joined AS (
     LEFT JOIN {{ ref('ref_abteilung_v') }} ref_abt
         ON pd.home_dept_nr = TRY_CAST(ref_abt.nr AS INT)
         AND TRY_CAST(ref_abt.group_nr AS INT) = 1
+    LEFT JOIN {{ ref('ref_funktion_v') }} ref_funktion
+        ON pd.code_2 = ref_funktion.id
 )
 
 SELECT
@@ -87,6 +91,7 @@ SELECT
     )                                                                        AS person_name,
     CAST(home_dept_nr AS INT)                                                AS abteilung_nr,
     ISNULL(abteilung, 'UNKNOWN')                                             AS abteilung,
+    ISNULL(funktion, 'UNKNOWN')                                              AS funktion,
     mutation_date,
     date_in                                                                  AS eintritt,
     TRY_CAST(FORMAT(date_in, 'yyyyMMdd') AS INT)                             AS eintritt_date_key,

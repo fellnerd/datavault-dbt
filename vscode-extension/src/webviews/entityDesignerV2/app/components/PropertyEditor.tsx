@@ -117,9 +117,26 @@ function ColumnPicker({
     );
   };
 
+  const pickerBtn: React.CSSProperties = {
+    background: 'transparent',
+    color: 'var(--vscode-textLink-foreground, #4daafc)',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: 11,
+    padding: '0 2px',
+  };
+
   return (
     <div style={styles.formGroup}>
-      <label style={styles.label}>{label} ({selected.length})</label>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={styles.label}>{label} ({selected.length})</label>
+        {allOptions.length > 0 && (
+          <span>
+            <button type="button" style={pickerBtn} onClick={() => onChange([...allOptions])}>All</button>
+            <button type="button" style={pickerBtn} onClick={() => onChange([])}>None</button>
+          </span>
+        )}
+      </div>
       <div style={styles.columnList}>
         {allOptions.length === 0 && (
           <div style={styles.emptyPicker}>No columns available</div>
@@ -230,6 +247,13 @@ function SatelliteForm({
           })
         }
       />
+      {/* Exclude columns from hashdiff — selectable from current payload */}
+      <ColumnPicker
+        label="Exclude from Hashdiff"
+        selected={obj.excludeFromHashdiff ?? []}
+        available={obj.srcPayload.filter(c => !(obj.excludeFromHashdiff ?? []).includes(c))}
+        onChange={v => onUpdate(name, { ...obj, excludeFromHashdiff: v.length > 0 ? v : undefined })}
+      />
       <Toggle
         label="Extra Columns"
         checked={(obj.srcExtraColumns ?? []).length > 0}
@@ -245,6 +269,13 @@ function SatelliteForm({
           onChange={v => onUpdate(name, { ...obj, srcExtraColumns: v })}
         />
       )}
+      <Dropdown
+        label="Effective From (optional)"
+        value={obj.srcEff || ''}
+        options={availableColumns}
+        onChange={v => onUpdate(name, { ...obj, srcEff: v || undefined })}
+        placeholder="— none —"
+      />
       <Toggle
         label="Generate Current View"
         checked={obj.generateCurrentView ?? false}
@@ -346,6 +377,12 @@ function MaSatelliteForm({
           })
         }
       />
+      <ColumnPicker
+        label="Exclude from Hashdiff"
+        selected={obj.excludeFromHashdiff ?? []}
+        available={obj.srcPayload.filter(c => !(obj.excludeFromHashdiff ?? []).includes(c))}
+        onChange={v => onUpdate(name, { ...obj, excludeFromHashdiff: v.length > 0 ? v : undefined })}
+      />
       <Toggle
         label="Extra Columns"
         checked={(obj.srcExtraColumns ?? []).length > 0}
@@ -407,6 +444,18 @@ function DcSatelliteForm({
             srcHashdiff: { ...obj.srcHashdiff, sourceColumn: v },
           })
         }
+      />
+      <ColumnPicker
+        label="Exclude from Hashdiff"
+        selected={obj.excludeFromHashdiff ?? []}
+        available={obj.srcPayload.filter(c => !(obj.excludeFromHashdiff ?? []).includes(c))}
+        onChange={v => onUpdate(name, { ...obj, excludeFromHashdiff: v.length > 0 ? v : undefined })}
+      />
+      <ColumnPicker
+        label="Exclude from Hashdiff"
+        selected={obj.excludeFromHashdiff ?? []}
+        available={obj.srcPayload.filter(c => !(obj.excludeFromHashdiff ?? []).includes(c))}
+        onChange={v => onUpdate(name, { ...obj, excludeFromHashdiff: v.length > 0 ? v : undefined })}
       />
       <Toggle
         label="Extra Columns"

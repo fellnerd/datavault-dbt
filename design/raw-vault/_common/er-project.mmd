@@ -8,14 +8,14 @@ erDiagram
     %% HUBS
     %% ========================================
 
-    HUB_PROJEKT {
+    hub_projekt {
         char64 hk_projekt PK "SHA2_256(PROJNR)"
         nvarchar projnr "ext_ewb_proj_npo_main.PROJNR"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_PROJEKTSACHKONTO {
+    hub_projektsachkonto {
         char64 hk_projektsachkonto PK "SHA2_256(PROJNR^^CODE^^PERIYEAR^^PERIMONTH^^GB^^DATASET)"
         nvarchar projnr "ext_ewb_proj_nsa_main.PROJNR"
         nvarchar code "ext_ewb_proj_nsa_main.CODE"
@@ -27,7 +27,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    HUB_PROJEKTTEIL {
+    hub_projektteil {
         char64 hk_projektteil PK "SHA2_256(RECNUM)"
         nvarchar recnum "ext_ewb_proj_prt_main.RECNUM"
         datetime2 dss_load_date "metadata"
@@ -38,7 +38,7 @@ erDiagram
     %% SATELLITES
     %% ========================================
 
-    SAT_PROJEKT {
+    sat_projekt__abacus {
         char64 hk_projekt FK "hub_projekt"
         char64 hd_projekt "hash diff"
         nvarchar projname "Projektname"
@@ -55,7 +55,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_PROJEKTSACHKONTO {
+    sat_projektsachkonto__abacus {
         char64 hk_projektsachkonto FK "hub_projektsachkonto"
         char64 hd_projektsachkonto "hash diff"
         decimal budgetint "Budget intern"
@@ -76,7 +76,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_PROJEKTTEIL__ABACUS {
+    sat_projektteil__abacus {
         char64 hk_projektteil FK "hub_projektteil"
         char64 hd_projektteil "hash diff"
         date date "Datum"
@@ -93,14 +93,14 @@ erDiagram
     %% REFERENCE TABLES
     %% ========================================
 
-    REF_LEISTUNGSART {
+    ref_leistungsart_v {
         int number PK "ext_ewb_proj_ntr_main — 29 Eintraege"
         nvarchar description "Beschreibung"
         nvarchar type "Typ"
         bit inaktiv "Inaktiv-Flag"
     }
 
-    REF_PROJEKTSTATUS {
+    ref_projektstatus_v {
         decimal status PK "ext_ewb_proj_pst_main — 7 Eintraege"
         nvarchar bezeichn "Bezeichnung"
         nvarchar langcode "Sprachcode"
@@ -110,7 +110,7 @@ erDiagram
     %% LINKS
     %% ========================================
 
-    LINK_PROJEKTSACHKONTO_PROJEKT {
+    link_projektsachkonto_projekt {
         char64 hk_link PK "SHA2_256(hk_projektsachkonto^^hk_projekt)"
         char64 hk_projektsachkonto FK "hub_projektsachkonto"
         char64 hk_projekt FK "hub_projekt"
@@ -118,7 +118,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_PROJEKTTEIL_PROJEKT {
+    link_projektteil_projekt {
         char64 hk_link PK "SHA2_256(hk_projektteil^^hk_projekt)"
         char64 hk_projektteil FK "hub_projektteil"
         char64 hk_projekt FK "hub_projekt"
@@ -127,11 +127,11 @@ erDiagram
     }
 
     %% Cross-domain: Hauptbuch → Projekt (detail in er-finance.mmd)
-    HUB_HAUPTBUCH {
+    hub_hauptbuch {
         char64 hk_hauptbuch PK "siehe er-finance.mmd"
     }
 
-    LINK_HAUPTBUCH_PROJEKT {
+    link_hauptbuch_projekt {
         char64 hk_link PK "cross-domain"
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hk_projekt FK "hub_projekt"
@@ -143,27 +143,27 @@ erDiagram
     %% RELATIONSHIPS — Hub → Satellite
     %% ========================================
 
-    HUB_PROJEKT ||--o{ SAT_PROJEKT : has
-    HUB_PROJEKTSACHKONTO ||--o{ SAT_PROJEKTSACHKONTO : has
-    HUB_PROJEKTTEIL ||--o{ SAT_PROJEKTTEIL__ABACUS : has
+    hub_projekt ||--o{ sat_projekt__abacus : has
+    hub_projektsachkonto ||--o{ sat_projektsachkonto__abacus : has
+    hub_projektteil ||--o{ sat_projektteil__abacus : has
 
     %% ========================================
     %% RELATIONSHIPS — Hub → Link
     %% ========================================
 
-    HUB_PROJEKTSACHKONTO ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
-    HUB_PROJEKT ||--o{ LINK_PROJEKTSACHKONTO_PROJEKT : ""
+    hub_projektsachkonto ||--o{ link_projektsachkonto_projekt : ""
+    hub_projekt ||--o{ link_projektsachkonto_projekt : ""
 
-    HUB_PROJEKTTEIL ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
-    HUB_PROJEKT ||--o{ LINK_PROJEKTTEIL_PROJEKT : ""
+    hub_projektteil ||--o{ link_projektteil_projekt : ""
+    hub_projekt ||--o{ link_projektteil_projekt : ""
 
     %% Cross-domain
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
-    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    hub_hauptbuch ||--o{ link_hauptbuch_projekt : ""
+    hub_projekt ||--o{ link_hauptbuch_projekt : ""
 
     %% ========================================
     %% RELATIONSHIPS — Reference Tables
     %% ========================================
 
-    SAT_PROJEKTSACHKONTO }o--|| REF_LEISTUNGSART : "CODE zu NUMBER"
-    SAT_PROJEKT }o--|| REF_PROJEKTSTATUS : "STATUS zu STATUS"
+    sat_projektsachkonto__abacus }o--|| ref_leistungsart_v : "CODE zu NUMBER"
+    sat_projekt__abacus }o--|| ref_projektstatus_v : "STATUS zu STATUS"

@@ -401,8 +401,8 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 
 | Typ | Anzahl | Pilot-Priorität (P1/P2/P3) |
 |---|---|---|
-| Hubs | 13 (+2 Ghost: konto, kostenstelle) | 5×P1, 1×P2, 3×P3, 2×Ghost ✅ |
-| Satellites | 12 | 4×P1, 2×P2, 6×P3 ✅ |
+| Hubs | 14 (+2 Ghost: konto, kostenstelle) **+1 IDMS: idms_address** | 5×P1, 1×P2, 3×P3, 2×Ghost, 1×IDMS ✅ |
+| Satellites | 12 **+1 IDMS: sat_idms_address__idms** | 4×P1, 2×P2, 6×P3, 1×IDMS ✅ |
 | Links | 11 | 1×P1, 3×P2, 7×P3 ✅ (link_buchungskopf_kreditorenbeleg entfernt — 0.08% FK-Match) |
 | **Total Vault-Objekte** | **36** | |
 | Marts Finance | 9 | ✅ Wave 3 + Wave 4 (Budget/Forecast/ActualForecast) |
@@ -412,10 +412,11 @@ Via `Manual Data landingzone`-Pipeline werden 6 Sharepoint-Tabellen als Direktko
 | Staging-Views | 14 Abacus + 8 Sharepoint = 22 | ✅ COMPLETE |
 | Current Views | 12 | ✅ COMPLETE |
 
-**Implementierungsstand (17. April 2026):**
+**Implementierungsstand (17. Juni 2026):**
 - Staging Abacus: **14/15** — `ewb_fibu_fhe_main` ✅, `ewb_fibu_gl` ✅ (5 Jahresscheiben), `ewb_lohn_len_main` ✅, `ewb_publ_adr_main` ✅, `ewb_proj_npo_main` ✅, `ewb_proj_nsa_main` ✅, `ewb_proj_ntc_main` ✅, `ewb_proj_ntr_main` ✅, `ewb_proj_pst_main` ✅, `ewb_proj_prt_main` ✅, `ewb_lohn_ltc_main` ✅, `ewb_kred_kbl_main` ✅, `ewb_kred_kvl_main` ✅, `ewb_kred_kbs_main` ✅ — Fehlend: `ewb_proj_ntb_main` (out of scope, Abacus-Budget ohne Synapse-View)
 - Staging Sharepoint: **8/8** — `ewb_sp_konten` ✅, `ewb_sp_kostenstellen` ✅, `ewb_sp_budget` ✅, `ewb_sp_forecast` ✅, `ewb_sp_actualforecast` ✅, `ewb_sp_zugangsrechte` ✅, `ewb_sp_kategorisierungprojekte` ✅, `ewb_sp_projektekategorien` ✅
-- Vault: **36/36** Objekte implementiert — 13 Hubs (+2 Ghost), 12 Sats (+12 current_v), 11 Links
+- **Vault: 36/36** Objekte implementiert — 13 Hubs (+2 Ghost), 12 Sats (+12 current_v), 11 Links
+- **IDMS Wave (17.6.2026):** `hub_idms_address` + `sat_idms_address__idms` + `sat_idms_address_current_v` — Staging `idms_address_main` deployed
 - Mart: **16/16** Views implementiert — Projekt-Domain ✅, Finance-Domain ✅, Common ✅
 - Reference Tables: **6/6** implementiert — `ref_leistungsart` ✅, `ref_projektstatus` ✅, `ref_abteilung` ✅, `ref_kred_buchungsstatus` ✅, `ref_konto` ✅, `ref_kostenstelle` ✅
 - **Wave 1: ✅ COMPLETE** — Deployed auf `datavault-dev` (28.3.2026, 27/27 OK)

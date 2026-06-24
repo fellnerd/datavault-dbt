@@ -38,6 +38,24 @@ function isDateTimeType(dataType: string): boolean {
   return DATETIME_TYPES.has(base);
 }
 
+/**
+ * Resolve the source-system config for a given entity config.
+ * Falls back to inferring the system from the source table / staging model name
+ * when config.sourceSystem is missing or unknown (e.g. legacy configs saved with
+ * sourceSystem "unknown"), so dss_record_source stays correct instead of
+ * blindly defaulting to ewb_abacus.
+ */
+function resolveSourceConfig(config: EntityConfigV2) {
+  const known = SOURCE_SYSTEMS[config.sourceSystem];
+  if (known) return known;
+
+  const haystack = `${config.sourceTable || ''} ${config.stagingModel || ''}`.toLowerCase();
+  if (haystack.includes('idms')) return SOURCE_SYSTEMS.idms;
+  if (haystack.includes('jira')) return SOURCE_SYSTEMS.jira;
+  if (haystack.includes('adworks')) return SOURCE_SYSTEMS.adworks;
+  return SOURCE_SYSTEMS.ewb_abacus;
+}
+
 // ─── Derived Columns ────────────────────────────────────────
 
 interface DerivedColumnsResult {
@@ -50,7 +68,7 @@ function buildDerivedColumns(config: EntityConfigV2): DerivedColumnsResult {
   const lines: string[] = [];
   const derivedColumnMap = new Map<string, string>();
 
-  const sourceConfig = SOURCE_SYSTEMS[config.sourceSystem] || SOURCE_SYSTEMS.ewb_abacus;
+  const sourceConfig = resolveSourceConfig(config);
 
   // dss_record_source (static literal with ! prefix)
   lines.push(`  dss_record_source: "!${sourceConfig.recordSource}"`);
@@ -216,15 +234,28 @@ function buildHashedColumns(
     if (obj.type === 'satellite' || obj.type === 'ma_satellite' || obj.type === 'dc_satellite') {
       const sat = obj as SatelliteObject | MaSatelliteObject | DcSatelliteObject;
       const hdName = sat.srcHashdiff.sourceColumn;
-      const payloadCols = sat.srcPayload
-        .map(c => c.toUpperCase())
-        .sort(); // automate_dv sorts hashdiff columns alphabetically
-      
-      lines.push(`  ${hdName}:`);
-      lines.push(`    is_hashdiff: true`);
-      lines.push(`    columns:`);
-      for (const col of payloadCols) {
-        lines.push(`      - "${col}"`);
+      const excluded: string[] = (sat.excludeFromHashdiff ?? []).map(c => c.toUpperCase());
+
+      if (excluded.length > 0) {
+        // automate_dv exclude_columns: true — list the EXCLUDED columns
+        lines.push(`  ${hdName}:`);
+        lines.push(`    is_hashdiff: true`);
+        lines.push(`    exclude_columns: true`);
+        lines.push(`    columns:`);
+        for (const col of excluded.sort()) {
+          lines.push(`      - "${col}"`);
+        }
+      } else {
+        // Default: include all payload columns (sorted, uppercase)
+        const payloadCols = sat.srcPayload
+          .map(c => c.toUpperCase())
+          .sort();
+        lines.push(`  ${hdName}:`);
+        lines.push(`    is_hashdiff: true`);
+        lines.push(`    columns:`);
+        for (const col of payloadCols) {
+          lines.push(`      - "${col}"`);
+        }
       }
     }
   }

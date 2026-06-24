@@ -33,6 +33,8 @@ const SQL_RESERVED_KEYWORDS = new Set([
   'PLAN', 'LEVEL', 'KEY', 'STATUS', 'TYPE', 'ORDER', 'GROUP', 'INDEX',
   'BEFORE', 'AFTER', 'FUNCTION', 'VALUE', 'TABLE', 'VIEW', 'USER',
   'ROLE', 'CHECK', 'DEFAULT', 'PRIMARY', 'FOREIGN', 'REFERENCES', 'RETURN',
+  'START', 'END', 'OPEN', 'CLOSE', 'CURRENT', 'PERCENT', 'NATIONAL',
+  'IDENTITY', 'ESCAPE', 'SCHEMA', 'COLUMN', 'CASE', 'PUBLIC',
 ]);
 
 export function isReservedKeyword(name: string): boolean {
