@@ -1,0 +1,36 @@
+---
+title: IDMS Raw Vault ER-Diagramm
+---
+erDiagram
+    hub_internet_service {
+        char64 hk_internet_service PK "computed"
+        int id BK "idms_internet_service_main.id"
+        nvarchar dss_business_key "computed"
+        datetime2 dss_load_date "metadata"
+        datetime2 dss_create_datetime "metadata"
+        varchar dss_record_source "ewb_idms"
+    }
+
+    sat_internet_service__idms {
+        char64 hk_internet_service FK "hub_internet_service"
+        datetime2 dss_load_date PK "metadata"
+        char64 hd_idms_internet_service "computed"
+        int id "Internet-Service-ID"
+        int service_subscription_id "FK Service Subscription"
+        nvarchar start "Start"
+        nvarchar end "Ende"
+        int subscription_id "FK Subscription"
+        int invoice_type "Rechnungstyp"
+        real price_override "Preis-Override"
+        int charge_add_mb "Zusatzkosten pro MB"
+        int plusemail "Plus E-Mail Option"
+        int plusip "Plus IP Option"
+        nvarchar custom_attr "Benutzerdefinierte Attribute"
+        nvarchar managed_wlan "Managed WLAN"
+        datetime2 dss_create_datetime "metadata"
+        varchar dss_record_source "ewb_idms"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL = aktuell"
+    }
+
+    hub_internet_service ||--o{ sat_internet_service__idms : has

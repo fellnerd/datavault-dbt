@@ -32,3 +32,17 @@ temp/
 # Playwright MCP artifacts
 .playwright-mcp/
 .playwr/
+
+# GitHub Copilot / AI-Konfiguration (nicht im Repo)
+.github/agents/
+.github/skills/
+.github/prompts/
+.github/instructions/
+.github/copilot-instructions.md
+.github/hooks/
+`
+# Extended Features & Dokumentation (nicht produktiv)
+docs/extended-features/
+docs/meeting-prep/
+docs/plausibility-check/
+docs/temp/

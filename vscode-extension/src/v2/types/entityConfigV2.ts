@@ -37,6 +37,10 @@ export const SOURCE_SYSTEMS: Record<string, SourceSystemConfig> = {
     recordSource: 'ewb_abacus',
     tenantPrefix: ['default', 'default'],
   },
+  idms: {
+    recordSource: 'ewb_idms',
+    tenantPrefix: ['default', 'default'],
+  },
   jira: {
     recordSource: 'jira',
     tenantPrefix: ['default', 'default'],

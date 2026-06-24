@@ -67,6 +67,8 @@ export interface SatelliteObject extends DvObjectBase {
   srcHashdiff: HashdiffConfig;
   /** Payload attribute columns (lowercased in generated SQL) */
   srcPayload: string[];
+  /** Columns excluded from the hashdiff (uses automate_dv exclude_columns: true pattern) */
+  excludeFromHashdiff?: string[];
   /** Convention: ["dss_create_datetime"] */
   srcExtraColumns?: string[];
   /** Optional effective date column */
@@ -99,6 +101,8 @@ export interface MaSatelliteObject extends DvObjectBase {
   srcCdk: string | string[];
   srcHashdiff: HashdiffConfig;
   srcPayload: string[];
+  /** Columns excluded from the hashdiff (uses automate_dv exclude_columns: true pattern) */
+  excludeFromHashdiff?: string[];
   srcExtraColumns?: string[];
   srcEff?: string;
   parentHub: string;
@@ -115,6 +119,8 @@ export interface DcSatelliteObject extends DvObjectBase {
   srcHashdiff: HashdiffConfig;
   /** Includes DCK columns + attributes */
   srcPayload: string[];
+  /** Columns excluded from the hashdiff (uses automate_dv exclude_columns: true pattern) */
+  excludeFromHashdiff?: string[];
   srcExtraColumns?: string[];
   /** Parent link object name, e.g. "link_beleg_lieferant" */
   parentLink: string;

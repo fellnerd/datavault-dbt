@@ -20,6 +20,7 @@ import {
   SatelliteObject,
   MaSatelliteObject,
   DcSatelliteObject,
+  LinkObject,
   isIncremental,
 } from '../types';
 import {
@@ -140,6 +141,30 @@ export interface GenerateOptions {
   writeToDisk?: boolean;
 }
 
+/**
+ * Resolve a satellite's src_pk from its parent hub/link so generated SQL is
+ * always correct, even if the parent was assigned via the dropdown (which only
+ * sets parentHub) rather than drag-and-drop. A satellite's hash key must equal
+ * its parent's hash key.
+ */
+function resolveObjectPk(obj: DvObject, config: EntityConfigV2): DvObject {
+  if (obj.type === 'satellite' || obj.type === 'ma_satellite') {
+    const sat = obj as SatelliteObject | MaSatelliteObject;
+    const hub = config.objects[sat.parentHub] as HubObject | undefined;
+    if (hub?.srcPk && sat.srcPk !== hub.srcPk) {
+      return { ...sat, srcPk: hub.srcPk };
+    }
+  }
+  if (obj.type === 'dc_satellite') {
+    const dc = obj as DcSatelliteObject;
+    const link = config.objects[dc.parentLink] as LinkObject | undefined;
+    if (link?.srcPk && dc.srcPk !== link.srcPk) {
+      return { ...dc, srcPk: link.srcPk };
+    }
+  }
+  return obj;
+}
+
 export function generateAll(config: EntityConfigV2, options: GenerateOptions): GenerationResultV2 {
   const files: GeneratedFileV2[] = [];
   const errors: string[] = [];
@@ -175,7 +200,8 @@ export function generateAll(config: EntityConfigV2, options: GenerateOptions): G
   }
 
   // 2. Generate vault model SQL for each object
-  for (const [name, obj] of objectsToGenerate) {
+  for (const [name, rawObj] of objectsToGenerate) {
+    const obj = resolveObjectPk(rawObj, config);
     try {
       if (obj.type === 'reference') {
         // Reference tables don't use automate_dv macros

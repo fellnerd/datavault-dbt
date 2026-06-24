@@ -8,28 +8,28 @@ erDiagram
     %% HUBS
     %% ========================================
 
-    HUB_BUCHUNGSKOPF {
+    hub_buchungskopf {
         char64 hk_buchungskopf PK "SHA2_256(RECNUM)"
         nvarchar recnum "ext_ewb_fibu_fhe_main.RECNUM"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_HAUPTBUCH {
+    hub_hauptbuch {
         char64 hk_hauptbuch PK "SHA2_256(RECNUM)"
         nvarchar recnum "ext_ewb_fibu_gl.RECNUM (unique Zeilenidentifier)"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_KREDITORENBELEG {
+    hub_kreditorenbeleg {
         char64 hk_kreditorenbeleg PK "SHA2_256(BELEGNR)"
         nvarchar belegnr "ext_ewb_kred_kbl_main.BELEGNR"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_ZAHLUNG {
+    hub_zahlung {
         char64 hk_zahlung PK "SHA2_256(DOCUMENTNR^^POSITIONNR^^ELEMENTTYP^^INR)"
         nvarchar documentnr "ext_ewb_kred_kvl_main.DOCUMENTNR (= KBL.BELNR)"
         nvarchar positionnr "ext_ewb_kred_kvl_main.POSITIONNR"
@@ -39,21 +39,21 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    HUB_KREDITOR {
+    hub_kreditor {
         char64 hk_kreditor PK "ghost — SHA2_256(KNR)"
         decimal knr "ext_ewb_kred_kbl_main.KNR (Ghost Hub aus Belegen)"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_KONTO {
+    hub_konto {
         char64 hk_konto PK "ghost — kein eigenes Staging"
         nvarchar kontnr "ext_ewb_fibu_gl_e22-e26.KTO"
         datetime2 dss_load_date "metadata"
         varchar dss_record_source "metadata"
     }
 
-    HUB_KOSTENSTELLE {
+    hub_kostenstelle {
         char64 hk_kostenstelle PK "ghost — kein eigenes Staging"
         nvarchar kostnr "ext_ewb_fibu_gl_e22-e26.KST"
         datetime2 dss_load_date "metadata"
@@ -64,7 +64,7 @@ erDiagram
     %% SATELLITES
     %% ========================================
 
-    SAT_BUCHUNGSKOPF {
+    sat_buchungskopf__abacus {
         char64 hk_buchungskopf FK "hub_buchungskopf"
         char64 hd_buchungskopf "hash diff"
         nvarchar plan "PLAN (reserved keyword)"
@@ -78,7 +78,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_HAUPTBUCH {
+    sat_hauptbuch__abacus {
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hd_hauptbuch "hash diff"
         date date "Buchungsdatum"
@@ -104,7 +104,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_KREDITORENBELEG {
+    sat_kreditorenbeleg__abacus {
         char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
         char64 hd_kreditorenbeleg "hash diff"
         nvarchar knr "Kreditoren-Nr"
@@ -118,7 +118,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_ZAHLUNG {
+    sat_zahlung__abacus {
         char64 hk_zahlung FK "hub_zahlung"
         char64 hd_zahlung "hash diff"
         decimal zahlbetrag "Zahlbetrag"
@@ -134,7 +134,7 @@ erDiagram
         datetime2 dss_end_date "NULL=aktuell"
     }
 
-    SAT_KREDITOR {
+    sat_kreditor__abacus {
         char64 hk_kreditor FK "hub_kreditor"
         char64 hd_kreditor "hash diff"
         nvarchar adrid "Kundenname/Adress-ID (aus KBL)"
@@ -148,7 +148,7 @@ erDiagram
     %% LINKS
     %% ========================================
 
-    LINK_HAUPTBUCH_BUCHUNGSKOPF {
+    link_hauptbuch_buchungskopf {
         char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_buchungskopf)"
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hk_buchungskopf FK "hub_buchungskopf"
@@ -156,7 +156,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_KREDITORENBELEG_KREDITOR {
+    link_kreditorenbeleg_kreditor {
         char64 hk_link PK "SHA2_256(hk_kreditorenbeleg^^hk_kreditor)"
         char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
         char64 hk_kreditor FK "hub_kreditor"
@@ -164,7 +164,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_KREDITORENBELEG_ZAHLUNG {
+    link_kreditorenbeleg_zahlung {
         char64 hk_link PK "SHA2_256(hk_kreditorenbeleg^^hk_zahlung)"
         char64 hk_kreditorenbeleg FK "hub_kreditorenbeleg"
         char64 hk_zahlung FK "hub_zahlung"
@@ -172,7 +172,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_HAUPTBUCH_KREDITOR {
+    link_hauptbuch_kreditor {
         char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_kreditor)"
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hk_kreditor FK "hub_kreditor"
@@ -180,7 +180,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_HAUPTBUCH_KONTO {
+    link_hauptbuch_konto {
         char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_konto)"
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hk_konto FK "hub_konto"
@@ -188,7 +188,7 @@ erDiagram
         varchar dss_record_source "metadata"
     }
 
-    LINK_HAUPTBUCH_KOSTENSTELLE {
+    link_hauptbuch_kostenstelle {
         char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_kostenstelle)"
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hk_kostenstelle FK "hub_kostenstelle"
@@ -200,18 +200,18 @@ erDiagram
     %% REFERENCE TABLES
     %% ========================================
 
-    REF_KRED_BUCHUNGSSTATUS {
+    ref_kred_buchungsstatus_v {
         nvarchar statid PK "ext_ewb_kred_kbs_main — 16 Eintraege"
         nvarchar statdef "Status-Definition"
         nvarchar statflag "Status-Flag"
     }
 
     %% Cross-domain: Hauptbuch → Projekt
-    HUB_PROJEKT {
+    hub_projekt {
         char64 hk_projekt PK "siehe er-project.mmd"
     }
 
-    LINK_HAUPTBUCH_PROJEKT {
+    link_hauptbuch_projekt {
         char64 hk_link PK "SHA2_256(hk_hauptbuch^^hk_projekt)"
         char64 hk_hauptbuch FK "hub_hauptbuch"
         char64 hk_projekt FK "hub_projekt"
@@ -223,36 +223,36 @@ erDiagram
     %% RELATIONSHIPS — Hub → Satellite
     %% ========================================
 
-    HUB_BUCHUNGSKOPF ||--o{ SAT_BUCHUNGSKOPF : has
-    HUB_HAUPTBUCH ||--o{ SAT_HAUPTBUCH : has
-    HUB_KREDITORENBELEG ||--o{ SAT_KREDITORENBELEG : has
-    HUB_ZAHLUNG ||--o{ SAT_ZAHLUNG : has
-    HUB_KREDITOR ||--o{ SAT_KREDITOR : has
+    hub_buchungskopf ||--o{ sat_buchungskopf__abacus : has
+    hub_hauptbuch ||--o{ sat_hauptbuch__abacus : has
+    hub_kreditorenbeleg ||--o{ sat_kreditorenbeleg__abacus : has
+    hub_zahlung ||--o{ sat_zahlung__abacus : has
+    hub_kreditor ||--o{ sat_kreditor__abacus : has
 
     %% ========================================
     %% RELATIONSHIPS — Hub → Link
     %% ========================================
 
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
-    HUB_BUCHUNGSKOPF ||--o{ LINK_HAUPTBUCH_BUCHUNGSKOPF : ""
+    hub_hauptbuch ||--o{ link_hauptbuch_buchungskopf : ""
+    hub_buchungskopf ||--o{ link_hauptbuch_buchungskopf : ""
 
-    SAT_KREDITORENBELEG }o--|| REF_KRED_BUCHUNGSSTATUS : "STATID zu STATID"
+    sat_kreditorenbeleg__abacus }o--|| ref_kred_buchungsstatus_v : "STATID zu STATID"
 
-    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
-    HUB_KREDITOR ||--o{ LINK_KREDITORENBELEG_KREDITOR : ""
+    hub_kreditorenbeleg ||--o{ link_kreditorenbeleg_kreditor : ""
+    hub_kreditor ||--o{ link_kreditorenbeleg_kreditor : ""
 
-    HUB_KREDITORENBELEG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
-    HUB_ZAHLUNG ||--o{ LINK_KREDITORENBELEG_ZAHLUNG : ""
+    hub_kreditorenbeleg ||--o{ link_kreditorenbeleg_zahlung : ""
+    hub_zahlung ||--o{ link_kreditorenbeleg_zahlung : ""
 
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
-    HUB_KREDITOR ||--o{ LINK_HAUPTBUCH_KREDITOR : ""
+    hub_hauptbuch ||--o{ link_hauptbuch_kreditor : ""
+    hub_kreditor ||--o{ link_hauptbuch_kreditor : ""
 
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KONTO : ""
-    HUB_KONTO ||--o{ LINK_HAUPTBUCH_KONTO : ""
+    hub_hauptbuch ||--o{ link_hauptbuch_konto : ""
+    hub_konto ||--o{ link_hauptbuch_konto : ""
 
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
-    HUB_KOSTENSTELLE ||--o{ LINK_HAUPTBUCH_KOSTENSTELLE : ""
+    hub_hauptbuch ||--o{ link_hauptbuch_kostenstelle : ""
+    hub_kostenstelle ||--o{ link_hauptbuch_kostenstelle : ""
 
     %% Cross-domain
-    HUB_HAUPTBUCH ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
-    HUB_PROJEKT ||--o{ LINK_HAUPTBUCH_PROJEKT : ""
+    hub_hauptbuch ||--o{ link_hauptbuch_projekt : ""
+    hub_projekt ||--o{ link_hauptbuch_projekt : ""

@@ -1,0 +1,11 @@
+  - name: sat_internet_service__idms
+    description: "Satellite: sat_internet_service__idms (Parent: hub_internet_service)"
+    columns:
+      - name: 
+        description: "Hash Key (FK to hub_internet_service)"
+        tests:
+          - not_null
+      - name: HASHDIFF
+        description: "Hash Diff (change detection)"
+        tests:
+          - not_null

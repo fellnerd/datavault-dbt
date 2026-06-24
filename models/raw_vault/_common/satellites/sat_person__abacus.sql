@@ -64,6 +64,7 @@ src_payload:
     - "soc_insurance_nr"
     - "relevant_for_logib"
     - "zemis_nr"
+    - "code_2"
 src_extra_columns:
     - "dss_create_datetime"
 src_ldts: "dss_load_date"

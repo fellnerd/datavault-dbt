@@ -1,12 +1,12 @@
 erDiagram
-    HUB_ADRESSE {
+    hub_adresse {
         char64      hk_adresse          PK  "vault | Hash(INR)"
         nvarchar    inr                     "Abacus Adressnummer (Interne Referenznummer)"
         datetime2   dss_load_date           "metadata"
         varchar     dss_record_source       "metadata"
     }
 
-    HUB_VERTRAG {
+    hub_vertrag {
         char64      hk_vertrag          PK  "vault | Hash(vertrag_id)"
         nvarchar    vertrag_id              "services.vertrags_nummer / cdr.contract_id"
         nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
@@ -15,7 +15,7 @@ erDiagram
         varchar     dss_record_source       "metadata"
     }
 
-    HUB_KUNDE {
+    hub_kunde {
         char64      hk_kunde            PK  "vault | Hash(kunde_id)"
         nvarchar    kunde_id                "services.customer_id — aliasiert im Staging"
         nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
@@ -24,7 +24,7 @@ erDiagram
         varchar     dss_record_source       "metadata"
     }
 
-    SAT_KUNDE__COMPAX {
+    sat_kunde__compax {
         char64      hk_kunde            FK  "vault | PK Teil 1"
         datetime2   dss_load_date           "PK Teil 2"
         char64      hd_kunde                "Hash Diff"
@@ -35,7 +35,7 @@ erDiagram
         datetime2   dss_end_date            "NULL=aktuell — via post_hook"
     }
 
-    SAT_VERTRAG_EFF__COMPAX {
+    sat_vertrag_eff__compax {
         char64      hk_link_vertrag_kunde FK  "vault | PK — Link Hash"
         char64      hk_vertrag              FK  "vault | DFK (Driving FK)"
         char64      hk_kunde               FK  "vault | SFK (Secondary FK)"
@@ -46,7 +46,7 @@ erDiagram
         varchar     dss_record_source           "metadata"
     }
 
-    SAT_VERTRAG_OPTIONEN_MA__COMPAX {
+    sat_vertrag_optionen_ma__compax {
         char64      hk_vertrag          FK  "vault | PK Teil 1"
         datetime2   dss_load_date           "PK Teil 2"
         nvarchar    abo_option_name          "CDK — PK Teil 3 (Multi-Active Key)"
@@ -59,7 +59,7 @@ erDiagram
         varchar     dss_record_source       "metadata"
     }
 
-    LINK_VERTRAG_KUNDE {
+    link_vertrag_kunde {
         char64      hk_link_vertrag_kunde    PK  "vault | Hash(vertrag_id, kunde_id)"
         char64      hk_vertrag              FK  ""
         char64      hk_kunde               FK  ""
@@ -68,7 +68,7 @@ erDiagram
     }
 
 
-    LINK_KUNDE_ADRESSE {
+    link_kunde_adresse {
         char64      hk_link_kunde_adresse    PK  "vault | Hash(kunde_id, adresse_bk)"
         char64      hk_kunde                FK  "→ vault.hub_kunde"
         char64      hk_adresse              FK  "→ vault.hub_adresse"
@@ -82,7 +82,7 @@ erDiagram
     %% Scope: RSN Mobile (Compax) + künftig RSN Festnetz
     %% ============================================================
 
-    HUB_SIM {
+    hub_sim {
         char64      hk_sim              PK  "vault_telecom | Hash(icc)"
         nvarchar    icc                     "services.icc = cdr.iccid (ICCID — global eindeutig)"
         nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
@@ -91,7 +91,7 @@ erDiagram
         varchar     dss_record_source       "metadata"
     }
 
-    HUB_MSISDN {
+    hub_msisdn {
         char64      hk_msisdn           PK  "vault_telecom | Hash(rufnummer)"
         nvarchar    rufnummer               "services.rufnummer (MSISDN / E.164)"
         nvarchar    dss_business_key        "normierter BK via CONCAT_WS"
@@ -100,7 +100,7 @@ erDiagram
         varchar     dss_record_source       "metadata"
     }
 
-    LINK_VERTRAG_SIM {
+    link_vertrag_sim {
         char64      hk_link_vertrag_sim      PK  "vault_telecom | Hash(vertrag_id, icc)"
         char64      hk_vertrag              FK  "→ vault.hub_vertrag"
         char64      hk_sim                  FK  "→ vault_telecom.hub_sim"
@@ -108,7 +108,7 @@ erDiagram
         varchar     dss_record_source           "metadata"
     }
 
-    LINK_VERTRAG_MSISDN {
+    link_vertrag_msisdn {
         char64      hk_link_vertrag_msisdn   PK  "vault_telecom | Hash(vertrag_id, rufnummer)"
         char64      hk_vertrag              FK  "→ vault.hub_vertrag"
         char64      hk_msisdn              FK  "→ vault_telecom.hub_msisdn"
@@ -116,7 +116,7 @@ erDiagram
         varchar     dss_record_source           "metadata"
     }
 
-    LINK_CDR_EVENT_TL {
+    link_cdr_event_tl {
         char64      hk_link_cdr_event_tl      PK  "vault_telecom | Hash(id, vertrag_id, icc)"
         char64      hk_vertrag              FK  "→ vault.hub_vertrag (via contract_id)"
         char64      hk_sim                  FK  "→ vault_telecom.hub_sim (via iccid)"
@@ -124,7 +124,7 @@ erDiagram
         varchar     dss_record_source           "metadata"
     }
 
-    SAT_CDR_EVENT__COMPAX {
+    sat_cdr_event__compax {
         char64      hk_link_cdr_event_tl  FK  "vault_telecom | PK Teil 1"
         datetime2   dss_load_date            "PK Teil 2 — non-historized, kein Hash Diff"
         nvarchar    id                       "CDR-Event-ID (Compax intern, ~2.7 Mrd)"
@@ -154,13 +154,13 @@ erDiagram
         varchar     dss_record_source        "metadata"
     }
 
-    REF_ABO_OPTION_V {
+    ref_abo_option_v {
         nvarchar    abo_option_name     PK  "vault_telecom | BK (z.B. Mobile M, 5GB Roaming Zone 2)"
         datetime2   dss_load_date           "metadata"
         varchar     dss_record_source       "metadata"
     }
 
-    REF_TARIF_V {
+    ref_tarif_v {
         nvarchar    tarif               PK  "vault_telecom | BK (z.B. Voice MO National)"
         datetime2   dss_load_date           "metadata"
         varchar     dss_record_source       "metadata"
@@ -169,36 +169,36 @@ erDiagram
     %% === RELATIONSHIPS ===
 
     %% vault: Hub → Satellite
-    HUB_KUNDE       ||--o{ SAT_KUNDE__COMPAX               : "hk_kunde"
+    hub_kunde       ||--o{ sat_kunde__compax               : "hk_kunde"
 
     %% vault: Hub → Link
-    HUB_KUNDE       ||--o{ LINK_KUNDE_ADRESSE              : "hk_kunde"
-    HUB_ADRESSE     ||--o{ LINK_KUNDE_ADRESSE              : "hk_adresse"
+    hub_kunde       ||--o{ link_kunde_adresse              : "hk_kunde"
+    hub_adresse     ||--o{ link_kunde_adresse              : "hk_adresse"
 
     %% vault: Link → Effectivity Satellite
-    LINK_VERTRAG_KUNDE ||--o{ SAT_VERTRAG_EFF__COMPAX      : "hk_link_vertrag_kunde (automate_dv.eff_sat)"
+    link_vertrag_kunde ||--o{ sat_vertrag_eff__compax      : "hk_link_vertrag_kunde (automate_dv.eff_sat)"
 
     %% vault: Hub → MA Satellite
-    HUB_VERTRAG     ||--o{ SAT_VERTRAG_OPTIONEN_MA__COMPAX : "hk_vertrag (MA-CDK: abo_option_name)"
+    hub_vertrag     ||--o{ sat_vertrag_optionen_ma__compax : "hk_vertrag (MA-CDK: abo_option_name)"
 
     %% vault: Hub → Link
-    HUB_VERTRAG     ||--o{ LINK_VERTRAG_KUNDE             : "hk_vertrag"
-    HUB_KUNDE       ||--o{ LINK_VERTRAG_KUNDE             : "hk_kunde"
+    hub_vertrag     ||--o{ link_vertrag_kunde             : "hk_vertrag"
+    hub_kunde       ||--o{ link_vertrag_kunde             : "hk_kunde"
 
 
     %% vault × vault_telecom: Cross-Schema Links
-    HUB_VERTRAG     ||--o{ LINK_VERTRAG_SIM               : "vault.hk_vertrag"
-    HUB_SIM         ||--o{ LINK_VERTRAG_SIM               : "vault_telecom.hk_sim"
+    hub_vertrag     ||--o{ link_vertrag_sim               : "vault.hk_vertrag"
+    hub_sim         ||--o{ link_vertrag_sim               : "vault_telecom.hk_sim"
 
-    HUB_VERTRAG     ||--o{ LINK_VERTRAG_MSISDN            : "vault.hk_vertrag"
-    HUB_MSISDN      ||--o{ LINK_VERTRAG_MSISDN            : "vault_telecom.hk_msisdn"
+    hub_vertrag     ||--o{ link_vertrag_msisdn            : "vault.hk_vertrag"
+    hub_msisdn      ||--o{ link_vertrag_msisdn            : "vault_telecom.hk_msisdn"
 
-    HUB_VERTRAG     ||--o{ LINK_CDR_EVENT_TL               : "vault.hk_vertrag (via contract_id)"
-    HUB_SIM         ||--o{ LINK_CDR_EVENT_TL               : "vault_telecom.hk_sim (via iccid)"
+    hub_vertrag     ||--o{ link_cdr_event_tl               : "vault.hk_vertrag (via contract_id)"
+    hub_sim         ||--o{ link_cdr_event_tl               : "vault_telecom.hk_sim (via iccid)"
 
     %% vault_telecom: Transaction Link → Transaction Satellite
-    LINK_CDR_EVENT_TL ||--o{ SAT_CDR_EVENT__COMPAX         : "hk_link_cdr_event_tl"
+    link_cdr_event_tl ||--o{ sat_cdr_event__compax         : "hk_link_cdr_event_tl"
 
     %% vault_telecom: Satellite → Reference (Lookup)
-    SAT_VERTRAG_OPTIONEN_MA__COMPAX }o--|| REF_ABO_OPTION_V  : "abo_option_name"
-    SAT_CDR_EVENT__COMPAX           }o--|| REF_TARIF_V        : "tarif"
+    sat_vertrag_optionen_ma__compax }o--|| ref_abo_option_v  : "abo_option_name"
+    sat_cdr_event__compax           }o--|| ref_tarif_v        : "tarif"
