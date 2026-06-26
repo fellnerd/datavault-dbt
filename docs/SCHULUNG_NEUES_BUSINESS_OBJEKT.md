@@ -23,6 +23,7 @@
 13. [Schritt 7.6 — Multi-Source Hub (Cross-Source Integration)](#schritt-76--multi-source-hub-cross-source-integration)
 14. [Schritt 8 — Mart: Dimension & Fakt erstellen](#schritt-8--mart-dimension--fakt-erstellen)
 15. [Gesamtcheckliste](#gesamtcheckliste)
+16. [Schema-Evolution: Neue Spalte zu einem Satellite hinzufügen](#schema-evolution-neue-spalte-zu-einem-satellite-hinzufügen)
 
 ---
 
@@ -1253,6 +1254,66 @@ dbt run-operation run_sql --args '{"sql": "DROP TABLE IF EXISTS [vault].[hub_idm
 > ⚠️ **Reihenfolge:** View vor Tabellen droppen. Falls die View die Tabelle referenziert, schlägt der Table-Drop sonst fehl.
 
 ---
+
+## Schema-Evolution: Neue Spalte zu einem Satellite hinzufügen
+
+Wenn ein Satellite bereits in Produktion ist und eine neue Spalte hinzukommt, gibt es verschiedene Strategien. Die Wahl hängt davon ab ob die History wichtig ist.
+
+### Was passiert bei `dbt run` (ohne Full Refresh)?
+
+Per Default (`on_schema_change: ignore`) ignoriert dbt neue Spalten stillschweigend — kein Fehler, aber die Spalte kommt **nie in die DB-Tabelle**. Im EWB-Projekt ist `on_schema_change: append_new_columns` gesetzt, d.h. dbt macht automatisch ein `ALTER TABLE ADD COLUMN`. Bestehende Zeilen erhalten `NULL` für die neue Spalte.
+
+```
+Vorher:  hk_person | last_name | first_name
+Nachher: hk_person | last_name | first_name | code_2 (NULL für alte Zeilen)
+```
+
+### Was passiert bei `--full-refresh`?
+
+Die Tabelle wird komplett gedroppt und neu erstellt — alle Spalten korrekt befüllt, aber **die gesamte SCD2-History geht verloren**.
+
+### Entscheidungsmatrix
+
+| Situation | Empfehlung |
+|-----------|-----------|
+| Neue Spalte, History unwichtig / akzeptabel leer | `dbt run` — `append_new_columns` ergänzt Spalte, alte Zeilen = NULL |
+| Neue Spalte, History muss vollständig sein | `--full-refresh` — einmalig, kontrolliert in Wartungsfenster |
+| Neue Spalte aus anderer Quelle | Eigener separater Satellite (`sat_person_kostenstelle__abacus`) |
+| Fundamentaler Themenbruch (z.B. Adresse vs. Vertrag) | Eigener separater Satellite |
+
+### Wann ist ein eigener Satellite sinnvoll?
+
+Nicht jede neue Spalte braucht einen eigenen Satellite — das wäre Over-Engineering. Ein separater Satellite ist sinnvoll wenn:
+
+- Die neue Information kommt aus einer **anderen Quelle** (anderer `__source` Suffix)
+- Die **Änderungsfrequenz** stark abweicht (z.B. Stammdaten ändern sich jährlich, Kontaktdaten täglich)
+- Die History der bestehenden Zeilen **nicht verloren gehen darf** und ein Full Refresh nicht möglich ist
+
+**Beispiel:** Kostenstelle pro Person kommt neu aus einem HR-System:
+```
+hub_person
+    ├── sat_person__abacus            (Name, Adresse, Funktion — aus Abacus)
+    └── sat_person_kostenstelle__hr   (Kostenstelle — aus HR-System)
+```
+
+Beide Satellites hängen am selben Hub — History ist getrennt, kein Full Refresh des bestehenden Satellites nötig.
+
+### Deployment-Reihenfolge bei neuer Spalte (Produktionsumgebung)
+
+```bash
+# 1. Auf dev: Full Refresh des betroffenen Satellites
+dbt run --full-refresh --select sat_person__abacus --target ewb-dev
+
+# 2. Merge Request dev → test → prod erstellen
+# 3. Auf test/prod: dbt run (kein Full Refresh)
+#    → append_new_columns ergänzt die Spalte automatisch
+#    → bestehende Zeilen haben NULL für neue Spalte (akzeptiert)
+#    → neue Zeilen ab nächstem Load vollständig befüllt
+dbt run --select sat_person__abacus --target ewb-test
+```
+
+> 💡 **Data Vault Prinzip:** Der Raw Vault bildet die Quelle ab was sie geliefert hat. Fehlende Werte in historischen Zeilen sind kein Fehler — sie bedeuten «zum damaligen Zeitpunkt nicht bekannt». Erst ab dem Deployment-Zeitpunkt wird die neue Spalte befüllt.
+
 
 ## Schritt 8 — Mart: Dimension & Fakt erstellen
 
