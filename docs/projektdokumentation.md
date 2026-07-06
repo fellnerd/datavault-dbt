@@ -130,6 +130,43 @@ Naming-Konvention: `_ma` vor `__<source>` → `sat_person_lohn_ma__abacus`
 | `sat_person_lohn_ma__abacus` erstellen (MA-Satellite, CDK = LPE_YEAR+LPE_MONTH) | ⬜ Backlog — klären ob EWB Perioden-Analyse benötigt |
 | Staging `ewb_lohn_len_main` für MA-Sat anpassen (src_cdk) | ⬜ Backlog |
 
+---
+
+### 0.7 EDM / i-SE OLAP-Cube (Innosolv) — Anbindung Energiedaten
+
+**Hintergrund:** EWB (Bereich Energie) möchte die Energiedaten aus dem **Energiedaten-Management (EDM)** anbinden. Quellsystem ist **i-SE der Firma Innosolv**; das **Zeitreihenmodul** ist seit Ende 2025 verfügbar. Anfrage von Roger (Juni 2026). Bereits 2023 scheiterte eine Cube-Anbindung an unterschiedlichen Login-/Active-Directory-Anforderungen.
+
+**Ist-Zustand (live in `sub-ewbuchs-prd-01` verifiziert, 2026-06-23):**
+
+| Komponente | Status |
+|---|---|
+| Relationale i-SE-Daten in Landing Zone: **eine DB `EWBPROD`** (Schemas `Basis`/`Faktura`/`Objekt`, 597 Tabellen), extrahiert via feste Allowlist in Pipeline `ISE_Prod_bulk_daily` | ✅ Produktiv gelandet |
+| ADF Linked Service `ISE_Prod` (SqlServer `EWBSDB01\ISE`, DB `EWBPROD`, Windows-Auth `INTRA\srv-analytics`, via SHIR `integrationruntime001`) | ✅ Aktiv — AD/Login-Hürde für relationalen Weg gelöst |
+| OLAP-Cube (On-Prem **SSAS Multidimensional**, Innosolv-betrieben) | ⬜ Nicht angebunden — kein nativer ADF-Connector für OLAP/SSAS |
+| Zeitreihen/Messwerte des Zeitreihenmoduls (Zählpunkt/Zählwerk/Lastgang) | ⬜ **Nicht gelandet** — in keiner der 597 Tabellen enthalten, nicht auf der Extraktions-Allowlist; nur abrechnungsnaher `Faktura.VERBRAUCH` vorhanden |
+| Azure AS `analysisservices001` (B1, Paused) | ℹ️ Separate/Legacy-Instanz — **nicht** der Innosolv-Cube |
+
+**Wo liegen die Zeitreihen?** Der OLAP-Cube ist ein aggregierter **On-Prem-SSAS-Layer** (Innosolv, **nicht** in Azure). Die Rohdaten der Zeitreihen liegen relational in der i-SE-DB **`EWBPROD`** (`EWBSDB01\ISE`) — grundsätzlich über das bestehende `ISE_Prod`-Muster erreichbar —, sind aber aktuell **nicht auf der Extraktions-Allowlist**. Welche Tabellen/welches Schema das Zeitreihenmodul nutzt, ist mit Innosolv/Christian zu bestätigen (von aussen nicht einsehbar, da on-prem hinter SHIR).
+
+**Innosolv-Rückmeldung (Juli 2026):** Für Power-BI-Zugriff aus der Azure Cloud auf den On-Prem SSAS Multidimensional wird ein **On-premises Data Gateway** benötigt (Power-BI-Komponente, **nicht** identisch mit unserem ADF-Integration-Runtime; Konfiguration liegt ausserhalb Innosolv-Zuständigkeit).
+
+**Zwei Strategien:**
+
+| | A) Power BI + On-premises Data Gateway | B) Relationale Landung (empfohlen) |
+|---|---|---|
+| Prinzip | Power BI verbindet sich live auf den On-Prem-Cube via Gateway | i-SE-Zeitreihen-Tabellen relational landen wie Basis/Faktura/Objekt → Vault → Mart |
+| Data-Vault-Integration | ❌ Umgeht die Plattform (reines Live-Reporting) | ✅ Historisiert, integriert, quell-übergreifend |
+| Connector/Auth | Zusätzlicher Gateway + Kerberos/SSO nötig | Bestehendes `ISE_Prod`-Muster (SHIR + Windows-Auth) wiederverwenden |
+| Cube-Logik | 1:1 von Innosolv übernommen | Muss verstanden/nachgebaut werden (teils in `Basis_Aufbereitung*`) |
+| Charakter | Quick Win für Reporting | Strategisch, architekturkonform (DV2.1) |
+
+| Aufgabe | Status |
+|---------|--------|
+| Termin mit Christian Vetsch (EWB System Engineer) zur Festlegung des Vorgehens (A vs. B, ggf. A als Interim) | ⬜ Terminvorschläge senden |
+| Klären mit Innosolv: Liegen Zeitreihen/Messwerte in einer i-SE-**DB** vor (→ relational landbar) oder nur im Cube? | ⬜ Offen (Innosolv-Kontakt läuft) |
+| Bei Cube-Weg: On-premises Data Gateway einrichten + erste Tests (Kerberos/AD-Kontext) | ⬜ Offen — Infrastruktur EWB |
+| Bei relationalem Weg: ISE-Zeitreihen-Tabellen zu `ISE_Prod`-Extraktion ergänzen → Staging → Vault | ⬜ Offen |
+
 ## 1. Projektziel
 
 Aufbau einer modernen, skalierbaren Datenplattform auf Basis des **Data Vault 2.1**-Standards im EWB Azure-Tenant. Alle relevanten Quellsysteme (Abacus ERP, IDMS, ISE u.a.) werden täglich in eine zentrale Datenbasis geladen, historisch gesichert und für Power BI-Berichte bereitgestellt.
