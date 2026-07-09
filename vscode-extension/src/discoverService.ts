@@ -68,11 +68,16 @@ export async function runDbtOperation(
       ? ['--no-use-colors', 'run-operation', macroName, '--args', argsYaml, '--target', dbtTarget]
       : ['--no-use-colors', 'run-operation', macroName, '--args', argsYaml];
     
+    // On Windows, dbt is installed as dbt.cmd and cannot be spawned without shell:true
+    // (same fix as listParquetFiles uses for az.cmd — see CVE-2024-27980 note there)
+    const isWindows = process.platform === 'win32';
+    const spawnArgs = isWindows ? cmdArgs.map(quoteShellArg) : cmdArgs;
+
     log?.(`Running: ${dbtPath} ${cmdArgs.join(' ')}`);
     
-    const child = spawn(dbtPath, cmdArgs, {
+    const child = spawn(dbtPath, spawnArgs, {
       cwd: projectPath,
-      shell: false,  // Don't use shell to avoid escaping issues
+      shell: isWindows,
       env: { ...process.env },
     });
     

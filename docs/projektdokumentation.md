@@ -142,7 +142,7 @@ Naming-Konvention: `_ma` vor `__<source>` → `sat_person_lohn_ma__abacus`
 |---|---|
 | Relationale i-SE-Daten in Landing Zone: **eine DB `EWBPROD`** (Schemas `Basis`/`Faktura`/`Objekt`, 597 Tabellen), extrahiert via feste Allowlist in Pipeline `ISE_Prod_bulk_daily` | ✅ Produktiv gelandet |
 | ADF Linked Service `ISE_Prod` (SqlServer `EWBSDB01\ISE`, DB `EWBPROD`, Windows-Auth `INTRA\srv-analytics`, via SHIR `integrationruntime001`) | ✅ Aktiv — AD/Login-Hürde für relationalen Weg gelöst |
-| OLAP-Cube (On-Prem **SSAS Multidimensional**, Innosolv-betrieben) | ⬜ Nicht angebunden — kein nativer ADF-Connector für OLAP/SSAS |
+| OLAP-Cube (On-Prem **SSAS Multidimensional**, Innosolv-betrieben) | ✅ **Prototyp verifiziert** (2026-07-09) — Linked Server + Stored Procedure, kein ADF-Connector nötig; Details siehe 0.7.1 |
 | Zeitreihen/Messwerte des Zeitreihenmoduls (Zählpunkt/Zählwerk/Lastgang) | ⬜ **Nicht gelandet** — in keiner der 597 Tabellen enthalten, nicht auf der Extraktions-Allowlist; nur abrechnungsnaher `Faktura.VERBRAUCH` vorhanden |
 | Azure AS `analysisservices001` (B1, Paused) | ℹ️ Separate/Legacy-Instanz — **nicht** der Innosolv-Cube |
 
@@ -150,22 +150,44 @@ Naming-Konvention: `_ma` vor `__<source>` → `sat_person_lohn_ma__abacus`
 
 **Innosolv-Rückmeldung (Juli 2026):** Für Power-BI-Zugriff aus der Azure Cloud auf den On-Prem SSAS Multidimensional wird ein **On-premises Data Gateway** benötigt (Power-BI-Komponente, **nicht** identisch mit unserem ADF-Integration-Runtime; Konfiguration liegt ausserhalb Innosolv-Zuständigkeit).
 
-**Zwei Strategien:**
+**Drei Strategien** (C ergänzt am 2026-07-09, siehe 0.7.1):
 
-| | A) Power BI + On-premises Data Gateway | B) Relationale Landung (empfohlen) |
-|---|---|---|
-| Prinzip | Power BI verbindet sich live auf den On-Prem-Cube via Gateway | i-SE-Zeitreihen-Tabellen relational landen wie Basis/Faktura/Objekt → Vault → Mart |
-| Data-Vault-Integration | ❌ Umgeht die Plattform (reines Live-Reporting) | ✅ Historisiert, integriert, quell-übergreifend |
-| Connector/Auth | Zusätzlicher Gateway + Kerberos/SSO nötig | Bestehendes `ISE_Prod`-Muster (SHIR + Windows-Auth) wiederverwenden |
-| Cube-Logik | 1:1 von Innosolv übernommen | Muss verstanden/nachgebaut werden (teils in `Basis_Aufbereitung*`) |
-| Charakter | Quick Win für Reporting | Strategisch, architekturkonform (DV2.1) |
+| | A) Power BI + On-premises Data Gateway | B) Relationale Landung | C) SQL Linked Server → Cube (verifiziert) |
+|---|---|---|---|
+| Prinzip | Power BI verbindet sich live auf den On-Prem-Cube via Gateway | i-SE-Zeitreihen-Tabellen relational landen wie Basis/Faktura/Objekt → Vault → Mart | `EWBSDB01\ISE` fragt den Cube selbst per Linked Server (MSOLAP/MDX) ab; ADF/SHIR ruft nur eine Stored Procedure auf |
+| Data-Vault-Integration | ❌ Umgeht die Plattform (reines Live-Reporting) | ✅ Historisiert, integriert, quell-übergreifend | ✅ Kann wie jede andere `ISE_Prod`-Quelle gestaged werden |
+| Connector/Auth | Zusätzlicher Gateway + Kerberos/SSO nötig | Bestehendes `ISE_Prod`-Muster (SHIR + Windows-Auth) wiederverwenden | Bestehendes `ISE_Prod`-Muster (SHIR + Windows-Auth) wiederverwenden — **kein Gateway, kein Kerberos-Doppel-Hop nötig** (Linked-Server-Login läuft über SQL-Dienstkonto) |
+| Cube-Logik | 1:1 von Innosolv übernommen | Muss verstanden/nachgebaut werden (teils in `Basis_Aufbereitung*`) | Cube liefert vorgerechnete Measures direkt per MDX — Aufbereitungslogik muss nicht nachgebaut werden |
+| Aufwand/Risiko | Gateway-Infrastruktur + Kerberos-Konfiguration bei EWB nötig | Zeitreihen-Rohtabellen unbekannt, ggf. gross/komplex | Gering — funktioniert bereits mit Standard-SQL-Server-Bordmitteln |
+| Charakter | Quick Win für Reporting | Strategisch, architekturkonform (DV2.1) | **Empfehlung:** strategisch UND schnell — als primärer Weg weiterverfolgen |
 
 | Aufgabe | Status |
 |---------|--------|
-| Termin mit Christian Vetsch (EWB System Engineer) zur Festlegung des Vorgehens (A vs. B, ggf. A als Interim) | ⬜ Terminvorschläge senden |
+| Termin mit Christian Vetsch (EWB System Engineer) zur Festlegung des Vorgehens (A vs. B vs. C) | ⬜ Terminvorschläge senden |
 | Klären mit Innosolv: Liegen Zeitreihen/Messwerte in einer i-SE-**DB** vor (→ relational landbar) oder nur im Cube? | ⬜ Offen (Innosolv-Kontakt läuft) |
-| Bei Cube-Weg: On-premises Data Gateway einrichten + erste Tests (Kerberos/AD-Kontext) | ⬜ Offen — Infrastruktur EWB |
-| Bei relationalem Weg: ISE-Zeitreihen-Tabellen zu `ISE_Prod`-Extraktion ergänzen → Staging → Vault | ⬜ Offen |
+| ~~Bei Cube-Weg: On-premises Data Gateway einrichten~~ | ✅ Hinfällig — Strategie C benötigt keinen Gateway |
+| Strategie C produktiv ausbauen: Measures/Dimensionen mit Christian/Innosolv fachlich abstimmen, dann Staging/Hub/Sat-Modellierung planen (DV2.1) | ⬜ Nächster Schritt |
+| Test-Pipeline `Claude_Cube_Explore_TEST` in `analytics-datafactory001` — entweder in produktive Pipeline überführen oder nach Abschluss der Exploration löschen | ⬜ Aufräumen/Entscheidung offen |
+
+### 0.7.1 Linked-Server-Prototyp (Strategie C) — technische Umsetzung (2026-07-09)
+
+**Ausgangslage:** Kein nativer ADF-Connector für OLAP/SSAS. Der Cube (`ISAG`, Multidimensional, SSAS-Instanz `EWBSDB01\ISE` — läuft als eigener Dienst auf demselben Host wie die SQL-Server-Instanz `EWBSDB01\ISE`) sollte trotzdem über das bestehende `ISE_Prod`/SHIR-Muster für ADF nutzbar gemacht werden.
+
+**Lösung — SQL Server Linked Server mit MSOLAP-Provider, gekapselt in einer Stored Procedure:**
+
+| Komponente | Detail |
+|---|---|
+| Linked Server | `ISAG_CUBE` auf `EWBSDB01\ISE`, Provider `MSOLAP` (bereits installiert, kein Setup nötig), `@datasrc = 'EWBSDB01\ISE'`, `@catalog = 'ISAG'` |
+| Provider-Option | `sp_MSset_oledb_prop 'MSOLAP', 'AllowInProcess', 1` — ohne das schlägt `OPENQUERY` mit Initialisierungsfehler fehl |
+| Auth (Login-Mapping) | `sp_addlinkedsrvlogin @useself = 'FALSE'` (**nicht** `'TRUE'`!) — dadurch verbindet sich der Linked Server über das **SQL-Server-Dienstkonto** (`srv_isag@intra.ewbuchs.ch`) zu SSAS, nicht über die Identität des Aufrufers. Vermeidet den klassischen Kerberos-Doppel-Hop (Client → SQL Server → SSAS), der bei `@useself='TRUE'` für Nicht-Kerberos-/Remote-Logins (z. B. ADF/SHIR-Service-Accounts) typischerweise scheitert. Das Dienstkonto hatte bereits ausreichende SSAS-Rechte, keine zusätzliche Rollenzuweisung nötig |
+| Stored Procedure | `Schnittstelle.dbo.usp_QueryCube @MDX NVARCHAR(MAX)` — baut `OPENQUERY(ISAG_CUBE, '<MDX>')` dynamisch per `sp_executesql`, da `OPENQUERY` selbst keine Variablen als Query-Text akzeptiert |
+| Berechtigung ADF | `INTRA\srv-analytics` (der Windows-Auth-User des `ISE_Prod`-Linked-Service) brauchte zusätzlich `GRANT CONNECT` auf `Schnittstelle` — war dort nicht vorhanden (`CONNECT` war für `public` in dieser DB entzogen), führte zu `Login failed`-Fehlern trotz korrektem Login/User/EXECUTE-Recht. **Lesson Learned:** Bei neuen DB-Zugriffen für Service-Accounts immer explizit `CONNECT` prüfen, nicht nur Objekt-Berechtigungen |
+| ADF-Integration | **Keine neuen Linked Services/Datasets nötig** — bestehendes generisches Dataset `ISE_Prod` (Parameter `dbName`/`schema`/`table`) plus eine Lookup-Activity mit `sqlReaderStoredProcedureName` + `storedProcedureParameters` reicht |
+| Test-Pipeline | `Claude_Cube_Explore_TEST` in `analytics-datafactory001` (isoliert, Parameter `MDXQuery`) — end-to-end verifiziert inkl. echter Messwerte (`[Measures].[Verbrauch]` = 235'020'650, `[Measures].[Summe]` = -4'510'518.13) |
+
+**Offene Punkte für Produktivbetrieb:** siehe Aufgabentabelle in 0.7 — insbesondere fachliche Abstimmung der benötigten Measures/Dimensionen mit Innosolv/Christian Vetsch, danach Staging/Hub/Sat-Modellierung nach DV2.1-Standard statt der Explore-Pipeline.
+
+---
 
 ## 1. Projektziel
 
