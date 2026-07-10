@@ -4,8 +4,8 @@
 **Von:** PPMC AG — Analytics Team (Daniel)  
 **An:** EWB — Roger (Anfrage), Christian Vetsch (System Engineer)  
 **Betreff:** Machbarkeit & Vorgehen zur Anbindung der Energiedaten (i-SE / OLAP-Cube)  
-**Status:** 🟡 In Abklärung — Machbarkeit geklärt, Strategieentscheid & Detailabstimmung offen  
-**Referenz:** [`docs/projektdokumentation.md` §0.7](../projektdokumentation.md)
+**Status:** 🟢 Exploration abgeschlossen (Update 2026-07-09, §10) — Cube live abfragbar, Quelltabellen lokalisiert; Strategieentscheid & Innosolv-Detailfrage (¼-h-Werte) offen  
+**Referenz:** [`docs/projektdokumentation.md` §0.7 + §0.7.1](../projektdokumentation.md)
 
 ---
 
@@ -21,6 +21,8 @@ EWB (Bereich Energie) möchte die Daten aus dem **Energiedaten-Management (EDM)*
 - Der von Innosolv genannte **On-premises Data Gateway** ist ein **Power-BI-Weg** (Live-Zugriff auf den Cube) und **umgeht die Data-Vault-Plattform** — geeignet als Quick Win, nicht als Integration.
 
 **Empfehlung:** Die Zeitreihen **relational landen** (Weg B) und in der Plattform integrieren, statt den Cube anzubinden (Weg A). Ein gemeinsamer Termin mit Christian Vetsch dient dem Strategieentscheid.
+
+> ⚡ **Update 2026-07-09 (§10):** Der Cube ist inzwischen via SQL Linked Server **live abfragbar** (Weg C), die Cube-Quelltabellen wurden in `EWBPROD_dwh` **lokalisiert** und die meisten Abstimmungsfragen sind durch eigene Exploration **beantwortet**. Die Empfehlung konkretisiert sich: **Weg B aus `EWBPROD_dwh` (DataMart-Layer) landen** — Innosolvs Aufbereitungslogik ist dort bereits materialisiert. Details und verbleibende Fragen in §10.
 
 ---
 
@@ -155,3 +157,79 @@ Der von Innosolv genannte **On-premises Data Gateway** ist **nicht** dasselbe wi
 - Mittwoch, 15.07.2026, 09:00–10:00 Uhr
 
 > Terminvorschläge vor Versand gegen den eigenen Kalender prüfen.
+
+---
+
+## 10. Update 2026-07-09 — Cube-Durchstich & explorative Untersuchung
+
+Der Cube ist seit heute über einen **SQL Linked Server** (`ISAG_CUBE`, MSOLAP) auf `EWBSDB01\ISE` per MDX abfragbar — gekapselt in `Schnittstelle.dbo.usp_QueryCube` und via bestehendem ADF-Muster (`ISE_Prod`-Linked-Service + SHIR) end-to-end verifiziert. Technische Details: [`projektdokumentation.md` §0.7.1](../projektdokumentation.md). Auf dieser Basis wurde der Cube und sein relationales Umfeld **explorativ untersucht** (via isolierte ADF-Test-Pipelines `Claude_Cube_Explore_TEST` / `Claude_SQL_Explore_TEST`). Ergebnisse:
+
+### 10.1 Was der Cube enthält (SSAS-DB `ISAG`, Cube `ISAG`)
+
+| Aspekt | Befund |
+|---|---|
+| Prozessierung | **Täglich nachts** (letzter Lauf: 2026-07-08 22:55) — Daten sind tagesaktuell |
+| Measure Groups | 12 — u. a. Rechnungsstatistik (Beträge inkl./exkl. MwSt), Basis Helper (Verbrauch kWh/m³, Blindstrom, Leistungsspitzen), Vertragsbestand, Messpunktbestand, Gerät, Endverbraucher ElCom, **Fakten Zeitreihen** |
+| Dimensionen | 94 (inkl. Role-Playing) — u. a. Vertrag (161k), Subjekt (54k), Objekt (72k), Gerät (36k), Messpunkt (22k, mit Bezügeranlage/Vertragspartner), Tarif, Netzbetreiber, Energielieferant, Bilanzgruppe, Energiegemeinschaft |
+| Zeit-Dimensionen | `Zeit` (31 Jahre, Tag-Ebene, inkl. **Hydro-Jahr/Quartal/Monat**-Hierarchien), `ZeitMessen` (Kalender bis Tag-Ebene) |
+| **Fakten Zeitreihen** | 14 Dimensionen (Zeitreihe, ZeitMessen, Messpunkt, Netzbetreiber, Energielieferant, Bilanzgruppe, Energiegemeinschaft, …); Measures `Summe`/`Maximum`/`Minimum` |
+| Zeitreihen-Inhalt | **18'647 Serien in 82 aktiven Typen**: Lastgang-Summen (BLS), PV-/Rücklieferung, Netzebenen NE5/NE6/NE7, Energiegemeinschaften (EG/LEG), Netzverluste, OSTRAL, virtueller Kundenpool, EV/VNB |
+| Zeitreihen-Historie | **2024–2026** (Daten ab 2024/03) |
+| Zeitreihen-Granularität | **Monat** (Quelle ist monatlich; s. 10.2) — keine ¼-h- oder Tageswerte im Cube |
+
+### 10.2 Wo die Daten relational liegen (Kernbefund)
+
+Der Cube wird aus der **DWH-Datenbank `EWBPROD_dwh`** gespeist (Schema `DataMart_EVU`, 120 Tabellen/Views — Innosolvs aufbereiteter DataMart-Layer):
+
+| Objekt | Inhalt | Volumen |
+|---|---|---|
+| `DataMart_EVU.ZeitreihenData` | **Zeitreihen-Fakten**: `ID_Zeitreihe`, `Month_ID` (Monat!), `Summe`, `Minimum`, `Maximum` | 486k Zeilen, 18'728 Serien, 2024/03–2026/07 |
+| `DataMart_EVU.VR_Zeitreihe` / `VR_ZeitreihenFakten` | Views für Cube-Dimension/-Fakten | — |
+| `DataMart_EVU.MesspunktData`, `VertragsbestandData`, `FactGeraet`, `BasisHelperData`, … | Übrige Cube-Quellen (Dimensionen + Fakten) | 0.5–3.3M Zeilen |
+
+Die **Rohdaten des Zeitreihenmoduls** liegen in `EWBPROD`, Schema **`Techanl`** (nicht auf der heutigen Extraktions-Allowlist): `ZEITREIHE` (198k Serien-Stammdaten inkl. OBIS-Kennung), `ZEITREIHETYP` (274), `MESSWERT` (2.9M — klassische Zählerablesungen), `ZEITREIHEINFO` (Werte-Zeitraum/Lücken je Serie) sowie die **Formel-Engine** (`ZEITREIHEFORMEL*` — Innosolvs Berechnungslogik).
+
+**Verifiziert per Direktabfrage von `Techanl.MESSWERT` (2026-07-09, Daniel):** `MESSWERT` enthält **keine** hochauflösenden Werte, sondern klassische periodische Zählerablesungen:
+
+| Kennzahl | Wert |
+|---|---|
+| Zeilen gesamt | 2'926'148 |
+| Unterschiedliche Zähler (`ID_Instzaehlwerk`) | 256'346 |
+| Werte pro Zähler (Durchschnitt über 27 Jahre, 1999–2026) | **~11,4** |
+| Zeitstempel-Muster (Stichprobe) | Unregelmässig (z. B. 14:30, 14:27, 14:25 Uhr) — kein ¼h-Raster |
+
+→ ¼h-Lastgangdaten hätten allein **35'040 Werte pro Zähler und Jahr**; 11,4 Werte in 27 Jahren entsprechen klassischen (Fern-)Ablesungen, nicht Intervall-Messungen.
+
+> ❗ **Bestätigt (nicht nur vermutet): Hochauflösende Werte (¼-h/h) liegen nicht auf `EWBSDB01\ISE`** — geprüft in `EWBPROD` (inkl. direkter Abfrage der rohesten Kandidatentabelle `Techanl.MESSWERT`, s. o.) und `EWBPROD_dwh` (nur Monatsaggregate); die Instanz hat nur `EWBPROD`/`_dms`/`_dwh`/`Schnittstelle`. Die Lastgang-Werte (Cube-Zeitreihentypen wie „Bruttolastgangsumme BLS/EN" beziehen sich explizit auf Lastgang) müssen in einem **separaten System** liegen — passend dazu, dass das Ausgangsticket „EDM — Energiedaten-Management" als eigenständiges System neben i-SE nennt. **Präzisierte Frage an Innosolv ist damit nicht mehr optional, sondern zwingend** (s. 10.4).
+
+### 10.3 Beantwortete Abstimmungsfragen (aus §7)
+
+| # | Frage | Antwort (verifiziert 2026-07-09) |
+|---|---|---|
+| I-1 | Wo liegen die Zeitreihen? | **Beantwortet:** Monatsaggregate in `EWBPROD_dwh.DataMart_EVU.ZeitreihenData`; Stammdaten/Formeln in `EWBPROD.Techanl`. **Bestätigt (nicht nur vermutet):** ¼-h-Rohwerte liegen nicht auf dieser Instanz — `Techanl.MESSWERT` direkt geprüft: nur ~11,4 Werte/Zähler über 27 Jahre → klassische Ablesungen, keine Intervalldaten |
+| I-2 | Granularität & Volumen | **Monat** × 18'728 Serien × ~2.5 Jahre = 486k Zeilen (trivial landbar). Historie ab 2024/03 |
+| I-3 | Kennzahlen/Dimensionen/Logik des Cubes | **Beantwortet:** vollständige Bus-Matrix, Measures und 82 Zeitreihen-Typen dokumentiert (Exploration); Aufbereitungslogik liegt materialisiert in `EWBPROD_dwh` |
+| I-4 | Cube-Typ & Prozessierung | **Beantwortet:** SSAS Multidimensional, tägliche Prozessierung ~22:55 |
+| E-2 | AD-/Berechtigungskontext Cube | **Gelöst** für Weg C: Linked-Server-Zugriff über SQL-Dienstkonto `srv_isag@intra.ewbuchs.ch` (kein Kerberos-Doppel-Hop) |
+| E-3 | Reicht `INTRA\srv-analytics` für Lesezugriff? | **Ja, verifiziert** — sowohl für `EWBPROD_dwh.DataMart_EVU` als auch für `EWBPROD.Techanl` (Tabellenstruktur- und Row-Count-Queries liefen über denselben Account produktiv). Keine zusätzliche Freigabe nötig |
+| E-4 | Host des SSAS-Cubes | **Beantwortet:** `EWBSDB01\ISE` (SSAS-Instanz auf demselben Host wie die SQL-Instanz), Version 16.0.43.252 |
+
+### 10.4 Konkretisierter Vorschlag
+
+**Empfohlenes Vorgehen — „B aus dem DWH" (statt aus Rohtabellen):**
+
+1. **Landung aus `EWBPROD_dwh.DataMart_EVU`** über das bestehende `ISE_Prod`-Muster (Allowlist erweitern, `dbName`-Parameter existiert bereits): `ZeitreihenData` + Zeitreihen-Stammdaten (`EWBPROD.Techanl.ZEITREIHE`/`ZEITREIHETYP` oder `VR_Zeitreihe`) + ggf. `MesspunktData`. **Vorteil:** Innosolvs Aufbereitungslogik ist hier bereits materialisiert — kein Nachbau der Cube-Logik nötig (entkräftet das Haupt-Risiko von Weg B). Volumen unkritisch (486k Zeilen). Zeitfenster: nach dem nächtlichen DWH-Rebuild (~23:00), vor dem Morgen-Load.
+2. **Vault-Modellierung (DV2.1):** `hub_zeitreihe` (BK: `ID_Zeitreihe` bzw. Kennung), `sat_zeitreihe__ise` (Typ, OBIS, Beschreibung), `link_zeitreihe_messpunkt`, Monatswerte als Multi-Active-Satellite (CDK = Monat) oder direkt als Fakt im Mart — Detailentscheid in der Modellierungsphase.
+3. **Weg C (Linked Server/MDX) als Ergänzung behalten** für Ad-hoc-Analysen und für Kennzahlen, deren Logik nur im Cube existiert (z. B. Time-Intelligence-Berechnungen, `Umsatz pro Kunde`) — Infrastruktur steht und kostet nichts.
+4. **Weg A (Power BI Gateway) entfällt** — kein Bedarf mehr, da C das Live-Szenario abdeckt und B die Integration liefert.
+5. **An Innosolv (präzisiert):** „Wo werden die hochauflösenden Zeitreihenwerte (¼-h/h) gespeichert? Auf `EWBSDB01\ISE` finden sich nur Monatsaggregate (`DataMart_EVU.ZeitreihenData`) und Stammdaten (`Techanl.ZEITREIHE*`), aber keine Werte-Tabelle." Falls EWB ¼-h-Auflösung für Analysen braucht (Frage G-3 an den Fachbereich!), muss der Zugang dazu separat geklärt werden.
+
+### 10.5 Nächste Schritte (aktualisiert)
+
+| Schritt | Wer | Status |
+|---|---|---|
+| Fachbereich Energie: Reichen **Monatswerte** (Summe/Min/Max je Serie) oder werden ¼-h-Werte benötigt? (schärft G-3) | EWB Roger / Fachbereich | ⬜ Vor Termin klären |
+| Präzisierte ¼-h-Frage an Innosolv (s. 10.4 Punkt 5) | PPMC / EWB | ⬜ Senden |
+| Termin Christian Vetsch: Vorgehen bestätigen (B aus DWH + C als Ergänzung) | PPMC + EWB | ⬜ Terminvorschläge versendet |
+| Extraktion erweitern: `EWBPROD_dwh.DataMart_EVU.ZeitreihenData` (+ Stammdaten) → Landing Zone → Staging → Vault | PPMC Analytics | ⬜ Nach Termin |
+| Test-Pipelines `Claude_Cube_Explore_TEST` / `Claude_SQL_Explore_TEST` in ADF: behalten (Exploration) oder löschen | PPMC Analytics | ⬜ Nach Projektabschluss aufräumen |
