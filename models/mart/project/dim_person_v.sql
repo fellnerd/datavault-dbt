@@ -15,6 +15,10 @@
  *   3. Abteilung: Nur GROUP=1
  *   4. Dedup: ROW_NUMBER nach MutationDate DESC, Name ASC
  *
+ * Security (CLS): person_name ist Tier-2-PII und wird via cls_mask
+ *   (Kontext 'person_pii') maskiert — ohne Berechtigung erscheint '***'.
+ *   person_code (Kuerzel) bleibt als Pseudonym sichtbar (Gruppierung in
+ *   Reports). Voraussetzung: security-DDL (Schema sec, Funktionen) deployed.
  */
 
 {{ config(
@@ -85,10 +89,10 @@ SELECT
     person_key,
     CAST(person_key AS NVARCHAR(255))                                       AS person_id,
     ISNULL(NULLIF(abrv, ''), CAST(person_key AS NVARCHAR(255)))              AS person_code,
-    ISNULL(
-        NULLIF(CONCAT_WS(', ', name, vorname), ''),
-        ISNULL(abrv, 'UNKNOWN')
-    )                                                                        AS person_name,
+    {{ cls_mask(
+        "ISNULL(NULLIF(CONCAT_WS(', ', name, vorname), ''), ISNULL(abrv, 'UNKNOWN'))",
+        'person_pii'
+    ) }}                                                                     AS person_name,
     CAST(home_dept_nr AS INT)                                                AS abteilung_nr,
     ISNULL(abteilung, 'UNKNOWN')                                             AS abteilung,
     ISNULL(funktion, 'UNKNOWN')                                              AS funktion,

@@ -88,6 +88,8 @@ Dieses Projekt implementiert eine virtualisierte **Data Vault 2.1** Architektur 
 |--------|--------|--------------|
 | `stg` | ext_<concept>_<entity>, <concept>_<entity> | Rohdaten aus ADLS + Hash-Berechnung (Concept = Quellsystem) |
 | `vault` | Hubs, Satellites, Links | Data Vault 2.1 Objekte |
+| `mart`, `mart_finance`, `mart_project`, `mart_telecom` | Dims, Fakten, `_v`-Views | Publizierte Konsumenten-Schicht (einzige Schemas mit Business-Grants) |
+| `sec` | `sec_user_privilege`, `sec_group_privilege`, `sec_special_user_privilege`, `fn_check_rls`, `fn_check_cls` | Security-Fundament für RLS/CLS (manuell via `security/`-Skripte deployed) |
 | `dv` | (Default) | Nicht verwendet |
 
 ### 2.3 dbt Packages
@@ -280,6 +282,21 @@ models:
 - profiles.yml liegt in `~/.dbt/` (außerhalb Git)
 - Azure CLI Token wird bei Bedarf geholt
 
+### 7.4 Datenzugriffs-Security (OLS / RLS / CLS / CLE)
+
+Vier Schichten, Enforcement an der Mart-Grenze — Business-User erreichen ausschließlich `mart*`-Schemas:
+
+| Schicht | Mechanismus | Verwaltung |
+|---|---|---|
+| **OLS** | Entra-Gruppen (`sg-datavault-<bereich>-ro`) + `GRANT SELECT ON SCHEMA::mart*` | SSMS-Skripte in `security/ols/` |
+| **RLS** | `sec.fn_check_rls` auf `dss_sec_value_key` (`'ewb'` bzw. `'ewb\|\|<kontext>'`) — in `_v`-Views via Macro `rls_filter`, auf physischen Fakt-Tabellen als Security Policy via Hook-Paar | dbt-Macros + `security/ddl/` |
+| **CLS** | Spalten-Maskierung via Macro `cls_mask` + `sec.fn_check_cls` (z.B. `person_name`, Kontext `person_pii`) | dbt-Models |
+| **CLE** | Tiering: Tier-1-Spalten (AHV-Nr, ZEMIS, Badge) tauchen in keinem Mart auf; Baseline TDE + verschlüsselte Verbindungen | dbt-Test `assert_no_tier1_columns_in_mart` |
+
+**Mandantentrennung:** DB pro Tenant (stärkste Isolation) **plus** Mandanten-Segment im `dss_sec_value_key` (aktueller Mandant: `ewb`, abgeleitet pro dbt-Target via Macro `tenant_key()`). Berechtigungen werden pro Entra-Gruppe (`sec.sec_group_privilege`, Standardweg) oder pro User-UPN (`sec.sec_user_privilege`, Ausnahmen/befristet) vergeben; `sec.sec_special_user_privilege` regelt Admin-/Service-User-Bypass (`no_sec` 1/2). Der dbt-Service-User benötigt zwingend `no_sec = 1`.
+
+Details: [Architektur](ext-features/datavault-security-architecture.md) · [Deployment-Runbook](../security/DEPLOYMENT.md)
+
 ---
 
 ## 8. Erweiterung
@@ -437,6 +454,10 @@ journalctl -u actions.runner.fellnerd-datavault-dbt.dbt-runner-vm -f
 | `zero_key` | `macros/ghost_records.sql` | 64x '0' (NULL Business Keys) |
 | `error_key` | `macros/ghost_records.sql` | 64x 'F' (Fehlerhafte Daten) |
 | `insert_ghost_records` | `macros/ghost_records.sql` | Ghost Records in Hubs einfügen |
+| `tenant_key` / `sec_value_key` | `macros/security/tenant_key.sql` | Mandanten-Schlüssel pro Target / RLS-Schlüssel-Ausdruck |
+| `rls_filter` | `macros/security/rls_filter.sql` | RLS-Prädikat für `_v`-Views |
+| `cls_mask` | `macros/security/cls_mask.sql` | CLS-Spalten-Maskierung in Views |
+| `drop_security_policy` / `apply_security_policy` | `macros/security/security_policy.sql` | Hook-Paar für Security Policies auf Fakt-Tabellen |
 
 ## 13. Reproduzierbarkeit
 
@@ -457,6 +478,10 @@ dbt deps
 
 # 4. Verbindung testen
 dbt debug
+
+# 4b. Security-Fundament deployen (SSMS, einmalig pro DB — VOR dbt run!)
+#     security/ddl/01-03 + Service-User-Exemption + OLS
+#     Anleitung: security/DEPLOYMENT.md
 
 # 5. External Tables erstellen
 dbt run-operation stage_external_sources
@@ -493,6 +518,8 @@ dbt test --target jira
 | User-Dokumentation | Endanwender-Guide, FAQ | [USER.md](USER.md) |
 | **Developer Guide** | **Anleitungen für Entwickler** | [DEVELOPER.md](DEVELOPER.md) |
 | Model Architecture | Datenmodell, ERD | [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) |
+| **Security-Architektur** | **OLS/RLS/CLS/CLE, Mandantenmodell** | [datavault-security-architecture.md](ext-features/datavault-security-architecture.md) |
+| Security-Deployment | Runbook für Rollout | [security/DEPLOYMENT.md](../security/DEPLOYMENT.md) |
 | Lessons Learned | Entscheidungen, Troubleshooting | [LESSONS_LEARNED.md](../LESSONS_LEARNED.md) |
 | **CI/CD Plan** | **Pipeline Implementation Plan** | [plan-githubActionsCiCd.prompt.md](../.github/prompts/plan-githubActionsCiCd.prompt.md) |
 | **dbt Docs** | **Generierte Dokumentation** | [GitHub Pages](https://fellnerd.github.io/datavault-dbt/) |

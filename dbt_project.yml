@@ -88,6 +88,19 @@ models:
         refs:
           +schema: vault
           +materialized: view
+      # ===== IDMS (Schema: dv) =====
+      # Internet-Service-Objekte (Quellsystem IDMS)
+      idms:
+        hubs:
+          +schema: dv
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
+        satellites:
+          +schema: dv
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
       # ===== TELECOM (Schema: vault_telecom) =====
       # Telekommunikations-spezifische Objekte (RSN/Compax Mobile + später Festnetz)
       # Tag: cdr — nur via deploy:cdr-load Job laden, nicht im regulären dbt run.

@@ -551,7 +551,37 @@ ORDER BY dss_load_date DESC;
 
 ---
 
-## 9. Kontakt & Support
+## 9. Datenzugriff & Berechtigungen (Security)
+
+Der Zugriff auf die Daten ist auf drei Ebenen abgesichert. Das merkst du im Alltag so:
+
+### Was du sehen kannst — und warum
+
+| Ebene | Wirkung für dich |
+|---|---|
+| **Objektzugriff (OLS)** | Du siehst nur die Mart-Views deines Bereichs (z.B. `mart_finance`) — Rohdaten (`stg`, `vault`) sind grundsätzlich nicht zugänglich |
+| **Zeilenfilter (RLS)** | Innerhalb einer Tabelle siehst du nur die Zeilen, für die du berechtigt bist (z.B. bestimmte Kostenstellen). Andere Zeilen fehlen **kommentarlos** — es gibt keine Fehlermeldung |
+| **Spalten-Maskierung (CLS)** | Sensible Spalten (z.B. `person_name`) zeigen `***`, wenn dir die Freigabe fehlt — der Rest der Tabelle funktioniert normal |
+
+### Zugriff beantragen
+
+1. **Standardzugriff** (ganzer Bereich): Aufnahme in die passende **Entra-ID-Gruppe** bei der IT beantragen — z.B. `sg-datavault-finance-ro` für Finance. Mehr ist nicht nötig; der Zugriff wirkt nach der nächsten Anmeldung.
+2. **Erweiterte Rechte** (zusätzliche Kostenstellen, PII-Spalten wie Personennamen): **Jira-Ticket** erstellen, der fachliche Data Owner gibt frei, danach wird das Einzelrecht (ggf. befristet) eingetragen.
+
+### Häufige Fragen
+
+**Ich sehe 0 Zeilen / weniger als erwartet.**
+Deine Zeilen-Berechtigung fehlt oder ist zu eng. Prüfe zuerst die Entra-Gruppenmitgliedschaft (IT), dann per Ticket melden. Nach Gruppenänderungen einmal ab- und wieder anmelden.
+
+**Eine Spalte zeigt nur `***`.**
+Das ist die CLS-Maskierung — kein Fehler. Freigabe per Jira-Ticket beim Data Owner beantragen (Kontext `person_pii`).
+
+**In Power BI sehen alle dasselbe / niemand etwas.**
+Das SSO-Passthrough der Datenquelle ist nicht aktiv — bitte beim BI-Admin melden.
+
+---
+
+## 10. Kontakt & Support
 
 - **Repository:** `/home/user/projects/datavault-dbt`
 - **VM:** 10.0.0.25
@@ -561,9 +591,9 @@ ORDER BY dss_load_date DESC;
 
 ---
 
-## 10. Master Data Services (MDS) Deployment
+## 11. Master Data Services (MDS) Deployment
 
-### 10.1 Deploy über die UI (Commits-Seite)
+### 11.1 Deploy über die UI (Commits-Seite)
 
 Der empfohlene Weg für das Deployment von Master Data ist über die **Commits-Seite**:
 
@@ -572,7 +602,7 @@ Der empfohlene Weg für das Deployment von Master Data ist über die **Commits-S
 3. **Commit expandieren:** Klicken Sie auf die gewünschte Commit-Karte
 4. **Deploy starten:** Klicken Sie auf **"Deploy to Data Vault"**
 
-### 10.2 Deploy-Dialog
+### 11.2 Deploy-Dialog
 
 Nach dem Klick auf "Deploy to Data Vault" erscheint ein Dialog mit folgenden Optionen:
 
@@ -586,7 +616,7 @@ Nach dem Klick auf "Deploy to Data Vault" erscheint ein Dialog mit folgenden Opt
 - Log-Fenster zeigt dbt-Output in Echtzeit (SSE-Streaming)
 - Erfolgs-/Fehlermeldung am Ende
 
-### 10.3 Deploy-Modi im Detail
+### 11.3 Deploy-Modi im Detail
 
 #### Load + Master (empfohlen)
 
@@ -617,7 +647,7 @@ mds_load.<entity> (flache Tabelle)
 
 **Anwendungsfall:** Wenn Sie die Master-Tabellen manuell befüllen oder prüfen möchten, bevor die SCD2-Historisierung stattfindet.
 
-### 10.4 Daten nach Deploy prüfen
+### 11.4 Daten nach Deploy prüfen
 
 ```sql
 -- Load-Tabelle (Rohdaten)
@@ -632,7 +662,7 @@ SELECT * FROM mds_load.deployment_log ORDER BY started_at DESC;
 
 ---
 
-## 11. Changelog
+## 12. Changelog
 
 | Datum | Version | Änderung |
 |-------|---------|----------|
@@ -644,7 +674,7 @@ SELECT * FROM mds_load.deployment_log ORDER BY started_at DESC;
 
 ---
 
-## 11. Häufige Fragen (FAQ)
+## 13. Häufige Fragen (FAQ)
 ### Für MDS-Benutzer (Master Data Services)
 
 **F: Wie deploye ich genehmigte Commits?**
@@ -739,7 +769,7 @@ Das bedeutet, dass sich mindestens ein Attribut geändert hat. Der Hash Diff ist
 
 ---
 
-## 12. Glossar
+## 14. Glossar
 
 | Begriff | Erklärung |
 |---------|-----------|
