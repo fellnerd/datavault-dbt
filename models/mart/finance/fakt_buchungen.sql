@@ -26,6 +26,13 @@
  * Materialisierung: TABLE (Performance-Cache fuer Power BI DirectQuery)
  * Konsumenten nutzen fakt_buchungen_v (Wrapper-View, publiziertes Objekt).
  *
+ * Security (RLS):
+ *   dss_sec_value_key = 'ewb||<kostenstelle_nr>' (Perspektive: kst bzw. kst2).
+ *   Physische Tabelle ist wegen Schema-Grant direkt lesbar -> native
+ *   Security Policy sec.policy_fakt_buchungen (Kontext 'finance') via
+ *   Hook-Paar. Hooks NIE einzeln entfernen (siehe macros/security/).
+ *   Voraussetzung: security-DDL (Schema sec, Funktionen) deployed (sonst schlaegt der Run fehl).
+ *
  * Vault-Lineage:
  *   hub_hauptbuch.recnum + sat_hauptbuch__abacus_current_v
  */
@@ -33,7 +40,9 @@
 {{ config(
     materialized='table',
     as_columnstore=false,
-    tags=['fact']
+    tags=['fact'],
+    pre_hook=["{{ drop_security_policy() }}"],
+    post_hook=["{{ apply_security_policy('finance') }}"]
 ) }}
 
 WITH buchung_base AS (
@@ -93,6 +102,7 @@ SELECT
     CAST(b.[text] AS NVARCHAR(4000))                                  AS umschreibung,
     CAST(b.text2 AS NVARCHAR(4000))                                   AS umschreibung2,
     CAST(b.sam AS NVARCHAR(10))                                        AS sam,
+    {{ sec_value_key('CAST(TRY_CAST(b.kst AS INT) AS NVARCHAR(50))') }} AS dss_sec_value_key,
     b.dss_load_date,
     b.dss_record_source
 FROM buchung_base b
@@ -134,6 +144,7 @@ SELECT
     CAST(b.[text] AS NVARCHAR(4000))                                  AS umschreibung,
     CAST(b.text2 AS NVARCHAR(4000))                                   AS umschreibung2,
     CAST(b.sam AS NVARCHAR(10))                                        AS sam,
+    {{ sec_value_key('CAST(TRY_CAST(b.kst2 AS INT) AS NVARCHAR(50))') }} AS dss_sec_value_key,
     b.dss_load_date,
     b.dss_record_source
 FROM buchung_base b
@@ -175,6 +186,7 @@ SELECT
     CAST(b.[text] AS NVARCHAR(4000))                                  AS umschreibung,
     CAST(b.text2 AS NVARCHAR(4000))                                   AS umschreibung2,
     CAST(b.sam AS NVARCHAR(10))                                        AS sam,
+    {{ sec_value_key('CAST(TRY_CAST(b.kst AS INT) AS NVARCHAR(50))') }} AS dss_sec_value_key,
     b.dss_load_date,
     b.dss_record_source
 FROM buchung_base b
@@ -216,6 +228,7 @@ SELECT
     CAST(b.[text] AS NVARCHAR(4000))                                  AS umschreibung,
     CAST(b.text2 AS NVARCHAR(4000))                                   AS umschreibung2,
     CAST(b.sam AS NVARCHAR(10))                                        AS sam,
+    {{ sec_value_key('CAST(TRY_CAST(b.kst2 AS INT) AS NVARCHAR(50))') }} AS dss_sec_value_key,
     b.dss_load_date,
     b.dss_record_source
 FROM buchung_base b

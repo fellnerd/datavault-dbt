@@ -394,6 +394,15 @@ models:
       - name: sam
         description: "Sammelbuchungs-Flag (SAM: '#'=Sammelbuchung, gefiltert)"
         data_type: nvarchar(10)
+      - name: dss_sec_value_key
+        description: >
+          RLS-Schluessel 'ewb||<kostenstelle_nr>' (Mandant || Kostenstelle,
+          Perspektive kst/kst2). Gefiltert via sec.fn_check_rls (Kontext
+          'finance') — im View eingebettet, auf der Basistabelle zusaetzlich
+          als Security Policy. Siehe docs/ext-features/datavault-security-architecture.md
+        data_type: nvarchar(500)
+        tests:
+          - not_null
       - name: dss_load_date
         description: "Ladezeitpunkt aus Vault"
         data_type: datetime2(7)

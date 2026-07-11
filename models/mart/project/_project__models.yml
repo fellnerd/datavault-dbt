@@ -36,7 +36,9 @@ models:
         tests:
           - not_null
       - name: person_name
-        description: "Bekannte Bezeichnung (Nachname, Vorname). NULL → 'UNKNOWN'"
+        description: >
+          Bekannte Bezeichnung (Nachname, Vorname). NULL → 'UNKNOWN'.
+          CLS-maskiert (Kontext 'person_pii'): ohne Berechtigung '***'.
         data_type: nvarchar(255)
         tests:
           - not_null

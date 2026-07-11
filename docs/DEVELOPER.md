@@ -25,10 +25,11 @@ TEST RUN INDEX: 2
    - [Effectivity Satellite erstellen](#65-effectivity-satellite-erstellen)
    - [PIT Table erstellen](#66-pit-table-erstellen)
 7. [Mart View erstellen](#-mart-view-erstellen)
-8. [Tests hinzufügen](#-tests-hinzufügen)
-9. [Deployment Workflow](#-deployment-workflow)
-10. [Troubleshooting](#-troubleshooting)
-11. [Checklisten](#-checklisten)
+8. [Security in Mart-Models (RLS/CLS)](#-security-in-mart-models-rlscls)
+9. [Tests hinzufügen](#-tests-hinzufügen)
+10. [Deployment Workflow](#-deployment-workflow)
+11. [Troubleshooting](#-troubleshooting)
+12. [Checklisten](#-checklisten)
 
 ---
 
@@ -2093,6 +2094,70 @@ Args: {
 
 ---
 
+## 🔐 Security in Mart-Models (RLS/CLS)
+
+> Architektur & Begründungen: [datavault-security-architecture.md](ext-features/datavault-security-architecture.md) · DB-Rollout: [security/DEPLOYMENT.md](../security/DEPLOYMENT.md)
+
+Security wird **an der Mart-Grenze** durchgesetzt. Für Modellentwickler gelten vier Regeln:
+
+### Regel 1: RLS-Schlüssel in Fakt-Models führen
+
+Jedes RLS-pflichtige Fakt-Model bekommt eine Spalte `dss_sec_value_key` (Format `'ewb'` bzw. `'ewb||<kontextwert>'`, Mandant kommt automatisch aus dem dbt-Target):
+
+```sql
+-- in der SELECT-Liste (Beispiel Finance: Kostenstelle als Kontext):
+{{ sec_value_key('CAST(TRY_CAST(b.kst AS INT) AS NVARCHAR(50))') }} AS dss_sec_value_key,
+```
+
+### Regel 2: Physische Mart-Tabelle → Security Policy via Hook-Paar
+
+Physische Tabellen (`materialized='table'`) sind durch den Schema-Grant direkt lesbar und brauchen eine native Security Policy. **Hooks immer paarweise** — nie einzeln entfernen (Tabelle mit Policy kann nicht gedroppt werden → jeder `dbt run` schlägt fehl):
+
+```sql
+{{ config(
+    materialized='table',
+    pre_hook=["{{ drop_security_policy() }}"],
+    post_hook=["{{ apply_security_policy('finance') }}"]
+) }}
+```
+
+### Regel 3: Publizierte `_v`-Views → `rls_filter`
+
+```sql
+SELECT *
+FROM {{ ref('fakt_buchungen') }}
+WHERE {{ rls_filter('finance') }}
+```
+
+### Regel 4: PII-Spalten → `cls_mask`, Tier-1 nie in den Mart
+
+```sql
+-- Tier 2 (PII): maskieren, Kontext 'person_pii'
+{{ cls_mask('person_name', 'person_pii') }}              AS person_name,
+{{ cls_mask('geburtsdatum', 'person_pii', 'NULL') }}     AS geburtsdatum,
+```
+
+**Tier-1-Spalten** (`SOC_INSURANCE_NR`, `ZEMIS_NR`, `BADGE_ID`) dürfen in **keinem** Mart-Objekt auftauchen — Vorsicht bei `SELECT *` aus Satellites! Der Singular-Test `tests/security/assert_no_tier1_columns_in_mart.sql` schlägt sonst an.
+
+### Referenz-Implementierungen
+
+| Muster | Model |
+|---|---|
+| Fakt-Tabelle mit Policy-Hooks + `dss_sec_value_key` | `models/mart/finance/fakt_buchungen.sql` |
+| `_v`-View mit `rls_filter` | `models/mart/finance/fakt_buchungen_v.sql` |
+| Dimension mit `cls_mask` | `models/mart/project/dim_person_v.sql` |
+
+### Häufige Fehler
+
+| Symptom | Ursache |
+|---|---|
+| `dbt run`: „Invalid object name 'sec.fn_check_rls'" | `security/ddl/*.sql` auf der Ziel-DB nicht deployed (siehe DEPLOYMENT.md) |
+| `dbt run`: Tabelle kann nicht gedroppt werden | `pre_hook` mit `drop_security_policy()` fehlt |
+| Marts/Tests plötzlich leer, kein Fehler | dbt-Service-User-Exemption (`no_sec=1`) fehlt — Test `assert_dbt_service_user_exemption` prüft das |
+| Neue Objekte für User nicht sichtbar | Kein Problem — Schema-Grants decken neue Objekte automatisch ab; nur **neue Schemas** brauchen ein neues OLS-Skript |
+
+---
+
 ## 🧪 Tests hinzufügen
 
 ### Test-Typen
@@ -2361,6 +2426,8 @@ dbt debug
 | System-Dokumentation | Architektur, Komponenten | [SYSTEM.md](SYSTEM.md) |
 | User-Dokumentation | Endanwender-Guide | [USER.md](USER.md) |
 | Model Architecture | Datenmodell, ERD | [MODEL_ARCHITECTURE.md](MODEL_ARCHITECTURE.md) |
+| **Security-Architektur** | OLS/RLS/CLS/CLE, Mandantenmodell | [datavault-security-architecture.md](ext-features/datavault-security-architecture.md) |
+| Security-Deployment | Runbook für DB-Rollout | [security/DEPLOYMENT.md](../security/DEPLOYMENT.md) |
 | Lessons Learned | Entscheidungen, Troubleshooting | [LESSONS_LEARNED.md](../LESSONS_LEARNED.md) |
 | Copilot Instructions | KI-Assistenz Regeln | [copilot-instructions.md](../.github/copilot-instructions.md) |
 | **CI/CD Plan** | Pipeline-Implementierung | [plan-githubActionsCiCd.prompt.prompt.md](../.github/prompts/plan-githubActionsCiCd.prompt.prompt.md) |
