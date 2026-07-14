@@ -1,4 +1,4 @@
-# Data Vault 2.1 - dbt Project
+# Data Vault 2.1 - dbt Project --> TEST
 
 > Multi-tenant Data Vault 2.1 auf Azure SQL mit dbt Core
 
@@ -119,8 +119,6 @@ Vorher einloggen:
 ```bash
 az login
 ```
-
-TEST
 
 ### Benötigte Informationen
 
