@@ -19,6 +19,10 @@ seed-paths: ["seeds"]
 macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 
+seeds:
+  datavault:
+    +schema: vault
+
 clean-targets:
   - "target"
   - "dbt_packages"
@@ -125,7 +129,12 @@ models:
       # ===== JIRA (Schema: vault_jira) =====
 
     # utils: (models/utils/ leer — zukünftige Business-Vault Utilities)
-    # business_vault: (models/business_vault/ leer — PITs, Bridges ausstehend)
+    business_vault:
+      # ===== COMMON (Schema: vault) =====
+      # Abgeleitete Business-Regeln ohne Quellsystem (z.B. Reporting-Hierarchien),
+      # nicht zu verwechseln mit raw_vault/_common/refs (Reference Tables AUS Quellsystemen).
+      +schema: vault
+      +materialized: view
 
     mart:
       # ===== COMMON (Schema: mart) =====

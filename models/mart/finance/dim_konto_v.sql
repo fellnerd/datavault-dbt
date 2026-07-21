@@ -22,7 +22,11 @@
  *
  * Plug-Zeilen (UNION ALL):
  *   8 synthetische Zeilen je Top-Klasse (3, 4, 5, 6a, 6b, 6c, 7, 8) damit
- *   Zebra BI Tables / Plug-Zero-Logic im Visual auch leere Kategorien anzeigt.
+ *   Zebra BI Tables / Plug-Zero-Logic im Visual auch leere Kategorien anzeigt,
+ *   plus 6 Summary-Plugs (Zwischensummen 4x..9x). Quelle: Business Vault
+ *   konto_pl_zuordnung_v / konto_pl_stufen_v (zentrale P&L-Hierarchie-Regel,
+ *   ersetzt die vorherige hartcodierte VALUES()-Liste — dieselbe Regel speist
+ *   auch die Power-BI-Calculation-Group "Summary Lines").
  *   konto_key < 0, konto_id/code/name NULL, konto_l1/konto_label NULL.
  */
 
@@ -72,75 +76,80 @@ enriched AS (
         CAST(rk.Konto_L1 AS NVARCHAR(255))                                         AS konto_subgruppe,
         CAST(rk.KontoName_L1 AS NVARCHAR(255))                                     AS konto_subgruppe_name,
         -- Power-BI Hierarchie-Spalten (Format: "Code Name", analog Finance001)
-        -- Normalize konto_l2: Konto_L2 from ref_konto may have encoding issues (e.g. Ü → garbled)
-        -- Use LIKE-based normalization to ensure consistent labels matching CalculationGroup items
-        CASE
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6a%' THEN '6a Uebriger Betriebsaufwand'
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6b%' THEN '6b Abschreibungen'
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6c%' THEN '6c Finanzierung'
-            ELSE CAST(rk.Konto_L2 AS NVARCHAR(255))
-        END                                                                         AS konto_l2,
+        -- Normalisierung + Sortierung kommen aus dem Business Vault (konto_pl_zuordnung_v):
+        -- konto_l2_korrektur ist NUR fuer "6a" gesetzt (bekannter Sharepoint-Encoding-Fehler,
+        -- z.B. Ü -> garbled) — fuer alle anderen Gruppen faellt COALESCE auf den rohen
+        -- Sharepoint-Wert zurueck.
+        COALESCE(z.konto_l2_korrektur, CAST(rk.Konto_L2 AS NVARCHAR(255)))         AS konto_l2,
         CAST(rk.Konto_L1 AS NVARCHAR(255))                                         AS konto_l1,
         ISNULL(CAST(rk.Konto AS NVARCHAR(500)),
                CONCAT_WS(' ', CAST(b.konto_nr AS NVARCHAR(255)), rk.KontoName))    AS konto_label,
         -- Sortierspalte fuer korrekte Reihenfolge im Visual (3→4→5→6a→6b→6c→7→8→x)
-        CASE
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '3%' THEN 10
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '4%' THEN 20
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '5%' THEN 30
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6a%' THEN 40
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6b%' THEN 50
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '6c%' THEN 60
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '7%' THEN 70
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE '8%' THEN 80
-            WHEN CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE 'x%' THEN 90
-            ELSE 99
-        END                                                                         AS konto_sort,
+        COALESCE(z.konto_sort, 99)                                                 AS konto_sort,
         b.dss_load_date,
         b.dss_record_source
     FROM base b
     LEFT JOIN {{ ref('ref_konto_v') }} rk
         ON b.konto_nr = rk.KontoNr
+    LEFT JOIN {{ ref('konto_pl_zuordnung_v') }} z
+        ON CAST(rk.Konto_L2 AS NVARCHAR(255)) LIKE z.konto_l2_prefix + '%'
+),
+konto_l2_distinct AS (
+    -- Distinkte reale Kontogruppen aus Sharepoint (Single Source of Truth fuer Label/Name)
+    -- fuer die Gruppen-Plugs unten. NICHT aus dem Business Vault — der liefert nur Sortierung/
+    -- Encoding-Korrektur/Plug-Key, keine Labels.
+    SELECT DISTINCT
+        CAST(Konto_L2 AS NVARCHAR(255))     AS konto_l2_raw,
+        CAST(KontoName_L2 AS NVARCHAR(255)) AS konto_l2_name_raw
+    FROM {{ ref('ref_konto_v') }}
+    WHERE Konto_L2 IS NOT NULL
 )
 
 SELECT * FROM enriched
 
 UNION ALL
 
--- Plug-Zeilen fuer Zebra BI (8 Gruppen + 6 Summary-Lines)
--- Gruppen-Plugs (konto_key -3..-8,-61..-63): Sichern Kategorie-Sichtbarkeit bei 0-Werten
--- Summary-Plugs (konto_key -41,-51,-611,-621,-71,-91): Zwischen-Summen-Zeilen (fett im Visual)
+-- Gruppen-Plugs fuer Zebra BI (konto_key -3..-8,-61..-63): Sichern Kategorie-Sichtbarkeit bei 0-Werten.
+-- Label/Name: echte Sharepoint-Daten (konto_l2_distinct). Sortierung/Encoding-Korrektur/Plug-Key:
+-- Business Vault konto_pl_zuordnung_v. "x Hilfskonten" hat dort konto_key_plug=NULL -> kein Plug (INNER JOIN).
 -- konto_key < 0, konto_id/code/name/l1/label NULL, konto_l2 = Label, konto_sort = Sortierwert
 SELECT
-    plug.konto_key                                AS konto_key,
+    z.konto_key_plug                                                    AS konto_key,
+    CAST(NULL AS NVARCHAR(255))                                         AS konto_id,
+    CAST(NULL AS NVARCHAR(255))                                         AS konto_code,
+    CAST(NULL AS NVARCHAR(255))                                         AS konto_name,
+    COALESCE(z.konto_l2_korrektur, g.konto_l2_raw)                      AS konto_gruppe,
+    COALESCE(z.konto_l2_name_korrektur, LTRIM(RTRIM(g.konto_l2_name_raw))) AS konto_gruppe_name,
+    CAST(NULL AS NVARCHAR(255))                                         AS konto_subgruppe,
+    CAST(NULL AS NVARCHAR(255))                                         AS konto_subgruppe_name,
+    COALESCE(z.konto_l2_korrektur, g.konto_l2_raw)                      AS konto_l2,
+    CAST(NULL AS NVARCHAR(255))                                         AS konto_l1,
+    CAST(NULL AS NVARCHAR(500))                                         AS konto_label,
+    z.konto_sort                                                        AS konto_sort,
+    CAST(GETDATE() AS DATETIME2(7))                                     AS dss_load_date,
+    CAST('plug' AS NVARCHAR(255))                                       AS dss_record_source
+FROM konto_l2_distinct g
+JOIN {{ ref('konto_pl_zuordnung_v') }} z
+    ON g.konto_l2_raw LIKE z.konto_l2_prefix + '%'
+WHERE z.konto_key_plug IS NOT NULL
+
+UNION ALL
+
+-- Summary-Plugs fuer Zebra BI (konto_key -41,-51,-611,-621,-71,-91): Zwischensummen-Zeilen (fett im Visual).
+-- Quelle: Business Vault konto_pl_stufen_v (zentrale Business-Regel).
+SELECT
+    s.konto_key_plug                              AS konto_key,
     CAST(NULL AS NVARCHAR(255))                   AS konto_id,
     CAST(NULL AS NVARCHAR(255))                   AS konto_code,
     CAST(NULL AS NVARCHAR(255))                   AS konto_name,
-    plug.plug_l2                                  AS konto_gruppe,
-    plug.plug_l2_name                             AS konto_gruppe_name,
+    s.subtotal_label                              AS konto_gruppe,
+    s.subtotal_label                              AS konto_gruppe_name,
     CAST(NULL AS NVARCHAR(255))                   AS konto_subgruppe,
     CAST(NULL AS NVARCHAR(255))                   AS konto_subgruppe_name,
-    plug.plug_l2                                  AS konto_l2,
+    s.subtotal_label                              AS konto_l2,
     CAST(NULL AS NVARCHAR(255))                   AS konto_l1,
     CAST(NULL AS NVARCHAR(500))                   AS konto_label,
-    plug.konto_sort                               AS konto_sort,
+    s.konto_sort                                  AS konto_sort,
     CAST(GETDATE() AS DATETIME2(7))               AS dss_load_date,
     CAST('plug' AS NVARCHAR(255))                 AS dss_record_source
-FROM (VALUES
-    -- Gruppen-Plugs (Reihenfolge: sort 10-90)
-    (CAST(-3   AS BIGINT), CAST('3 Ertrag'                            AS NVARCHAR(255)), CAST('Ertrag'                            AS NVARCHAR(255)), CAST(10 AS INT)),
-    (CAST(-4   AS BIGINT), CAST('4 Aufwand'                           AS NVARCHAR(255)), CAST('Aufwand'                           AS NVARCHAR(255)), CAST(20 AS INT)),
-    (CAST(-5   AS BIGINT), CAST('5 Personalaufwand'                   AS NVARCHAR(255)), CAST('Personalaufwand'                   AS NVARCHAR(255)), CAST(30 AS INT)),
-    (CAST(-61  AS BIGINT), CAST('6a Uebriger Betriebsaufwand'         AS NVARCHAR(255)), CAST('Uebriger Betriebsaufwand'          AS NVARCHAR(255)), CAST(40 AS INT)),
-    (CAST(-62  AS BIGINT), CAST('6b Abschreibungen'                   AS NVARCHAR(255)), CAST('Abschreibungen'                    AS NVARCHAR(255)), CAST(50 AS INT)),
-    (CAST(-63  AS BIGINT), CAST('6c Finanzierung'                     AS NVARCHAR(255)), CAST('Finanzierung'                      AS NVARCHAR(255)), CAST(60 AS INT)),
-    (CAST(-7   AS BIGINT), CAST('7 Umlagen'                           AS NVARCHAR(255)), CAST('Umlagen'                           AS NVARCHAR(255)), CAST(70 AS INT)),
-    (CAST(-8   AS BIGINT), CAST('8 Ausserord. & Betriebsfr. Ergebnis' AS NVARCHAR(255)), CAST('Ausserord. & Betriebsfr. Ergebnis' AS NVARCHAR(255)), CAST(80 AS INT)),
-    -- Summary-Plugs: Zwischensummen-Zeilen (sort 25-85, zwischen den Gruppen)
-    (CAST(-41  AS BIGINT), CAST('4x Bruttoergebnis'                   AS NVARCHAR(255)), CAST('4x Bruttoergebnis'                 AS NVARCHAR(255)), CAST(25 AS INT)),
-    (CAST(-51  AS BIGINT), CAST('5x Bruttoergebnis mit Personal'      AS NVARCHAR(255)), CAST('5x Bruttoergebnis mit Personal'    AS NVARCHAR(255)), CAST(35 AS INT)),
-    (CAST(-611 AS BIGINT), CAST('6ax EBITDA'                          AS NVARCHAR(255)), CAST('6ax EBITDA'                        AS NVARCHAR(255)), CAST(45 AS INT)),
-    (CAST(-621 AS BIGINT), CAST('6bx EBIT'                            AS NVARCHAR(255)), CAST('6bx EBIT'                          AS NVARCHAR(255)), CAST(55 AS INT)),
-    (CAST(-71  AS BIGINT), CAST('7x Betriebsergebnis'                 AS NVARCHAR(255)), CAST('7x Betriebsergebnis'               AS NVARCHAR(255)), CAST(75 AS INT)),
-    (CAST(-91  AS BIGINT), CAST('9x Ergebnis'                         AS NVARCHAR(255)), CAST('9x Ergebnis'                       AS NVARCHAR(255)), CAST(85 AS INT))
-) AS plug(konto_key, plug_l2, plug_l2_name, konto_sort)
+FROM {{ ref('konto_pl_stufen_v') }} s

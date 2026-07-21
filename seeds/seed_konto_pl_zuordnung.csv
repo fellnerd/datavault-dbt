@@ -1,0 +1,10 @@
+konto_l2_prefix,konto_sort,ab_stufe,konto_key_plug,konto_l2_korrektur,konto_l2_name_korrektur
+3,10,1,-3,,
+4,20,1,-4,,
+5,30,2,-5,,
+6a,40,3,-61,6a Uebriger Betriebsaufwand,Uebriger Betriebsaufwand
+6b,50,4,-62,,
+6c,60,5,-63,,
+7,70,5,-7,,
+8,80,6,-8,,
+x,90,,,,

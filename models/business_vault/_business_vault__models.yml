@@ -1,6 +1,64 @@
 version: 2
 
-models: []
+models:
+  - name: konto_pl_zuordnung_v
+    description: "Business Vault Reference (NICHT die Kontogruppen-Labels — die kommen live aus ref_konto_v/Sharepoint): Sortierung, P&L-Zwischensummen-Zuordnung, Plug-Key und punktuelle Encoding-Korrektur je Kontogruppen-Praefix. Wrappt seed_konto_pl_zuordnung mit DV-Metadaten. Konsument: dim_konto_v (Gruppen-Plugs + konto_l2/konto_sort der echten Konten)."
+    columns:
+      - name: konto_l2_prefix
+        description: "Kontogruppen-Praefix fuer LIKE-Match gegen ref_konto_v.Konto_L2, z.B. '6a'. Business Key."
+        data_tests:
+          - not_null
+          - unique
+      - name: konto_sort
+        description: "Sortierposition fuer dim_konto_v / Zebra BI Visuals."
+        data_tests:
+          - not_null
+      - name: ab_stufe
+        description: "P&L-Stufe (1-6, FK auf konto_pl_stufen_v.stufe). NULL = fliesst in keine Summenzeile ein."
+      - name: konto_key_plug
+        description: "Negativer Plug-Konto-Key fuer dim_konto_v. NULL = bekommt keine Plug-Zeile."
+        data_tests:
+          - unique
+      - name: konto_l2_korrektur
+        description: "Ueberschreibt Konto_L2 NUR bei bekanntem Sharepoint-Encoding-Fehler (aktuell nur '6a'). NULL fuer alle anderen."
+      - name: konto_l2_name_korrektur
+        description: "Wie konto_l2_korrektur, aber fuer KontoName_L2."
+      - name: dss_load_date
+        description: "Ladezeitpunkt (GETDATE() bei jedem Run — statische Business-Regel ohne echtes Quellsystem)."
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "'manual_business_rule' — kein Quellsystem, manuell gepflegte Business-Regel."
+        data_type: nvarchar(255)
+
+  - name: konto_pl_stufen_v
+    description: "Business Vault Reference: Die 6 Zwischensummen-Stufen der Erfolgsrechnung. Wrappt seed_konto_pl_stufen mit DV-Metadaten. Konsument: dim_konto_v (Summary-Plugs)."
+    columns:
+      - name: stufe
+        description: "P&L-Stufe (1-6). Business Key."
+        data_tests:
+          - not_null
+          - unique
+      - name: subtotal_label
+        description: "Label der Zwischensumme, z.B. '4x Bruttoergebnis'."
+        data_tests:
+          - not_null
+          - unique
+      - name: konto_sort
+        description: "Sortierposition fuer dim_konto_v / Zebra BI Visuals."
+        data_tests:
+          - not_null
+      - name: konto_key_plug
+        description: "Negativer Plug-Konto-Key fuer dim_konto_v."
+        data_tests:
+          - not_null
+          - unique
+      - name: dss_load_date
+        description: "Ladezeitpunkt (GETDATE() bei jedem Run — statische Business-Regel ohne echtes Quellsystem)."
+        data_type: datetime2(7)
+      - name: dss_record_source
+        description: "'manual_business_rule' — kein Quellsystem, manuell gepflegte Business-Regel."
+        data_type: nvarchar(255)
+
   # =============================================================================
   # POINT-IN-TIME TABLES
   # =============================================================================

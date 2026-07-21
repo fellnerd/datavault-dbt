@@ -91,12 +91,16 @@ models:
         konto_l2    = Top-Klasse (z.B. "3 Ertrag", inkl. 6a/6b/6c)
         konto_l1    = Subklasse (z.B. "30 Ertrag Netz")
         konto_label = Detail   (z.B. "30100 Ertrag Strom-Energie")
-      Plus 8 Plug-Zeilen (konto_key < 0) je Top-Klasse (3,4,5,6a,6b,6c,7,8)
-      damit Zebra BI Plug-Zero-Logic auch leere Kategorien anzeigt.
+      Plus 8 Gruppen-Plug-Zeilen (konto_key < 0) je Top-Klasse (3,4,5,6a,6b,6c,7,8)
+      damit Zebra BI Plug-Zero-Logic auch leere Kategorien anzeigt, sowie 6
+      Summary-Plug-Zeilen fuer die P&L-Zwischensummen (4x..9x). Beide Plug-Bloecke
+      kommen aus dem Business Vault (konto_pl_zuordnung_v / konto_pl_stufen_v) —
+      zentrale Business-Regel, dieselbe Quelle speist auch die Power-BI-
+      Calculation-Group "Summary Lines".
       Quelle: hub_konto LEFT JOIN ref_konto_v (Sharepoint Kontenplan).
     columns:
       - name: konto_key
-        description: "Surrogate Key = ABS(HASHBYTES('MD5', KTO)). Plug-Zeilen: -3..-8, -61..-63."
+        description: "Surrogate Key = ABS(HASHBYTES('MD5', KTO)). Gruppen-Plugs: -3..-8, -61..-63. Summary-Plugs: -41,-51,-611,-621,-71,-91."
         data_type: bigint
         tests:
           - not_null

@@ -1,3 +1,48 @@
 version: 2
 
-seeds: []
+seeds:
+  - name: seed_konto_pl_zuordnung
+    description: "Business-Regel (NICHT die Kontogruppen-Labels selbst — die sind echte Sharepoint-Referenzdaten aus ref_konto_v/ewb_sp_konten.sql): Sortierung, P&L-Zwischensummen-Zuordnung, Plug-Key und punktuelle Encoding-Korrektur je Kontogruppen-Praefix."
+    columns:
+      - name: konto_l2_prefix
+        description: "Kontogruppen-Praefix fuer LIKE-Match gegen ref_konto_v.Konto_L2, z.B. '6a'. Business Key."
+        data_tests:
+          - not_null
+          - unique
+      - name: konto_sort
+        description: "Sortierposition fuer dim_konto_v / Zebra BI Visuals (3->4->5->6a->6b->6c->7->8->x)."
+        data_tests:
+          - not_null
+      - name: ab_stufe
+        description: "P&L-Stufe (1-6, FK auf seed_konto_pl_stufen.stufe), ab der diese Kontogruppe in die Zwischensumme einfliesst. NULL = fliesst in keine Summenzeile ein (z.B. 'x Hilfskonten')."
+      - name: konto_key_plug
+        description: "Negativer Plug-Konto-Key fuer dim_konto_v (z.B. -3 fuer '3 Ertrag'). NULL = bekommt keine Plug-Zeile (z.B. 'x Hilfskonten')."
+        data_tests:
+          - unique
+      - name: konto_l2_korrektur
+        description: "Ueberschreibt Konto_L2 NUR bei bekanntem Sharepoint-Encoding-Fehler (aktuell nur '6a', 'Ü' wird kaputt geladen). NULL fuer alle anderen — dort wird der rohe Sharepoint-Wert verwendet."
+      - name: konto_l2_name_korrektur
+        description: "Wie konto_l2_korrektur, aber fuer KontoName_L2 (nur Name ohne Code-Praefix)."
+
+  - name: seed_konto_pl_stufen
+    description: "Business-Regel: Die 6 Zwischensummen-Stufen der Erfolgsrechnung (Bruttoergebnis -> EBITDA -> EBIT -> Betriebsergebnis -> Ergebnis). Zentrale Quelle fuer dim_konto_v Summary-Plugs und die Power-BI-Calculation-Group 'Summary Lines'."
+    columns:
+      - name: stufe
+        description: "P&L-Stufe (1-6). Business Key."
+        data_tests:
+          - not_null
+          - unique
+      - name: subtotal_label
+        description: "Label der Zwischensumme, z.B. '4x Bruttoergebnis'."
+        data_tests:
+          - not_null
+          - unique
+      - name: konto_sort
+        description: "Sortierposition fuer dim_konto_v / Zebra BI Visuals (liegt zwischen den zugehoerigen Gruppen-Sortwerten)."
+        data_tests:
+          - not_null
+      - name: konto_key_plug
+        description: "Negativer Plug-Konto-Key fuer dim_konto_v (z.B. -41 fuer '4x Bruttoergebnis')."
+        data_tests:
+          - not_null
+          - unique
