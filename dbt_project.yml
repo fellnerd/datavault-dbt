@@ -130,10 +130,14 @@ models:
 
     # utils: (models/utils/ leer — zukünftige Business-Vault Utilities)
     business_vault:
-      # ===== COMMON (Schema: vault) =====
+      # ===== FINANCE (Schema: mart_finance) =====
       # Abgeleitete Business-Regeln ohne Quellsystem (z.B. Reporting-Hierarchien),
       # nicht zu verwechseln mit raw_vault/_common/refs (Reference Tables AUS Quellsystemen).
-      +schema: vault
+      # Schema bewusst = mart_finance (nicht vault): diese Objekte werden direkt von
+      # Power BI konsumiert. Endnutzer sollen langfristig nur mart/mart_<domain>
+      # sehen, nie vault/stg — daher duerfen konsumierte Business-Vault-Objekte
+      # nicht im vault-Schema liegen.
+      +schema: mart_finance
       +materialized: view
 
     mart:

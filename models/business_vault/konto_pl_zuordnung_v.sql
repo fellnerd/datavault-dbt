@@ -4,7 +4,9 @@
  * Pattern: Business Vault Reference (abgeleitete Business-Regel, kein Quellsystem)
  * Source: seed_konto_pl_zuordnung (dbt Seed, manuell gepflegt)
  * Primary Key: konto_l2_prefix (Natural Key)
- * Schema: vault (via dbt_project.yml business_vault-Config)
+ * Schema: mart_finance (via dbt_project.yml business_vault-Config) — bewusst NICHT
+ * vault, da direkt von Power BI konsumiert (Endnutzer sollen langfristig nur mart/
+ * mart_<domain> sehen, nie vault/stg).
  *
  * WICHTIG: Enthaelt NICHT die Kontogruppen-Labels selbst (Konto_L2/KontoName_L2) —
  * die sind echte Sharepoint-Referenzdaten und kommen live aus ref_konto_v

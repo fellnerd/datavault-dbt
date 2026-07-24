@@ -224,12 +224,56 @@ Die **Rohdaten des Zeitreihenmoduls** liegen in `EWBPROD`, Schema **`Techanl`** 
 4. **Weg A (Power BI Gateway) entfällt** — kein Bedarf mehr, da C das Live-Szenario abdeckt und B die Integration liefert.
 5. **An Innosolv (präzisiert):** „Wo werden die hochauflösenden Zeitreihenwerte (¼-h/h) gespeichert? Auf `EWBSDB01\ISE` finden sich nur Monatsaggregate (`DataMart_EVU.ZeitreihenData`) und Stammdaten (`Techanl.ZEITREIHE*`), aber keine Werte-Tabelle." Falls EWB ¼-h-Auflösung für Analysen braucht (Frage G-3 an den Fachbereich!), muss der Zugang dazu separat geklärt werden.
 
-### 10.5 Nächste Schritte (aktualisiert)
+### 10.5 Nächste Schritte (Stand vor Antwort transformIT — historisch, s. §11 für aktuellen Stand)
 
 | Schritt | Wer | Status |
 |---|---|---|
 | Fachbereich Energie: Reichen **Monatswerte** (Summe/Min/Max je Serie) oder werden ¼-h-Werte benötigt? (schärft G-3) | EWB Roger / Fachbereich | ⬜ Vor Termin klären |
-| Präzisierte ¼-h-Frage an Innosolv (s. 10.4 Punkt 5) | PPMC / EWB | ⬜ Senden |
+| ~~Präzisierte ¼-h-Frage an Innosolv~~ | PPMC / EWB | ✅ Beantwortet — s. §11 |
 | Termin Christian Vetsch: Vorgehen bestätigen (B aus DWH + C als Ergänzung) | PPMC + EWB | ⬜ Terminvorschläge versendet |
 | Extraktion erweitern: `EWBPROD_dwh.DataMart_EVU.ZeitreihenData` (+ Stammdaten) → Landing Zone → Staging → Vault | PPMC Analytics | ⬜ Nach Termin |
 | Test-Pipelines `Claude_Cube_Explore_TEST` / `Claude_SQL_Explore_TEST` in ADF: behalten (Exploration) oder löschen | PPMC Analytics | ⬜ Nach Projektabschluss aufräumen |
+
+---
+
+## 11. Antwort transformIT AG (Hanspeter Zürcher) — ¼h-Lastgangwerte, 2026-07-23
+
+**Kontext:** Auf unsere Rückfrage (E-Mail an Hanspeter Zürcher, s. §10.4 Punkt 5) zum Speicherort der hochauflösenden Zeitreihenwerte kam folgende Antwort:
+
+| Frage | Antwort |
+|---|---|
+| Speicherort | **Nicht** in der relationalen SQL-Server-Datenbank — separat in einer **Cassandra-Datenbank (NoSQL)** |
+| Granularität | **¼-Stunden-Werte je Messpunkt** |
+| Historientiefe | Bei EWB soweit bekannt bis zu **10 Jahre** zurück importiert — Details bei **Mario Lenherr** |
+| Volumen | ~18'000 Messpunkte mit Zeitreihen, im Schnitt **~11 Zeitreihen je Messpunkt** |
+| Zugriffsweg | Empfohlen: **Webservices** (kein direkter DB-/Treiber-Zugriff) |
+
+**Eigene Einordnung / Kreuz-Check:** 18'000 × 11 ≈ **198'000 Zeitreihen** — das deckt sich fast exakt mit den **198'338 Zeilen**, die wir bereits in `EWBPROD.Techanl.ZEITREIHE` gefunden hatten (§10.2). Das bestätigt: Die Zeitreihen-**Stammdaten** (Definition, OBIS-Kennung) liegen im SQL Server, die **Werte** selbst ausschliesslich in Cassandra — konsistent mit `ZEITREIHEINFO`, das nur Metadaten zum Wertebereich referenziert, aber keine Werte enthält.
+
+**Grobe Volumenschätzung (worst case, volle Historie, alle Serien):**
+
+$$198'000 \text{ Serien} \times \left(10 \text{ Jahre} \times 365 \times 96 \text{ Werte/Tag}\right) \approx 198'000 \times 350'400 \approx \mathbf{69 \text{ Mrd. Rohwerte}}$$
+
+Das ist eine **völlig andere Grössenordnung** als die 486'000 Zeilen Monatsaggregate aus `EWBPROD_dwh` — eine 1:1-Landung der vollen ¼h-Historie ins Data Vault wäre (falls überhaupt gewünscht) ein eigenes, deutlich grösseres Architekturthema (Inkrementallogik, Partitionierung, ggf. selektive Historientiefe/Aggregation statt Vollimport).
+
+### 11.1 Auswirkung auf die Strategie
+
+Die Empfehlung aus §10.4 (**Monatsaggregate aus `EWBPROD_dwh` relational landen**) bleibt davon **unberührt** — das ist unabhängig von Cassandra und weiterhin der pragmatische erste Schritt. Die ¼h-Rohdaten sind ein **separates, grösseres Arbeitspaket**:
+
+| | Monatsaggregate (bestehende Empfehlung) | ¼h-Lastgang (neu, Cassandra) |
+|---|---|---|
+| Quelle | `EWBPROD_dwh.DataMart_EVU.ZeitreihenData` | Cassandra via Webservice |
+| Zugriffsmuster | Relational, analog bestehendem `ISE_Prod`-Muster | Neuer Connector/API-Client nötig — **kein natives ADF-Cassandra-Muster bei uns etabliert** |
+| Volumen | 486k Zeilen — trivial | ~69 Mrd. Rohwerte (worst case) — braucht Konzept (Zeitfenster, Aggregation, Inkrementallogik) |
+| Aufwand | Gering, sofort umsetzbar | Signifikant — eigenes Architektur-/Aufwandsthema |
+| Empfehlung | **Sofort umsetzen** | **Erst nach Klärung des tatsächlichen Bedarfs** (G-3: braucht der Fachbereich wirklich ¼h, oder reichen die Monatswerte, die wir schon haben?) |
+
+### 11.2 Nächste Schritte (aktuell)
+
+| Schritt | Wer | Status |
+|---|---|---|
+| **Vor Aufwand für ¼h-Anbindung: Bedarf mit Fachbereich Energie klären** (reichen Monatswerte für die aktuellen Auswertungen, oder ist ¼h zwingend?) | EWB Roger / Fachbereich | ⬜ Offen — entscheidet ob 11.3 überhaupt nötig wird |
+| Kontakt **Mario Lenherr** (Details zu Cassandra-Zugriff, Webservice-Dokumentation/API-Spec, Authentifizierung, exakte Historientiefe) | PPMC / EWB | ⬜ Anfragen |
+| Termin Christian Vetsch: Vorgehen bestätigen — Monatsaggregate sofort, ¼h/Cassandra als separates Arbeitspaket nach Bedarfsklärung | PPMC + EWB | ⬜ Terminvorschläge versendet |
+| Extraktion erweitern: `EWBPROD_dwh.DataMart_EVU.ZeitreihenData` (+ Stammdaten) → Landing Zone → Staging → Vault | PPMC Analytics | ⬜ Kann unabhängig von Cassandra-Frage starten |
+| Test-Pipelines `Claude_Cube_Explore_TEST` / `Claude_SQL_Explore_TEST` in ADF: behalten oder löschen | PPMC Analytics | ⬜ Nach Projektabschluss aufräumen |

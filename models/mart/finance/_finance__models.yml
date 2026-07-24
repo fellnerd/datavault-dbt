@@ -135,6 +135,9 @@ models:
       - name: konto_label
         description: "Power-BI Hierarchie Ebene 3 (Detail): 'Code Name' (z.B. '30100 Ertrag Strom-Energie'). NULL bei Plug-Zeilen."
         data_type: nvarchar(500)
+      - name: konto_l2_prefix
+        description: "Exakter Join-Key zu konto_pl_zuordnung_v[konto_l2_prefix] (z.B. '6a'). Populiert fuer echte Konten + Gruppen-Plugs, NULL bei Summary-Plugs (4x..9x) — die sind keiner einzelnen Gruppe zugeordnet."
+        data_type: nvarchar(10)
       - name: dss_load_date
         description: "Ladezeitpunkt aus Vault. GETDATE() bei Plug-Zeilen."
         data_type: datetime2(7)

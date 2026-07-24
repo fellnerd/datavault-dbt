@@ -4,7 +4,9 @@
  * Pattern: Business Vault Reference (abgeleitete Business-Regel, kein Quellsystem)
  * Source: seed_konto_pl_stufen (dbt Seed, manuell gepflegt)
  * Primary Key: stufe (Natural Key)
- * Schema: vault (via dbt_project.yml business_vault-Config)
+ * Schema: mart_finance (via dbt_project.yml business_vault-Config) — bewusst NICHT
+ * vault, da direkt von Power BI konsumiert (Endnutzer sollen langfristig nur mart/
+ * mart_<domain> sehen, nie vault/stg).
  *
  * Die 6 Zwischensummen-Zeilen der Erfolgsrechnung (Bruttoergebnis -> EBITDA
  * -> EBIT -> Betriebsergebnis -> Ergebnis), inkl. Label, Sortierposition und

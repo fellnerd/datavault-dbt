@@ -86,6 +86,10 @@ enriched AS (
                CONCAT_WS(' ', CAST(b.konto_nr AS NVARCHAR(255)), rk.KontoName))    AS konto_label,
         -- Sortierspalte fuer korrekte Reihenfolge im Visual (3→4→5→6a→6b→6c→7→8→x)
         COALESCE(z.konto_sort, 99)                                                 AS konto_sort,
+        -- Exakter Join-Key fuer Power BI (Beziehung zu konto_pl_zuordnung_v[konto_l2_prefix]).
+        -- Ermoeglicht der Calculation Group "Summary Lines", die Konten je P&L-Stufe
+        -- dynamisch ueber konto_pl_zuordnung_v[ab_stufe] zu filtern statt hartcodierter Listen.
+        z.konto_l2_prefix                                                          AS konto_l2_prefix,
         b.dss_load_date,
         b.dss_record_source
     FROM base b
@@ -126,6 +130,7 @@ SELECT
     CAST(NULL AS NVARCHAR(255))                                         AS konto_l1,
     CAST(NULL AS NVARCHAR(500))                                         AS konto_label,
     z.konto_sort                                                        AS konto_sort,
+    z.konto_l2_prefix                                                   AS konto_l2_prefix,
     CAST(GETDATE() AS DATETIME2(7))                                     AS dss_load_date,
     CAST('plug' AS NVARCHAR(255))                                       AS dss_record_source
 FROM konto_l2_distinct g
@@ -150,6 +155,7 @@ SELECT
     CAST(NULL AS NVARCHAR(255))                   AS konto_l1,
     CAST(NULL AS NVARCHAR(500))                   AS konto_label,
     s.konto_sort                                  AS konto_sort,
+    CAST(NULL AS NVARCHAR(10))                    AS konto_l2_prefix,
     CAST(GETDATE() AS DATETIME2(7))               AS dss_load_date,
     CAST('plug' AS NVARCHAR(255))                 AS dss_record_source
 FROM {{ ref('konto_pl_stufen_v') }} s
