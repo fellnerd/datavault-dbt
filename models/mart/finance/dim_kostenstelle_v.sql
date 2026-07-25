@@ -18,7 +18,7 @@
 ) }}
 
 SELECT
-    {{ surrogate_key('hk.kst') }}                                                        AS kostenstelle_key,
+    {{ surrogate_key('TRY_CAST(hk.kst AS INT)') }}                                       AS kostenstelle_key,
     CAST(TRY_CAST(hk.kst AS INT) AS NVARCHAR(255))                                       AS kostenstelle_id,
     ISNULL(CAST(rk.Kostenstelle AS NVARCHAR(255)), CAST(TRY_CAST(hk.kst AS INT) AS NVARCHAR(255))) AS kostenstelle_code,
     ISNULL(CAST(rk.KostenstelleName AS NVARCHAR(255)),

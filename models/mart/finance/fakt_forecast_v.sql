@@ -28,7 +28,7 @@ SELECT
             END
         ), 'yyyyMMdd') AS INT)                   AS datum_date_key,
     {{ surrogate_key('f.Konto') }}           AS konto_key,
-    {{ surrogate_key('f.Kostenstelle') }}     AS kostenstelle_key,
+    {{ surrogate_key('TRY_CAST(f.Kostenstelle AS INT)') }} AS kostenstelle_key,
     CAST(f.Szenario AS NVARCHAR(255))        AS szenario,
     CAST(f.Konto AS INT)                     AS konto_nr,
     CAST(f.Kostenstelle AS INT)              AS kostenstelle_nr,
