@@ -16,7 +16,10 @@
 {{ config(
     materialized='incremental',
     as_columnstore=false,
-    post_hook=["{{ create_hash_index('hk_konto') }}"]
+    post_hook=[
+        "{{ create_hash_index('hk_konto') }}",
+        "{{ create_composite_index(['kto']) }}"
+    ]
 ) }}
 
 {%- set yaml_metadata -%}

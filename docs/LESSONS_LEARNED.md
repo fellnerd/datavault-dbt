@@ -1,10 +1,192 @@
 # Lessons Learned - Data Vault 2.1 mit dbt auf Azure
 
-> **Letzte Aktualisierung:** 2026-01-11  
+> **Letzte Aktualisierung:** 2026-07-25
 > **DV 2.1 Compliance:** ~85% (nach Optimierung)
 
 ## Projektkontext
 PoC für eine virtualisierte Data Vault 2.1 Architektur als wiederverwendbares SaaS-Template. Das Projekt wurde durch eine umfassende DV 2.1 Analyse optimiert.
+
+---
+
+# Juli 2026 — Power-BI-Performance & Zebra-BI-Rebuild (Erfolgsrechnung CSM_Abacus)
+
+> Technisches Know-how aus der DB-Performance-Untersuchung und dem Power-BI-Rebuild der
+> Erfolgsrechnung (EWB Finance-Domain, `mart_finance`). Anderer Domänenfokus als der Rest
+> dieses Dokuments (dort: company/country-Hub aus einer früheren Projektphase) — bitte
+> trotzdem lesen, viele Punkte sind domänenübergreifend relevant.
+
+## 1. dbt-Modellierung / Materialisierung
+
+### Nicht-materialisierte View-Ketten sind ein Performance- UND Stabilitätsrisiko
+
+`dim_konto_v` war eine VIEW mit 3× UNION ALL + TRY_CAST/HASHBYTES — wurde bei **jedem**
+Power-BI-DirectQuery-Aufruf komplett neu berechnet (~2.3–2.6s Zusatzkosten bei nur 449 Zeilen).
+Fix: Logik nach `dim_konto` (TABLE) auslagern, `dim_konto_v` wird dünner Wrapper
+(`SELECT * FROM {{ ref('dim_konto') }}`) — analog zum bestehenden `fakt_buchungen`/
+`fakt_buchungen_v`-Muster in diesem Projekt. **Diese Aufteilung (Tabelle + Wrapper-View) ist
+das Standardmuster hier, wende es proaktiv an, sobald eine mart-View mehr als triviale
+Joins/Berechnungen enthält und von Power BI DirectQuery konsumiert wird.**
+
+### Noch fragiler: View-Ketten, die bis zu einer External Table (Parquet) reichen
+
+`dim_person_v` → `ewb_publ_adr_main` (Staging-VIEW) → `stg.ext_ewb_publ_adr_main`
+(External Table auf rohe ADLS-Parquet-Datei) — alle drei Ebenen nicht materialisiert.
+Jede Power-BI-Abfrage liest dadurch live die Parquet-Datei, was bei gleichzeitigem
+Synapse-Ladejob transient fehlschlagen kann ("location does not exist or is used by
+another process"). **Bei jeder Kette, die auf eine External Table zurückführt: prüfen,
+ob mindestens die Staging-Ebene materialisiert werden sollte.**
+
+### Fehlende Vault-Attribute führen zu Mart-Layer-Workarounds, die die Vault umgehen
+
+`dim_person_v` liest für den "aktive Mitarbeiter"-Filter (`LOHNJN`, `GESPERRT`) direkt aus
+der rohen Staging-View statt aus einer Satellite — weil `sat_person_adresse__abacus` diese
+Spalten nie im Payload hatte (dokumentierte Lücke: `docs/synapse-validation-report.md`,
+Gap **M1**). **Wenn ein Mart-Modell `{{ ref('<staging_model>') }}` statt eines Hub/Sat/Link
+referenziert, ist das ein Signal für eine unvollständige Raw-Vault-Modellierung — nicht
+nur ein Stilproblem, sondern ein Performance-/Stabilitätsrisiko (reicht bis zur Quelle
+durch).**
+
+### CTEs können nicht in einer anderen CTE oder einer Subquery genestet werden (T-SQL)
+
+`automate_dv.ref_table()` erzeugt selbst ein `WITH source_data AS (...) SELECT ...`.
+Eigenes `WITH base AS ({{ automate_dv.ref_table(...) }})` scheitert mit
+*"Incorrect syntax near 'with'"* — T-SQL erlaubt keine CTE-Definition, deren Körper mit
+`WITH` beginnt, auch nicht in einer Subquery/Derived Table. **Wenn eine zusätzliche
+Spalte auf ein `ref_table()`-Ergebnis nötig ist: Macro nicht wrappen, sondern die
+äquivalente Logik direkt inline schreiben** (siehe `ref_actual_forecast_v.sql`).
+
+### Quellformat-Annahmen empirisch prüfen, nicht dem Kommentar vertrauen
+
+`ref_actual_forecast_v` dokumentierte `Y_Month` als Format `'YYYY-MM'` — real lieferte
+Sharepoint `'YYYYMMM'` (z.B. `'2022M05'`). Der Join `dim_date.year_month = Y_Month` matchte
+dadurch **strukturell nie** (0 Zeilen) — vermutlich seit Einführung wirkungslos, ohne dass
+es auffiel (kein Fehler, nur leere Ergebnisse). **Bei Join-Keys zwischen Quellen: immer
+`SELECT DISTINCT <spalte>` gegenchecken, nicht nur den Header-Kommentar lesen.**
+
+## 2. Row-Level Security (native Security Policy)
+
+### RLS wertet pro Basiszeile aus, auch für global exemptierte User
+
+`sec.fn_check_rls` hat 4 OR-Branches; Branch 1+2 (Admin-Bypass) hängen **nicht** von der
+pro-Zeile wechselnden Spalte `@sec_value_key` ab. Trotzdem: gemessen **~2.03 logische Reads
+pro Zeile** (163.015 Reads bei 80.247 Zeilen test-DB; 1.850.944 bei 911.394 Zeilen dev-DB —
+exakt dasselbe Verhältnis) statt der erwarteten ~1 Read/Zeile, obwohl `sqladmin` per
+`no_sec=1` global exemptiert ist.
+
+### Versuchter Fix (CTE-Isolation) hat NICHT funktioniert — nicht wiederholen
+
+Idee: Branch 1+2 in eine eigene `WITH bypass AS (...)` CTE isolieren, damit der Optimizer sie
+einmalig statt pro Zeile auswertet. **Ergebnis nach Deploy + Messung: identisches
+Read-Verhältnis wie vorher, keine Verbesserung.** Grund: benannte CTEs sind in SQL Server
+keine Materialisierungs-Grenze — sie werden beim Kompilieren genauso "entfaltet" wie inline
+geschriebene Bedingungen. Zusätzlich ist `fn_check_rls` eine **Inline-TVF** (bestätigt
+`is_inlineable=True`), die beim Planbau komplett in die äußere Query expandiert wird — es
+gibt zum Optimierungszeitpunkt keine "Funktionsgrenze" mehr, an der eine CTE-Isolation
+greifen könnte. **Falls RLS-Overhead später wieder zum Flaschenhals wird: einen
+fundamental anderen Ansatz probieren (z.B. echte Materialisierung des Bypass-Checks über
+eine Session-gecachte Tabelle), nicht diese Variante wiederholen.**
+
+Änderung wurde nach Test zurückgebaut (kein Netto-Nutzen, aber unnötige Komplexität).
+
+### Security-DDL wird bewusst NICHT über dbt deployed
+
+`security/ddl/*.sql` (inkl. `fn_check_rls`) wird laut `security/DEPLOYMENT.md` **manuell in
+SSMS** deployed, dev→test→prod, mit eigenem Verifikationsprotokoll. Ein automatisierter
+Sicherheitsfilter (Auto-Mode-Classifier) blockiert `DROP SECURITY POLICY`/ähnliche DDL auch
+bei explizitem User-Chat-Approval, unabhängig vom verwendeten Shell-Tool (Bash und
+PowerShell gleichermaßen betroffen) — das ist eine bewusste, werkzeugübergreifende Grenze,
+kein Bug. **Solche Schritte muss der User selbst ausführen; nicht versuchen zu umgehen.**
+
+## 3. DAX-Fallstricke
+
+### `BLANK() <= N` ist in DAX `TRUE`
+
+Ein Calculation-Group-Item mit `'tabelle'[spalte] <= 1` schließt Zeilen mit `BLANK()` in
+`spalte` fälschlich ein (DAX behandelt `BLANK()` in numerischen Vergleichen wie `0`). Bei
+uns: `konto_pl_zuordnung_v[ab_stufe]` ist für "x Hilfskonten" `NULL` — wurde durch
+`ab_stufe <= N` für **jede** Stufe fälschlich mitgezählt. **Fix: immer explizit
+`&& NOT ISBLANK(spalte)` ergänzen, wenn die Spalte NULL enthalten kann.**
+
+### Bare Column-Prädikat in CALCULATE() != explizites FILTER(Tabelle, ...)
+
+`CALCULATE(M, KEEPFILTERS('t'[spalte] <= 1))` lieferte empirisch ein **anderes** Ergebnis als
+`CALCULATE(M, KEEPFILTERS(FILTER('t', 't'[spalte] <= 1)))` — obwohl beide auf den ersten Blick
+äquivalent aussehen. Nur mit expliziter `FILTER()`-Formulierung stimmte das Ergebnis mit der
+manuell nachgerechneten Referenz überein. **Bei Zweifeln an einer DAX-Filterlogik: gegen
+eine unabhängig berechnete Referenz messen, nicht der Doku/Intuition vertrauen.**
+
+### Sobald EINE Calculation Group im Modell existiert, werden implizite Measures überall deaktiviert
+
+Nicht nur für die Spalten, die die Calculation Group direkt betrifft — **modellweit**.
+Rohe Spalten können dann in KEINEM Bucket mehr direkt verwendet werden (Card-Werte,
+Tabellen-Values, Zebra-BI-"Category Class" etc.) — es wird überall ein explizites Measure
+verlangt (z.B. `SELECTEDVALUE('tabelle'[spalte])`). Fehlermeldung dabei ist wenig sprechend
+("Dieses Feld kann hier nicht verwendet werden... implizite Measureseigenschaft ist
+aktiviert"). **Beim Debuggen von "Feld nicht verwendbar"-Fehlern zuerst prüfen, ob eine
+Calculation Group im Modell existiert.**
+
+## 4. Zebra BI Tables
+
+### Calculation Groups lassen sich NICHT mit einer Category-Hierarchie kombinieren
+
+Wird ein Calculation-Group-Feld ("Summary Lines") zusätzlich zur echten Dimensions-Hierarchie
+(z.B. Konto_L2→L1→Konto) in denselben **Category**-Bucket gezogen, entsteht ein Kreuzprodukt:
+jeder echte Blattknoten zeigt zusätzlich alle Calc-Group-Items als Pseudo-Kinder, jeweils mit
+dem Wert des Blattknotens selbst (nicht der eigentlich gewünschten Zwischensumme).
+
+### Der korrekte Mechanismus für interleaved P&L-Summenzeilen: "Category Class"
+
+Zebra BI Tables hat einen eigenen Bucket **"Category class"** mit den Symbolen
+`=` (Result/Zwischensumme), `-` (Invert), `/` (Skip, aus Summen ausschließen, bleibt aber
+sichtbar). Umsetzung bei uns: Spalte `dim_konto.zeilentyp` (`NULL`=Detail, `=`=Summary-Plug,
+`/`=x Hilfskonten), gebunden über ein Measure `SELECTEDVALUE('dim_konto'[zeilentyp])`
+(Grund: implizite Measures sind deaktiviert, siehe oben). **Voraussetzung, die leicht
+übersehen wird: Category darf dabei NUR die flache Ebene sein, auf der die Plug-/
+Summary-Zeilen liegen** (bei uns `konto_l2`) — eine mehrstufige Hierarchie funktioniert laut
+Zebra-BI-Doku zwar grundsätzlich auch, aber das muss man bewusst konfigurieren, nicht
+einfach die volle Hierarchie plus Calc-Group-Feld kombinieren (siehe Punkt oben).
+
+Result-Zeilen-Berechnung ist **abhängig von der visuellen Zeilenreihenfolge** — die
+Sortierung (`Sortieren nach Spalte` → `konto_sort`) muss stimmen, sonst bleiben
+Result-Zeilen leer, weil Zebra BI nicht bestimmen kann, welche Detailzeilen dazugehören.
+
+### Modell-Objektnamen kollidieren case-insensitiv
+
+Eine physische SQL-Spalte `zeilentyp` (klein) kollidierte beim Power-BI-Refresh mit einer
+bereits im Modell **manuell angelegten DAX-berechneten Spalte** `Zeilentyp` (groß) —
+Power-BI-Objektnamen sind für Eindeutigkeit case-insensitiv. Fehlermeldung nennt dabei
+verwirrenderweise **jede** Tabelle im Modell als Kollisionsquelle (Batch-Refresh-Artefakt),
+obwohl nur eine einzige Tabelle betroffen ist. **Vor dem Anlegen einer Spalte/eines Measures
+mit naheliegendem Namen: prüfen, ob im Modell bereits ein gleichnamiges (auch anders
+großgeschriebenes) Objekt existiert — insbesondere wenn der Name schon in älterer
+Projektdokumentation als "geplant" auftaucht.**
+
+## 5. Diagnose-Werkzeuge / Vorgehen
+
+- **`dbt show --inline`** wrappt Queries intern mit eigenem `TOP`/`OFFSET` — Konflikte mit
+  eigenem `ORDER BY`, `SELECT DISTINCT` + `ORDER BY`, und mehrfachen Statements
+  (`SET SHOWPLAN_XML`, `CREATE/ALTER FUNCTION` + folgendes `SELECT`). Workarounds: `ORDER BY`
+  weglassen (stattdessen `GROUP BY` für Uniqueness), DDL wie `CREATE OR ALTER FUNCTION` als
+  alleiniges Statement ohne Folge-SELECT senden.
+- **Vor Annahme "Serverless Cold-Start ist Schuld"**: `sys.dm_db_resource_stats` (CPU/IO/
+  Memory-Auslastung) und `sys.dm_os_sys_info.sqlserver_start_time` prüfen. Bei uns lag CPU
+  durchgehend unter 27% — Ressourcenengpass war nicht die Ursache, obwohl die Instanz erst
+  43 Minuten lief.
+- **Gemessene Zahl schlägt Spekulation** — mehrfach in dieser Session bestätigt: eigene
+  erste Vermutungen (LIKE-Join als Kostentreiber, RLS-CTE-Fix würde helfen, Sortierung war
+  Ursache für leere Result-Zeilen) waren jeweils durch Nachmessen widerlegt oder bestätigt
+  worden — nie durch reines Nachdenken allein entschieden.
+
+## 6. Business-Vault-Architektur (kurz)
+
+- Business-Vault-Objekte, die **direkt von einem BI-Tool konsumiert werden**, gehören ins
+  Mart-Schema (`mart_finance` etc.), nicht ins `vault`-Schema — Endnutzer sollen langfristig
+  nur `mart`/`mart_<domain>` sehen können. Rein intern von anderen dbt-Modellen konsumierte
+  Business-Vault-Objekte könnten weiterhin in `vault` liegen, das war hier aber nicht der Fall.
+- Eine Business-Vault-Referenztabelle sollte **nur** die echte, quellsystemlose Business-Regel
+  enthalten (Sortierung, Zuordnung, Plug-Keys) — **nicht** Labels/Namen, die bereits aus einer
+  echten Quelle (Sharepoint etc.) kommen. Sonst entsteht dieselbe Duplizierungs-Problematik,
+  die man eigentlich beheben wollte, nur an anderer Stelle.
 
 ---
 

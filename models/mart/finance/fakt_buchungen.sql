@@ -35,6 +35,10 @@
  *
  * Vault-Lineage:
  *   hub_hauptbuch.recnum + sat_hauptbuch__abacus_current_v
+ *
+ * Indizes (2026-07-24, Performance-Fix — Tabelle war zuvor HEAP ohne jeglichen
+ * Index trotz 80k+ Zeilen, jeder Dimension-Join war ein Full-Scan):
+ *   NONCLUSTERED je konto_key, buchungsdatum_date_key, kostenstelle_key.
  */
 
 {{ config(
@@ -42,7 +46,12 @@
     as_columnstore=false,
     tags=['fact'],
     pre_hook=["{{ drop_security_policy() }}"],
-    post_hook=["{{ apply_security_policy('finance') }}"]
+    post_hook=[
+        "{{ create_composite_index(['konto_key']) }}",
+        "{{ create_composite_index(['buchungsdatum_date_key']) }}",
+        "{{ create_composite_index(['kostenstelle_key']) }}",
+        "{{ apply_security_policy('finance') }}"
+    ]
 ) }}
 
 WITH buchung_base AS (

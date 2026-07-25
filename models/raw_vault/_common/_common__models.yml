@@ -1379,14 +1379,19 @@ models:
     - not_null
 
 - name: "ref_actual_forecast_v"
-  description: "Reference Table: Monat → Actual/Forecast-Klassifikation (Sharepoint ActualForecast). 24 Zeilen Kalender-Lookup. Power BI Join via dim_date.year_month = Y_Month."
+  description: "Reference Table: Monat → Actual/Forecast-Klassifikation (Sharepoint ActualForecast). 24 Zeilen Kalender-Lookup. Power BI Join via dim_date.year_month = year_month_normalized (NICHT Y_Month direkt, siehe Bugfix-Hinweis unten)."
   columns:
   - name: "Y_Month"
-    description: "Jahres-Monat im Format YYYY-MM (Primary Key)"
+    description: "Jahres-Monat, roh aus Sharepoint (Primary Key). BUGFIX 2026-07-24: tatsaechliches Format ist 'YYYYMMM' (z.B. '2022M05'), nicht 'YYYY-MM' wie urspruenglich dokumentiert. Fuer Joins year_month_normalized verwenden, nicht diese Spalte direkt."
     data_type: "nvarchar(4000)"
     tests:
     - not_null
     - unique
+  - name: "year_month_normalized"
+    description: "Y_Month normalisiert auf Format YYYY-MM (z.B. '2022-05'), passend zu dim_date.year_month. Ergaenzt 2026-07-24 als Bugfix — vorher matchte der Join Y_Month=dim_date.year_month strukturell nie (Formatbruch)."
+    data_type: "nvarchar(4002)"
+    tests:
+    - not_null
   - name: "Actual_Forecast"
     description: "Klassifikation: 'Actual' oder 'Forecast'"
     data_type: "nvarchar(4000)"

@@ -82,8 +82,9 @@ models:
         description: "Quellenidentifikation"
         data_type: nvarchar(255)
 
-  - name: dim_konto_v
+  - name: dim_konto
     description: |
+      Materialisierter Performance-Cache fuer dim_konto_v (siehe dort fuer Wrapper).
       Kontenplan (Chart of Accounts) mit Sharepoint-Hierarchie.
       Ghost Hub: Konto-Nummern aus Hauptbuch-Buchungszeilen (FIBU.GL).
       Stammdaten aus Sharepoint ref_konto (254 Konten).
@@ -138,12 +139,28 @@ models:
       - name: konto_l2_prefix
         description: "Exakter Join-Key zu konto_pl_zuordnung_v[konto_l2_prefix] (z.B. '6a'). Populiert fuer echte Konten + Gruppen-Plugs, NULL bei Summary-Plugs (4x..9x) — die sind keiner einzelnen Gruppe zugeordnet."
         data_type: nvarchar(10)
+      - name: zeilentyp
+        description: "Zebra BI 'Category Class'-Bucket-Wert (Symbole: '=' Result, '-' Invert, '/' Skip). NULL = normale Detailzeile (echte Konten + Gruppen-Plugs). '=' = Summary-Plug (4x..9x), Zebra BI berechnet den Wert aus den Zeilen darueber statt aus dem Fakt-Join. '/' = 'x Hilfskonten' (kein Bestandteil einer P&L-Summenzeile)."
+        data_type: nvarchar(10)
       - name: dss_load_date
         description: "Ladezeitpunkt aus Vault. GETDATE() bei Plug-Zeilen."
         data_type: datetime2(7)
       - name: dss_record_source
         description: "Quellenidentifikation. 'plug' bei Plug-Zeilen."
         data_type: nvarchar(255)
+
+  - name: dim_konto_v
+    description: |
+      Duenner Wrapper-View um die materialisierte Tabelle dim_konto (Performance-
+      Cache). Publiziertes, von Power BI konsumiertes Objekt — Spalten identisch
+      zu dim_konto, siehe dort fuer vollstaendige Dokumentation.
+    columns:
+      - name: konto_key
+        description: "Siehe dim_konto.konto_key."
+        data_type: bigint
+        tests:
+          - not_null
+          - unique
 
   - name: dim_kostenstelle_v
     description: |
