@@ -18,7 +18,7 @@
 ) }}
 
 SELECT
-    {{ surrogate_key('hk.knr') }}                                                       AS kreditor_key,
+    {{ surrogate_key('TRY_CAST(hk.knr AS INT)') }}                                      AS kreditor_key,
     CAST(hk.knr AS NVARCHAR(255))                                                       AS kreditor_id,
     CAST(hk.knr AS NVARCHAR(255))                                                       AS kreditor_code,
     ISNULL(CAST(sk.adrid AS NVARCHAR(255)), ISNULL(CAST(hk.knr AS NVARCHAR(255)), 'UNKNOWN')) AS kreditor_name,
