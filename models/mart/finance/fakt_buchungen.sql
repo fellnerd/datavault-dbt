@@ -88,7 +88,7 @@ WITH buchung_base AS (
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('TRY_CAST(TRY_CAST(b.kto AS DECIMAL(18,0)) AS INT)') }}          AS konto_key,
-    {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
+    {{ surrogate_key('TRY_CAST(TRY_CAST(b.kst AS DECIMAL(18,0)) AS INT)') }} AS kostenstelle_key,
     -1 * CASE
         WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
@@ -130,7 +130,7 @@ UNION ALL
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('TRY_CAST(TRY_CAST(b.gkto AS DECIMAL(18,0)) AS INT)') }}         AS konto_key,
-    {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
+    {{ surrogate_key('TRY_CAST(TRY_CAST(b.kst2 AS DECIMAL(18,0)) AS INT)') }} AS kostenstelle_key,
     CASE
         WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
@@ -172,7 +172,7 @@ UNION ALL
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('TRY_CAST(TRY_CAST(b.kto AS DECIMAL(18,0)) AS INT)') }}          AS konto_key,
-    {{ surrogate_key('CAST(b.kst AS NVARCHAR(MAX))') }}               AS kostenstelle_key,
+    {{ surrogate_key('TRY_CAST(TRY_CAST(b.kst AS DECIMAL(18,0)) AS INT)') }} AS kostenstelle_key,
     CASE
         WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
@@ -214,7 +214,7 @@ UNION ALL
 SELECT
     TRY_CAST(FORMAT(TRY_CAST(b.[date] AS DATE), 'yyyyMMdd') AS INT) AS buchungsdatum_date_key,
     {{ surrogate_key('TRY_CAST(TRY_CAST(b.gkto AS DECIMAL(18,0)) AS INT)') }}         AS konto_key,
-    {{ surrogate_key('CAST(b.kst2 AS NVARCHAR(MAX))') }}              AS kostenstelle_key,
+    {{ surrogate_key('TRY_CAST(TRY_CAST(b.kst2 AS DECIMAL(18,0)) AS INT)') }} AS kostenstelle_key,
     -1 * CASE
         WHEN TRY_CAST(b.mwsttyp AS DECIMAL(18,4)) = 5 OR b.mwstincl = 'E'
             THEN TRY_CAST(b.betrag AS DECIMAL(18,4))
