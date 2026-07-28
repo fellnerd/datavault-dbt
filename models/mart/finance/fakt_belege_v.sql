@@ -39,7 +39,7 @@
 
 SELECT
     -- Dimension Keys (KBL)
-    {{ surrogate_key('hkr.knr') }}                                                      AS kreditor_key,
+    {{ surrogate_key('TRY_CAST(hkr.knr AS INT)') }}                                     AS kreditor_key,
     {{ surrogate_key('skb.statid') }}                                                    AS buchungsstatus_key,
     TRY_CAST(FORMAT(TRY_CAST(skb.kbeldat AS DATE), 'yyyyMMdd') AS INT)                  AS belegdatum_date_key,
     -- Degenerate Dimensions (KBL)
