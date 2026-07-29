@@ -43,7 +43,8 @@ SELECT
     {{ surrogate_key('skb.statid') }}                                                    AS buchungsstatus_key,
     TRY_CAST(FORMAT(TRY_CAST(skb.kbeldat AS DATE), 'yyyyMMdd') AS INT)                  AS belegdatum_date_key,
     -- Degenerate Dimensions (KBL)
-    CAST(hkb.belnr AS NVARCHAR(255))                                                     AS belegnummer,
+    TRY_CAST(TRY_CAST(hkb.belnr AS DECIMAL(18,0)) AS INT)                                AS belegnummer,
+    {{ surrogate_key('TRY_CAST(TRY_CAST(hkb.belnr AS DECIMAL(18,0)) AS INT)') }}         AS beleg_key,
     -- Measures (KBL)
     TRY_CAST(skb.bwbtr AS DECIMAL(18,2))                                                 AS betrag,
     TRY_CAST(skb.bwbtr AS DECIMAL(18,2))
