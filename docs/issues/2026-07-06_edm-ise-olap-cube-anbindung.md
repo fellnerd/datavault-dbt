@@ -4,7 +4,7 @@
 **Von:** PPMC AG — Analytics Team (Daniel)  
 **An:** EWB — Roger (Anfrage), Christian Vetsch (System Engineer)  
 **Betreff:** Machbarkeit & Vorgehen zur Anbindung der Energiedaten (i-SE / OLAP-Cube)  
-**Status:** 🟢 Exploration abgeschlossen (Update 2026-07-09, §10) — Cube live abfragbar, Quelltabellen lokalisiert; Strategieentscheid & Innosolv-Detailfrage (¼-h-Werte) offen  
+**Status:** 🟢 Exploration abgeschlossen (Update 2026-08-15, §12) — Cube live abfragbar, Quelltabellen lokalisiert, **¼-h-Export bereits in der Landing Zone** und deterministisch mit Cube/Stammdaten verknüpfbar; Konsolidierungsentscheid (K1–K4) offen  
 **Referenz:** [`docs/projektdokumentation.md` §0.7 + §0.7.1](../projektdokumentation.md)
 
 ---
@@ -268,6 +268,8 @@ Die Empfehlung aus §10.4 (**Monatsaggregate aus `EWBPROD_dwh` relational landen
 | Aufwand | Gering, sofort umsetzbar | Signifikant — eigenes Architektur-/Aufwandsthema |
 | Empfehlung | **Sofort umsetzen** | **Erst nach Klärung des tatsächlichen Bedarfs** (G-3: braucht der Fachbereich wirklich ¼h, oder reichen die Monatswerte, die wir schon haben?) |
 
+> ⚡ **Überholt durch §12 (2026-08-15):** Für die kuratierte Zeitreihegruppe `ewb_Power BI` (41 Serien) liegen die ¼-h-Werte **bereits als CSV-Export in der Landing Zone** — ohne Cassandra-Connector. Das Volumen dieser Gruppe beträgt ~3.2 Mio Werte statt der hier für *alle* Serien geschätzten ~69 Mrd. Die Einschätzung „signifikanter Aufwand / eigenes Architekturthema" gilt weiterhin für einen **Vollzugriff auf alle ~198k Serien**, nicht für den aktuellen Scope.
+
 ### 11.2 Nächste Schritte (aktuell)
 
 | Schritt | Wer | Status |
@@ -277,3 +279,148 @@ Die Empfehlung aus §10.4 (**Monatsaggregate aus `EWBPROD_dwh` relational landen
 | Termin Christian Vetsch: Vorgehen bestätigen — Monatsaggregate sofort, ¼h/Cassandra als separates Arbeitspaket nach Bedarfsklärung | PPMC + EWB | ⬜ Terminvorschläge versendet |
 | Extraktion erweitern: `EWBPROD_dwh.DataMart_EVU.ZeitreihenData` (+ Stammdaten) → Landing Zone → Staging → Vault | PPMC Analytics | ⬜ Kann unabhängig von Cassandra-Frage starten |
 | Test-Pipelines `Claude_Cube_Explore_TEST` / `Claude_SQL_Explore_TEST` in ADF: behalten oder löschen | PPMC Analytics | ⬜ Nach Projektabschluss aufräumen |
+
+---
+
+## 12. Exploration ¼h-Export vs. Cube/Stammdaten (2026-08-15)
+
+**Anlass:** Seit dem Erstellen von §11 sind zwei External Tables in `datavault-dev` (Target `ewb-dev`) angebunden: `stg.ext_ise_lastgaenge` und `stg.ext_ise_stammdaten`. Die Werte in `ext_ise_lastgaenge.Category` ähnelten `ext_ise_stammdaten.Zeitreihe`, waren aber nicht identisch. Untersucht via ADF-Pipelines `Cube_Explore_TEST` (MDX/SSAS-DMV) und `SQL_Explore_TEST` (`EWBPROD`, `EWBPROD_dwh`) sowie direkte Abfragen der External Tables.
+
+### 12.1 Herkunft der beiden External Tables
+
+| Aspekt | Befund |
+|---|---|
+| Quelle | Täglicher **CSV-Export** `ewb_PowerBI_LG_<yyyyMMddHHmmss>.csv` auf Laufwerk D: des i-SE-Servers → Container `ise-export/drive-d/{lastgaenge,stammdaten}/` |
+| Transport | ADF-Pipeline **`CopyPipeline_Lastgaenge`** (2 Copy-Activities, CSV → Parquet) → `stage-fs/ewb/ise/{lastgaenge,stammdaten}/` → Wildcard External Tables |
+| Kadenz | Werktäglich ~08:45; zusätzlich ein Backfill-Lauf am 11.08.2026 13:28 (12.5 MB, Juli 2026) |
+| Umfang | **41 Zeitreihen**, `Zeitschritt = 15` → **¼-h-Werte**; aktuell Juli 2026 + 01.–14.08.2026 |
+| Auflösung | ¼-h-Raster (00:15 … 23:45), Intervall-**Ende**-Konvention |
+
+> ⚡ Damit ist die zentrale Annahme aus §10/§11 zu relativieren: **¼-h-Lastgangwerte sind bereits in der Landing Zone** — nicht über Cassandra, sondern über einen von EWB eingerichteten Report-Export. Die Cassandra-Aussage von transformIT (§11) bleibt für den *direkten* Zugriff auf alle 198k Serien gültig.
+
+### 12.2 `Category` ↔ Stammdaten — der Schlüssel ist deterministisch
+
+`ext_ise_lastgaenge.Category` ist ein zusammengesetzter Text:
+
+```
+Category = Zeitreihe + '.' + Referenz + '.' + Einheit
+```
+
+Beispiele:
+- `Verluste NE6.Elektrizitäts- und Wasserwerk der Stadt Buchs <Netz>.kWh`
+- `Wirk Rücklieferung.CH1008401234510000000000000014073.kWh`
+- `Wasser KEV Rücklieferung.Auswertungen.kWh`
+
+**Verifiziert:** 41 von 41 `Category`-Werten matchen exakt gegen `ext_ise_stammdaten`; die Abbildung auf `ID_Zeitreihe` ist **1:1 bijektiv** (41 Category = 41 Composite Keys = 41 IDs). Kein Fuzzy-Matching nötig.
+
+Der Grund für die „Ähnlichkeit ohne Identität": Die CSV-Spalte `Zeitreihe` enthält nicht den Serien-, sondern den **Typnamen** — sie entspricht `Techanl.ZEITREIHETYP.Bezeichnung` bzw. `VR_Zeitreihe.ZeitreiheTyp`. Die Serienidentität entsteht erst aus **Typ + Referenz**.
+
+### 12.3 Stammdaten auf dem Cube — vorhanden, aber dünn und nicht namensreferenzierbar
+
+| Ebene | Objekt | Inhalt |
+|---|---|---|
+| Cube (SSAS) | Dimension `[Zeitreihe]` | 19'206 Members; nur 3 Hierarchien: `Zeitreihe`, `ZeitreiheTyp` (85), `Ruecklieferung` (3). Einzige Member-Property: `ZeitreiheTyp` |
+| Cube-Quelle | `EWBPROD_dwh.DataMart_EVU.VR_Zeitreihe` | 19'205 Zeilen: `Zeitreihe_ID`, `MeteringCode_ID`, `ID_ZeitreiheTyp`, `ZeitreiheTyp`, `Ruecklieferung_ID`, `Ruecklieferung` |
+| Cube-Fakten | `DataMart_EVU.ZeitreihenData` | 19'295 Serien, Monatswerte `Summe`/`Minimum`/`Maximum`, 2024/03–2026/08 |
+
+**Kernbefunde:**
+
+1. **`VR_Zeitreihe.Zeitreihe_ID` ist identisch mit `ID_Zeitreihe` aus dem CSV-Export** — direkt referenzierbar, kein Mapping nötig (stichprobenartig für 8 IDs verifiziert, danach vollzählig gezählt).
+2. **31 von 41** Serien liegen im Cube-DataMart. Die fehlenden 10 sind exakt die **lieferantenreferenzierten** Serien (Alpiq / EPAG / Primeo, `ReferenzTyp = 172`, `ReferenzID` 56/54/16) — `Gesamtlieferung LF lokal`, `Gesamtrücklieferung LF lokal`, `Gesamtlieferung minus Gesamtrücklieferung LF`, `… Lastgang gemessen`.
+3. Über den **Cube allein** sind die Serien **nicht** referenzierbar: `MEMBER_CAPTION` ist nur der Typname und damit nicht eindeutig (19'206 Members auf 85 Typnamen). Für einen Join braucht es die relationale Ebene.
+4. Die Cube-Dimension ist **deutlich ärmer** als `ext_ise_stammdaten`: es fehlen Einheit, Zeitschritt, Energieart, Standort, Bezügeranlage, Gültigkeiten und die Zeitreihegruppe.
+
+### 12.4 Die vollständigen Stammdaten liegen relational in `EWBPROD.Techanl`
+
+Der CSV-Stammdaten-Export ist ein **denormalisierter Join** dieser Tabellen — alle über das bestehende `ISE_Prod`/SHIR-Muster erreichbar. Jede Spalte des Exports liess sich auf ihre relationale Quelle zurückführen; die Referenzauflösung wurde stichprobenweise gegen die Exportwerte geprüft und stimmt exakt:
+
+| Tabelle | Liefert | Volumen |
+|---|---|---|
+| `Techanl.ZEITREIHE` | `ID_Zeitreihe` (BK), `ID_ZeitreiheTyp`, `ReferenzTyp`/`ReferenzID`, `GueltigVon`/`GueltigBis`, `Kennung`, `ObisOutput`, `Beschreibung` | **203'378** — enthält **alle 41** Serien (auch die 10 im DWH fehlenden) |
+| `Techanl.ZEITREIHETYP` | `Bezeichnung` (= CSV-Spalte `Zeitreihe`), `Einheit`, `Zeitschritt`, `Ruecklieferung`, `ObisOutput` | 274 |
+| `Techanl.ZEITREIHEGRUPPE` / `…ZUORD` | Gruppenzuordnung inkl. `Reihenfolge`, `GueltigVon`/`GueltigBis` | **43 Gruppen** |
+| `Techanl.METERINGCODE` | `Messpunktbezeichnung` = die `CH1008…`-Referenz (`ReferenzTyp = 19`) — **verifiziert** für ID 629/12083/13529 | — |
+| `Techanl.MARKTPARTNER` | `Bezeichnung` = Referenz für Netz / Lieferant / „Auswertungen" (`ReferenzTyp = 172`) — **verifiziert**: 1 = `…Stadt Buchs <Netz>`, 16 = `EWB B2B Primeo <Lieferant>`, 54 = `EWB B2B EPAG <Lieferant>`, 56 = `EWB <Lieferant> <mit Bilanzgruppe> <Alpiq AG>`, 61 = `Auswertungen` | — |
+| `Techanl.ZEITREIHEINFO` | `ZeitreihewertStart`/`-Ende`, `LueckeVon`/`-Bis`/`-Anzahl` je Serie | Metadaten zum Wertebereich |
+
+**Die Auswahl der 41 Serien ist relational reproduzierbar:** Zeitreihegruppe **`ID = 150`, Bezeichnung `ewb_Power BI`** enthält **exakt 41** Zeitreihen — identisch mit dem Export (auch der Dateiname `ewb_PowerBI_LG_*` verweist darauf). Weitere Gruppen zeigen das Potenzial des Mechanismus, u. a. `ewb Tarif 2027 Haushalt mit Smartmeter` (6'187 Serien), `HKN` (673), `ewb Tarif 2027 Industrie N (NE7)` (69).
+
+### 12.5 Kreuz-Check: Cube-Monatswerte = Aggregation derselben ¼-h-Serien
+
+Vergleich Juli 2026, ¼-h-Summe aus `ext_ise_lastgaenge` gegen `DataMart_EVU.ZeitreihenData`:
+
+| Serie | Cube `Minimum` / `Maximum` | ¼h `min` / `max` | Cube `Summe` | ¼h-Summe (2975 Werte) |
+|---|---|---|---|---|
+| 148746 Bruttolastgangsumme BLS/EN | 1039.052579 / 2565.812433 | **identisch** | 4'612'940.997 | 4'611'569.778 |
+| 183741 Gesamteinspeisung Netz | 1089.176824 / 2669.596 | **identisch** | 4'796'003.635 | 4'794'572.536 |
+| 150835 Wirk Rücklieferung CH…12181 | 410.4 / 3536.0 | **identisch** | 8'243'668.0 | 8'240'948.4 |
+
+`Minimum`/`Maximum` stimmen **stellengenau** überein. Die `Summe` differiert jeweils um genau **ein Intervall**: der CSV-Export liefert 2'975 statt 2'976 Juli-Werte, weil der Wert `01.08. 00:00` (Intervall-Ende-Konvention) noch zum Juli gehört.
+
+→ **Es handelt sich nicht um „ähnliche", sondern um dieselben Zeitreihen.** Cube = Monatsaggregat, CSV = ¼-h-Basis. Der Kreuz-Check taugt damit als dauerhafter Datenqualitätstest.
+
+### 12.6 Historientiefe & Volumen der 41 Serien (`ZEITREIHEINFO`)
+
+| Start der Werte | Serien | geschätzte ¼h-Werte |
+|---|---|---|
+| 2019 | 2 | 534'144 |
+| 2024 | 14 | 1'284'864 |
+| 2025 | 24 | 1'359'360 |
+| 2026 | 1 | 21'600 |
+| **Total** | **41** | **≈ 3.2 Mio** |
+
+Ende der Werte durchgehend `2026-08-14`, **`LueckeAnzahl = 0`** für alle 41 Serien.
+
+> Wichtige Korrektur zur Volumenschätzung in §11: Die dort genannten **~69 Mrd. Rohwerte** gelten für *alle* ~198k Serien über 10 Jahre. Für die kuratierte Gruppe `ewb_Power BI` sind es **~3.2 Mio Werte** — problemlos landbar. Die Frage „¼h ja/nein" ist damit **keine Architekturfrage mehr**, solange man beim Gruppen-Scope bleibt.
+
+### 12.7 Datenqualitätsbefunde — vor jeder Modellierung zu lösen
+
+| # | Befund | Beleg | Auswirkung |
+|---|---|---|---|
+| Q-1 | Wildcard-External-Table liest **alle** Export-Dateien → Duplikate | 279'456 Rohzeilen vs. 169'248 eindeutige (`Category`,`Date`)-Paare | Jede Summierung überzählt |
+| Q-2 | Export ist ein **rollierendes 5-Tage-Fenster** | Duplikatsfaktor je Tag 1→5→1 (01.–14.08.); Juli dupfrei (nur Backfill-Datei) | Erwartetes Muster, nicht Fehler — braucht aber Dedup |
+| Q-3 | **Werte werden nachträglich korrigiert** | **6'267** (`Category`,`Date`)-Paare mit mehr als einem `Value`; 14'785 Versionen; ausschliesslich in der Overlap-Zone 06.–13.08. | `SELECT DISTINCT` liefert **falsche** Ergebnisse — es braucht „letzter Export gewinnt" |
+| Q-4 | External Table hat **keine Herkunftsspalte** (Dateiname / Export-Zeitstempel) | Spalten nur `Date`, `Category`, `Value` | Q-3 ist derzeit **nicht entscheidbar** → **Fix: `$$FILEPATH` als `additionalColumns` in `CopyPipeline_Lastgaenge` mitschreiben** |
+| Q-5 | Stammdaten 10× dupliziert | 410 Zeilen = 41 Serien × 10 identische Snapshots | Dedup bzw. Snapshot-Handling nötig |
+| Q-6 | `Date` als `VARCHAR(20)` im Format `dd.MM.yyyy HH:mm:ss` | `MIN`/`MAX` sortieren lexikografisch (Tag vor Monat) | Konvertierung (`CONVERT(datetime2, …, 104/113)`) im Staging zwingend |
+| Q-7 | Am 15.08. existiert eine `stammdaten`-, aber keine `lastgaenge`-Datei | ADLS-Listing | Export-/Copy-Lücke mit EWB klären |
+| Q-8 | `ext_ise_stammdaten.ID_Zeitreihe` ist als `NVARCHAR(4000)` typisiert | `sources.yml`; Quelle ist `int` | Für Hash-Keys/Joins auf `INT` casten (analog `TRY_CAST`-Muster der Finance-Domain) |
+
+### 12.8 Konsolidierungsoptionen
+
+| | Ansatz | Stammdatenquelle | Wertequelle | Aufwand | Bewertung |
+|---|---|---|---|---|---|
+| **K1** | **Nur CSV** — `Category` im Staging in `Zeitreihe`/`Referenz`/`Einheit` splitten und gegen `ext_ise_stammdaten` auf `ID_Zeitreihe` auflösen | `ext_ise_stammdaten` | `ext_ise_lastgaenge` | gering | Schnellster Weg zu einem lauffähigen Mart. Aber: Stammdaten bleiben ein 10×-duplizierter Flat-File-Snapshot ohne Historie, fix auf 41 Serien, abhängig vom Fortbestand des Exports |
+| **K2** | **Stammdaten relational** aus `EWBPROD.Techanl` landen (`ZEITREIHE`, `ZEITREIHETYP`, `ZEITREIHEGRUPPE`, `ZEITREIHEGRUPPEZUORD`, `METERINGCODE`, `MARKTPARTNER`) — CSV liefert nur noch Werte | `EWBPROD.Techanl` | `ext_ise_lastgaenge` | mittel | **Empfehlung.** Echte, historisierbare Stammdaten für alle 203k Serien; Gruppenzugehörigkeit (inkl. Gültigkeit) wird zur *Daten*-, nicht mehr zur Exportfrage; Erweiterung auf weitere Gruppen ohne neuen Export möglich; `ext_ise_stammdaten` wird entbehrlich |
+| **K3** | **Monatsaggregate ergänzen** aus `EWBPROD_dwh.DataMart_EVU.ZeitreihenData` (+ `VR_Zeitreihe`) | wie K2 | zusätzlich Cube-DataMart | + gering | Liefert Historie ab 2024/03 (¼h nur ab Juli 2026) und den permanenten Konsistenz-Check aus §12.5. Deckt nur 31 der 41 Serien ab |
+| **K4** | **¼h-Vollhistorie** für Gruppe 150 nachladen (2019/2024/2025 → heute) | wie K2 | erweiterter Export **oder** Cassandra-Webservice | mittel | ~3.2 Mio Werte, keine Lücken. Einfachste Variante: EWB um einen einmaligen Backfill-Export über den vollen Zeitraum bitten (analog zur Backfill-Datei vom 11.08.) — kein Cassandra-Connector nötig |
+
+**Empfohlene Reihenfolge:** K2 + K3 gemeinsam umsetzen (beide über die bestehende `ISE_Prod`-Allowlist), K4 als einmaligen Backfill anfordern. K1 nur, falls kurzfristig ein Ergebnis gebraucht wird — es ist in K2 vollständig aufgehoben.
+
+### 12.9 Vault-Modellierungsskizze (DV 2.1)
+
+```
+hub_zeitreihe                    BK: ID_Zeitreihe (INT)
+├── sat_zeitreihe__ise           Typ, Bezeichnung, Einheit, Zeitschritt,
+│                                Rücklieferung, OBIS, Gültigkeit, Nutzung
+├── link_zeitreihe_messpunkt     ReferenzTyp = 19  → hub_messpunkt (METERINGCODE)
+├── link_zeitreihe_marktpartner  ReferenzTyp = 172 → hub_marktpartner
+└── sat_zeitreihe_lastgang_ma__ise   Multi-Active, CDK = Zeitstempel (¼h)
+                                     Payload: Value; Dedup „letzter Export gewinnt" (Q-3/Q-4)
+
+hub_zeitreihegruppe              BK: ID_Zeitreihegruppe  (z. B. 150 = ewb_Power BI)
+└── link_zeitreihe_gruppe + eff_sat   GueltigVon/GueltigBis, Reihenfolge
+```
+
+Monatsaggregate (K3) entweder als eigener Satellit am selben Hub (CDK = `Month_ID`) oder erst im Mart als Vergleichsfakt. Vor der ¼-h-Satellitenmodellierung ist **Q-4 zwingend zu lösen** — ohne Herkunfts-/Zeitstempelspalte lässt sich kein korrektes „latest wins" bilden.
+
+### 12.10 Offene Punkte
+
+| # | Punkt | Wer | Status |
+|---|---|---|---|
+| X-1 | Wer erstellt den Export `ewb_PowerBI_LG_*.csv` auf D:, mit welchem Job/Zeitplan, und wer pflegt die Zeitreihegruppe 150? (Mario Lenherr / Christian Vetsch) | PPMC / EWB | ⬜ Offen |
+| X-2 | Einmaliger **Backfill-Export** über die volle Historie (ab 2019/2024/2025) für Gruppe 150 — Aufwand/Machbarkeit | EWB | ⬜ Anfragen |
+| X-3 | `CopyPipeline_Lastgaenge` um `$$FILEPATH` (`additionalColumns`) erweitern → Q-4 | PPMC Analytics | ⬜ Umsetzbar ohne Abstimmung |
+| X-4 | Lücke vom 15.08. (stammdaten ohne lastgaenge) prüfen — einmalig oder systematisch? | PPMC / EWB | ⬜ Offen |
+| X-5 | `Techanl`-Tabellen auf die `ISE_Prod`-Allowlist setzen (K2) — Lesezugriff für `INTRA\srv-analytics` ist laut §10.3/E-3 bereits verifiziert | PPMC Analytics | ⬜ Nach Entscheid |
+| X-6 | Fachlich klären: Werden auch die 10 lieferantenreferenzierten Serien im Cube-Kontext benötigt (sie fehlen dort)? | EWB Fachbereich | ⬜ Offen |
