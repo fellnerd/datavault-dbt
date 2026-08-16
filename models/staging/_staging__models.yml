@@ -3205,3 +3205,225 @@ models:
         description: "Concatenated business key string - id"
         data_type: nvarchar(4000)
 
+
+  - name: ise_zeitreihe_dedup
+    description: >
+      Pre-Staging: Dedup und Typisierung der i-SE-Zeitreihen-Stammdaten
+      (ext_ise_stammdaten, Zeitreihegruppe 150 "ewb_Power BI", 41 Serien).
+      Reduziert die identischen Tages-Snapshots auf eine Zeile je ID_Zeitreihe,
+      castet die als Text gelieferten Felder und bildet zeitreihe_key als
+      Join-Schlüssel zu ext_ise_lastgaenge.Category. BK: id_zeitreihe.
+    config:
+      meta:
+        entity_type: dedup
+        source_type: external_table
+        external_table: ext_ise_stammdaten
+        business_keys:
+          - id_zeitreihe
+    columns:
+      - name: id_zeitreihe
+        description: "Business Key — i-SE ID_Zeitreihe (aus NVARCHAR gecastet)"
+        data_type: int
+        tests:
+          - not_null
+          - unique
+      - name: zeitreihe_key
+        description: "Zeitreihe + '.' + Referenz + '.' + Einheit — entspricht ext_ise_lastgaenge.Category"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+          - unique
+      - name: id_zeitreihe_typ
+        description: "FK Zeitreihentyp (Techanl.ZEITREIHETYP)"
+        data_type: int
+      - name: zeitreihe_typ
+        description: "Typbezeichnung — Exportspalte 'Zeitreihe' enthält den Typ-, nicht den Seriennamen"
+        data_type: nvarchar(4000)
+      - name: einheit
+        description: "Masseinheit der Werte (durchgehend kWh)"
+        data_type: nvarchar(4000)
+      - name: zeitschritt_min
+        description: "Zeitschritt in Minuten (15 = ¼-Stunden-Werte)"
+        data_type: int
+      - name: energieart
+        description: "Energieart-Code (1 = Elektrizität)"
+        data_type: int
+      - name: referenz_typ
+        description: "Referenztyp: 19 = Messpunkt (METERINGCODE), 172 = Marktpartner"
+        data_type: int
+      - name: referenz_id
+        description: "FK auf Messpunkt bzw. Marktpartner, je nach referenz_typ"
+        data_type: int
+      - name: referenz
+        description: "Aufgelöste Referenz — Metering Code (CH1008…) oder Marktpartner-Bezeichnung"
+        data_type: nvarchar(4000)
+      - name: standort
+        description: "Standort — nur bei messpunktreferenzierten Serien gefüllt"
+        data_type: nvarchar(4000)
+      - name: bezuegeranlage
+        description: "Bezügeranlage — nur bei messpunktreferenzierten Serien gefüllt"
+        data_type: nvarchar(4000)
+      - name: id_zeitreihegruppe
+        description: "Business Key Zeitreihegruppe (150 = ewb_Power BI)"
+        data_type: int
+        tests:
+          - not_null
+      - name: zeitreihegruppe
+        description: "Bezeichnung der Zeitreihegruppe"
+        data_type: nvarchar(4000)
+      - name: reihenfolge
+        description: "Sortierung innerhalb der Gruppe (Quelle liefert 'NaN' → NULL)"
+        data_type: int
+      - name: gruppe_gueltig_von
+        description: "Gültigkeit der Gruppenzuordnung ab"
+        data_type: datetime2(0)
+      - name: gruppe_gueltig_bis
+        description: "Gültigkeit der Gruppenzuordnung bis"
+        data_type: datetime2(0)
+      - name: zeitreihe_gueltig_von
+        description: "Gültigkeit der Zeitreihe ab (2019/2024/2025/2026)"
+        data_type: datetime2(0)
+      - name: zeitreihe_gueltig_bis
+        description: "Gültigkeit der Zeitreihe bis"
+        data_type: datetime2(0)
+      - name: dss_record_source
+        description: "Data source identifier (ewb_ise)"
+        data_type: nvarchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp — Export liefert keinen Zeitstempel, daher GETDATE()"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+
+  - name: ise_lastgang_dedup
+    description: >
+      Pre-Staging: ¼-Stunden-Lastgangwerte aus ext_ise_lastgaenge. Typisiert den
+      Zeitstempel (dd.MM.yyyy HH:mm:ss, Intervall-Ende), löst Category über
+      ise_zeitreihe_dedup auf id_zeitreihe auf und entfernt die Überlappungen des
+      rollierenden 5-Tage-Exports. Der Dedup ist deterministisch, aber bis zur
+      Einführung einer Herkunftsspalte ($$FILEPATH) nicht "letzter Export gewinnt" —
+      siehe docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md §12.7.
+    config:
+      meta:
+        entity_type: dedup
+        source_type: external_table
+        external_table: ext_ise_lastgaenge
+        business_keys:
+          - id_zeitreihe
+          - messzeitpunkt
+    columns:
+      - name: id_zeitreihe
+        description: "Business Key der Zeitreihe (über zeitreihe_key aufgelöst)"
+        data_type: int
+        tests:
+          - not_null
+      - name: messzeitpunkt
+        description: "Zeitstempel des ¼-Stunden-Intervalls (Intervall-ENDE)"
+        data_type: datetime2(0)
+        tests:
+          - not_null
+      - name: category
+        description: "Originaler Exportschlüssel Zeitreihe.Referenz.Einheit"
+        data_type: nvarchar(200)
+        tests:
+          - not_null
+      - name: wert
+        description: "Messwert im ¼-Stunden-Intervall"
+        data_type: decimal(38,18)
+      - name: zeitschritt_min
+        description: "Zeitschritt in Minuten (15)"
+        data_type: int
+      - name: einheit
+        description: "Masseinheit (kWh)"
+        data_type: nvarchar(4000)
+      - name: dss_record_source
+        description: "Data source identifier (ewb_ise)"
+        data_type: nvarchar(100)
+        tests:
+          - not_null
+      - name: dss_load_date
+        description: "Load timestamp — Export liefert keinen Zeitstempel, daher GETDATE()"
+        data_type: datetime2(7)
+        tests:
+          - not_null
+
+  - name: ise_zeitreihe_main
+    description: >
+      Staging view für die i-SE-Zeitreihen-Stammdaten. Liefert Hash Keys für
+      hub_zeitreihe, hub_zeitreihegruppe und link_zeitreihe_gruppe sowie zwei
+      getrennte Hashdiffs (Zeitreihen-Eigenschaften vs. Gruppenzugehörigkeit).
+    config:
+      meta:
+        entity_type: standard
+        source_type: view
+        business_keys:
+          - id_zeitreihe
+    columns:
+      - name: hk_zeitreihe
+        description: "Hash Key (SHA2_256) — hub_zeitreihe"
+        data_type: char(64)
+        tests:
+          - not_null
+          - unique
+      - name: hk_zeitreihegruppe
+        description: "Hash Key (SHA2_256) — hub_zeitreihegruppe"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hk_link_zeitreihe_gruppe
+        description: "Hash Key (SHA2_256) — link_zeitreihe_gruppe"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_zeitreihe__ise
+        description: "Hashdiff — sat_zeitreihe__ise (Typ, Einheit, Referenz, Standort, Gültigkeit)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_zeitreihe_gruppe
+        description: "Hashdiff — Satellit am link_zeitreihe_gruppe (Reihenfolge, Gültigkeit)"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: id_zeitreihe
+        description: "Business Key — i-SE ID_Zeitreihe"
+        data_type: int
+        tests:
+          - not_null
+
+  - name: ise_lastgang_main
+    description: >
+      Staging view für die ¼-Stunden-Lastgangwerte. Liefert hk_zeitreihe und den
+      Multi-Active-Hashdiff (CDK = messzeitpunkt) für
+      sat_zeitreihe_lastgang_ma__ise.
+    config:
+      meta:
+        entity_type: multi_active
+        source_type: view
+        business_keys:
+          - id_zeitreihe
+        child_dependent_keys:
+          - messzeitpunkt
+    columns:
+      - name: hk_zeitreihe
+        description: "Hash Key (SHA2_256) — hub_zeitreihe"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: hd_zeitreihe_lastgang_ma
+        description: "Hashdiff inkl. CDK messzeitpunkt — sat_zeitreihe_lastgang_ma__ise"
+        data_type: char(64)
+        tests:
+          - not_null
+      - name: id_zeitreihe
+        description: "Business Key der Zeitreihe"
+        data_type: int
+        tests:
+          - not_null
+      - name: messzeitpunkt
+        description: "Child Dependent Key — Zeitstempel des ¼-Stunden-Intervalls (Intervall-ENDE)"
+        data_type: datetime2(0)
+        tests:
+          - not_null

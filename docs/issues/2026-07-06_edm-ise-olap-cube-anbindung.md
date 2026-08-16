@@ -424,3 +424,21 @@ Monatsaggregate (K3) entweder als eigener Satellit am selben Hub (CDK = `Month_I
 | X-4 | Lücke vom 15.08. (stammdaten ohne lastgaenge) prüfen — einmalig oder systematisch? | PPMC / EWB | ⬜ Offen |
 | X-5 | `Techanl`-Tabellen auf die `ISE_Prod`-Allowlist setzen (K2) — Lesezugriff für `INTRA\srv-analytics` ist laut §10.3/E-3 bereits verifiziert | PPMC Analytics | ⬜ Nach Entscheid |
 | X-6 | Fachlich klären: Werden auch die 10 lieferantenreferenzierten Serien im Cube-Kontext benötigt (sie fehlen dort)? | EWB Fachbereich | ⬜ Offen |
+
+### 12.11 Umgesetzt: Staging (2026-08-15)
+
+**Entscheid:** Nur ¼-h-Werte; Stammdaten aus dem CSV-Export (K1), `Techanl` (K2) zurückgestellt. Damit entfällt der Cube als Quelle vollständig.
+
+Deployed auf Target `ewb-dev` (Schema `stg`), alle 25 Tests grün:
+
+| Modell | Rolle |
+|---|---|
+| `ise_zeitreihe_dedup` | Dedup + Typisierung der Stammdaten; bildet `zeitreihe_key` (= `Category`). **410 → 41 Zeilen** |
+| `ise_lastgang_dedup` | Zeitstempel-Parsing (Style 104, Intervall-Ende), Auflösung `Category` → `id_zeitreihe`, Dedup des rollierenden Fensters. **279'456 → 169'248 Zeilen** |
+| `ise_zeitreihe_main` | `automate_dv.stage()` — `hk_zeitreihe`, `hk_zeitreihegruppe`, `hk_link_zeitreihe_gruppe`, `hd_zeitreihe__ise`, `hd_zeitreihe_gruppe` |
+| `ise_lastgang_main` | `automate_dv.stage()` — `hk_zeitreihe`, `hd_zeitreihe_lastgang_ma` (CDK = `messzeitpunkt`) |
+| `tests/assert_ise_lastgang_kategorie_aufloesbar.sql` | Wacht darüber, dass keine Lastgang-Kategorie ohne Stammsatz still verworfen wird |
+
+**Validierung:** 41 eindeutige `hk_zeitreihe`, **0 Hash-Waisen** zwischen Fakt- und Stammdaten-Staging; Zeitraum 01.07.2026 00:15 – 14.08.2026 00:00. Der Kreuz-Check gegen den Cube reproduziert sich durch das Staging hindurch (Serie 148746, Juli: 2'975 Werte, Min 1039.052579 / Max 2565.812433 — stellengenau wie im Cube).
+
+> ⛔ **Vor dem Vault-Load zu lösen:** Der Dedup in `ise_lastgang_dedup` ist deterministisch, aber nicht „letzter Export gewinnt" (Q-3/Q-4). `filename()`/`filepath()` werden von Azure SQL DB auf External Tables **nicht** unterstützt — geprüft. Es bleibt der ADF-Weg: `$$FILEPATH` als `additionalColumns` in `CopyPipeline_Lastgaenge`, dann `ORDER BY source_file DESC` im Dedup.
