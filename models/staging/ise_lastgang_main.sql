@@ -20,10 +20,14 @@
  * Hash-Konsistenz: hk_zeitreihe wird aus derselben INT-Spalte gebildet wie in
  * ise_zeitreihe_main — sonst greifen Hub-Load und Satellit ins Leere.
  *
- * ⚠ Der Dedup-Vorgang in ise_lastgang_dedup ist bis zur Einführung einer
- *   Herkunftsspalte ($$FILEPATH in CopyPipeline_Lastgaenge) nur deterministisch,
- *   nicht fachlich korrekt. Vor dem produktiven Vault-Load klären.
- *   Siehe docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md §12.7 (Q-3/Q-4).
+ * Load Date: dss_load_date ist der Export-Zeitstempel aus dss_source_filename
+ * (in ise_lastgang_dedup abgeleitet), nicht der dbt-Laufzeitpunkt. Die
+ * Satellitenhistorie bildet damit den echten Datenstand ab. Revidierte Werte
+ * sind über "letzter Export gewinnt" bereits im Dedup aufgelöst.
+ *
+ * dss_source_filename / dss_run_id / dss_source_feed laufen als Lineage-Spalten
+ * mit, gehören aber bewusst NICHT in den Hashdiff — sonst erzeugt jeder Export
+ * eine neue Satellitenversion, obwohl sich der Messwert nicht geändert hat.
  *
  * Uses automate_dv.stage() macro for standardized staging.
  */

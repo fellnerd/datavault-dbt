@@ -22,33 +22,55 @@
  *    (1:1, für alle 41 Serien verifiziert). Der INNER JOIN verwirft Werte ohne
  *    Stammsatz — Überwachung via Test assert_ise_lastgang_kategorie_aufloesbar.
  *
- * 3. Duplikate auflösen
+ * 3. Duplikate auflösen — "letzter Export gewinnt"
  *    Die External Table liest ALLE Export-Dateien. Der werktägliche Export enthält
- *    ein rollierendes 5-Tage-Fenster, dazu kam ein Juli-Backfill → derselbe
- *    (Category, Date) erscheint bis zu 5×.
+ *    ein rollierendes 5-Tage-Fenster (dazu ein Juli-Backfill), und die Werte werden
+ *    innerhalb dieses Fensters nachträglich korrigiert (Ersatz- → validierter Wert).
+ *    Ohne Auflösung erscheint derselbe (Category, Date) bis zu 5× mit
+ *    unterschiedlichen Werten.
  *
- * ⚠ Einschränkung "letzter Export gewinnt":
- *   Die Werte werden nachträglich korrigiert (Ersatz- → validierter Wert):
- *   6'267 (Category, Date)-Paare tragen mehr als einen Wert. Welcher davon der
- *   neueste ist, lässt sich derzeit NICHT bestimmen — die External Table hat keine
- *   Herkunftsspalte, und filename()/filepath() werden von Azure SQL DB auf
- *   External Tables nicht unterstützt (geprüft). Der ROW_NUMBER unten ist deshalb
- *   nur ein deterministischer Platzhalter: er liefert reproduzierbar genau einen
- *   Wert je Zeitpunkt (und verhindert damit Doppelzählung), trifft bei revidierten
- *   Werten aber nicht garantiert den aktuellen.
- *   Dauerhafte Lösung: $$FILEPATH als additionalColumns in der ADF-Pipeline
- *   CopyPipeline_Lastgaenge mitschreiben; danach hier auf
- *   "ORDER BY source_file DESC" umstellen.
- *   Siehe docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md §12.7 (Q-3/Q-4).
+ *    dss_source_filename liefert die Herkunft je Zeile. Der Dateiname trägt den
+ *    Export-Zeitstempel ('ewb_PowerBI_LG_<yyyyMMddHHmmss>.csv') und sortiert
+ *    lexikografisch = chronologisch. Der ROW_NUMBER wählt damit fachlich korrekt
+ *    den jüngsten Export je Zeitpunkt.
+ *
+ *    Bewusst NICHT über dss_stage_timestamp sortiert: das ist der ADF-LADEzeitpunkt
+ *    und über alle Dateien eines Copy-Laufs identisch (verifiziert: genau 1 distinct
+ *    Wert über alle 9 Dateien, gleiche dss_run_id) — als Ordnungskriterium
+ *    unbrauchbar. Er läuft nur als Lineage-Information mit.
+ *
+ *    ⚠ Interim: Diese Regel löst die Doppelzählung, ersetzt aber keinen
+ *    Delta-Load-Entscheid (Revisionen verwerfen vs. historisieren, HWM-Kriterium,
+ *    PSA ja/nein) — siehe TASKS.md "Delta-Load-Strategie für i-SE-Lastgänge".
+ *
+ * 4. Load Date aus dem Export ableiten
+ *    dss_load_date ist der Export-Zeitstempel aus dem Dateinamen (nicht der
+ *    dbt-Laufzeitpunkt) — damit spiegelt die Vault-Historie den tatsächlichen
+ *    Datenstand. Fallback GETDATE(), falls der Dateiname vom Muster abweicht.
+ *
+ * Hinweis dss_record_source: Die Quelle liefert 'ise/lastgaenge' (Ordnerpfad).
+ * Für den Vault wird auf die Projektkonvention 'ewb_ise' normalisiert (analog
+ * ewb_abacus/ewb_idms — systemweit, nicht je Feed); der Rohwert bleibt als
+ * dss_source_feed erhalten.
+ *
+ * ext_ise_stammdaten führt dieselben Herkunftsspalten; dort wird bewusst per
+ * DISTINCT über die Fachspalten dedupliziert statt "letzter gewinnt" — Snapshots
+ * eines Stammdatenstands sind fachlich gleichwertig, siehe ise_zeitreihe_dedup.
+ * Hintergrund: docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md §12.7/§12.12.
  */
 
 {{ config(materialized='view', tags=['ise']) }}
 
 WITH source AS (
     SELECT
-        [Date]     AS date_raw,
-        [Category] AS category,
-        [Value]    AS wert
+        [Date]                                              AS date_raw,
+        [Category]                                          AS category,
+        [Value]                                             AS wert,
+        [dss_source_filename]                               AS dss_source_filename,
+        [dss_record_source]                                 AS dss_source_feed,
+        [dss_run_id]                                        AS dss_run_id,
+        TRY_CAST([dss_stage_timestamp] AS DATETIME2)        AS dss_stage_timestamp,
+        {{ ise_export_timestamp('[dss_source_filename]') }} AS dss_export_datum
     FROM {{ source('staging', 'ext_ise_lastgaenge') }}
 ),
 
@@ -56,7 +78,12 @@ typed AS (
     SELECT
         TRY_CONVERT(DATETIME2(0), date_raw, 104) AS messzeitpunkt,
         category,
-        wert
+        wert,
+        dss_source_filename,
+        dss_source_feed,
+        dss_run_id,
+        dss_stage_timestamp,
+        dss_export_datum
     FROM source
     WHERE TRY_CONVERT(DATETIME2(0), date_raw, 104) IS NOT NULL
       AND category IS NOT NULL
@@ -64,12 +91,11 @@ typed AS (
 
 ranked AS (
     SELECT
-        t.messzeitpunkt,
-        t.category,
-        t.wert,
+        t.*,
         ROW_NUMBER() OVER (
             PARTITION BY t.category, t.messzeitpunkt
-            ORDER BY t.wert DESC
+            -- jüngster Export gewinnt; Dateiname als stabiler Tie-Break
+            ORDER BY t.dss_export_datum DESC, t.dss_source_filename DESC
         ) AS rn
     FROM typed t
 )
@@ -81,8 +107,13 @@ SELECT
     r.wert,
     z.zeitschritt_min,
     z.einheit,
-    CAST('ewb_ise' AS NVARCHAR(100)) AS dss_record_source,
-    CAST(GETDATE() AS DATETIME2)     AS dss_load_date
+    r.dss_source_filename,
+    r.dss_source_feed,
+    r.dss_run_id,
+    r.dss_stage_timestamp,
+    r.dss_export_datum,
+    CAST('ewb_ise' AS NVARCHAR(100))                            AS dss_record_source,
+    COALESCE(r.dss_export_datum, CAST(GETDATE() AS DATETIME2))  AS dss_load_date
 
 FROM ranked r
 INNER JOIN {{ ref('ise_zeitreihe_dedup') }} z

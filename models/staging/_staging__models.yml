@@ -3286,13 +3286,37 @@ models:
       - name: zeitreihe_gueltig_bis
         description: "Gültigkeit der Zeitreihe bis"
         data_type: datetime2(0)
+      - name: snapshot_treffer
+        description: "Anzahl Export-Snapshots, die genau diesen Stammdatenstand zeigen (10 = alle Snapshots identisch)"
+        data_type: int
+        tests:
+          - not_null
+      - name: dss_source_filename
+        description: "Früheste Snapshot-Datei, die diesen Stand zeigt"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_source_feed
+        description: "Feed-Kennung der Quelle (ADF: 'ise/stammdaten') — für den Vault auf ewb_ise normalisiert"
+        data_type: nvarchar(4000)
+      - name: dss_run_id
+        description: "ADF Pipeline Run ID des Stage-Laufs"
+        data_type: nvarchar(4000)
+      - name: dss_stage_timestamp
+        description: "ADF-Ladezeitpunkt — über alle Dateien eines Copy-Laufs identisch, daher NICHT als Ordnungskriterium verwendbar"
+        data_type: datetime2(7)
+      - name: dss_export_datum
+        description: "Export-Zeitstempel des frühesten Snapshots mit diesem Stand — abgeleitet aus dss_source_filename"
+        data_type: datetime2(0)
+        tests:
+          - not_null
       - name: dss_record_source
         description: "Data source identifier (ewb_ise)"
         data_type: nvarchar(100)
         tests:
           - not_null
       - name: dss_load_date
-        description: "Load timestamp — Export liefert keinen Zeitstempel, daher GETDATE()"
+        description: "Load timestamp = Export-Zeitstempel des frühesten Snapshots ('gültig seit'), Fallback GETDATE()"
         data_type: datetime2(7)
         tests:
           - not_null
@@ -3302,9 +3326,9 @@ models:
       Pre-Staging: ¼-Stunden-Lastgangwerte aus ext_ise_lastgaenge. Typisiert den
       Zeitstempel (dd.MM.yyyy HH:mm:ss, Intervall-Ende), löst Category über
       ise_zeitreihe_dedup auf id_zeitreihe auf und entfernt die Überlappungen des
-      rollierenden 5-Tage-Exports. Der Dedup ist deterministisch, aber bis zur
-      Einführung einer Herkunftsspalte ($$FILEPATH) nicht "letzter Export gewinnt" —
-      siehe docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md §12.7.
+      rollierenden 5-Tage-Exports nach "letzter Export gewinnt" (Export-Zeitstempel
+      aus dss_source_filename). dss_load_date ist der Export-, nicht der
+      dbt-Laufzeitpunkt.
     config:
       meta:
         entity_type: dedup
@@ -3338,13 +3362,32 @@ models:
       - name: einheit
         description: "Masseinheit (kWh)"
         data_type: nvarchar(4000)
+      - name: dss_source_filename
+        description: "Herkunfts-CSV des gewinnenden Exports (ewb_PowerBI_LG_<yyyyMMddHHmmss>.csv)"
+        data_type: nvarchar(4000)
+        tests:
+          - not_null
+      - name: dss_source_feed
+        description: "Feed-Kennung der Quelle (ADF: 'ise/lastgaenge') — Rohwert, für den Vault auf ewb_ise normalisiert"
+        data_type: nvarchar(4000)
+      - name: dss_run_id
+        description: "ADF Pipeline Run ID des Ladelaufs"
+        data_type: nvarchar(4000)
+      - name: dss_stage_timestamp
+        description: "ADF-Ladezeitpunkt — über alle Dateien eines Copy-Laufs identisch, daher NICHT als Ordnungskriterium verwendbar (nur Lineage)"
+        data_type: datetime2(7)
+      - name: dss_export_datum
+        description: "Export-Zeitstempel, aus dss_source_filename abgeleitet — Sortierkriterium für 'letzter Export gewinnt'"
+        data_type: datetime2(0)
+        tests:
+          - not_null
       - name: dss_record_source
         description: "Data source identifier (ewb_ise)"
         data_type: nvarchar(100)
         tests:
           - not_null
       - name: dss_load_date
-        description: "Load timestamp — Export liefert keinen Zeitstempel, daher GETDATE()"
+        description: "Load timestamp = Export-Zeitstempel aus dem Dateinamen (Fallback GETDATE())"
         data_type: datetime2(7)
         tests:
           - not_null

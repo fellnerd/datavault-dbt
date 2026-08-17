@@ -441,4 +441,53 @@ Deployed auf Target `ewb-dev` (Schema `stg`), alle 25 Tests grün:
 
 **Validierung:** 41 eindeutige `hk_zeitreihe`, **0 Hash-Waisen** zwischen Fakt- und Stammdaten-Staging; Zeitraum 01.07.2026 00:15 – 14.08.2026 00:00. Der Kreuz-Check gegen den Cube reproduziert sich durch das Staging hindurch (Serie 148746, Juli: 2'975 Werte, Min 1039.052579 / Max 2565.812433 — stellengenau wie im Cube).
 
-> ⛔ **Vor dem Vault-Load zu lösen:** Der Dedup in `ise_lastgang_dedup` ist deterministisch, aber nicht „letzter Export gewinnt" (Q-3/Q-4). `filename()`/`filepath()` werden von Azure SQL DB auf External Tables **nicht** unterstützt — geprüft. Es bleibt der ADF-Weg: `$$FILEPATH` als `additionalColumns` in `CopyPipeline_Lastgaenge`, dann `ORDER BY source_file DESC` im Dedup.
+### 12.12 Q-3/Q-4 gelöst — Herkunftsspalten für die Lastgänge (2026-08-16)
+
+`ext_ise_lastgaenge` führt jetzt drei Herkunftsspalten (`dss_source_filename`, `dss_record_source`, `dss_run_id`); die Parquet-Dateien wurden entsprechend neu geschrieben. Damit ist der Dedup **fachlich korrekt**:
+
+- Der Dateiname trägt den Export-Zeitstempel (`ewb_PowerBI_LG_<yyyyMMddHHmmss>.csv`) und sortiert lexikografisch = chronologisch → `ROW_NUMBER … ORDER BY dss_export_datum DESC` implementiert echtes **„letzter Export gewinnt"**.
+- `dss_load_date` ist nun der **Export-Zeitstempel** statt `GETDATE()` — die Satellitenhistorie bildet den tatsächlichen Datenstand ab.
+- Lineage-Spalten laufen mit, gehören aber bewusst **nicht** in den Hashdiff (sonst erzeugt jeder Export eine Scheinversion).
+
+Die Gewinner-Verteilung bestätigt das Exportmuster exakt:
+
+| Datei | Gewinnende Zeilen | Bedeutung |
+|---|---|---|
+| `…20260814084605` (jüngste) | 19'680 = 41 × 480 | gesamtes 5-Tage-Fenster |
+| `…20260811132829` (Backfill) | 122'016 = 41 × **2'976** | vollständiger Juli |
+| 7 ältere Tagesdateien | je 3'936 = 41 × 96 | je genau ein noch nicht überschriebener Tag |
+| **Summe** | **169'248** | = Anzahl eindeutiger (Serie, Zeitpunkt) |
+
+Die 2'976 Intervalle des Backfills (statt 2'975) bestätigen die **Intervall-Ende-Konvention** unabhängig.
+
+> ✅ **Bit-genaue Validierung gegen den Cube:** Mit korrekter Abgrenzung (`messzeitpunkt > '2026-07-01' AND <= '2026-08-01'`) ergibt die Juli-Summe für Serie 148746 **4'612'940.997043** — **exakt** der Wert aus `DataMart_EVU.ZeitreihenData`. Die in §12.5 beobachtete Differenz von 1'371.22 war ausschliesslich das Randintervall. Unser Staging reproduziert die Innosolv-Monatszahlen damit stellengenau.
+
+### 12.13 Metadatenspalten auf beiden Tabellen, unterschiedliche Dedup-Regeln (2026-08-17)
+
+`ext_ise_lastgaenge` **und** `ext_ise_stammdaten` führen inzwischen vier Metadatenspalten — `dss_source_filename`, `dss_record_source`, `dss_run_id`, `dss_stage_timestamp`. Per `dv-toolkit:db-monitor` gegen `ewb-dev` verifiziert: DB-Schema und `sources.yml` stimmen für beide Tabellen exakt überein, **0 NULLs** in allen vier Spalten, kein Neuerzeugen der External Tables nötig.
+
+**Wichtige Unterscheidung der beiden Zeitstempel:**
+
+| Spalte | Bedeutung | Distinct-Werte | Als Ordnungskriterium |
+|---|---|---|---|
+| `dss_stage_timestamp` | **ADF-Ladezeitpunkt** | **genau 1** je Tabelle (alle Dateien in einem Copy-Lauf, identische `dss_run_id`) | ❌ unbrauchbar |
+| Export-Zeitstempel aus `dss_source_filename` | Zeitpunkt, zu dem **i-SE** den Stand geliefert hat | 9 (Lastgänge) bzw. 10 (Stammdaten) | ✅ einzig verwendbar |
+
+Abgeleitet wird er über das Macro [`ise_export_timestamp`](../../macros/ise_export_timestamp.sql).
+
+**Bewusst unterschiedliche Dedup-Regeln je Datencharakter:**
+
+| | Lastgänge | Stammdaten |
+|---|---|---|
+| Charakter | Messwerte je Zeitpunkt, **werden revidiert** (6'267 von 169'248 Paaren tragen mehr als einen Wert — unverändert bestätigt) | Vollständige Snapshots desselben Stands, fachlich gleichwertig |
+| Regel | **jüngster Export gewinnt** (`ORDER BY dss_export_datum DESC`) | **DISTINCT über die Fachspalten** (GROUP BY) |
+| `dss_load_date` | Export-Zeitstempel des gewinnenden Exports | Export-Zeitstempel des **frühesten** Snapshots mit diesem Stand („gültig seit") |
+| Kontrolle | `snapshot_treffer` = 10 je Serie belegt, dass alle 10 Snapshots identisch sind | |
+
+> ⚠ Beim Einbau der Metadatenspalten in die Stammdaten-View ist eine Falle zu beachten: Nimmt man `dss_source_filename` einfach in die SELECT-Liste, greift `DISTINCT` **nicht mehr** — jede der 10 Snapshot-Zeilen trägt einen eigenen Dateinamen und bleibt stehen. Deshalb `GROUP BY` über die 18 Fachspalten mit `MIN()` auf die Metadaten.
+
+**Neuer Wächter:** [`assert_ise_zeitreihe_snapshot_eindeutig.sql`](../../tests/assert_ise_zeitreihe_snapshot_eindeutig.sql) schlägt an, sobald ein Stammdatenattribut sich ändert und `DISTINCT` zwei Versionen je `ID_Zeitreihe` liefert. Der ROW_NUMBER-Guard in `ise_zeitreihe_dedup` hält dann zwar die Hub-Eindeutigkeit, verdeckt die Änderung aber — der Test macht sie sichtbar und stösst den Entscheid an. Stand 2026-08-17: 41 eindeutige Versionen, Test grün (28 ISE-Tests gesamt grün).
+
+**Beide Dedup-Regeln sind Interim, kein Ladekonzept.** Die Entscheide sind als eigene Punkte in [`TASKS.md`](../../TASKS.md) erfasst: *Delta-Load-Strategie für i-SE-Lastgänge* (Revisionen verwerfen vs. historisieren, HWM-Kriterium, PSA ja/nein) und *Dimensions-Snapshot-Strategie für i-SE-Zeitreihen-Stammdaten* (SCD2 vs. aktueller Stand).
+
+> 🔎 **Bestätigt sich weiterhin (X-4):** Für den Exportstand `20260815` liegt ein Stammdaten-Snapshot vor, aber **keine** Lastgang-Datei — 10 vs. 9 Dateien. Die Lücke ist damit nicht einmalig, sondern besteht fort.
