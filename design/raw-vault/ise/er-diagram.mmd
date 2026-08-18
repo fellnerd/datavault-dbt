@@ -1,0 +1,80 @@
+---
+title: ISE / EDM Raw Vault ER-Diagramm (Schema vault_ise)
+---
+erDiagram
+    hub_zeitreihe {
+        char64 hk_zeitreihe PK "computed"
+        int id_zeitreihe UK "BK — ise_zeitreihe_main.id_zeitreihe"
+        nvarchar dss_business_key "computed"
+        datetime2 dss_load_date "metadata"
+        datetime2 dss_create_datetime "metadata"
+        nvarchar dss_record_source "ewb_ise"
+    }
+
+    hub_zeitreihegruppe {
+        char64 hk_zeitreihegruppe PK "computed"
+        int id_zeitreihegruppe UK "BK — 150 = ewb_Power BI"
+        datetime2 dss_load_date "metadata"
+        datetime2 dss_create_datetime "metadata"
+        nvarchar dss_record_source "ewb_ise"
+    }
+
+    link_zeitreihe_gruppe {
+        char64 hk_link_zeitreihe_gruppe PK "computed"
+        char64 hk_zeitreihe FK "hub_zeitreihe"
+        char64 hk_zeitreihegruppe FK "hub_zeitreihegruppe"
+        datetime2 dss_load_date "metadata"
+        nvarchar dss_record_source "ewb_ise"
+    }
+
+    sat_zeitreihe__ise {
+        char64 hk_zeitreihe FK "hub_zeitreihe"
+        datetime2 dss_load_date PK "Export-Zeitstempel des fruehesten Snapshots"
+        char64 hashdiff "hd_zeitreihe__ise"
+        int id_zeitreihe_typ "FK Techanl.ZEITREIHETYP"
+        nvarchar zeitreihe_typ "Typbezeichnung, NICHT eindeutig"
+        nvarchar zeitreihe_key "Typ.Referenz.Einheit = Exportschluessel"
+        nvarchar einheit "kWh"
+        int zeitschritt_min "15 = Viertelstunde"
+        int energieart "1 = Elektrizitaet"
+        int referenz_typ "19 = Messpunkt, 172 = Marktpartner"
+        int referenz_id "FK METERINGCODE bzw. MARKTPARTNER"
+        nvarchar referenz "CH1008... oder Marktpartner-Bezeichnung"
+        nvarchar standort "nur bei Messpunkt-Serien"
+        nvarchar bezuegeranlage "nur bei Messpunkt-Serien"
+        datetime2 zeitreihe_gueltig_von "Gueltigkeit der Serie"
+        datetime2 zeitreihe_gueltig_bis "NULL = offen"
+        datetime2 dss_create_datetime "metadata"
+        nvarchar dss_record_source "ewb_ise"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL = aktuell"
+    }
+
+    sat_zeitreihe_gruppe__ise {
+        char64 hk_link_zeitreihe_gruppe FK "link_zeitreihe_gruppe"
+        datetime2 dss_load_date PK "metadata"
+        char64 hashdiff "hd_zeitreihe_gruppe"
+        nvarchar zeitreihegruppe "Bezeichnung der Gruppe"
+        int reihenfolge "Sortierung in der Gruppe"
+        datetime2 gruppe_gueltig_von "Gueltigkeit der Zuordnung"
+        datetime2 gruppe_gueltig_bis "NULL = offen"
+        datetime2 dss_create_datetime "metadata"
+        nvarchar dss_record_source "ewb_ise"
+        char dss_is_current "Y/N"
+        datetime2 dss_end_date "NULL = aktuell"
+    }
+
+    sat_lastgang_tl__ise {
+        char64 hk_zeitreihe FK "hub_zeitreihe"
+        datetime2 messzeitpunkt PK "Dependent-Child-Key, Intervall-ENDE"
+        char64 hd_lastgang_tl__ise "Hashdiff nur ueber wert"
+        decimal wert "kWh im Viertelstunden-Intervall"
+        datetime2 dss_load_date "Export-Zeitstempel dieses Werts"
+        nvarchar dss_record_source "ewb_ise"
+    }
+
+    hub_zeitreihe        ||--o{ sat_zeitreihe__ise : has
+    hub_zeitreihe        ||--o{ sat_lastgang_tl__ise : "has (append-only)"
+    link_zeitreihe_gruppe }o--|| hub_zeitreihe : ""
+    link_zeitreihe_gruppe }o--|| hub_zeitreihegruppe : ""
+    link_zeitreihe_gruppe ||--o{ sat_zeitreihe_gruppe__ise : has

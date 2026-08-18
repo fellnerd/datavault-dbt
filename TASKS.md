@@ -27,6 +27,15 @@
   - Voraussetzung: `dss_stage_timestamp` in `ext_ise_stammdaten` befüllt (in `sources.yml` deklariert — ADF-seitige Umsetzung prüfen)
   - Bezug: `docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md` §12.11 / §12.12
 
+- [ ] **i-SE-Lastgang-Ladekette orchestrieren (ADF)** - Die ¼-h-Anbindung läuft aktuell nur manuell: `CopyPipeline_Lastgaenge` hat **keinen Trigger** und ist **nicht** Teil von `Master_ewb_load` (das enthält nur `Copy_LandingZone_to_LoadFS_ewb` → `Copy_Stage_ewb` → Status-Logging). Die vorhandenen Trigger `dailyTrigger_landingzone_ISE` (→ `ISE_Prod_bulk_daily`, relationale i-SE-Extraktion) und `dailyTrigger_Master_ewb_load_prod` sind beide auf **Stopped**.
+  - Zu klären: `CopyPipeline_Lastgaenge` in `Master_ewb_load` einhängen oder eigenen Trigger? Zeitfenster nach dem i-SE-Export (~08:45) und vor dem dbt-Lauf.
+  - Die dbt-Seite ist bereits abgedeckt: `raw_vault/ise` trägt `+tags: [ise]`, der reguläre `dbt run` in `.gitlab-ci.yml` nimmt die Modelle ohne Zusatzkonfiguration mit.
+  - Bezug: `docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md` §12.14
+
+- [ ] **Information Mart für die i-SE-Energiedaten** - Auf `vault_ise` existiert noch kein konsumierbarer Layer. Benötigt: Faktentabelle auf `sat_lastgang_tl__ise_current_v` (materialisiert, **nicht** als View — `ROW_NUMBER` über die volle Historie ist für DirectQuery zu teuer) plus Dimension aus `sat_zeitreihe__ise_current_v`.
+  - Monatsabgrenzung zwingend `> Monatsanfang AND <= Folgemonatsanfang` (Intervall-ENDE-Konvention), sonst weichen die Summen von den Innosolv-Cube-Werten ab.
+  - Offen: Aggregationsebene für Power BI (¼h, Stunde, Tag?) — hängt am Bedarf des Fachbereichs (G-3).
+
 ## Waiting On
 
 ## Someday

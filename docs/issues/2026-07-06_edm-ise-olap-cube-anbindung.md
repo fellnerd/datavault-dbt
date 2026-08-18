@@ -490,4 +490,56 @@ Abgeleitet wird er über das Macro [`ise_export_timestamp`](../../macros/ise_exp
 
 **Beide Dedup-Regeln sind Interim, kein Ladekonzept.** Die Entscheide sind als eigene Punkte in [`TASKS.md`](../../TASKS.md) erfasst: *Delta-Load-Strategie für i-SE-Lastgänge* (Revisionen verwerfen vs. historisieren, HWM-Kriterium, PSA ja/nein) und *Dimensions-Snapshot-Strategie für i-SE-Zeitreihen-Stammdaten* (SCD2 vs. aktueller Stand).
 
+### 12.14 Umgesetzt: Raw Vault (2026-08-17)
+
+Neue Domäne `models/raw_vault/ise/` → Schema **`vault_ise`** (Muster analog `telecom`/`vault_telecom`), Tag `ise` lädt Staging + Vault gemeinsam. Deployed auf `ewb-dev`, **66 Tests grün**.
+
+| Objekt | Typ | Zeilen |
+|---|---|---|
+| `hub_zeitreihe` | Hub, BK `id_zeitreihe` | 41 |
+| `hub_zeitreihegruppe` | Hub, BK `id_zeitreihegruppe` | 1 (Gruppe 150) |
+| `link_zeitreihe_gruppe` | Link (M:N) | 41 |
+| `sat_zeitreihe__ise` | SCD2-Satellit am Hub | 41 |
+| `sat_zeitreihe_gruppe__ise` | SCD2-Satellit **am Link** | 41 |
+| `sat_lastgang_tl__ise` | **Transaction Satellite**, Schlüssel (hk, `messzeitpunkt`) | 169'248 |
+| `*_current_v` | Zugriffs-Views auf die beiden SCD2-Satelliten | — |
+
+**Referenzielle Integrität:** 0 Waisen in allen vier geprüften Richtungen (MA-Sat → Hub, Link → beide Hubs, Link-Satellit → Link).
+
+**Warum der Satellit am Link hängt:** Reihenfolge und Gültigkeit sind Eigenschaften der *Zuordnung*, nicht der Zeitreihe. Am Hub könnte eine Serie nicht gleichzeitig in mehreren Gruppen mit unterschiedlicher Sortierung liegen — und jedes Umsortieren in i-SE erzeugte eine neue Version der Zeitreihe selbst.
+
+**End-to-End-Abgleich gegen den Cube** (Hub → MA-Sat → `sat_zeitreihe__ise_current_v`, Juli 2026, Abgrenzung `> 2026-07-01 AND <= 2026-08-01`):
+
+| Serie | Vault | Cube (`ZeitreihenData`) |
+|---|---|---|
+| 148746 Bruttolastgangsumme BLS/EN | 4'612'940.997043 | 4'612'940.997043 ✓ |
+| 150835 Wirk Rücklieferung | 8'243'668.0 | 8'243'668.0 ✓ |
+| 183741 Gesamteinspeisung Netz | 4'796'003.635067 | 4'796'003.635064 (Δ 3·10⁻⁶) |
+
+Die Abweichung bei 183741 liegt bei 3 Millionstel und ist Summierungsreihenfolge in `DECIMAL(38,18)`, kein Datenproblem.
+
+**Umbau der Lastgang-Seite (gleicher Tag):** Zuerst als Multi-Active Satellite modelliert — das verdoppelte sich bei jedem Lauf. Ursache war nicht nur ein falsches Load Date, sondern die **Musterwahl**: Messwerte sind Fakten, keine Zustände. `automate_dv.ma_sat` vergleicht Mengen je Hash Key (`latest_records` = alle Sätze mit dem höchsten Load Date); bei zeilenweisen Load Dates schrumpfte die Vergleichsmenge auf 480 statt 4'128 Sätze, alles galt als neu.
+
+Ersetzt durch einen **append-only Transaction Satellite** `sat_lastgang_tl__ise`, Schlüssel `(hk_zeitreihe, messzeitpunkt)`, Hashdiff nur über `wert`:
+
+| | vorher (ma_sat) | jetzt (Transaction Sat) |
+|---|---|---|
+| Vergleich je Lauf | ganze Wertemenge je Serie (4'128, bei Vollhistorie ~78'000) | eine Zeile je Schlüssel |
+| Load Date | Batch-Wert nötig | wieder je Zeile — präziser (welcher Export lieferte den Wert) |
+| Revidierter Wert | neue Mengenversion | zusätzliche Version, alt/neu über `dss_load_date` unterscheidbar |
+| Aktueller Stand | — | `sat_lastgang_tl__ise_current_v` |
+
+**Performance** (169'248 Zeilen, inkrementeller Lauf ohne neue Daten):
+
+| | |
+|---|---|
+| Anti-Join über den Quell-Zeitraum begrenzt + Index `(hk_zeitreihe, messzeitpunkt) INCLUDE (hd)` | Satellitenzugriff **16 ms** |
+| Schranke aus der CTE `source_data` (doppelte Auswertung der Staging-Kette) | 51,7 s |
+| Schranke direkt aus der External Table | **37,4 s** |
+| Staging-View-Kette über die Parquet-Dateien (Einzelmessung) | **12'986 ms** |
+
+→ Der Flaschenhals ist das wiederholte Lesen der Parquet-Dateien, nicht der Anti-Join. Weitere Optimierung heisst **PSA**, nicht mehr Indizes — das gehört zum offenen Delta-Load-Entscheid in TASKS.md.
+
+Ausführlich in [`docs/LESSONS_LEARNED.md`](../LESSONS_LEARNED.md).
+
 > 🔎 **Bestätigt sich weiterhin (X-4):** Für den Exportstand `20260815` liegt ein Stammdaten-Snapshot vor, aber **keine** Lastgang-Datei — 10 vs. 9 Dateien. Die Lücke ist damit nicht einmalig, sondern besteht fort.

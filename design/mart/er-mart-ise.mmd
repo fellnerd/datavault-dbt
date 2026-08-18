@@ -1,0 +1,61 @@
+---
+title: "ER-Diagramm: Mart ISE / EDM (mart_ise)"
+---
+
+erDiagram
+    dim_zeitreihe_v {
+        bigint zeitreihe_key PK "SK = MD5(id_zeitreihe)"
+        int zeitreihe_id UK "i-SE ID_Zeitreihe"
+        nvarchar zeitreihe_name "Typ (Referenz) — eindeutig, fuer PBI-Achsen"
+        nvarchar zeitreihe_typ "z. B. Bruttolastgangsumme BLS/EN — NICHT eindeutig"
+        nvarchar referenz "CH1008... oder Marktpartner"
+        nvarchar referenz_art "Messpunkt / Marktpartner"
+        nvarchar zeitreihe_exportschluessel "Typ.Referenz.Einheit"
+        nvarchar einheit "kWh"
+        int zeitschritt_min "15"
+        nvarchar energieart "Elektrizitaet"
+        nvarchar standort "nur Messpunkt-Serien"
+        nvarchar bezuegeranlage "nur Messpunkt-Serien"
+        nvarchar zeitreihegruppe "ewb_Power BI"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
+    }
+
+    dim_date {
+        int date_key PK "YYYYMMDD (interne Table, mart._common)"
+        date full_date "Natuerlicher Schluessel"
+    }
+
+    fakt_lastgang {
+        bigint zeitreihe_key FK "dim_zeitreihe_v"
+        datetime2 messzeitpunkt PK "Intervall-ENDE aus der Quelle"
+        datetime2 intervall_start "fachlicher Zeitpunkt = Ende minus 15 min"
+        int datum_key FK "dim_date — aus intervall_start"
+        char jahr_monat "yyyy/MM — aus intervall_start"
+        int stunde "0-23"
+        int minute "0/15/30/45"
+        decimal wert_kwh "Energiemenge im Intervall"
+        int zeitschritt_min "15"
+        datetime2 dss_load_date "HWM fuer den inkrementellen Lauf"
+        nvarchar dss_record_source
+    }
+
+    fakt_lastgang_monat {
+        bigint zeitreihe_key FK "dim_zeitreihe_v"
+        char jahr_monat PK "yyyy/MM = Cube Month_ID"
+        int jahr "aus jahr_monat"
+        int monat "aus jahr_monat"
+        int datum_key_von "erster Tag mit Werten"
+        int datum_key_bis "letzter Tag mit Werten"
+        int anzahl_werte "vollstaendiger Monat = Tage x 96"
+        decimal summe_kwh "= Cube-Measure Summe"
+        decimal min_kwh "= Cube-Measure Minimum"
+        decimal max_kwh "= Cube-Measure Maximum"
+        decimal mittel_kwh "Zusatzkennzahl"
+        datetime2 dss_load_date
+        nvarchar dss_record_source
+    }
+
+    dim_zeitreihe_v ||--o{ fakt_lastgang : "1:n"
+    dim_zeitreihe_v ||--o{ fakt_lastgang_monat : "1:n"
+    dim_date        ||--o{ fakt_lastgang : "1:n"

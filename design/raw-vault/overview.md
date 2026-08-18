@@ -105,6 +105,17 @@ erDiagram
     HUB_COMPANY ||--o{ LINK_COMPANY_ROLE : "has_role"
 ```
 
+## Domänen / Konzept-Ordner
+
+Dieses Dokument beschreibt den `_common`-Scope (Schema `vault`). Domänenspezifische
+Objekte liegen in eigenen Ordnern mit eigenem ER-Diagramm und eigener Übersicht:
+
+| Domäne | Schema | Ordner | Objekte |
+|---|---|---|---|
+| IDMS | `dv` | [`idms/`](idms/er-diagram.mmd) | `hub_internet_service`, `sat_internet_service__idms` |
+| Telecom / CDR | `vault_telecom` | [`_common/er-cdr.mmd`](_common/er-cdr.mmd) | `hub_sim`, `hub_msisdn`, `link_cdr_event_tl`, `sat_cdr_event__compax` |
+| **ISE / EDM** | `vault_ise` | [`ise/`](ise/overview.md) | `hub_zeitreihe`, `hub_zeitreihegruppe`, `link_zeitreihe_gruppe`, `sat_zeitreihe__ise`, `sat_zeitreihe_gruppe__ise`, `sat_lastgang_tl__ise` |
+
 ## Implementierungsstatus
 
 | Objekt | Status | dbt Model |

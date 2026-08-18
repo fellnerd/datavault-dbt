@@ -56,6 +56,67 @@ flowchart TB
 
 ---
 
+## Abweichender Ladeweg: i-SE / EDM (Energiedaten)
+
+Die i-SE-Energiedaten folgen **nicht** dem Abacus-Muster (landing-zone → load-fs → stage-fs).
+Quelle ist ein Report-Export des i-SE-Servers, der direkt nach `stage-fs` kopiert wird:
+
+```mermaid
+flowchart TB
+    subgraph ISE["🏭 i-SE (Innosolv) — EDM"]
+        EXP[/"Laufwerk D:, werktäglicher Report-Export ~08:45\nZeitreihegruppe 150 'ewb_Power BI', 41 Serien\newb_PowerBI_LG_yyyyMMddHHmmss.csv"/]
+    end
+
+    subgraph ADFI["⚙️ Azure Data Factory"]
+        CP["CopyPipeline_Lastgaenge\nCSV → Parquet, + 4 dss_-Metadatenspalten\n⚠ kein Trigger, nicht in Master_ewb_load"]
+    end
+
+    subgraph ADLSI["☁️ ADLS stage-fs"]
+        SL[/"ewb/ise/lastgaenge/*.parquet\n(rollierendes 5-Tage-Fenster + Backfill)"/]
+        SS[/"ewb/ise/stammdaten/*.parquet\n(vollständiger Tages-Snapshot)"/]
+    end
+
+    subgraph SQLI["🗄️ Azure SQL"]
+        EL["stg.ext_ise_lastgaenge\n(Wildcard — liest ALLE Dateien)"]
+        ES["stg.ext_ise_stammdaten\n(Wildcard)"]
+        DL["stg.ise_lastgang_dedup\njüngster Export gewinnt"]
+        DS["stg.ise_zeitreihe_dedup\nDISTINCT über Fachspalten"]
+        ML["stg.ise_lastgang_main\nhk_zeitreihe, hd_lastgang_tl__ise"]
+        MS["stg.ise_zeitreihe_main\nHubs/Link/Sat-Hashes"]
+        VS["vault_ise.hub_zeitreihe\nhub_zeitreihegruppe, link_zeitreihe_gruppe\nsat_zeitreihe__ise, sat_zeitreihe_gruppe__ise"]
+        VL["vault_ise.sat_lastgang_tl__ise\n(Transaction, append-only)"]
+        MA["mart_ise.dim_zeitreihe_v\nfakt_lastgang(_v), fakt_lastgang_monat(_v)"]
+    end
+
+    CUBE[("Innosolv OLAP-Cube\nEWBPROD_dwh.DataMart_EVU.ZeitreihenData\n(Monatsaggregat derselben Serien)")]
+
+    EXP --> CP
+    CP --> SL
+    CP --> SS
+    SL --> EL --> DL --> ML --> VL
+    SS --> ES --> DS --> MS --> VS
+    DS -->|"Category → id_zeitreihe"| DL
+    VL --> MA
+    VS --> MA
+    MA -.->|"Regressionstest: summe/min/max je Monat"| CUBE
+```
+
+**Merkposten dieses Ladewegs**
+
+| Thema | Detail |
+|---|---|
+| Keine Historisierung in `load-fs` | Der Export geht direkt nach `stage-fs`; das Archiv ist der Vault (append-only), nicht die Landing Zone |
+| Wildcard External Tables | Lesen alle Dateien → Duplikate sind normal, Auflösung im Dedup-Layer |
+| Zeitkonvention | Intervall-**ENDE**; im Mart über `intervall_start` aufgelöst |
+| Löschen alter Quelldateien | Unschädlich und sogar performanter: die Anti-Join-Schranke kommt aus der Quelle, der Vault behält die Historie. **Aber:** mindestens ein Stammdaten-Snapshot muss bleiben, sonst liefert der INNER JOIN 0 Zeilen |
+| Ordnungskriterium | Export-Zeitstempel aus `dss_source_filename` — **nicht** `dss_stage_timestamp` (über alle Dateien eines ADF-Laufs identisch) |
+| Flaschenhals | Parquet-Lesen der Staging-Kette (~13 s), nicht der Anti-Join (16 ms) → weitere Optimierung = PSA |
+
+Details: [`design/raw-vault/ise/overview.md`](../raw-vault/ise/overview.md),
+[`docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md`](../../docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md) §12
+
+---
+
 ## Schicht-Details
 
 ### 1. Quellsysteme → ADLS landing-zone

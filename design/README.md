@@ -33,11 +33,14 @@ design/
 - `design/raw-vault/_common/er-project.mmd` — Project-Detaildiagramm
 - `design/raw-vault/_common/er-stammdaten.mmd` — Stammdaten-Detaildiagramm
 - `design/raw-vault/_common/er-cdr.mmd` — CDR-/Telecom-Detaildiagramm für `vault` + `vault_telecom`
+- `design/raw-vault/idms/er-diagram.mmd` — IDMS Internet-Service (`dv`)
+- `design/raw-vault/ise/er-diagram.mmd` — ISE/EDM Energiedaten (`vault_ise`), Übersicht in `ise/overview.md`
 
 ### Mart
 - `design/mart/er-mart-finance.mmd`
 - `design/mart/er-mart-project.mmd`
 - `design/mart/er-mart-telecom.mmd`
+- `design/mart/er-mart-ise.mmd` — ISE/EDM Energiedaten (`mart_ise`)
 
 ## Schema-Konvention
 

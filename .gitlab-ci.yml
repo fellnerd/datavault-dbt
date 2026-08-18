@@ -208,6 +208,64 @@ deploy:dev:cdr-full-refresh:
     name: ewb-dev
 
 # =============================================================================
+# ISE / EDM LOAD DEV — inkrementell (→ datavault-dev)
+# Manuell starten: laedt die i-SE-Energiedaten (¼-h-Lastgaenge + Zeitreihen-
+# Stammdaten der Gruppe 150 "ewb_Power BI") aus stage-fs/ewb/ise/ in
+# Staging → vault_ise → mart_ise.
+#
+# Voraussetzung: ADF-Pipeline CopyPipeline_Lastgaenge hat gelaufen (CSV → Parquet).
+# Reihenfolge ergibt sich aus den refs; tag:ise umfasst Staging, Raw Vault UND
+# Mart der Domaene.
+#
+# Hinweis: Diese Modelle laufen auch im regulaeren deploy:dev mit. Dieser Job
+# ist fuer den Fall, dass nur die i-SE-Kette nachgezogen werden soll — etwa
+# direkt nach einem ADF-Copy, ohne den ganzen Vault anzufassen.
+# =============================================================================
+deploy:dev:ise-load:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+  timeout: 45 minutes
+  script:
+    - *setup_profiles
+    # External Tables aktualisieren (ext_ise_lastgaenge / ext_ise_stammdaten)
+    - dbt run-operation stage_external_sources --target ewb-dev
+    # Staging → Raw Vault → Mart in einem Lauf (Reihenfolge via refs)
+    - dbt run --select tag:ise --target ewb-dev
+    - dbt test --select tag:ise --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
+# ISE / EDM FULL REFRESH DEV — Neuaufbau (→ datavault-dev)
+# Manuell starten: baut vault_ise und mart_ise vollstaendig neu auf.
+#
+# Wann verwenden:
+#   - nach einem Backfill-Export (aeltere Perioden nachgeladen)
+#   - nach Aenderungen an Hashdiff-Zusammensetzung oder Payload
+#   - nach Umbau der Ladelogik (z. B. Wechsel der Dedup-Regel)
+#
+# ACHTUNG: --full-refresh verwirft die Vault-Historie der i-SE-Objekte. Da alle
+# Werte reproduzierbar aus dem Export stammen, ist das hier unkritisch —
+# bei Quellen ohne vollstaendige Historie in der Landing Zone waere es NICHT
+# unkritisch.
+# =============================================================================
+deploy:dev:ise-full-refresh:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+  timeout: 90 minutes
+  script:
+    - *setup_profiles
+    - dbt run-operation stage_external_sources --target ewb-dev
+    - dbt run --select tag:ise --full-refresh --target ewb-dev
+    - dbt test --select tag:ise --target ewb-dev
+  environment:
+    name: ewb-dev
+
+# =============================================================================
 # DEPLOY TEST — push auf test Branch (→ datavault-test)
 # =============================================================================
 deploy:test:

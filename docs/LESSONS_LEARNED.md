@@ -549,3 +549,119 @@ journalctl -u actions.runner.fellnerd-datavault-dbt.dbt-runner-vm -f
 - ✅ PIT-Tabelle für sat_company
 - ✅ Effectivity Satellite für link_company_country
 - ✅ Hash-Separator auf '^^' standardisiert
+
+---
+
+## Multi-Active Satellite: Load Date muss ein BATCH-Wert sein (2026-08-17)
+
+**Symptom:** Der i-SE-Lastgang-Satellit — damals `sat_zeitreihe_lastgang_ma__ise`, automate_dv
+`ma_sat`; heute als Transaction Satellite `sat_lastgang_tl__ise` neu gebaut — verdoppelte sich bei jedem
+Lauf — 169'248 → 338'496 → … , obwohl die Quelldaten unverändert waren. Hubs, Links und
+SCD2-Satelliten derselben Domäne blieben stabil.
+
+**Ursache:** In der Staging-View war `dss_load_date` der Export-Zeitstempel der **einzelnen
+Zeile** (aus dem Quelldateinamen abgeleitet). Da die Werte eines Hash Keys aus mehreren
+Exportdateien stammen, trug ein und derselbe `hk_zeitreihe` **9 verschiedene Load Dates**.
+
+`automate_dv.ma_sat` vergleicht beim Inkrementell-Lauf **Mengen** je Hash Key. Dazu bildet es
+
+```
+latest_records = alle Sätze mit dem HÖCHSTEN dss_load_date je Hash Key
+```
+
+Bei zeilenweise unterschiedlichen Load Dates schrumpft diese Vergleichsmenge auf die Sätze der
+jüngsten Datei (hier 480 statt 4'128). Alle übrigen eingehenden Sätze finden keinen Partner,
+gelten als neu und werden erneut eingefügt — bei jedem Lauf.
+
+**Regel:** In einem Multi-Active Satellite müssen **alle Sätze eines Hash Keys aus einem
+Ladelauf dasselbe `dss_load_date` tragen.** Das Load Date ist ein Batch-Merkmal, kein
+Zeilenmerkmal. Bei SCD2-Satelliten (`automate_dv.sat`) fällt das nicht auf — dort wird je Hash
+Key nur ein Satz verglichen.
+
+**Fix:**
+
+```sql
+-- statt: r.dss_export_datum  (je Zeile verschieden)
+COALESCE(MAX(r.dss_export_datum) OVER (), CAST(GETDATE() AS DATETIME2)) AS dss_load_date
+```
+
+`MAX(...) OVER ()` statt `GETDATE()`, damit der Wert bei unverändertem Dateibestand stabil
+bleibt — sonst erzeugt jeder Lauf ein neues Load Date und die Läufe sind nicht reproduzierbar
+(der Mengenvergleich fängt das zwar ab, aber ein deterministisches Load Date ist beim Debuggen
+Gold wert). Der zeilenweise Zeitstempel bleibt als eigene Lineage-Spalte `dss_export_datum`
+erhalten.
+
+**Prüfung, die das aufdeckt** — gehört nach jedem neuen Vault-Objekt einmal gemacht:
+
+```sql
+-- 1. Idempotenz: dbt run zweimal hintereinander, Row Counts vergleichen
+-- 2. Load Dates je Hash Key: muss 1 sein
+SELECT TOP 10 <hash_key>, COUNT(DISTINCT dss_load_date) AS n_ldts, COUNT(*) AS n_rows
+FROM <ma_satellit>
+GROUP BY <hash_key> ORDER BY COUNT(DISTINCT dss_load_date) DESC;
+```
+
+**Nachtrag (gleicher Tag): das eigentliche Problem war die Musterwahl.** Messwerte sind Fakten,
+keine Zustände — ein MA-Satellit war hier von vornherein falsch. Der Satellit wurde durch einen
+**append-only Transaction Satellite** ersetzt (`sat_lastgang_tl__ise`, Schlüssel
+`(hk_zeitreihe, messzeitpunkt)`); der Mengenvergleich entfällt damit komplett, und das
+zeilenweise Load Date ist wieder zulässig und sogar präziser. Siehe nächsten Abschnitt.
+
+---
+
+## Transaction Satellite für Messdaten: Anti-Join über den Zeitraum begrenzen (2026-08-17)
+
+**Muster:** Zeitreihen-/Messwerte gehören in einen **append-only Transaction Satellite** mit
+Schlüssel `(hash_key, zeitstempel)`, nicht in einen Multi-Active oder SCD2-Satelliten. Ein
+Messwert ist ein Fakt: er hat keine Historie, es gibt ihn oder es gibt ihn nicht.
+
+**Problem:** Liefert die Quelle ein rollierendes Zeitfenster (überlappt also mit bereits
+Geladenem), lässt sich kein reiner HWM-Filter verwenden — er würde nachträgliche Korrekturen
+verwerfen. Es braucht einen Anti-Join gegen den Satelliten, und der wird mit wachsender
+Historie teuer (vgl. `sat_cdr_event__compax`: 9.4M Zeilen → Hash Match über die ganze
+Tabelle → 45+ Minuten).
+
+**Lösung — zwei Hebel:**
+
+1. **Anti-Join über den Zeitraum der Quelle begrenzen.** Nur Satellitenzeilen ab dem frühesten
+   Messzeitpunkt des aktuellen Exports prüfen:
+
+   ```sql
+   WHERE s.messzeitpunkt >= (SELECT MIN(...) FROM <quelle>)
+   ```
+
+   Die Schranke muss aus der **Quelle** kommen, nicht aus dem Satelliten: ein Backfill liefert
+   ältere Zeitpunkte, und eine satellitenseitige Schranke würde sie am Vergleich vorbeilassen
+   → Duplikate.
+
+2. **Zusammengesetzter Index** `(hash_key, zeitstempel) INCLUDE (hashdiff)` — deckt den
+   Anti-Join vollständig ab (Index Seek statt Scan) und trägt gleichzeitig die typische
+   Mart-Abfrage "Werte einer Serie in einem Zeitraum".
+
+**Messfalle beim Optimieren:** SQL Server wertet eine mehrfach referenzierte CTE **mehrfach**
+aus. Wird die Zeitschranke aus derselben CTE berechnet wie die Nutzdaten, läuft die komplette
+Staging-Kette (Dedup-Fensterfunktion + Join + Hashing über die External Table) zweimal.
+Gemessen an den i-SE-Lastgängen:
+
+| Variante | Laufzeit inkrementeller Lauf (0 neue Zeilen) |
+|---|---|
+| Schranke aus `source_data` (CTE, doppelte Auswertung) | 51,7 s |
+| Schranke direkt aus der External Table | **37,4 s** |
+
+Die Schranke aus der Rohtabelle ist dabei gleich korrekt oder weiter — das Staging filtert nur,
+es fügt keine Zeitpunkte hinzu.
+
+**Wo die Zeit wirklich liegt** (Einzelmessung, 169'248 Zeilen):
+
+| Zugriff | Zeit |
+|---|---|
+| Staging-View-Kette über die External Table | **12'986 ms** |
+| `COUNT(*)` auf dem Satelliten (indiziert) | 16 ms |
+| Current-View (`ROW_NUMBER` über die volle Tabelle) | 426 ms |
+
+→ Der Flaschenhals ist das wiederholte Lesen der Parquet-Dateien, **nicht** der Anti-Join. Wer
+hier weiter optimieren will, braucht eine **PSA** (Staging einmal materialisieren), nicht mehr
+Indizes.
+
+Betroffene Objekte: `models/staging/ise_lastgang_dedup.sql`,
+`models/raw_vault/ise/satellites/sat_lastgang_tl__ise.sql`.

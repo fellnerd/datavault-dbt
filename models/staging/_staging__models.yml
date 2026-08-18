@@ -3439,15 +3439,15 @@ models:
   - name: ise_lastgang_main
     description: >
       Staging view für die ¼-Stunden-Lastgangwerte. Liefert hk_zeitreihe und den
-      Multi-Active-Hashdiff (CDK = messzeitpunkt) für
-      sat_zeitreihe_lastgang_ma__ise.
+      Hashdiff über den Messwert für den Transaction Satellite sat_lastgang_tl__ise.
+      Schlüssel dort ist (hk_zeitreihe, messzeitpunkt).
     config:
       meta:
-        entity_type: multi_active
+        entity_type: transaction
         source_type: view
         business_keys:
           - id_zeitreihe
-        child_dependent_keys:
+        dependent_child_keys:
           - messzeitpunkt
     columns:
       - name: hk_zeitreihe
@@ -3455,8 +3455,8 @@ models:
         data_type: char(64)
         tests:
           - not_null
-      - name: hd_zeitreihe_lastgang_ma
-        description: "Hashdiff inkl. CDK messzeitpunkt — sat_zeitreihe_lastgang_ma__ise"
+      - name: hd_lastgang_tl__ise
+        description: "Hashdiff ueber den Messwert — sat_lastgang_tl__ise (Zeitstempel ist Schluessel, nicht Payload)"
         data_type: char(64)
         tests:
           - not_null
@@ -3466,7 +3466,7 @@ models:
         tests:
           - not_null
       - name: messzeitpunkt
-        description: "Child Dependent Key — Zeitstempel des ¼-Stunden-Intervalls (Intervall-ENDE)"
+        description: "Dependent-Child-Key — Zeitstempel des ¼-Stunden-Intervalls (Intervall-ENDE)"
         data_type: datetime2(0)
         tests:
           - not_null

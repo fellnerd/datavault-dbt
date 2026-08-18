@@ -44,9 +44,28 @@
  *    PSA ja/nein) — siehe TASKS.md "Delta-Load-Strategie für i-SE-Lastgänge".
  *
  * 4. Load Date aus dem Export ableiten
- *    dss_load_date ist der Export-Zeitstempel aus dem Dateinamen (nicht der
- *    dbt-Laufzeitpunkt) — damit spiegelt die Vault-Historie den tatsächlichen
- *    Datenstand. Fallback GETDATE(), falls der Dateiname vom Muster abweicht.
+ *    dss_load_date ist der Export-Zeitstempel (nicht der dbt-Laufzeitpunkt) —
+ *    damit spiegelt die Vault-Historie den tatsächlichen Datenstand. Fallback
+ *    GETDATE(), falls der Dateiname vom Muster abweicht.
+ *
+ * 5. Load Date je Zeile — und warum das hier zulaessig ist
+ *    dss_load_date ist der Export-Zeitstempel der EINZELNEN Zeile, also der
+ *    Zeitpunkt, zu dem i-SE genau diesen Wert geliefert hat. Damit ist im Vault
+ *    nachvollziehbar, aus welchem Export ein Messwert stammt.
+ *
+ *    Historie: Zwischenzeitlich stand hier ein Batch-Wert
+ *    (MAX(dss_export_datum) OVER ()), weil die Lastgaenge zuerst in einem
+ *    Multi-Active Satellite lagen. automate_dv.ma_sat vergleicht MENGEN je Hash
+ *    Key und bildet latest_records aus allen Saetzen mit dem hoechsten Load Date
+ *    je Key — bei zeilenweisen Load Dates schrumpft diese Vergleichsmenge auf die
+ *    Saetze der juengsten Exportdatei, alles andere gilt als neu und wird bei
+ *    JEDEM Lauf erneut eingefuegt (gemessen: 169'248 → 338'496 beim zweiten Lauf).
+ *
+ *    Seit dem Umbau auf den append-only Transaction Satellite sat_lastgang_tl__ise
+ *    entfaellt dieser Mengenvergleich: dort ist jede Zeile ein eigenstaendiger
+ *    Fakt mit Schluessel (hk_zeitreihe, messzeitpunkt), und der zeilenweise
+ *    Zeitstempel ist die praezisere Information.
+ *    Ausfuehrlich: docs/LESSONS_LEARNED.md.
  *
  * Hinweis dss_record_source: Die Quelle liefert 'ise/lastgaenge' (Ordnerpfad).
  * Für den Vault wird auf die Projektkonvention 'ewb_ise' normalisiert (analog
@@ -113,6 +132,7 @@ SELECT
     r.dss_stage_timestamp,
     r.dss_export_datum,
     CAST('ewb_ise' AS NVARCHAR(100))                            AS dss_record_source,
+    -- Load Date je Zeile = Export-Zeitstempel dieses Werts (siehe Kopfkommentar, Punkt 5)
     COALESCE(r.dss_export_datum, CAST(GETDATE() AS DATETIME2))  AS dss_load_date
 
 FROM ranked r

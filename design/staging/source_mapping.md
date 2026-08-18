@@ -104,6 +104,43 @@ Format: JSON → External Table mit `JsonAsCsvFormat` (Single `NVARCHAR(MAX)` Sp
 
 ---
 
+## 4b. i-SE / EDM — Energiedaten (Zeitreihegruppe 150 „ewb_Power BI")
+
+Abweichender Ladeweg: **kein** Abacus-Muster, sondern ein CSV-Report-Export vom i-SE-Server.
+Fachlicher Hintergrund: [`docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md`](../../docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md) §12
+
+```
+i-SE Server (Laufwerk D:, werktäglicher Report-Export ~08:45)
+  └─ ise-export/drive-d/{lastgaenge,stammdaten}/ewb_PowerBI_LG_<yyyyMMddHHmmss>.csv
+       └─ ADF CopyPipeline_Lastgaenge (CSV → Parquet, + 4 dss_-Metadatenspalten)
+            └─ stage-fs/ewb/ise/{lastgaenge,stammdaten}/*.parquet
+                 └─ Wildcard External Tables (lesen ALLE Dateien)
+                      └─ Dedup-/Typisierungs-Views ──► automate_dv.stage() ──► vault_ise ──► mart_ise
+```
+
+### Mapping
+
+| Quelle (CSV/Parquet) | External Table | Dedup-View | Staging (Hashes) | Vault-Objekte | Mart |
+|---|---|---|---|---|---|
+| `ewb/ise/stammdaten/` | `stg.ext_ise_stammdaten` | `stg.ise_zeitreihe_dedup` | `stg.ise_zeitreihe_main` | `hub_zeitreihe`, `hub_zeitreihegruppe`, `link_zeitreihe_gruppe`, `sat_zeitreihe__ise`, `sat_zeitreihe_gruppe__ise` | `dim_zeitreihe_v` |
+| `ewb/ise/lastgaenge/` | `stg.ext_ise_lastgaenge` | `stg.ise_lastgang_dedup` | `stg.ise_lastgang_main` | `sat_lastgang_tl__ise` | `fakt_lastgang(_v)`, `fakt_lastgang_monat(_v)` |
+
+### Besonderheiten dieses Ladewegs
+
+| Thema | Detail |
+|---|---|
+| Wildcard External Table | Liest **alle** Exportdateien, nicht nur die neueste → Duplikate sind normal und müssen im Dedup-Layer aufgelöst werden |
+| Rollierendes Exportfenster | Jede Tagesdatei enthält ~5 Tage; derselbe (Serie, Zeitpunkt) erscheint bis zu 5× |
+| Wertrevisionen | 6'267 von 169'248 Zeitpunkten tragen mehr als einen Wert (Ersatz- → validierter Wert) → Lastgänge: „jüngster Export gewinnt" |
+| Ordnungskriterium | **Export**-Zeitstempel aus `dss_source_filename` (je Datei eindeutig) — **nicht** `dss_stage_timestamp`, der ist über alle Dateien eines ADF-Laufs identisch |
+| Stammdaten-Dedup | `DISTINCT` über die 18 Fachspalten mit `MIN()` auf die Metadaten. Würde man `dss_source_filename` mitselektieren, greift `DISTINCT` nicht mehr (410 statt 41 Zeilen) |
+| `Category`-Auflösung | `ext_ise_lastgaenge.Category` = `Zeitreihe + '.' + Referenz + '.' + Einheit` → 1:1 auf `id_zeitreihe`, überwacht durch `assert_ise_lastgang_kategorie_aufloesbar` |
+| Datumsformat | `Date` ist `VARCHAR(20)` als `dd.MM.yyyy HH:mm:ss` (Style 104) — ohne Konvertierung sortiert `MIN`/`MAX` lexikografisch (Tag vor Monat) |
+| Zeitkonvention | Intervall-**ENDE**; im Mart über `intervall_start` aufgelöst, damit Monatssummen die Innosolv-Cube-Werte treffen |
+| Typisierung | Alles kommt als Text; `ID_Zeitreihe` muss auf `INT` gecastet werden, `Reihenfolge` liefert das Float-Artefakt `'NaN'` |
+
+---
+
 ## 5. Bekannte Besonderheiten
 
 | Thema | Detail |

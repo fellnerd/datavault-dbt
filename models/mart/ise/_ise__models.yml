@@ -1,0 +1,184 @@
+version: 2
+
+# ============================================================
+# ISE / EDM Mart — Schema: mart_ise
+# Domain: Energiedaten-Management aus i-SE (Innosolv)
+# ============================================================
+# Dimensionen: dim_zeitreihe_v
+# Fakten:      fakt_lastgang (+ _v)        — ¼-Stunden-Werte
+#              fakt_lastgang_monat (+ _v)  — Monatsaggregat
+# ------------------------------------------------------------
+# Zeitkonvention: Die Quelle liefert Intervall-ENDEN. Der Mart loest das auf
+# (intervall_start = messzeitpunkt − zeitschritt_min) — Konsumenten gruppieren
+# einfach ueber datum_key bzw. jahr_monat und treffen damit die
+# Innosolv-Cube-Werte. Details in fakt_lastgang.sql.
+# ============================================================
+
+models:
+
+- name: "dim_zeitreihe_v"
+  description: |
+    Dimension der i-SE-Energiezeitreihen (Zeitreihegruppe 150 "ewb_Power BI").
+    Grain: 1 Zeile pro Zeitreihe. Join-Schluessel fuer die Fakten: zeitreihe_key.
+  columns:
+  - name: "zeitreihe_key"
+    description: "Surrogate Key (deterministisch aus id_zeitreihe) — Join zu den Faktentabellen"
+    data_type: "bigint"
+    tests:
+    - not_null
+    - unique
+  - name: "zeitreihe_id"
+    description: "Business Key — i-SE ID_Zeitreihe"
+    data_type: "int"
+    tests:
+    - not_null
+    - unique
+  - name: "zeitreihe_name"
+    description: "Sprechende Bezeichnung 'Typ (Referenz)' — fuer Power-BI-Achsen, eindeutig"
+    data_type: "nvarchar(800)"
+    tests:
+    - not_null
+  - name: "zeitreihe_typ"
+    description: "Typbezeichnung, z. B. 'Bruttolastgangsumme BLS/EN' — NICHT eindeutig"
+    data_type: "nvarchar(400)"
+  - name: "referenz"
+    description: "Metering Code (CH1008…) oder Marktpartner-Bezeichnung"
+    data_type: "nvarchar(400)"
+  - name: "referenz_art"
+    description: "Aufgeloester Referenztyp: 'Messpunkt' (19) oder 'Marktpartner' (172)"
+    data_type: "nvarchar(50)"
+  - name: "zeitreihe_exportschluessel"
+    description: "Originaler i-SE-Exportschluessel Typ.Referenz.Einheit — fuer Rueckverfolgung"
+    data_type: "nvarchar(800)"
+  - name: "einheit"
+    description: "Masseinheit der Werte (kWh)"
+    data_type: "nvarchar(50)"
+  - name: "zeitschritt_min"
+    description: "Zeitschritt in Minuten (15)"
+    data_type: "int"
+  - name: "energieart"
+    description: "Energieart als Text ('Elektrizität')"
+    data_type: "nvarchar(50)"
+  - name: "standort"
+    description: "Standort — nur bei messpunktreferenzierten Serien gefuellt"
+    data_type: "nvarchar(400)"
+  - name: "bezuegeranlage"
+    description: "Bezuegeranlage — nur bei messpunktreferenzierten Serien gefuellt"
+    data_type: "nvarchar(400)"
+  - name: "zeitreihegruppe"
+    description: "Bezeichnung der i-SE-Zeitreihegruppe ('ewb_Power BI')"
+    data_type: "nvarchar(400)"
+
+- name: "fakt_lastgang"
+  description: |
+    Interne Faktentabelle: ¼-Stunden-Lastgangwerte.
+    Grain: (zeitreihe_key, messzeitpunkt). Oeffentliche Schnittstelle:
+    fakt_lastgang_v. Inkrementell via HWM auf dss_load_date + delete+insert.
+  columns:
+  - name: "zeitreihe_key"
+    description: "FK → dim_zeitreihe_v.zeitreihe_key"
+    data_type: "bigint"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_zeitreihe_v')
+          field: zeitreihe_key
+  - name: "messzeitpunkt"
+    description: "Intervall-ENDE aus der Quelle — nur zur Rueckverfolgung, nicht zum Gruppieren"
+    data_type: "datetime2(0)"
+    tests:
+    - not_null
+  - name: "intervall_start"
+    description: "Fachlicher Zeitpunkt des Werts (messzeitpunkt − zeitschritt_min)"
+    data_type: "datetime2(0)"
+    tests:
+    - not_null
+  - name: "datum_key"
+    description: "FK → dim_date_v.date_key (yyyyMMdd, aus intervall_start)"
+    data_type: "int"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_date_v')
+          field: date_key
+  - name: "jahr_monat"
+    description: "Monatsschluessel 'yyyy/MM' aus intervall_start — identisch zum Cube-Format Month_ID"
+    data_type: "char(7)"
+    tests:
+    - not_null
+  - name: "wert_kwh"
+    description: "Energiemenge im ¼-Stunden-Intervall (kWh)"
+    data_type: "decimal(38,12)"
+
+- name: "fakt_lastgang_v"
+  description: |
+    Oeffentliche Schnittstelle auf fakt_lastgang. Fuer Power BI ueber datum_key
+    auf dim_date_v und ueber zeitreihe_key auf dim_zeitreihe_v joinen.
+    Bei ¼-h-Granularitaet ein grosses Modell — fuer Uebersichten
+    fakt_lastgang_monat_v verwenden.
+  columns:
+  - name: "zeitreihe_key"
+    description: "FK → dim_zeitreihe_v.zeitreihe_key"
+    data_type: "bigint"
+    tests:
+    - not_null
+  - name: "datum_key"
+    description: "FK → dim_date_v.date_key"
+    data_type: "int"
+    tests:
+    - not_null
+
+- name: "fakt_lastgang_monat"
+  description: |
+    Interne Faktentabelle: Monatsaggregat je Zeitreihe.
+    Grain: (zeitreihe_key, jahr_monat). Vollaufbau (~1'200 Zeilen bei
+    Vollhistorie), damit nachtraegliche Wertkorrekturen garantiert durchwirken.
+    Die Kennzahlen entsprechen 1:1 den Innosolv-Cube-Measures
+    Summe/Minimum/Maximum — taugt damit als Regressionstest gegen den Cube.
+  columns:
+  - name: "zeitreihe_key"
+    description: "FK → dim_zeitreihe_v.zeitreihe_key"
+    data_type: "bigint"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_zeitreihe_v')
+          field: zeitreihe_key
+  - name: "jahr_monat"
+    description: "Monatsschluessel 'yyyy/MM' — entspricht DataMart_EVU.ZeitreihenData.Month_ID"
+    data_type: "char(7)"
+    tests:
+    - not_null
+  - name: "anzahl_werte"
+    description: "Anzahl ¼-h-Werte im Monat (vollstaendiger Monat = Tage × 96)"
+    data_type: "int"
+    tests:
+    - not_null
+  - name: "summe_kwh"
+    description: "Monatssumme — entspricht Cube-Measure 'Summe'"
+    data_type: "decimal(38,12)"
+  - name: "min_kwh"
+    description: "Kleinster ¼-h-Wert im Monat — entspricht Cube-Measure 'Minimum'"
+    data_type: "decimal(38,12)"
+  - name: "max_kwh"
+    description: "Groesster ¼-h-Wert im Monat — entspricht Cube-Measure 'Maximum'"
+    data_type: "decimal(38,12)"
+
+- name: "fakt_lastgang_monat_v"
+  description: |
+    Oeffentliche Schnittstelle auf fakt_lastgang_monat — die empfohlene Quelle
+    fuer Power-BI-Uebersichtsberichte (Faktor ~2'900 kleiner als die ¼-h-Fakten).
+  columns:
+  - name: "zeitreihe_key"
+    description: "FK → dim_zeitreihe_v.zeitreihe_key"
+    data_type: "bigint"
+    tests:
+    - not_null
+  - name: "jahr_monat"
+    description: "Monatsschluessel 'yyyy/MM'"
+    data_type: "char(7)"
+    tests:
+    - not_null

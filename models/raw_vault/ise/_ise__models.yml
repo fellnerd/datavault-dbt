@@ -1,0 +1,296 @@
+version: 2
+
+# ============================================================
+# ISE / EDM Vault — Schema: vault_ise
+# Domain: Energiedaten-Management aus i-SE (Innosolv)
+# ============================================================
+# Hubs:       hub_zeitreihe, hub_zeitreihegruppe
+# Links:      link_zeitreihe_gruppe
+# Satellites: sat_zeitreihe__ise, sat_zeitreihe_gruppe__ise (beide SCD2),
+#             sat_lastgang_tl__ise (Transaction Satellite, append-only)
+# Views:      sat_zeitreihe__ise_current_v, sat_zeitreihe_gruppe__ise_current_v,
+#             sat_lastgang_tl__ise_current_v
+# ------------------------------------------------------------
+# Quelle: täglicher i-SE-CSV-Export der Zeitreihegruppe 150 "ewb_Power BI"
+#         (41 Zeitreihen, ¼-Stunden-Werte). Hintergrund und Messungen:
+#         docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md §12
+# ============================================================
+
+models:
+
+- name: "hub_zeitreihe"
+  description: |
+    Hub für Energie-Zeitreihen aus dem i-SE-Zeitreihenmodul.
+    Business Key: id_zeitreihe (Techanl.ZEITREIHE.ID_Zeitreihe).
+    Geladen ausschliesslich aus den Stammdaten — die Lastgänge lösen ihre Serie
+    per INNER JOIN über dieselben Stammdaten auf und können keinen zusätzlichen
+    Schlüssel einbringen.
+  columns:
+  - name: "hk_zeitreihe"
+    description: "Hash Key (Primary Key) — SHA-Hash über id_zeitreihe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "id_zeitreihe"
+    description: "Business Key — i-SE ID_Zeitreihe"
+    data_type: "int"
+    tests:
+    - not_null
+    - unique
+  - name: "dss_load_date"
+    description: "Load timestamp — Export-Zeitstempel des ersten Snapshots"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — ewb_ise"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+  - name: "dss_business_key"
+    description: "Concatenated business key (tenant||ccode||id_zeitreihe)"
+    data_type: "nvarchar(max)"
+  - name: "dss_create_datetime"
+    description: "dbt processing timestamp"
+    data_type: "datetime2(7)"
+
+- name: "hub_zeitreihegruppe"
+  description: |
+    Hub für i-SE-Zeitreihegruppen — die kuratierten Auswahlmengen des
+    Quellsystems (43 Gruppen in EWBPROD). Aktuell angebunden: Gruppe 150
+    "ewb_Power BI". Eigene Entität, damit weitere Gruppen ohne
+    Strukturänderung dazukommen können.
+  columns:
+  - name: "hk_zeitreihegruppe"
+    description: "Hash Key (Primary Key) — SHA-Hash über id_zeitreihegruppe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "id_zeitreihegruppe"
+    description: "Business Key — i-SE ID_ZEITREIHEGRUPPE (150 = ewb_Power BI)"
+    data_type: "int"
+    tests:
+    - not_null
+    - unique
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — ewb_ise"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+  - name: "dss_create_datetime"
+    description: "dbt processing timestamp"
+    data_type: "datetime2(7)"
+
+- name: "link_zeitreihe_gruppe"
+  description: |
+    Link Zeitreihe ↔ Zeitreihegruppe (Techanl.ZEITREIHEGRUPPEZUORD).
+    Beziehung ist M:N — eine Zeitreihe kann in mehreren Gruppen liegen, eine
+    Gruppe enthält viele Zeitreihen. Attribute der Zuordnung (Reihenfolge,
+    Gültigkeit) hängen an sat_zeitreihe_gruppe__ise.
+  columns:
+  - name: "hk_link_zeitreihe_gruppe"
+    description: "Hash Key (Primary Key) — SHA-Hash über id_zeitreihe + id_zeitreihegruppe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - unique
+  - name: "hk_zeitreihe"
+    description: "Foreign Key — hub_zeitreihe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_zeitreihe')
+          field: hk_zeitreihe
+  - name: "hk_zeitreihegruppe"
+    description: "Foreign Key — hub_zeitreihegruppe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_zeitreihegruppe')
+          field: hk_zeitreihegruppe
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — ewb_ise"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+
+- name: "sat_zeitreihe__ise"
+  description: |
+    Satellite am hub_zeitreihe — Eigenschaften der Zeitreihe selbst: Typ,
+    Einheit, Zeitschritt, Energieart, Referenz (Messpunkt bzw. Marktpartner),
+    Standort/Bezügeranlage, Gültigkeit der Serie.
+    Bewusst OHNE Gruppenattribute (die liegen an sat_zeitreihe_gruppe__ise) und
+    ohne Lineage-Spalten — beides würde sonst Scheinversionen erzeugen.
+    Zugriff bevorzugt über sat_zeitreihe__ise_current_v.
+  columns:
+  - name: "hk_zeitreihe"
+    description: "Hash Key — hub_zeitreihe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_zeitreihe')
+          field: hk_zeitreihe
+  - name: "hashdiff"
+    description: "Hashdiff über den Payload — steuert die SCD2-Versionierung"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "zeitreihe_typ"
+    description: "Typbezeichnung (Techanl.ZEITREIHETYP.Bezeichnung), z. B. 'Bruttolastgangsumme BLS/EN'"
+    data_type: "nvarchar(4000)"
+  - name: "zeitreihe_key"
+    description: "Zeitreihe.Referenz.Einheit — Exportschlüssel, entspricht ext_ise_lastgaenge.Category"
+    data_type: "nvarchar(4000)"
+  - name: "referenz"
+    description: "Aufgelöste Referenz — Metering Code (CH1008…) oder Marktpartner-Bezeichnung"
+    data_type: "nvarchar(4000)"
+  - name: "referenz_typ"
+    description: "19 = Messpunkt (METERINGCODE), 172 = Marktpartner"
+    data_type: "int"
+  - name: "einheit"
+    description: "Masseinheit der Werte (kWh)"
+    data_type: "nvarchar(4000)"
+  - name: "zeitschritt_min"
+    description: "Zeitschritt in Minuten (15 = ¼-Stunden-Werte)"
+    data_type: "int"
+  - name: "dss_load_date"
+    description: "Load timestamp — Export-Zeitstempel des frühesten Snapshots mit diesem Stand"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — ewb_ise"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+
+- name: "sat_zeitreihe_gruppe__ise"
+  description: |
+    Satellite am link_zeitreihe_gruppe — Attribute der ZUORDNUNG Zeitreihe ↔
+    Gruppe: Gruppenbezeichnung, Sortierreihenfolge, Gültigkeit der Zuordnung.
+    Am Link statt am Hub, damit eine Zeitreihe gleichzeitig in mehreren Gruppen
+    mit unterschiedlicher Reihenfolge liegen kann.
+  columns:
+  - name: "hk_link_zeitreihe_gruppe"
+    description: "Hash Key — link_zeitreihe_gruppe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('link_zeitreihe_gruppe')
+          field: hk_link_zeitreihe_gruppe
+  - name: "hashdiff"
+    description: "Hashdiff über den Payload"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "zeitreihegruppe"
+    description: "Bezeichnung der Gruppe (z. B. 'ewb_Power BI')"
+    data_type: "nvarchar(4000)"
+  - name: "reihenfolge"
+    description: "Sortierung innerhalb der Gruppe (Quelle liefert 'NaN' → NULL)"
+    data_type: "int"
+  - name: "gruppe_gueltig_von"
+    description: "Gültigkeit der Zuordnung ab"
+    data_type: "datetime2(0)"
+  - name: "gruppe_gueltig_bis"
+    description: "Gültigkeit der Zuordnung bis"
+    data_type: "datetime2(0)"
+  - name: "dss_load_date"
+    description: "Load timestamp"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — ewb_ise"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+
+- name: "sat_lastgang_tl__ise"
+  description: |
+    Transaction Satellite am hub_zeitreihe — die ¼-Stunden-Lastgangwerte.
+    Fachlicher Schlüssel: (hk_zeitreihe, messzeitpunkt). Append-only, kein
+    Mengenvergleich, kein SCD2-current-Flag auf Hub-Ebene.
+
+    Ein Lastgangwert ist ein Fakt, kein Zustand — deshalb Transaction Satellite
+    statt Multi-Active. Revidierte Werte (i-SE korrigiert Ersatz- zu validierten
+    Werten) landen als zusätzliche Version mit eigenem dss_load_date; den
+    aktuellen Stand liefert sat_lastgang_tl__ise_current_v.
+
+    messzeitpunkt ist das Intervall-ENDE: der Wert 01.08. 00:00 gehört zum Juli.
+    Monatsaggregation im Mart mit "> Monatsanfang AND <= Folgemonatsanfang" —
+    damit trifft die Summe die Innosolv-Cube-Werte.
+  columns:
+  - name: "hk_zeitreihe"
+    description: "Hash Key — hub_zeitreihe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('hub_zeitreihe')
+          field: hk_zeitreihe
+  - name: "messzeitpunkt"
+    description: "Dependent-Child-Key — Zeitstempel des ¼-Stunden-Intervalls (Intervall-ENDE)"
+    data_type: "datetime2(0)"
+    tests:
+    - not_null
+  - name: "hd_lastgang_tl__ise"
+    description: "Hashdiff ueber den Messwert — unterscheidet revidierte von unveraenderten Werten"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "wert"
+    description: "Energiemenge im ¼-Stunden-Intervall (kWh)"
+    data_type: "decimal(38,18)"
+  - name: "dss_load_date"
+    description: "Load timestamp = Export-Zeitstempel dieses Werts (je Zeile, nicht je Batch)"
+    data_type: "datetime2(7)"
+    tests:
+    - not_null
+  - name: "dss_record_source"
+    description: "Data source identifier — ewb_ise"
+    data_type: "nvarchar(100)"
+    tests:
+    - not_null
+
+- name: "sat_lastgang_tl__ise_current_v"
+  description: |
+    Aktueller Wert je (hk_zeitreihe, messzeitpunkt) aus sat_lastgang_tl__ise —
+    also der aus dem juengsten i-SE-Export. Noetig wegen revidierter Messwerte.
+    Fuer Power BI / DirectQuery nicht direkt anbinden, sondern im Mart
+    materialisieren (ROW_NUMBER ueber die volle Historie ist teuer).
+  columns:
+  - name: "hk_zeitreihe"
+    description: "Hash Key — hub_zeitreihe"
+    data_type: "char(64)"
+    tests:
+    - not_null
+  - name: "messzeitpunkt"
+    description: "Zeitstempel des ¼-Stunden-Intervalls (Intervall-ENDE)"
+    data_type: "datetime2(0)"
+    tests:
+    - not_null
+  - name: "wert"
+    description: "Aktueller Messwert (kWh)"
+    data_type: "decimal(38,18)"

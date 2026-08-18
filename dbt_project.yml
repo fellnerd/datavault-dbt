@@ -126,6 +126,27 @@ models:
           +incremental_strategy: append
           +on_schema_change: append_new_columns
         # refs: (noch keine Telecom Reference Tables)
+      # ===== ISE / EDM (Schema: vault_ise) =====
+      # Energiedaten-Management aus i-SE (Innosolv): Zeitreihen-Stammdaten der
+      # Zeitreihegruppe "ewb_Power BI" + ¼-Stunden-Lastgangwerte.
+      # Tag: ise — erlaubt selektives Laden analog cdr.
+      ise:
+        +tags: [ise]
+        hubs:
+          +schema: vault_ise
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
+        satellites:
+          +schema: vault_ise
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
+        links:
+          +schema: vault_ise
+          +materialized: incremental
+          +incremental_strategy: append
+          +on_schema_change: append_new_columns
       # ===== JIRA (Schema: vault_jira) =====
 
     # utils: (models/utils/ leer — zukünftige Business-Vault Utilities)
@@ -161,6 +182,14 @@ models:
       #   +schema: mart_jira
       #   +materialized: table
       #   +as_columnstore: false
+      # ===== ISE / EDM (Schema: mart_ise) =====
+      # Energiedaten: Zeitreihen-Dimension + ¼-h-Lastgangfakten aus vault_ise.
+      # Tag: ise — laedt zusammen mit Staging und Raw Vault der Domaene.
+      ise:
+        +tags: [ise]
+        +schema: mart_ise
+        +materialized: table
+        +as_columnstore: false
       # ===== MOBILE (Schema: mart_telecom) =====
       # Tag: cdr — nur via deploy:cdr-load Job laden, nicht im regulären dbt run.
       telecom:

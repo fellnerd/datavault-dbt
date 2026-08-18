@@ -5,29 +5,26 @@
  * Record Source: ewb_ise
  *
  * Business Key / Hash:
- *   hk_zeitreihe                = Hash(id_zeitreihe) → hub_zeitreihe
- *   hd_zeitreihe_lastgang_ma    = Hashdiff inkl. CDK → sat_zeitreihe_lastgang_ma__ise
+ *   hk_zeitreihe    = Hash(id_zeitreihe) → hub_zeitreihe
+ *   hd_lastgang_tl__ise = Hashdiff über den Messwert → sat_lastgang_tl__ise
  *
- * Multi-Active Satellite:
- *   Je Zeitreihe existieren viele gleichzeitig gültige Werte — einer je
- *   ¼-Stunden-Intervall. Child Dependent Key (CDK) ist damit messzeitpunkt;
- *   er gehört zwingend in den Hashdiff, sonst kollabieren alle Intervalle
- *   einer Serie auf eine Version.
+ * Transaction Satellite (kein Multi-Active):
+ *   Ein Lastgangwert ist ein FAKT, kein Zustand — Schlüssel ist
+ *   (hk_zeitreihe, messzeitpunkt), der Zeitstempel ist Dependent-Child-Key.
+ *   sat_lastgang_tl__ise ist append-only und vergleicht je Schlüssel genau eine
+ *   Zeile, keine Mengen.
  *
- * Zeitkonvention: messzeitpunkt bezeichnet das Intervall-ENDE (Wert 01.08. 00:00
- * gehört zum Juli). Bei Monatsaggregationen im Mart entsprechend abgrenzen.
+ *   Der Hashdiff enthält deshalb NUR den Messwert — nicht den Zeitstempel:
+ *   der ist Teil des Schlüssels, nicht des Payloads. Ein revidierter Wert am
+ *   selben Zeitpunkt erzeugt so einen abweichenden Hashdiff und wird als
+ *   zusätzliche Version geladen.
  *
- * Hash-Konsistenz: hk_zeitreihe wird aus derselben INT-Spalte gebildet wie in
- * ise_zeitreihe_main — sonst greifen Hub-Load und Satellit ins Leere.
+ * Load Date: Export-Zeitstempel der einzelnen Zeile (aus ise_lastgang_dedup) —
+ * damit ist je Messwert nachvollziehbar, aus welchem i-SE-Export er stammt.
  *
- * Load Date: dss_load_date ist der Export-Zeitstempel aus dss_source_filename
- * (in ise_lastgang_dedup abgeleitet), nicht der dbt-Laufzeitpunkt. Die
- * Satellitenhistorie bildet damit den echten Datenstand ab. Revidierte Werte
- * sind über "letzter Export gewinnt" bereits im Dedup aufgelöst.
- *
- * dss_source_filename / dss_run_id / dss_source_feed laufen als Lineage-Spalten
- * mit, gehören aber bewusst NICHT in den Hashdiff — sonst erzeugt jeder Export
- * eine neue Satellitenversion, obwohl sich der Messwert nicht geändert hat.
+ * dss_source_filename / dss_run_id / dss_source_feed / dss_stage_timestamp laufen
+ * als Lineage-Spalten mit, gehören aber bewusst NICHT in den Hashdiff — sonst
+ * erzeugt jeder Export eine neue Version, obwohl sich der Messwert nicht ändert.
  *
  * Uses automate_dv.stage() macro for standardized staging.
  */
@@ -45,10 +42,9 @@ derived_columns:
 
 hashed_columns:
   hk_zeitreihe: "id_zeitreihe"
-  hd_zeitreihe_lastgang_ma:
+  hd_lastgang_tl__ise:
     is_hashdiff: true
     columns:
-      - "messzeitpunkt"
       - "wert"
 {%- endset -%}
 
