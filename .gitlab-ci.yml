@@ -238,6 +238,35 @@ deploy:dev:ise-load:
     name: ewb-dev
 
 # =============================================================================
+# ISE / EDM FAST LOAD DEV — reiner Datenlauf (→ datavault-dev)
+# Manuell starten: laedt die i-SE-Kette ohne Beiwerk. Gedacht fuer haeufiges
+# Nachladen — mehrmals taeglich, oder waehrend eines Backfills Datei fuer Datei.
+#
+# Gemessen: ~58 s statt ~137 s.
+#
+# Bewusst NICHT enthalten:
+#   - stage_external_sources: erzeugt sonst ALLE 29 Projektquellen neu. Fuer einen
+#     Datenlauf unnoetig — die ISE-External-Tables sind Wildcard-Tabellen und sehen
+#     neue Parquet-Dateien ohne Neuanlage.
+#   - Tests: laufen im regulaeren deploy:dev bzw. via deploy:dev:ise-load.
+#
+# ⚠ Nach Aenderungen an sources.yml (neue Spalte, geaenderter Header, neuer Pfad)
+#   NICHT diesen Job nehmen, sondern deploy:dev:ise-load — sonst laeuft das Modell
+#   gegen eine veraltete External-Table-Definition.
+# =============================================================================
+deploy:dev:ise-fastload:
+  stage: deploy
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+  timeout: 20 minutes
+  script:
+    - *setup_profiles
+    - dbt run --select tag:ise --target ewb-dev --threads 4
+  environment:
+    name: ewb-dev
+
+# =============================================================================
 # ISE / EDM FULL REFRESH DEV — Neuaufbau (→ datavault-dev)
 # Manuell starten: baut vault_ise und mart_ise vollstaendig neu auf.
 #

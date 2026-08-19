@@ -84,9 +84,19 @@ wird es im Mart (`intervall_start`), damit Konsumenten die Konvention nicht kenn
 
 ## Ladewege
 
-| Zweck | Kommando / Job |
-|---|---|
-| Ganze Domäne (Staging → Vault → Mart) | `dbt run --select tag:ise --target ewb-dev` |
-| Nur i-SE nachziehen (GitLab CI, manuell) | `deploy:dev:ise-load` |
-| Neuaufbau nach Backfill / Logikänderung | `deploy:dev:ise-full-refresh` |
-| Tests | `dbt test --select tag:ise --target ewb-dev` (68 Vault + 21 Mart) |
+| Zweck | Job / Kommando | Dauer |
+|---|---|---|
+| Ganze Domäne lokal (Staging → Vault → Mart) | `dbt run --select tag:ise --target ewb-dev` | ~67 s |
+| Regulärer i-SE-Lauf (GitLab CI, manuell) | `deploy:dev:ise-load` | ~137 s |
+| **Häufiges Nachladen / Backfill-Schleife** | `deploy:dev:ise-fastload` (ohne Tests) | **~58 s** |
+| Neuaufbau nach Backfill / Logikänderung | `deploy:dev:ise-full-refresh` | — |
+| Volle Testsuite | `dbt test --select tag:ise` (88 Tests) | ~79 s |
+
+**Der Fast-Load lässt bewusst weg:** `stage_external_sources` (erzeugt sonst alle 29
+Projektquellen neu — für einen reinen Datenlauf unnötig, da die ISE-External-Tables
+Wildcard-Tabellen sind) und die vollständige Testsuite. **Nach Änderungen an
+`sources.yml` deshalb `deploy:dev:ise-load` verwenden**, sonst läuft das Modell gegen
+eine veraltete Tabellendefinition.
+
+Die beiden Singular Tests tragen den Tag `ise` explizit im `config`-Block — sie hängen
+nur an Sources und würden sonst nicht von `tag:ise` erfasst.

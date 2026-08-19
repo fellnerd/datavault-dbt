@@ -10,6 +10,8 @@
  * Stand der Exploration 2026-08-15: 41 von 41 Categories auflösbar.
  */
 
+{{ config(tags=['ise']) }}
+
 SELECT DISTINCT
     l.[Category] AS nicht_aufloesbare_kategorie
 

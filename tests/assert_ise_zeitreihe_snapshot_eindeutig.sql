@@ -18,6 +18,8 @@
  * Stand 2026-08-17: 10 Snapshots, 410 Zeilen → 41 eindeutige Versionen.
  */
 
+{{ config(tags=['ise']) }}
+
 WITH versionen AS (
     SELECT
         TRY_CAST([ID_Zeitreihe] AS INT) AS id_zeitreihe,
