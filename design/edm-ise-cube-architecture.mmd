@@ -1,0 +1,59 @@
+flowchart TB
+    %% ─── EWB On-Premise ──────────────────────────────────────────────
+    subgraph ONPREM["🏢 EWB On-Premise Netzwerk"]
+        subgraph HOST["Host EWBSDB01"]
+            SQLSVC["🗄️ SQL Server Instanz<br/>EWBSDB01\ISE<br/>Dienstkonto: srv_isag@intra.ewbuchs.ch"]
+            SSASSVC["📊 SSAS Instanz<br/>EWBSDB01\ISE<br/>(Analysis Services, gleicher Host)"]
+        end
+
+        EWBPROD[("EWBPROD<br/>Basis / Faktura / Objekt / Techanl<br/>(inkl. ZEITREIHE, ZEITREIHETYP,<br/>MESSWERT = Ablesungen)")]
+        DWH[("EWBPROD_dwh<br/>Schema DataMart_EVU<br/>→ ZeitreihenData: 486k Zeilen<br/>18'700 Serien, Monats-Aggregate<br/>ab 2024/03")]
+        SCHNITTSTELLE[("Schnittstelle<br/>usp_QueryCube(@MDX)")]
+
+        CUBE["🧊 SSAS Cube ISAG<br/>(Multidimensional)<br/>12 Measure Groups, 94 Dimensionen<br/>tägliche Prozessierung ~22:55"]
+
+        CASSANDRA[("🔴 Cassandra NoSQL<br/>¼h-Lastgangwerte je Messpunkt<br/>~198'000 Zeitreihen × 10 Jahre<br/>≈ 69 Mrd. Rohwerte<br/>Zugriff: Webservice (Details: Mario Lenherr)")]
+
+        SHIR["🔌 Self-hosted Integration Runtime<br/>integrationruntime001<br/>(Host EWBSBI01)"]
+    end
+
+    %% ─── Azure ───────────────────────────────────────────────────────
+    subgraph AZURE["☁️ Azure — sub-ewbuchs-prd-01"]
+        ADF["Azure Data Factory<br/>analytics-datafactory001"]
+        LS["Linked Service ISE_Prod<br/>Windows-Auth INTRA\srv-analytics<br/>(Secret in Key Vault)"]
+        PIPE_PROD["✅ Pipeline ISE_Prod_bulk_daily<br/>(produktiv, Tabellen-Allowlist)"]
+        PIPE_CUBE["🧪 Test: Claude_Cube_Explore_TEST<br/>ruft usp_QueryCube auf"]
+        PIPE_SQL["🧪 Test: Claude_SQL_Explore_TEST<br/>direkte SQL-Exploration"]
+    end
+
+    %% ─── Cube-Datenquellen (SSAS Data Sources) ──────────────────────
+    EWBPROD -- "Data Source „INNODB“" --> CUBE
+    DWH -- "Data Source „DWH“" --> CUBE
+
+    %% ─── Linked Server (das, was wir neu gebaut haben) ──────────────
+    SQLSVC == "Linked Server ISAG_CUBE (MSOLAP)<br/>@useself=FALSE → kein Kerberos-Doppelhop" ==> SSASSVC
+    SSASSVC --- CUBE
+    SCHNITTSTELLE == "OPENQUERY(ISAG_CUBE, MDX)" ==> SQLSVC
+
+    %% ─── ADF-Anbindung (bestehendes Muster) ─────────────────────────
+    SHIR --> SQLSVC
+    LS --> SHIR
+    ADF --> LS
+    PIPE_PROD -.-> LS
+    PIPE_CUBE == "Lookup: sqlReaderStoredProcedureName" ==> LS
+    PIPE_SQL == "Lookup: sqlReaderQuery (direkt)" ==> LS
+
+    %% ─── noch nicht angebunden ───────────────────────────────────────
+    CASSANDRA -.->|"❓ noch nicht angebunden<br/>kein ADF-Connector etabliert"| ADF
+
+    classDef default fill:#333333,stroke:#666666,color:#ffffff
+    style ONPREM fill:#1a1a1a,stroke:#666666,color:#ffffff
+    style HOST fill:#262626,stroke:#666666,color:#ffffff
+    style AZURE fill:#1a1a1a,stroke:#666666,color:#ffffff
+
+    style CASSANDRA fill:#990000,stroke:#cc0000,stroke-width:2px,color:#ffffff
+    style PIPE_CUBE fill:#004d99,stroke:#0066cc,color:#ffffff
+    style PIPE_SQL fill:#004d99,stroke:#0066cc,color:#ffffff
+    style PIPE_PROD fill:#006600,stroke:#009900,color:#ffffff
+    style DWH fill:#997a00,stroke:#cc9900,color:#ffffff
+    style CUBE fill:#440088,stroke:#6600cc,color:#ffffff
