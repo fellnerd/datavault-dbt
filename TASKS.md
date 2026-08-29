@@ -32,12 +32,48 @@
   - Die dbt-Seite ist bereits abgedeckt: `raw_vault/ise` trägt `+tags: [ise]`, der reguläre `dbt run` in `.gitlab-ci.yml` nimmt die Modelle ohne Zusatzkonfiguration mit.
   - Bezug: `docs/issues/2026-07-06_edm-ise-olap-cube-anbindung.md` §12.14
 
-- [ ] **Information Mart für die i-SE-Energiedaten** - Auf `vault_ise` existiert noch kein konsumierbarer Layer. Benötigt: Faktentabelle auf `sat_lastgang_tl__ise_current_v` (materialisiert, **nicht** als View — `ROW_NUMBER` über die volle Historie ist für DirectQuery zu teuer) plus Dimension aus `sat_zeitreihe__ise_current_v`.
-  - Monatsabgrenzung zwingend `> Monatsanfang AND <= Folgemonatsanfang` (Intervall-ENDE-Konvention), sonst weichen die Summen von den Innosolv-Cube-Werten ab.
-  - Offen: Aggregationsebene für Power BI (¼h, Stunde, Tag?) — hängt am Bedarf des Fachbereichs (G-3).
+- [ ] 🐞 **ISE Absatzstatistik: Temp-Ordner darf nicht mitgeladen werden** (IMPORTANT)
+  - Verifiziert 2026-08-26: An der Quelle existiert `ise-export/drive-d/absatzstatistik/**Temp/**` mit `ewb_PowerBI_Absatz_20260821105321.csv`. In `stage-fs/ewb/ise/absatzstatistik/` liegen aktuell 11 Dateien — die Temp-Datei ist **nicht** darunter, es ist also noch nichts passiert.
+  - Risiko: Die Copy-Activity arbeitet (wie bei den Lastgängen) mit `recursive: true` + `wildcardFileName: *`. Sobald der Temp-Ordner beim Lauf gefüllt ist, landet sein Inhalt als zusätzlicher Snapshot in der Wildcard-External-Table und verfälscht alle Summen.
+  - Fix: In der Copy-Activity `recursive: false` setzen oder `wildcardFolderPath` auf den Zielordner einschränken.
+
+
+- [ ] **Quellenentscheid Absatzstatistik: CSV-Export durch relationale Anbindung ablösen** - Der Abgleich mit dem Innosolv-OLAP-Cube ist erbracht: die Measure Group „Fakten Rechnungsstatistik" enthält dieselben Daten. `Basis` stimmt **stellengenau** (2025: 13'481'541'571.30 auf beiden Seiten; 2026: 7'204'943'425.90), die Beträge weichen um 4.70 bzw. 1.50 CHF ab — verursacht durch defekte Zeilen **im Export**, nicht im Cube.
+  - **Empfehlung:** `EWBPROD_dwh.DataMart_EVU.RechnungFakten` relational landen (3'399'415 Zeilen, Historie **ab 2021** statt ab 2025) über das bestehende `ISE_Prod`-Muster — analog zum Vorgehen bei den Zeitreihen. Der Cube bleibt Prüf-/Abstimminstrument, nicht Massenextrakt (MDX-Aggregate laufen in Sekunden, ein zeilenweiser Extrakt von >1 Mio Zeilen via `OPENQUERY` ist ungetestet).
+  - Der Cube liefert zusätzlich: Subjekt (Kunde), Vertrag, Objekt, Messpunkt, Konto-Kostenart, Kostenstelle 1/2/3, FibuBelegDatum, Mandant, MwSt-Code, Steuersatz, Währung, Gebiet, Kundenbetreuer.
+  - **Zwei Fragen an Innosolv** (Mailentwurf liegt vor, noch nicht versendet):
+    1. ZEV-/EVG-Zuordnung (`zev_evg_nummer`/`_rolle`, 2.8 % der Positionen): Dimension `[Energiegemeinschaft]` existiert im Cube, ist aber **nicht** an die Rechnungsstatistik angebunden — kann das ergänzt werden?
+    2. Feld `gruppe` (13 Sparten-Werte: Strom Energie/Netznutzung/Abgaben/Messkosten, Wasser, Abwasser …): keine entsprechende Cube-Dimension gefunden — wird es im Export berechnet, und nach welcher Regel?
+  - Nicht als Lücke: `verrechnungstyp_messart`, `marktprodukt`, `verbrauchergruppe` liegen als **Member Properties** vor (auf `[Verrechnungstyp]`, `[Tarif]`, `[Abnehmerkategorie]`); `id_leistkat` ist die Tarif-ID (200 Werte, 1:1 mit `tarif`); `termin_semester` ist aus dem Quartal ableitbar.
+
+- [ ] **Staging/Dedup für `ext_ise_absatzstatistik`** - Noch kein Staging-Modell vorhanden. Die Wildcard-External-Table liest **11 identische Vollsnapshots** (11'098'698 Zeilen = 11 × ~1'009'000) — der Export läuft zweimal täglich (03:00 und 05:00). Ohne Dedup sind **alle Summen um Faktor 11 zu hoch**.
+  - Muster wie bei `ise_zeitreihe_dedup`: `DISTINCT` über die Fachspalten bzw. Auswahl des jüngsten Snapshots über den Export-Zeitstempel aus `dss_source_filename`.
+  - Typisierung: alle Kennzahlen stehen als `NVARCHAR(4000)` in `sources.yml` → `TRY_CONVERT(decimal(19,4), …)`; Dezimaltrennzeichen `.`, kein Tausendertrennzeichen.
+  - `statistikgruppe` ist in 100 % der Zeilen Leerstring → nicht ins Modell übernehmen.
+  - ⚠ Entfällt vollständig, falls der Quellenentscheid auf die relationale Anbindung fällt — deshalb **erst nach** jenem Entscheid bauen.
+
+- [ ] 🐞 **Datenqualität des Absatzstatistik-CSV-Exports** - Zwei Defekte der CSV→Parquet-Ingestion, die den Export als Quelle disqualifizieren:
+  - **Umlaute irreversibel zerstört**: `Zählermiete` liegt als `Z�hlermiete` vor (Hex-Nachweis: echtes U+FFFD, kein Anzeigeproblem). Andere Tabellen derselben DB (`dim_konto.konto_name`) sind sauber.
+  - **CSV-Quoting defekt**: 4'622 Zeilen (0.46 %) mit unmaskierten Anführungszeichen, z. B. `"Nat�rlich Rii-Seez Power"" Wasser/Solar Widnau"` → Spalten verrutschen. Das erklärt die 4.70/1.50 CHF Differenz zum Cube.
+  - Beides tritt bei der relationalen Anbindung nicht auf → zusätzliches Argument für den Quellenentscheid oben.
+
+- [ ] **Verschneidung Absatzstatistik ↔ Abacus/FiBu und ↔ i-SE-Lastdaten** - Ergebnis der Analyse (dv-monitor, 2026-08-26): Es gibt **keinen Schlüssel-Verknüpfungspunkt** zwischen der Absatzstatistik und irgendeinem bestehenden Hub. Die Datei enthält ausser den i-SE-internen Dimensions-IDs keine Identifikator-Spalte — kein Kunde, kein Vertrag, kein Zählpunkt, keine Rechnungsnummer. Scheinbare Treffer gegen `hub_kreditor` (185/199) und `dv.hub_internet_service` (199/199) sind nachweislich Nummernkreis-Zufall (Trefferquote = Dichte des Zielnummernkreises); gegen `hub_konto` und `vault_ise.hub_zeitreihe` gibt es **null** Treffer.
+  - **Fachlich sind es aber dieselben Geschäftsvorfälle**: Sparte Wasser 2025 stimmt auf **119 CHF** (0.004 %) mit den Abacus-Ertragskonten 30200+30250 überein, Strom Messkosten 2026 auf **21 CHF** (0.006 %). MWST-Quoten in der Datei sind exakt 8.1 % / 2.6 % → `rechpos_betrag` ist netto und direkt vergleichbar.
+  - **Der Wert dahinter:** Die Fakturierung erreicht Abacus nur als Monats-Sammelbuchung „Debitoren-Rechnungen" (30100: 147 Buchungen / 9.3 Mio; 30150: 198 / 9.1 Mio) — `kundennummer` = 0 in **100 %** der Fälle, keine Belegnummer. Die Absatzstatistik ist die Detailauflösung genau dieser Umsätze und schliesst damit eine echte Lücke im Finanzreporting.
+  - **Umsetzung:** Seed/Ref-Tabelle `gruppe`/`vertragsart`/`bereichsebene` → (`konto_nr`, `kostenstelle_nr`), analog `ref_konto_v`. Kandidaten aus der Analyse: KST 3910/3920 → Strom Energie · 3940/3961 → Strom ZEV · 3970 → E-Mobilität · 3980 → Abwasser · 4910/4920 → Netznutzung · 4280/5280 → Messkosten · 5900 → Wasser.
+  - ⚡ **Nachtrag 2026-08-26 — die relationale Quelle liefert genau diese fehlenden Schlüssel.** `DataMart_EVU.RechnungFakten` hat 61 Spalten (der CSV-Export nur 34) und trägt je Rechnungsposition:
+    - **`HBKonto_ID`** → `DataMart_EVU.Konto_Kostenart.Kontonummer` = die **Abacus-Kontonummer**. Überlappung mit `vault.hub_konto`: **144 von 153 (94.1 %)**. Signifikanz geprüft: `hub_konto` belegt 534 Werte im Bereich 10000…99981, also 0.59 % Dichte — bei Zufall wäre ~1 Treffer zu erwarten, beobachtet sind 144. **Echter Schlüssel, kein Nummernkreis-Zufall.** Die 9 Ausreisser (30155, 66090…66120) sind neuere Konten, die im Vault-Ladeumfang fehlen.
+    - `Kostenstelle1/2/3_HBKonto_ID`, `Geschaeftsbereich_HBKonto_ID`, `FIBU_Belegdatum_ID` → die Kostenstellen-Zuordnung wird zum Datenfeld statt zur gepflegten Mapping-Tabelle.
+    - **`MeteringCode_ID`** → derselbe Schlüssel wie `Techanl.ZEITREIHE.ReferenzID` bei `ReferenzTyp = 19`. Überlappung: **10'727 von 12'988 Messpunkten (82.6 %)** haben eine Zeitreihe → **direkter Join Absatzstatistik ↔ Lastgänge über den Messpunkt**. Im heutigen Vault-Umfang (41 Serien der Gruppe 150, davon 3 messpunktbezogen) treffen 88 Rechnungspositionen; der Join skaliert mit weiteren Zeitreihegruppen.
+    - `Vertrag_ID` (56'724), `Subjekt_ID` (15'492), `Objekt_ID`, `Vertragspartner_ID` → Grundlage für Energiekunden-/Vertrags-Hubs, die es heute nicht gibt (`hub_kunde`/`hub_vertrag` stammen aus Compax/Telecom, nicht aus der Energieabrechnung).
+    - Betragsabgleich 2025 auf Kontoebene: Konto 30150 „Ertrag Strom-Netznutzung" — RechnungFakten 6'006'588.17 vs. Abacus 6'006'872.03 (Δ 284 CHF = 0.005 %).
+  - **Konsequenz:** Die Mapping-Tabelle wird nur gebraucht, falls der CSV-Export die Quelle bleibt. Bei der relationalen Anbindung entfällt sie — dann sind `link_rechnungsposition_konto` und `link_rechnungsposition_messpunkt` echte Vault-Links auf vorhandenen Schlüsseln. **Das ist das stärkste Argument für den Quellenentscheid oben.**
+  - Nicht vergleichbar: `gruppe = 'Strom Abgaben'` (2025: 2'099'545.13) — Netzzuschlag/KEV läuft über Bilanzkonten, `fakt_buchungen` deckt nur die Erfolgsrechnung (30100…85010) ab.
 
 ## Waiting On
 
 ## Someday
 
 ## Done
+
+- [x] **Information Mart für die i-SE-Energiedaten** (2026-08-17) - `mart_ise` mit `dim_zeitreihe_v`, `fakt_lastgang(_v)` und `fakt_lastgang_monat(_v)` gebaut und verifiziert. Die Intervall-ENDE-Konvention wird im Mart über `intervall_start` aufgelöst; Monatssummen treffen die Innosolv-Cube-Werte stellengenau. Offen bleibt nur die Aggregationsebene für Power BI (hängt am Fachbereichsbedarf, G-3).
