@@ -1,0 +1,34 @@
+bilanz,bilanz_sort,bilanz_position,zeitreihe_id,faktor,bilanz_zeilentyp,bemerkung
+NETZ,10,NÜST Einspeisung von,148730,1,,Lieferung von vor-/nachgelagerten Netzen NE5
+NETZ,20,Produktion NE5,148732,1,,Summe Produktionen NE5
+NETZ,30,Produktion NE7,148738,1,,Summe Produktionen NE7
+NETZ,40,Gesamteinspeisung,,,=,Zwischensumme (Plug-Zeile)
+NETZ,50,Rückspeisung an SAK,148731,1,-,Rücklieferung an vor-/nachgelagerte Netze NE5
+NETZ,60,PUZ,150831,1,-,
+NETZ,70,Gesamtbezug Netz,,,=,Zwischensumme (Plug-Zeile)
+NETZ,80,Verlust,148741,1,-,Verluste Gesamt
+NETZ,90,Bruttolastgang,,,=,Zwischensumme (Plug-Zeile)
+NETZ,100,NE5 Bezug,148733,1,-,Summe Bezüger NE5
+NETZ,110,NE7 Bezug (gerechnet),148748,1,-,Gesamtbezug NE7 inklusive Virt.Kundenpool
+NETZ,110,NE7 Bezug (gerechnet),150831,-1,-,PUZ-Korrektur — 148748 enthält PUZ bereits
+NETZ,120,Kontrolle -> 0?,,,=,Zwischensumme (Plug-Zeile) — Sollwert 0
+NETZ,130,Referenz Bruttolastgangsumme BLS/EN,148746,1,/,Kontrollzeile — sichtbar, zählt nicht mit
+ENERGIE,10,Grundversorgung,150812,1,,Gesamtlieferung LF lokal Lastgang gemessen (Alpiq)
+ENERGIE,20,virtueller Kundenpool (PUZ-bereinigt),148745,1,,Virtueller Kundenpool
+ENERGIE,20,virtueller Kundenpool (PUZ-bereinigt),150831,-1,,PUZ wird separat ausgewiesen
+ENERGIE,30,Pumpenstrom (PUZ),150831,1,,
+ENERGIE,40,Kunden B2B (LF EPAG),150823,1,,Gesamtlieferung LF lokal (EPAG)
+ENERGIE,50,Kunden B2B (LF Primeo),150828,1,,Gesamtlieferung LF lokal (Primeo)
+ENERGIE,60,Absatz Energie,,,=,Zwischensumme (Plug-Zeile)
+ENERGIE,70,Verluste,148741,1,,Verluste Gesamt — zählt POSITIV zum Beschaffungsbedarf
+ENERGIE,80,Beschaffungsbedarf,,,=,Zwischensumme (Plug-Zeile)
+ENERGIE,90,KW Eigene NE5,171958,1,-,EWB Wasser regelbar Rücklieferung
+ENERGIE,100,KW PVA NE5 (eigen/fremde),187846,1,-,PV EV Überschuss NE5 Rücklieferung
+ENERGIE,110,Einspeisung PV ewb Anlagen auf NE7,185780,1,-,EWB PV eigener LF Rücklieferung
+ENERGIE,120,Einspeisung PV Anlagen auf NE7,178623,1,-,PV EV Überschuss Rücklieferung
+ENERGIE,130,PV kein Eigenverbrauch Rücklieferung NE7,178624,1,-,
+ENERGIE,140,PV Plug&Play (ohne Prod. Zähler),178759,1,-,
+ENERGIE,150,Marktbeschaffung Grundversorgung,150816,1,-,Gesamtlieferung minus Gesamtrücklieferung LF (Alpiq)
+ENERGIE,160,Marktbeschaffung B2B EPAG,150825,1,-,Gesamtlieferung minus Gesamtrücklieferung LF (EPAG)
+ENERGIE,170,Marktbeschaffung B2B Primeo,150830,1,-,Gesamtlieferung minus Gesamtrücklieferung LF (Primeo)
+ENERGIE,180,Kontrolle,,,=,Zwischensumme (Plug-Zeile) — Sollwert 0
