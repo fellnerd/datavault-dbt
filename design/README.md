@@ -35,6 +35,7 @@ design/
 - `design/raw-vault/_common/er-cdr.mmd` — CDR-/Telecom-Detaildiagramm für `vault` + `vault_telecom`
 - `design/raw-vault/idms/er-diagram.mmd` — IDMS Internet-Service (`dv`)
 - `design/raw-vault/ise/er-diagram.mmd` — ISE/EDM Energiedaten (`vault_ise`), Übersicht in `ise/overview.md`
+- `design/raw-vault/ise-absatzstatistik/er-diagram-vorschlag.mmd` — i-SE Absatzstatistik, **Vorschlag, noch nicht umgesetzt**; fachliche Doku in `ise-absatzstatistik/overview.md`
 
 ### Mart
 - `design/mart/er-mart-finance.mmd`

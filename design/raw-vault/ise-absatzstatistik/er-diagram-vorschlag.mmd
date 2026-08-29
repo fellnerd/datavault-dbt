@@ -1,0 +1,143 @@
+---
+title: "Vorschlag: Absatzstatistik im Raw Vault (NOCH NICHT UMGESETZT)"
+---
+erDiagram
+    hub_rechnungsposition {
+        char64 hk_rechnungsposition PK "computed"
+        string rechnungsposition_bk UK "BK — fachlicher Schluessel der Position"
+        datetime2 dss_load_date "metadata"
+        nvarchar dss_record_source "ewb_ise"
+    }
+
+    sat_rechnungsposition__ise {
+        char64 hk_rechnungsposition FK "hub_rechnungsposition"
+        datetime2 dss_load_date PK "metadata"
+        char64 hashdiff "computed"
+        datetime2 termin "Rechnungstermin = Periodenende"
+        decimal basis "Menge — kWh / m3 / Tage / Stueck"
+        decimal basis_verbrauch "Aufteilung nach Messart"
+        decimal basis_leistung "Aufteilung nach Messart"
+        decimal basis_blind "Aufteilung nach Messart"
+        decimal betrag_exkl_mwst "netto"
+        decimal betrag_mwst "8.1 Prozent Strom, 2.6 Prozent Wasser"
+        decimal betrag_inkl_mwst "brutto"
+        int tage "Verrechnungsdauer"
+        decimal monate "Verrechnungsdauer"
+    }
+
+    hub_verrechnungstyp {
+        char64 hk_verrechnungstyp PK "computed"
+        int id_verrechnungstyp UK "BK — 77 Auspraegungen"
+    }
+
+    sat_verrechnungstyp__ise {
+        char64 hk_verrechnungstyp FK "hub_verrechnungstyp"
+        datetime2 dss_load_date PK "metadata"
+        nvarchar verrechnungstyp "Bezeichnung"
+        nvarchar kategorie "Netznutzung / Energie"
+        nvarchar art "Strom / Wasser / Abwasser / Dienstleistung"
+        nvarchar messart "Verbrauch / Leistungsspitzen / Blindstrom / leer"
+    }
+
+    hub_tarif {
+        char64 hk_tarif PK "computed"
+        int id_leistkat UK "BK — Tarif-ID, 200 Auspraegungen"
+    }
+
+    sat_tarif__ise {
+        char64 hk_tarif FK "hub_tarif"
+        datetime2 dss_load_date PK "metadata"
+        nvarchar tarif "Bezeichnung"
+        nvarchar marktprodukt "Member Property im Cube"
+        nvarchar bereichsebene "Netzebene NE5 / NE7"
+    }
+
+    hub_rechnungsart {
+        char64 hk_rechnungsart PK "computed"
+        int id_rechnungsart UK "BK — 12 Auspraegungen"
+    }
+
+    sat_rechnungsart__ise {
+        char64 hk_rechnungsart FK "hub_rechnungsart"
+        datetime2 dss_load_date PK "metadata"
+        nvarchar rechnungsart "Haushaltkunden / Grossbezueger / Produktion (Kreditor) ..."
+        nvarchar vertragsart "7 Auspraegungen"
+    }
+
+    hub_abnehmerkategorie {
+        char64 hk_abnehmerkategorie PK "computed"
+        int id_abnehmerkategorie UK "BK — 51 Auspraegungen"
+    }
+
+    sat_abnehmerkategorie__ise {
+        char64 hk_abnehmerkategorie FK "hub_abnehmerkategorie"
+        datetime2 dss_load_date PK "metadata"
+        nvarchar abnehmerkategorie "Kundensegment BFE/ElCom"
+        nvarchar verbrauchergruppe "groebere Gruppierung BEW"
+    }
+
+    hub_konto {
+        char64 hk_konto PK "BESTEHEND — Schema vault"
+        int kto UK "BK — Abacus-Kontonummer, 534 Konten"
+    }
+
+    hub_zeitreihe {
+        char64 hk_zeitreihe PK "BESTEHEND — Schema vault_ise"
+        int id_zeitreihe UK "BK — i-SE ID_Zeitreihe"
+    }
+
+    hub_energiekunde {
+        char64 hk_energiekunde PK "NEU — nicht mit vault.hub_kunde (Compax) verwechseln"
+        int subjekt_id UK "BK — Subjekt_ID, 15492 Auspraegungen"
+    }
+
+    hub_energievertrag {
+        char64 hk_energievertrag PK "NEU — nicht mit vault.hub_vertrag (Compax) verwechseln"
+        int vertrag_id UK "BK — Vertrag_ID, 56724 Auspraegungen"
+    }
+
+    hub_messpunkt {
+        char64 hk_messpunkt PK "NEU"
+        int metering_code_id UK "BK — MeteringCode_ID, 12988 in RechnungFakten"
+    }
+
+    link_rechnungsposition_konto {
+        char64 hk_link PK "computed"
+        char64 hk_rechnungsposition FK "hub_rechnungsposition"
+        char64 hk_konto FK "hub_konto — 144 von 153 Konten treffen (94.1 Prozent)"
+    }
+
+    link_rechnungsposition_messpunkt {
+        char64 hk_link PK "computed"
+        char64 hk_rechnungsposition FK "hub_rechnungsposition"
+        char64 hk_messpunkt FK "hub_messpunkt"
+    }
+
+    link_messpunkt_zeitreihe {
+        char64 hk_link PK "computed"
+        char64 hk_messpunkt FK "hub_messpunkt"
+        char64 hk_zeitreihe FK "hub_zeitreihe — 10727 von 12988 haben Zeitreihe (82.6 Prozent)"
+    }
+
+    link_rechnungsposition_kunde {
+        char64 hk_link PK "computed"
+        char64 hk_rechnungsposition FK "hub_rechnungsposition"
+        char64 hk_energiekunde FK "hub_energiekunde"
+        char64 hk_energievertrag FK "hub_energievertrag"
+    }
+
+    hub_rechnungsposition   ||--o{ sat_rechnungsposition__ise : has
+    hub_verrechnungstyp     ||--o{ sat_verrechnungstyp__ise : has
+    hub_tarif               ||--o{ sat_tarif__ise : has
+    hub_rechnungsart        ||--o{ sat_rechnungsart__ise : has
+    hub_abnehmerkategorie   ||--o{ sat_abnehmerkategorie__ise : has
+
+    link_rechnungsposition_konto     }o--|| hub_rechnungsposition : ""
+    link_rechnungsposition_konto     }o--|| hub_konto : ""
+    link_rechnungsposition_messpunkt }o--|| hub_rechnungsposition : ""
+    link_rechnungsposition_messpunkt }o--|| hub_messpunkt : ""
+    link_messpunkt_zeitreihe         }o--|| hub_messpunkt : ""
+    link_messpunkt_zeitreihe         }o--|| hub_zeitreihe : ""
+    link_rechnungsposition_kunde     }o--|| hub_rechnungsposition : ""
+    link_rechnungsposition_kunde     }o--|| hub_energiekunde : ""
+    link_rechnungsposition_kunde     }o--|| hub_energievertrag : ""
