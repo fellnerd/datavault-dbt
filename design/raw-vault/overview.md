@@ -115,6 +115,7 @@ Objekte liegen in eigenen Ordnern mit eigenem ER-Diagramm und eigener Übersicht
 | IDMS | `dv` | [`idms/`](idms/er-diagram.mmd) | `hub_internet_service`, `sat_internet_service__idms` |
 | Telecom / CDR | `vault_telecom` | [`_common/er-cdr.mmd`](_common/er-cdr.mmd) | `hub_sim`, `hub_msisdn`, `link_cdr_event_tl`, `sat_cdr_event__compax` |
 | **ISE / EDM** | `vault_ise` | [`ise/`](ise/overview.md) | `hub_zeitreihe`, `hub_zeitreihegruppe`, `link_zeitreihe_gruppe`, `sat_zeitreihe__ise`, `sat_zeitreihe_gruppe__ise`, `sat_lastgang_tl__ise` |
+| **i-SE Absatzstatistik** | — | [`ise-absatzstatistik/`](ise-absatzstatistik/overview.md) | *noch nicht modelliert* — fachliche Doku und Modellierungsvorschlag; Quellenentscheid offen (TASKS.md) |
 
 ## Implementierungsstatus
 
