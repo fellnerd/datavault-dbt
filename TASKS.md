@@ -70,6 +70,20 @@
   - **Konsequenz:** Die Mapping-Tabelle wird nur gebraucht, falls der CSV-Export die Quelle bleibt. Bei der relationalen Anbindung entfällt sie — dann sind `link_rechnungsposition_konto` und `link_rechnungsposition_messpunkt` echte Vault-Links auf vorhandenen Schlüsseln. **Das ist das stärkste Argument für den Quellenentscheid oben.**
   - Nicht vergleichbar: `gruppe = 'Strom Abgaben'` (2025: 2'099'545.13) — Netzzuschlag/KEV läuft über Bilanzkonten, `fakt_buchungen` deckt nur die Erfolgsrechnung (30100…85010) ab.
 
+- [ ] **Innosolv fragen: Lieferantenserien fehlen komplett im DataMart** - Die zehn lieferantenreferenzierten Zeitreihen der Gruppe 150 (`150812`, `150814`–`150816`, `150823`–`150825`, `150828`–`150830`; `ReferenzTyp = 172`, `ReferenzID` 16 Primeo / 54 EPAG / 56 Alpiq) fehlen **vollständig** in `EWBPROD_dwh.DataMart_EVU` — verifiziert 2026-08-30 gegen `ZeitreihenData`, `VR_ZeitreihenFakten` und `VR_Zeitreihe`: **0 Treffer in allen drei**.
+  - **Es fehlen nicht einzelne Serien, sondern die ganze Kategorie:** Die Serientypen 9 (Gesamtlieferung LF lokal), 10 (Gesamtrücklieferung LF lokal), 48 (Saldo) und 49 (Lastgang gemessen) haben **null Instanzen im gesamten DataMart**. Einzige „Gesamtlieferung"-Serie dort ist Typ 10037 `Gesamtlieferung fremde Lieferanten` (= 185779, `Auswertungen`-referenziert).
+  - **Gegenbeleg für die Anfrage:** In `EWBPROD.Techanl.ZEITREIHE` sind alle zehn aktiv (`GueltigBis` NULL); `ZEITREIHEINFO` weist Werte von **01.01.2025 bis 28.08.2026** aus. Die Daten existieren im Quellsystem. (`LueckeAnzahl` ist dort NULL statt 0 — bei der Anfrage miterwähnen, nicht als „lückenlos" verkaufen.)
+  - **Nicht rekonstruierbar:** Alpiq/EPAG/Primeo erscheinen im DWH als `Energielieferant_Marktpartner_ID` auf ~14'000 Messpunkt-Serien, aber die Summen passen nicht (Primeo 1'886'542 statt 1'434'539; EPAG 1'345'356 statt 1'045'282). Ein Nachbau bräuchte Innosolvs Formel-Engine.
+  - **Auswirkung:** Die **ENERGIE-Bilanz** benötigt sechs dieser zehn Serien (Grundversorgung, 2× B2B, 3× Marktbeschaffung) und ist damit **nicht** über das DWH baubar — sie hängt am ¼h-Backfill (X-2). Die **NETZ-Bilanz** ist nicht betroffen: alle 9 Serien im DWH, 2024/03–2026/08 lückenlos.
+  - Belege & Abfragen: `docs/ise-dwh-pruefabfragen.md`
+
+- [ ] **i-SE: restliche Explorationswege prüfen (abgebrochen 2026-08-30)** - Die Suche wurde nach drei Activity-Timeouts abgebrochen. Ungeprüft geblieben:
+  - `EWBPROD_dms` — einzige nicht durchsuchte Nutzdatenbank der Instanz (Abfrage lief 311 s ins Timeout; braucht eine schlankere Formulierung)
+  - **Formel-Engine** `Techanl.ZEITREIHEFORMEL` / `ZEITREIHEFORMELPARAMETER` / `ZEITREIHEFORMELSQL` — zeigt, **wie** die zehn Serien berechnet werden und aus welchen Komponenten. Potenziell der Weg, sie doch zu rekonstruieren.
+  - **Export-Konfiguration** `Techanl.ZEITREIHENAUSTAUSCHEXPORT` / `…EXPORTKONFIG` (21 bzw. 24 Spalten) — beantwortet vermutlich **X-1** (wer erstellt `ewb_PowerBI_LG_*.csv`, mit welchem Job/Zeitplan, welcher Scope).
+  - **Cube via MDX** (`Cube_Explore_TEST` → `usp_QueryCube`) — die Dimension `[Zeitreihe]` hat 19'206 Members; prüfen, ob 150812 & Co. dort existieren, obwohl sie im DWH-Fakt fehlen.
+  - ⚠ **Vor der Fortsetzung:** nicht nachts, nicht parallel, und ein Zeitfenster mit EWB abstimmen. Die Timeouts traten unmittelbar nach einer breiten `INFORMATION_SCHEMA`-Abfrage auf `EWBPROD_dms` auf (01:50 Uhr) — ein Zusammenhang ist wahrscheinlich.
+
 ## Waiting On
 
 ## Someday

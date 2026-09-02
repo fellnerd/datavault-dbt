@@ -259,3 +259,109 @@ neu berechnen — analog zum Vollaufbau von `fakt_lastgang_monat`.*
 | B3 findet sie in `VR_Zeitreihe` | Nachladung bei Innosolv erfragen, statt abzuschreiben |
 | B4 zeigt Monatslücken | Historie nicht durchgehend — vor dem Bauen klären |
 | D1 findet keine Ladespalte | Vollast (486k Zeilen, unkritisch) |
+
+---
+
+# Ergebnisse (2026-08-30, ausgeführt über `SQL_Explore_TEST` via az cli)
+
+## A — Struktur
+
+Drei Objekte mit `Zeitreihe` im Namen:
+
+| Objekt | Typ | Bewertung |
+|---|---|---|
+| `ZeitreihenData` | BASE TABLE | 5 Spalten: `ID_Zeitreihe`, `Month_ID` (varchar 33), `Summe`/`Minimum`/`Maximum` (decimal 19,6). **Keine Ladespalte.** |
+| `VR_ZeitreihenFakten` | VIEW | **Die bessere Quelle.** Dieselben Kennzahlen in decimal(21,6), zusätzlich `ProcessingDate` (datetime, NOT NULL) sowie `MeteringCode_ID`, `Bereichsebene_ID`, `Bilanzierungsrelevant_ID`, `Bilanzgruppe_Marktpartner_ID`, `Energielieferant_Marktpartner_ID`, `Netzbetreiber_Marktpartner_ID`, `Rolle_ID`, `time_id` u. a. |
+| `VR_Zeitreihe` | VIEW | Dimension: `Zeitreihe_ID`, `MeteringCode_ID`, `ID_ZeitreiheTyp`, `ZeitreiheTyp`, `Ruecklieferung_ID`/`Ruecklieferung` |
+
+> Schreibweise geklärt: **`ID_Zeitreihe`** in beiden Faktenobjekten, **`Zeitreihe_ID`** nur in `VR_Zeitreihe`.
+>
+> `ProcessingDate` auf `VR_ZeitreihenFakten` beantwortet D1: **inkrementelles Laden per HWM ist möglich.**
+
+## B — Abdeckung
+
+**31 von 41 Serien** vorhanden — die Erwartung aus §12.3 ist bestätigt. Die fehlenden 10 sind
+exakt `150812, 150814, 150815, 150816, 150823, 150824, 150825, 150828, 150829, 150830`
+(Alpiq / EPAG / Primeo).
+
+Alle **neun NETZ-Serien** haben durchgehend **30 Monate (2024/03 – 2026/08)** — keine Lücken.
+Die übrigen Serien starten später (2024/06, 2024/09, 2024/11, 2024/12, 2025/01, 2025/02),
+jeweils lückenlos bis 2026/08.
+
+## C — Reproduktion
+
+### C2 · Abgleich gegen unsere ¼h-Basis — **stellengenau** ✅
+
+| Serie | Monat | DWH Summe | unsere ¼h-Basis | Min / Max |
+|---|---|---|---|---|
+| 148746 | 2026/07 | 4'612'940.997043 | 4'612'940.997043 | 1039.052579 / 2565.812433 ✓ |
+| 150835 | 2026/07 | 8'243'668.0 | 8'243'668.0 | 410.4 / 3536.0 ✓ |
+| 183741 | 2026/07 | 4'796'003.635064 | 4'796'003.635067 | 1089.176824 / 2669.596 ✓ |
+
+→ **Gleiche Monatsabgrenzung, gleiche Werte.** Das DWH ist als Quelle validiert; eine
+Nachbildung der Intervall-ENDE-Konvention ist nicht nötig.
+
+### C1 · NETZ-Bilanz 2025 gegen den EWB-Screenshot — **nah, aber nicht deckungsgleich** ⚠
+
+| Serie | Position | DWH 2025 | EWB-Screenshot | Δ |
+|---|---|---|---|---|
+| 148730 | NÜST Einspeisung | 23'029'416 | 23'028'285 | +1'131 |
+| 148731 | Rückspeisung an SAK | 49'895'340 | 49'893'884 | +1'456 |
+| 148732 | Produktion NE5 | 83'917'220 | 83'915'161 | +2'059 |
+| 148733 | NE5 Bezug | 13'558'544 | 13'558'304 | +240 |
+| **148738** | **Produktion NE7** | **8'595'782** | **8'657'057** | **−61'275** |
+| 148741 | Verlust | 2'099'761 | 2'100'303 | −542 |
+| **148746** | **Bruttolastgangsumme** | **63'266'626** | **63'325'628** | **−59'002** |
+| 148748 | Gesamtbezug NE7 inkl. VKP | 50'049'446 | ≈ 50'048'014 *(abgeleitet)* | +1'432 |
+| 150831 | PUZ | 280'690 | 280'689 | +1 |
+
+**Zwei Befunde:**
+
+1. **Die Bilanz schliesst im DWH in sich sauber.** Rechnet man Gesamteinspeisung − Rückspeisung
+   − PUZ − Verlust, ergibt das 63'266'626.00 — die Serie 148746 liefert 63'266'625.98.
+   Abweichung **0.02 kWh**. Die DWH-Daten sind konsistent.
+2. **Die Kontrollzeile geht mit DWH-Daten aber nicht auf:** −60'673 kWh statt EWBs −2.
+   Der Treiber ist praktisch vollständig **Produktion NE7** (−61'275); die Abweichung
+   propagiert von dort in die Bruttolastgangsumme.
+
+Die Monatswerte von 148738 für 2025 sind vollständig (12 Monate) und zeigen eine glatte
+saisonale PV-Kurve — **kein fehlender Monat**, die Differenz ist über das Jahr verteilt
+(≈ 5'100 kWh/Monat, 0.7 %).
+
+> 💡 **Vermutliche Ursache:** EWBs Excel speist sich nicht aus dem DWH, sondern aus dem
+> ¼h-CSV-Export — erkennbar an der Spalte „Lastgang", die das Exportformat
+> `Typ.Referenz.Einheit` trägt (z. B. `Summe Produktionen NE7.Elektrizitäts- und Wasserwerk
+> der Stadt Buchs <Netz>.kWh`). DWH und ¼h-Export sind also zwei Aggregationspfade. Für
+> Juli 2026 stimmen sie stellengenau überein (C2), für 2025 nicht. Ob der ¼h-Export
+> nachträglich revidiert wurde oder das DWH einen älteren Stand hält, lässt sich ohne
+> ¼h-Historie nicht entscheiden — **Frage an EWB/Innosolv**.
+
+## Konsequenzen
+
+| | |
+|---|---|
+| **NETZ-Bilanz baubar** | ✅ Ja — Historie 2024/03 – 2026/08, keine Lücken, ohne Backfill |
+| **Quelle** | `VR_ZeitreihenFakten` (nicht `ZeitreihenData`) — wegen `ProcessingDate` und Dimensionsschlüsseln |
+| **Ladeart** | inkrementell per HWM auf `ProcessingDate`; Vollast wäre bei 486k Zeilen aber auch vertretbar |
+| **Monatsabgrenzung** | keine Anpassung nötig (C2 stellengenau) |
+| **ENERGIE-Bilanz** | ❌ bleibt am ¼h-Backfill — 6 der 15 Positionen sind Lieferantenserien |
+| **Offen für EWB** | Warum weicht Produktion NE7 2025 zwischen DWH und ¼h-Export um 61'275 kWh ab? |
+
+### B3 · Nachtrag — die Lieferantenserien fehlen vollständig
+
+Abfrage auf `VR_Zeitreihe` mit 18 IDs lieferte **8 Treffer**. Die zehn `1508xx`-Serien
+(Alpiq / EPAG / Primeo) sind **nicht einmal in der Dimension** vorhanden — nicht nur nicht
+im Fakt geladen.
+
+→ Die ursprüngliche Hoffnung („in der Dimension bekannt, also bei Innosolv nachladbar")
+entfällt. Diese Serien liegen ausserhalb des DataMart-Scopes. **Die ENERGIE-Bilanz kann
+nicht über das DWH laufen** und hängt vollständig am ¼h-Export.
+
+Bestätigt wurde dabei zugleich der Zuordnungsmechanismus: `VR_Zeitreihe` liefert je
+`Zeitreihe_ID` den `ZeitreiheTyp` (`Summe Produktionen NE7`, `Bruttolastgangsumme BLS/EN`,
+`PUZ` …) sowie `MeteringCode_ID` (1 = Marktpartner-referenziert, 629 = Messpunkt 145089).
+
+> **Kein `Category`-Konstrukt im DWH.** Der CSV-Export verwirft die ID, weshalb sie dort aus
+> `Typ + Referenz + Einheit` rekonstruiert werden muss (`ise_lastgang_dedup`). Das DWH führt
+> `ID_Zeitreihe` als `int` — der Join gegen `hub_zeitreihe.id_zeitreihe` ist direkt, ohne
+> Textabgleich.
