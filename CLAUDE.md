@@ -54,4 +54,5 @@ Daniel Fellner — Data engineer. Builds and maintains the `datavault-dbt` proje
 ## Config notes
 - Hashing: SHA, `concat_string` `||`, null placeholder `-1`, casing DISABLED.
 - SQL Server reserved keywords escaped with `[ ]` — watch hyphenated/reserved column names.
+- **Quellsysteme hinter der SHIR abfragen: Skill `adf-explore`** — read-only Exploration über die ADF-Pipelines im Ordner `Query Explore` (i-SE SQL Server / Innosolv-Cube via MDX / IDMS MySQL). Dialekt ist je Pipeline verschieden. Konkrete Prüfabfragen: `docs/ise-pruefabfragen.md`.
 - **Read `docs/LESSONS_LEARNED.md` before debugging Power BI/Zebra BI/RLS/materialization issues** — hard-won findings (DAX `BLANK()` quirks, Zebra BI Category Class mechanics, RLS per-row overhead, dbt/T-SQL gotchas) that took significant effort to establish. Latest entry: 2026-07-25.
